@@ -1,0 +1,295 @@
+<template>
+  <PageSkeleton :title="t('rule.pageTitle')">
+    <template #actions>
+      <el-button :icon="Refresh" circle @click="refresh" :title="t('rule.refreshTooltip')" />
+      <el-button type="success" plain @click="templateDialogVisible = true">
+        <el-icon><MagicStick /></el-icon>&nbsp;{{ t('rule.createFromTemplate') }}
+      </el-button>
+      <el-button type="primary" @click="handleCreate">
+        <el-icon><Plus /></el-icon>&nbsp;{{ t('rule.addRule') }}
+      </el-button>
+    </template>
+
+    <el-table ref="tableRef" :data="rules" v-loading="loading" style="width: 100%" row-key="id">
+      <el-table-column :label="t('rule.sort')" width="60" align="center">
+        <template #default="{ row }">
+          <el-icon v-if="row.source !== 'YAML'" class="drag-handle"><Rank /></el-icon>
+        </template>
+      </el-table-column>
+      <el-table-column :label="t('rule.enabled')" width="70" align="center">
+        <template #default="{ row }">
+          <el-switch :model-value="row.enabled" @change="(val: boolean) => handleToggle(row, val)" />
+        </template>
+      </el-table-column>
+      <el-table-column :label="t('rule.name')" min-width="140">
+        <template #default="{ row }">
+          {{ row.name }}
+          <el-tag v-if="row.source === 'YAML'" size="small" type="info" style="margin-left: 6px">YAML</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="priority" :label="t('rule.priority')" width="80" align="center" />
+      <el-table-column :label="t('rule.hits')" width="90" align="center">
+        <template #default="{ row }">
+          <el-badge v-if="statsMap[row.id]" :value="statsMap[row.id]" type="success" />
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
+      <el-table-column :label="t('rule.condition')" min-width="200">
+        <template #default="{ row }">{{ formatConditions(row.conditions) }}</template>
+      </el-table-column>
+      <el-table-column :label="t('rule.action')" min-width="160">
+        <template #default="{ row }">
+          <el-link
+            v-if="row.action && (row.action.type === 'TARGET_MODEL' || row.action.type === 'TARGET_INSTANCE' || row.action.type === 'TARGET_ADAPTER')"
+            type="primary"
+            :underline="false"
+            @click.stop="navigateActionTarget(row.action)"
+          >
+            {{ formatAction(row.action) }}
+          </el-link>
+          <span v-else>{{ formatAction(row.action) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column :label="t('rule.operations')" width="200" align="center">
+        <template #default="{ row }">
+          <el-button size="small" @click="handleEdit(row)">{{ t('rule.edit') }}</el-button>
+          <el-button size="small" type="danger" @click="handleDelete(row)">{{ t('rule.delete') }}</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+  </PageSkeleton>
+
+  <RuleFormDialog
+    v-model="dialogVisible"
+    :rule="editingRule"
+    @saved="fetchRules"
+  />
+
+  <RuleTemplateDialog v-model="templateDialogVisible" @created="handleTemplateCreated" />
+</template>
+
+<script setup lang="ts">
+import { nextTick, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, MagicStick, Rank, Refresh } from '@element-plus/icons-vue'
+import Sortable from 'sortablejs'
+import {
+  getRuleList,
+  deleteRule,
+  enableRule,
+  disableRule,
+  getRuleStats,
+  updateRulePriorities,
+  type RuleDefinition,
+  type RuleCondition,
+  type RuleAction
+} from '@/api/rules'
+import RuleFormDialog from './RuleFormDialog.vue'
+import RuleTemplateDialog from './RuleTemplateDialog.vue'
+import PageSkeleton from '@/components/PageSkeleton.vue'
+
+const rules = ref<RuleDefinition[]>([])
+const loading = ref(false)
+const dialogVisible = ref(false)
+const editingRule = ref<RuleDefinition | null>(null)
+const statsMap = ref<Record<string, number>>({})
+const tableRef = ref()
+const templateDialogVisible = ref(false)
+const { t } = useI18n()
+const router = useRouter()
+
+const fetchRules = async () => {
+  loading.value = true
+  try {
+    const res = await getRuleList()
+    rules.value = res.data?.data || []
+    await nextTick()
+    initDrag()
+  } catch (e) {
+    ElMessage.error(t('rule.fetchListFailed'))
+  } finally {
+    loading.value = false
+  }
+}
+
+const fetchStats = async () => {
+  try {
+    const res = await getRuleStats()
+    const stats = res.data?.data || []
+    const map: Record<string, number> = {}
+    stats.forEach(s => {
+      map[s.ruleId] = (map[s.ruleId] || 0) + s.hits
+    })
+    statsMap.value = map
+  } catch (e) {
+    // 统计加载失败不阻塞列表
+  }
+}
+
+const refresh = () => {
+  fetchRules()
+  fetchStats()
+}
+
+// ==================== 优先级拖拽 ====================
+let sortable: Sortable | null = null
+
+const initDrag = () => {
+  if (!tableRef.value?.$el) return
+  const tbody = tableRef.value.$el.querySelector('.el-table__body-wrapper tbody')
+  if (!tbody || sortable) return
+  sortable = Sortable.create(tbody, {
+    handle: '.drag-handle',
+    filter: '.yaml-row',
+    animation: 150,
+    onEnd: (evt) => {
+      const { oldIndex, newIndex } = evt
+      if (oldIndex == null || newIndex == null || oldIndex === newIndex) return
+      const arr = [...rules.value]
+      const [moved] = arr.splice(oldIndex, 1)
+      arr.splice(newIndex, 0, moved)
+      rules.value = arr
+      commitPriorities()
+    }
+  })
+}
+
+const commitPriorities = async () => {
+  const items = rules.value.map((rule, index) => ({
+    id: rule.id!,
+    priority: rules.value.length - index
+  }))
+  try {
+    const res = await updateRulePriorities(items)
+    const data = res.data?.data
+    if (data?.skipped) {
+      ElMessage.warning(
+        t('rule.priorityUpdatedPartial', { updated: data.updated, skipped: data.skipped })
+      )
+    } else {
+      ElMessage.success(t('rule.priorityUpdated'))
+    }
+    fetchRules()
+  } catch (e) {
+    ElMessage.error(t('rule.priorityUpdateFailed'))
+    fetchRules()
+  }
+}
+
+const handleCreate = () => {
+  editingRule.value = null
+  dialogVisible.value = true
+}
+
+const handleTemplateCreated = (draft: RuleDefinition) => {
+  editingRule.value = draft
+  dialogVisible.value = true
+}
+
+const handleEdit = (row: RuleDefinition) => {
+  editingRule.value = row
+  dialogVisible.value = true
+}
+
+const handleDelete = async (row: RuleDefinition) => {
+  try {
+    await ElMessageBox.confirm(
+      t('rule.deleteConfirmMessage', { name: row.name }),
+      t('rule.deleteConfirmTitle'),
+      { type: 'warning' }
+    )
+    await deleteRule(row.id!)
+    ElMessage.success(t('rule.ruleDeleted'))
+    fetchRules()
+  } catch (e) {
+    // 用户取消
+  }
+}
+
+const handleToggle = async (row: RuleDefinition, enabled: boolean) => {
+  try {
+    if (enabled) {
+      await enableRule(row.id!)
+    } else {
+      await disableRule(row.id!)
+    }
+    ElMessage.success(enabled ? t('rule.ruleEnabled') : t('rule.ruleDisabled'))
+    fetchRules()
+  } catch (e) {
+    ElMessage.error(t('rule.operationFailed'))
+  }
+}
+
+const conditionTypeMap: Record<string, string> = {
+  SERVICE_TYPE: 'rule.conditionType.SERVICE_TYPE',
+  MODEL_NAME: 'rule.conditionType.MODEL_NAME',
+  HEADER: 'rule.conditionType.HEADER',
+  CLIENT_IP: 'rule.conditionType.CLIENT_IP',
+  WEIGHT: 'rule.conditionType.WEIGHT'
+}
+
+const operatorMap: Record<string, string> = {
+  EQUALS: 'rule.operator.EQUALS',
+  CONTAINS: 'rule.operator.CONTAINS',
+  STARTS_WITH: 'rule.operator.STARTS_WITH',
+  REGEX: 'rule.operator.REGEX',
+  CIDR_MATCH: 'rule.operator.CIDR_MATCH'
+}
+
+const actionTypeMap: Record<string, string> = {
+  TARGET_MODEL: 'rule.actionType.TARGET_MODEL',
+  TARGET_INSTANCE: 'rule.actionType.TARGET_INSTANCE',
+  TARGET_ADAPTER: 'rule.actionType.TARGET_ADAPTER',
+  LB_STRATEGY: 'rule.actionType.LB_STRATEGY',
+  TARGET_TAGS: 'rule.actionType.TARGET_TAGS'
+}
+
+const formatConditions = (conditions: RuleCondition[]) => {
+  return conditions
+    .map(c => {
+      const prefix = c.type === 'HEADER' ? `${c.field}:` : ''
+      const typeLabel = conditionTypeMap[c.type] ? t(conditionTypeMap[c.type]) : c.type
+      const opLabel = operatorMap[c.operator] ? t(operatorMap[c.operator]) : c.operator
+      return `${typeLabel} ${opLabel} ${prefix}${c.value}`
+    })
+    .join(t('rule.conditionsAnd'))
+}
+
+const formatAction = (action: RuleAction) => {
+  if (!action) return '-'
+  const label = actionTypeMap[action.type] ? t(actionTypeMap[action.type]) : action.type
+  if (action.type === 'TARGET_TAGS') {
+    const tags = Object.entries(action.tags || {})
+      .map(([k, v]) => `${k}=${v}`)
+      .join(',')
+    return `${label}: ${tags || '-'}`
+  }
+  const target = action.modelName || action.instanceId || action.adapterName || action.lbStrategy || '-'
+  return `${label}: ${target}`
+}
+
+// Cross-link: 根据动作类型导航到对应配置页
+const navigateActionTarget = (action: RuleAction) => {
+  if (!action) return
+  if (action.type === 'TARGET_ADAPTER' && action.adapterName) {
+    router.push({ name: 'adapter-management' })
+  } else if (action.type === 'TARGET_MODEL' && action.modelName) {
+    router.push({ name: 'service-management' })
+  } else if (action.type === 'TARGET_INSTANCE' && action.instanceId) {
+    router.push({ name: 'service-management' })
+  }
+}
+
+onMounted(() => {
+  fetchRules()
+  fetchStats()
+})
+</script>
+
+<style scoped>
+.drag-handle {
+  cursor: grab;
+}
+</style>
