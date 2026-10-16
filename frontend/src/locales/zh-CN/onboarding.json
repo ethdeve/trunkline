@@ -1,8 +1,8 @@
 {
   "onboarding": {
-    "configureAdapter": "配置 Adapter",
-    "createService": "创建服务",
-    "addInstance": "添加实例",
-    "tryPlayground": "Playground 试连"
+    "configureAdapter": "选择协议适配",
+    "createService": "创建模型分类",
+    "addInstance": "接入模型",
+    "tryPlayground": "测试连通"
   }
 }

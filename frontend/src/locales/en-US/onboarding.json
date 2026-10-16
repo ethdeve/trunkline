@@ -1,8 +1,8 @@
 {
   "onboarding": {
-    "configureAdapter": "Configure Adapter",
-    "createService": "Create Service",
-    "addInstance": "Add Instance",
-    "tryPlayground": "Try in Playground"
+    "configureAdapter": "Select Protocol Adapter",
+    "createService": "Create Model Category",
+    "addInstance": "Connect Model",
+    "tryPlayground": "Test Connection"
   }
 }

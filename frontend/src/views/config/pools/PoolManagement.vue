@@ -28,7 +28,7 @@
             <el-link
               type="primary"
               :underline="false"
-              @click.stop="router.push({ name: 'instance-management', query: { serviceType: row.serviceType } })"
+              @click.stop="router.push({ name: 'models', query: { serviceType: row.serviceType } })"
             >
               {{ row.serviceType }}
             </el-link>
@@ -40,7 +40,7 @@
             <el-link
               type="primary"
               :underline="false"
-              @click.stop="router.push({ name: 'instance-management', query: { serviceType: row.serviceType } })"
+              @click.stop="router.push({ name: 'models', query: { serviceType: row.serviceType } })"
             >
               {{ formatMembers(row.members) }}
             </el-link>

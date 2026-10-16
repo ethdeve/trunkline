@@ -6,29 +6,25 @@
         link
         size="small"
         class="header-cross-link"
-        @click="router.push({ name: 'service-management', query: route.query.serviceType ? { serviceType: route.query.serviceType as string } : {} })"
+        @click="router.push({ name: 'model-categories', query: route.query.serviceType ? { serviceType: route.query.serviceType as string } : {} })"
       >
         {{ t('instance.openServiceConfig') }}
       </el-button>
-      <el-button type="primary" @click="handleAddInstance" size="medium">
+      <el-button type="primary" @click="handleAddInstance" size="default">
         <el-icon><Plus /></el-icon>
         {{ t('instance.addInstance') }}
       </el-button>
     </template>
 
-    <template #stats>
-      <OnboardingSteps :current-step="3" :service-type="(route.query.serviceType as string) || undefined" />
-    </template>
-
     <template #toolbar>
-      <el-input v-model="searchQuery" :placeholder="t('instance.searchPlaceholder')" clearable size="medium"
+      <el-input v-model="searchQuery" :placeholder="t('instance.searchPlaceholderUser')" clearable size="default"
         class="search-input" @clear="handleSearchClear" @keyup.enter.native="applySearch">
         <template #prefix>
           <el-icon><Search /></el-icon>
         </template>
       </el-input>
 
-      <el-select v-model="statusFilter" :placeholder="t('instance.status')" clearable size="medium" class="filter-select">
+      <el-select v-model="statusFilter" :placeholder="t('instance.status')" clearable size="default" class="filter-select">
         <el-option :label="t('instance.all')" value=""></el-option>
         <el-option :label="t('instance.enabled')" value="active"></el-option>
         <el-option :label="t('instance.disabled')" value="inactive"></el-option>
@@ -47,68 +43,44 @@
             <el-skeleton :loading="loading && !hasInstances" :rows="6" animated>
               <template #default>
                 <el-table :data="paginated" style="width: 100%" class="instance-table" row-key="id" border fit>
-                  <el-table-column prop="name" :label="t('instance.name')" min-width="180" />
-                  <el-table-column prop="baseUrl" :label="t('instance.baseUrl')" min-width="260">
+                  <!-- 普通用户视角首列：模型名（有备注名时优先显示备注名，小字标真实模型名） -->
+                  <el-table-column prop="name" :label="t('instance.columnModelName')" min-width="180">
                     <template #default="scope">
-                      <el-tooltip :content="scope.row.baseUrl" placement="top">
-                        <div class="ellipsis">{{ scope.row.baseUrl }}</div>
-                      </el-tooltip>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="path" :label="t('instance.path')" min-width="160">
-                    <template #default="scope">
-                      <div class="ellipsis">{{ scope.row.path || '—' }}</div>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="weight" :label="t('instance.weight')" width="90" align="center" />
-                  <el-table-column prop="adapter" :label="t('instance.adapter')" width="140" align="center">
-                    <template #default="scope">
-                      <el-tag :type="scope.row.adapter ? 'primary' : 'warning'" class="table-tag" size="small">
-                        {{ scope.row.adapter || globalAdapter || t('instance.notConfigured') }}
-                      </el-tag>
-                      <div v-if="!scope.row.adapter && globalAdapter" class="adapter-note">
-                        {{ t('instance.globalNote') }}
-                      </div>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="headers" :label="t('instance.headers')" width="120" align="center">
-                    <template #default="scope">
-                      <el-tooltip v-if="scope.row.headers && Object.keys(scope.row.headers).length > 0"
-                        :content="Object.entries(scope.row.headers).map(([k, v]) => `${k}: ${v}`).join('\n')"
-                        placement="top">
-                        <el-tag type="success" class="table-tag" size="small">
-                          {{ t('instance.headersCount', { count: Object.keys(scope.row.headers).length }) }}
-                        </el-tag>
-                      </el-tooltip>
-                      <el-tag v-else type="info" class="table-tag" size="small">
-                        {{ t('instance.none') }}
-                      </el-tag>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="tags" :label="t('instance.tags')" width="120" align="center">
-                    <template #default="scope">
-                      <el-tooltip v-if="scope.row.tags && Object.keys(scope.row.tags).length > 0"
-                        :content="Object.entries(scope.row.tags).map(([k, v]) => `${k}=${v}`).join('\n')"
-                        placement="top">
-                        <el-tag type="primary" class="table-tag" size="small">
-                          {{ t('instance.tagsCount', { count: Object.keys(scope.row.tags).length }) }}
-                        </el-tag>
-                      </el-tooltip>
-                      <el-tag v-else type="info" class="table-tag" size="small">
-                        {{ t('instance.none') }}
-                      </el-tag>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="status" :label="t('instance.status')" width="110" align="center">
-                    <template #default="scope">
-                      <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'" class="table-tag">
-                        {{ scope.row.status === 'active' ? t('instance.enabled') : t('instance.disabled') }}
-                      </el-tag>
+                      <div class="cell-title">{{ scope.row.tags?.alias || scope.row.name }}</div>
+                      <div class="cell-sub">{{ t('instance.modelPrefix') }}{{ scope.row.name }}</div>
                     </template>
                   </el-table-column>
 
-                  <el-table-column :label="t('instance.actions')" width="200" align="center" fixed="right">
+                  <!-- 普通用户视角第二列：上游厂商 + 接入地址 -->
+                  <el-table-column prop="baseUrl" :label="t('instance.columnVendorAddress')" min-width="260">
                     <template #default="scope">
+                      <div class="cell-title">{{ providerLabelOf(scope.row) }}</div>
+                      <div class="cell-sub">
+                        <el-tooltip :content="`${scope.row.baseUrl}${scope.row.path || ''}`" placement="top">
+                          <span>{{ extractDomain(scope.row.baseUrl) }}{{ scope.row.path || '' }}</span>
+                        </el-tooltip>
+                      </div>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column prop="status" :label="t('instance.status')" width="110" align="center">
+                    <template #default="scope">
+                      <div class="status-cell">
+                        <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'" class="table-tag">
+                          {{ scope.row.status === 'active' ? t('instance.enabled') : t('instance.disabled') }}
+                        </el-tag>
+                        <span v-if="scope.row.health !== undefined" class="health-dot" :class="scope.row.health ? 'is-ok' : 'is-off'"
+                              :title="scope.row.health ? t('instance.healthOk') : t('instance.healthOff')" />
+                      </div>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column :label="t('instance.actions')" width="200" align="center">
+                    <template #default="scope">
+                      <el-button size="small" type="success" plain circle :title="t('instance.testConnection')" @click="openTestDialog(scope.row)">
+                        <el-icon><VideoPlay /></el-icon>
+                      </el-button>
+
                       <el-button size="small" @click="handleEdit(scope.row)" type="primary" plain circle :title="t('instance.editInstance')">
                         <el-icon><Edit /></el-icon>
                       </el-button>
@@ -168,209 +140,64 @@
 
   <!-- 添加/编辑实例对话框 -->
   <el-dialog v-model="dialogVisible" :title="dialogTitle" width="820px" :before-close="handleDialogClose"
-    class="instance-dialog">
-      <el-form :model="form" label-width="120px" ref="formRef">
-        <el-divider content-position="left">{{ t('instance.basicInfo') }}</el-divider>
+    class="instance-dialog" @opened="onDialogOpened">
+    <UpstreamInstanceForm
+      ref="instanceFormRef"
+      :service-types="serviceTypes"
+      :service-type-label="serviceTypeLabel"
+      :adapters="adapters"
+      :global-adapter="globalAdapter"
+      :is-edit="isEdit"
+      :advanced="true"
+    />
 
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="t('instance.serviceType')" prop="serviceType">
-              <el-select v-model="form.serviceType" :placeholder="t('instance.selectServiceType')" :disabled="isEdit">
-                <el-option v-for="st in serviceTypes" :key="st" :label="serviceTypeLabel(st)" :value="st" />
-              </el-select>
-            </el-form-item>
-          </el-col>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="handleDialogClose">{{ t('instance.cancel') }}</el-button>
+        <el-button type="primary" @click="handleSave" :loading="saveLoading">{{ t('instance.save') }}</el-button>
+      </span>
+    </template>
+  </el-dialog>
 
-          <el-col :span="12">
-            <el-form-item :label="t('instance.name')" prop="name">
-              <el-input v-model="form.name" :placeholder="t('instance.inputName')" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+  <!-- 测试模型连通弹窗 -->
+  <el-dialog v-model="testDialogVisible" :title="t('instance.testConnectionTitle')" width="560px" :before-close="handleTestDialogClose">
+    <el-form label-width="100px">
+      <el-form-item :label="t('instance.testConnectionModel')">
+        <el-input :model-value="testTarget?.name" disabled />
+      </el-form-item>
 
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="t('instance.baseUrl')" prop="baseUrl">
-              <el-input v-model="form.baseUrl" :placeholder="t('instance.inputBaseUrl')" />
-            </el-form-item>
-          </el-col>
+      <el-form-item :label="t('instance.testConnectionMessage')">
+        <el-input v-model="testForm.message" type="textarea" :rows="2" />
+      </el-form-item>
 
-          <el-col :span="12">
-            <el-form-item :label="t('instance.path')" prop="path">
-              <el-input v-model="form.path" :placeholder="t('instance.inputPath')" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+      <el-form-item :label="t('instance.testConnectionApiKey')">
+        <el-input v-model="testForm.apiKey" type="password" show-password clearable
+          :placeholder="t('instance.testConnectionApiKeyPlaceholder')" />
+        <div class="form-tip">{{ t('instance.testConnectionApiKeyTip') }}</div>
+      </el-form-item>
+    </el-form>
 
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="t('instance.weight')" prop="weight">
-              <el-input-number v-model="form.weight" :min="1" :max="100" />
-            </el-form-item>
-          </el-col>
+    <el-result
+      v-if="testResult"
+      :icon="testResult.ok ? 'success' : 'error'"
+      :title="testResult.ok ? t('instance.testConnectionSuccess') : t('instance.testConnectionFailed')"
+      :sub-title="testResult.text"
+      style="padding: 12px 0"
+    />
 
-          <el-col :span="12">
-            <el-form-item :label="t('instance.status')" prop="status">
-              <el-switch v-model="form.status" active-value="active" inactive-value="inactive" :active-text="t('instance.enabled')"
-                :inactive-text="t('instance.disabled')" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="t('instance.adapter')" prop="adapter">
-              <el-select v-model="form.adapter" :placeholder="t('instance.selectAdapterPlaceholder')" clearable>
-                <el-option v-for="adapter in adapters" :key="adapter.name || adapter" :label="adapter.name || adapter"
-                  :value="adapter.name || adapter" />
-              </el-select>
-              <div v-if="!form.adapter && globalAdapter" class="form-note">
-                {{ t('instance.usingGlobalAdapter', { adapter: globalAdapter }) }}
-              </div>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-divider content-position="left">{{ t('instance.headersConfig') }}</el-divider>
-
-        <div class="headers-section">
-          <el-row :gutter="20">
-            <el-col :span="24">
-              <el-form-item :label="t('instance.headersManage')">
-                <div class="headers-actions">
-                  <el-button type="primary" size="small" @click="addCustomHeader">
-                    <el-icon>
-                      <Plus />
-                    </el-icon>
-                    {{ t('instance.addHeader') }}
-                  </el-button>
-                  <el-button type="success" size="small" @click="addAuthorizationHeader">
-                    <el-icon>
-                      <Key />
-                    </el-icon>
-                    {{ t('instance.addAuthorization') }}
-                  </el-button>
-                  <el-button type="warning" size="small" @click="clearAllHeaders" v-if="customHeadersList.length > 0">
-                    <el-icon>
-                      <Delete />
-                    </el-icon>
-                    {{ t('instance.clearAll') }}
-                  </el-button>
-                </div>
-              </el-form-item>
-            </el-col>
-          </el-row>
-
-          <div v-if="customHeadersList.length > 0" class="headers-list">
-            <el-row v-for="(header, index) in customHeadersList" :key="index" :gutter="20" class="header-row">
-              <el-col :span="10">
-                <el-form-item :label="t('instance.headerName', { index: index + 1 })">
-                  <el-input v-model="header.key" :placeholder="t('instance.headerKeyPlaceholder')" @input="onCustomHeaderChange" />
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item :label="t('instance.headerValue', { index: index + 1 })">
-                  <el-input v-model="header.value" :placeholder="t('instance.headerValuePlaceholder')" @input="onCustomHeaderChange"
-                    :type="header.key.toLowerCase() === 'authorization' ? 'password' : 'text'"
-                    :show-password="header.key.toLowerCase() === 'authorization'" />
-                </el-form-item>
-              </el-col>
-              <el-col :span="2">
-                <div class="header-delete-wrapper">
-                  <el-button type="danger" size="small" @click="removeCustomHeader(index)" circle
-                    class="remove-header-btn" :title="t('instance.removeHeader')">
-                    <el-icon>
-                      <Close />
-                    </el-icon>
-                  </el-button>
-                </div>
-              </el-col>
-            </el-row>
-          </div>
-
-          <el-row v-else :gutter="20">
-            <el-col :span="24">
-              <el-form-item>
-                <el-empty :description="t('instance.emptyHeaders')" :image-size="60" class="empty-headers" />
-              </el-form-item>
-            </el-col>
-          </el-row>
-        </div>
-
-        <el-divider content-position="left">{{ t('instance.tagsConfig') }}</el-divider>
-
-        <div class="headers-section">
-          <el-row :gutter="20">
-            <el-col :span="24">
-              <el-form-item :label="t('instance.tagsManage')">
-                <div class="headers-actions">
-                  <el-button type="primary" size="small" @click="addTag">
-                    <el-icon>
-                      <Plus />
-                    </el-icon>
-                    {{ t('instance.addTag') }}
-                  </el-button>
-                  <el-button type="warning" size="small" @click="clearAllTags" v-if="tagsList.length > 0">
-                    <el-icon>
-                      <Delete />
-                    </el-icon>
-                    {{ t('instance.clearAll') }}
-                  </el-button>
-                </div>
-              </el-form-item>
-            </el-col>
-          </el-row>
-
-          <div v-if="tagsList.length > 0" class="headers-list">
-            <el-row v-for="(tag, index) in tagsList" :key="index" :gutter="20" class="header-row">
-              <el-col :span="10">
-                <el-form-item :label="t('instance.tagName', { index: index + 1 })">
-                  <el-input v-model="tag.key" :placeholder="t('instance.tagKeyPlaceholder')" @input="onTagChange" />
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item :label="t('instance.tagValue', { index: index + 1 })">
-                  <el-input v-model="tag.value" :placeholder="t('instance.tagValuePlaceholder')" @input="onTagChange" />
-                </el-form-item>
-              </el-col>
-              <el-col :span="2">
-                <div class="header-delete-wrapper">
-                  <el-button type="danger" size="small" @click="removeTag(index)" circle
-                    class="remove-header-btn" :title="t('instance.removeTag')">
-                    <el-icon>
-                      <Close />
-                    </el-icon>
-                  </el-button>
-                </div>
-              </el-col>
-            </el-row>
-          </div>
-
-          <el-row v-else :gutter="20">
-            <el-col :span="24">
-              <el-form-item>
-                <el-empty :description="t('instance.emptyTags')" :image-size="60" class="empty-headers" />
-              </el-form-item>
-            </el-col>
-          </el-row>
-        </div>
-      </el-form>
-
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="handleDialogClose">{{ t('instance.cancel') }}</el-button>
-          <el-button type="primary" @click="handleSave" :loading="saveLoading">{{ t('instance.save') }}</el-button>
-        </span>
-      </template>
-    </el-dialog>
+    <template #footer>
+      <el-button @click="handleTestDialogClose">{{ t('instance.cancel') }}</el-button>
+      <el-button type="primary" :loading="testing" :disabled="!testValid" @click="runTest">{{ t('instance.testConnectionSend') }}</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import type { FormInstance } from 'element-plus'
 import { SERVICE_TYPE_LABELS, COMMON_SERVICE_TYPES } from '@/constants/serviceTypes'
+import { PROVIDER_PRESETS, matchProviderPreset, extractDomain } from '@/constants/providerPresets'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   addServiceInstance,
@@ -387,11 +214,12 @@ import {
 } from '@/api/instance'
 import { getServiceTypes } from '@/api/dashboard'
 import { getAdapters, getAllConfigurations } from '@/api/service'
+import { deleteApiKey } from '@/api/apiKey'
 import { clearCache } from '@/stores/playgroundCache'
-import { Plus, Delete, Close, Key, Timer, WarningFilled, Edit } from '@element-plus/icons-vue'
+import { Plus, Delete, Close, Timer, WarningFilled, Edit, Search, Refresh, VideoPlay } from '@element-plus/icons-vue'
 import RateLimitConfig from '@/components/RateLimitConfig.vue'
 import CircuitBreakerConfig from '@/components/CircuitBreakerConfig.vue'
-import OnboardingSteps from './adapter/OnboardingSteps.vue'
+import UpstreamInstanceForm from '@/components/UpstreamInstanceForm.vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import { uid } from '@/utils/uid'
 
@@ -419,6 +247,14 @@ const activeServiceType = ref('chat')
 const adapters = ref<any[]>([])
 const globalConfig = ref<any>({})
 const globalAdapter = ref<string>('')
+
+// 根据 baseUrl/path 识别上游厂商名称（用于列表普通用户视角展示）
+function providerLabelOf(row: ServiceInstance): string {
+  const matched = matchProviderPreset(row.baseUrl || '', row.path || '')
+  if (matched) return matched.label
+  const domain = extractDomain(row.baseUrl || '')
+  return domain || '自定义'
+}
 
 // 定义实例类型
 interface ServiceInstance {
@@ -457,54 +293,20 @@ const instances = ref<Record<string, ServiceInstance[]>>({})
 // 加载与状态
 const loading = ref(false)
 const saveLoading = ref(false)
+
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const isEdit = ref(false)
-const formRef = ref<FormInstance>()
+const instanceFormRef = ref<InstanceType<typeof UpstreamInstanceForm>>()
+const editingId = ref<string>('')
+// 暂存待编辑行：避免在 el-dialog 首次渲染前调用组件方法（ref 尚未挂载）导致回填丢失
+const editingRow = ref<any>(null)
 
 // 搜索/过滤/分页
 const searchQuery = ref('')
 const statusFilter = ref('')
 const pageSize = ref(10)
 const currentPage = ref(1)
-
-// 表单数据
-const form = reactive<ServiceInstance>({
-  id: 0,
-  serviceType: 'chat',
-  name: '',
-  baseUrl: '',
-  path: '',
-  weight: 1,
-  instanceId: '',
-  status: 'active',
-  adapter: '',
-  headers: {},
-  tags: {},
-  rateLimit: {
-    enabled: false,
-    algorithm: 'token-bucket',
-    capacity: 100,
-    rate: 10,
-    scope: 'instance',
-    key: '',
-    clientIpEnable: false
-  },
-  circuitBreaker: {
-    enabled: false,
-    failureThreshold: 5,
-    timeout: 60000,
-    successThreshold: 2
-  }
-})
-
-// 请求头管理
-interface HeaderItem {
-  key: string
-  value: string
-}
-
-const customHeadersList = ref<HeaderItem[]>([])
 
 // 限流器配置弹窗相关
 const rateLimitDialogVisible = ref(false)
@@ -515,95 +317,6 @@ const rateLimitFormData = ref<any>({ enabled: false })
 const circuitBreakerDialogVisible = ref(false)
 const circuitBreakerDialogTitle = ref('')
 const circuitBreakerFormData = ref<any>({ enabled: false })
-
-// 同步请求头列表
-const syncCustomHeadersList = () => {
-  customHeadersList.value = Object.entries(form.headers || {}).map(([key, value]) => ({
-    key,
-    value
-  }))
-}
-
-// 请求头变化处理
-const onCustomHeaderChange = () => {
-  const headers: Record<string, string> = {}
-  customHeadersList.value.forEach(header => {
-    if (header.key.trim() && header.value.trim()) {
-      headers[header.key.trim()] = header.value.trim()
-    }
-  })
-  form.headers = headers
-}
-
-// 添加请求头
-const addCustomHeader = () => {
-  customHeadersList.value.push({ key: '', value: '' })
-}
-
-// 移除请求头
-const removeCustomHeader = (index: number) => {
-  customHeadersList.value.splice(index, 1)
-  onCustomHeaderChange()
-}
-
-// 清除所有请求头
-const clearAllHeaders = () => {
-  customHeadersList.value = []
-  form.headers = {}
-}
-
-// 添加常用请求头模板
-const addAuthorizationHeader = () => {
-  const existingAuth = customHeadersList.value.find(h => h.key.toLowerCase() === 'authorization')
-  if (!existingAuth) {
-    customHeadersList.value.push({ key: 'Authorization', value: 'Bearer your-api-key-here' })
-    onCustomHeaderChange()
-  }
-}
-
-// 标签管理
-interface TagItem {
-  key: string
-  value: string
-}
-
-const tagsList = ref<TagItem[]>([])
-
-// 同步标签列表
-const syncTagsList = () => {
-  tagsList.value = Object.entries(form.tags || {}).map(([key, value]) => ({
-    key,
-    value
-  }))
-}
-
-// 标签变化处理
-const onTagChange = () => {
-  const tags: Record<string, string> = {}
-  tagsList.value.forEach(tag => {
-    if (tag.key.trim() && tag.value.trim()) {
-      tags[tag.key.trim()] = tag.value.trim()
-    }
-  })
-  form.tags = tags
-}
-
-// 添加标签
-const addTag = () => {
-  tagsList.value.push({ key: '', value: '' })
-}
-
-// 移除标签
-const removeTag = (index: number) => {
-  tagsList.value.splice(index, 1)
-  onTagChange()
-}
-
-// 清除所有标签
-const clearAllTags = () => {
-  tagsList.value = []
-  form.tags = {}
-}
 
 // 简单防抖
 function debounce<T extends (...args: any[]) => void>(fn: T, wait = 300) {
@@ -631,8 +344,9 @@ const filtered = computed(() => {
     if (!q) return true
     return (
       (item.name && item.name.toLowerCase().includes(q)) ||
+      (item.tags?.alias && item.tags.alias.toLowerCase().includes(q)) ||
       (item.baseUrl && item.baseUrl.toLowerCase().includes(q)) ||
-      (item.path && item.path.toLowerCase().includes(q))
+      (providerLabelOf(item).toLowerCase().includes(q))
     )
   })
 })
@@ -776,83 +490,41 @@ const refreshCurrent = () => {
 const handleAddInstance = () => {
   dialogTitle.value = t('instance.addInstance')
   isEdit.value = false
-  Object.assign(form, {
-    id: 0,
-    serviceType: activeServiceType.value, // 确保使用当前选项卡的服务类型
-    name: '',
-    baseUrl: '',
-    path: '',
-    weight: 1,
-    status: 'active',
-    adapter: '',
-    headers: {},
-    tags: {},
-    rateLimit: {
-      enabled: false,
-      algorithm: 'token-bucket',
-      capacity: 100,
-      rate: 10,
-      scope: 'instance',
-      key: '',
-      clientIpEnable: false
-    },
-    circuitBreaker: {
-      enabled: false,
-      failureThreshold: 5,
-      timeout: 60000,
-      successThreshold: 2
-    }
-  })
-  customHeadersList.value = []
-  tagsList.value = []
+  editingId.value = ''
+  editingRow.value = null
   dialogVisible.value = true
 }
 
-// 编辑实例
+// 编辑实例（表单状态交给公共组件管理；回填延迟到 dialog @opened 以保证组件已挂载）
 const handleEdit = (row: ServiceInstance) => {
   dialogTitle.value = t('instance.editInstance')
   isEdit.value = true
-  // 使用数据库ID（row.id）作为instanceId
-  const dbId = row.id
-  Object.assign(form, {
-    ...row,
-    // 确保使用当前激活的页签对应的服务类型，而不是实例原来的服务类型
-    serviceType: activeServiceType.value,
-    // 确保headers字段存在
-    headers: row.headers || {},
-    // 确保tags字段存在
-    tags: row.tags || {},
-    // 确保 rateLimit 和 circuitBreaker 不为 null
-    rateLimit: row.rateLimit || {
-      enabled: false,
-      algorithm: 'token-bucket',
-      capacity: 100,
-      rate: 10,
-      scope: 'instance',
-      key: '',
-      clientIpEnable: false
-    },
-    circuitBreaker: row.circuitBreaker || {
-      enabled: false,
-      failureThreshold: 5,
-      timeout: 60000,
-      successThreshold: 2
-    },
-    // 使用数据库ID
-    instanceId: String(dbId)
-  })
-  syncCustomHeadersList()
-  syncTagsList()
+  editingId.value = String(row.id)
+  editingRow.value = row
   dialogVisible.value = true
+}
+
+// 对话框打开动画结束后回调：此时公共表单已稳定挂载，安全回填/重置
+const onDialogOpened = () => {
+  if (isEdit.value && editingRow.value) {
+    instanceFormRef.value?.loadInstance(editingRow.value)
+  } else {
+    instanceFormRef.value?.resetForm()
+  }
 }
 
 // 删除实例
 const handleDelete = (row: ServiceInstance) => {
-  ElMessageBox.confirm(t('instance.deleteConfirmMessage'), t('instance.confirmTitle'), {
-    confirmButtonText: t('instance.confirm'),
-    cancelButtonText: t('instance.cancel'),
-    type: 'warning'
-  }).then(async () => {
+  const apiKeyId = row.tags?.apiKeyId
+  ElMessageBox.confirm(
+    apiKeyId ? t('instance.deleteConfirmMessageWithKey') : t('instance.deleteConfirmMessage'),
+    t('instance.confirmTitle'),
+    {
+      confirmButtonText: t('instance.confirm'),
+      cancelButtonText: t('instance.cancel'),
+      type: 'warning'
+    }
+  ).then(async () => {
     try {
       // 确保使用当前激活的页签对应的服务类型
       const serviceType = activeServiceType.value;
@@ -860,6 +532,15 @@ const handleDelete = (row: ServiceInstance) => {
       const dbId = row.id
       const response = await deleteServiceInstance(serviceType, String(dbId))
       if (response.data?.success) {
+        // 级联清理关联的网关密钥（若有），避免残留孤儿密钥；失败不影响实例已删除的结果
+        if (apiKeyId) {
+          try {
+            await deleteApiKey(apiKeyId)
+          } catch (ke: any) {
+            console.warn('删除关联网关密钥失败（实例已删除）:', ke)
+            ElMessage.warning(t('instance.messages.deleteKeyFailed'))
+          }
+        }
         instances.value[serviceType] = (instances.value[serviceType] || []).filter(i => i.id !== dbId)
         instancesCache.value[serviceType] = [...(instances.value[serviceType] || [])]
         // 同时清除试验场的缓存，让试验场下拉列表刷新
@@ -880,36 +561,32 @@ const handleDelete = (row: ServiceInstance) => {
 // 关闭对话框
 const handleDialogClose = () => {
   dialogVisible.value = false
-  if (formRef.value) formRef.value.resetFields()
 }
 
-// 保存实例（新增/编辑）- 仅保存基础属性，限流器和熔断器通过独立接口配置
+// 保存实例（新增/编辑）- 表单数据由公共组件 buildPayload 组装
 const handleSave = async () => {
-  if (!formRef.value) return
+  const payload = instanceFormRef.value?.buildPayload()
+  if (!payload) return
   saveLoading.value = true
   try {
     // 确保使用当前选项卡的服务类型
-    const serviceType = activeServiceType.value;
+    const serviceType = activeServiceType.value
 
-    // 构造实例数据（仅基础属性）
     const instanceData: InstanceConfig = {
-      name: form.name,
-      baseUrl: form.baseUrl,
-      path: form.path || '',
-      weight: form.weight,
-      status: form.status,
-      adapter: form.adapter || undefined,
-      headers: form.headers || {},
-      tags: form.tags || {}
+      name: payload.name,
+      baseUrl: payload.baseUrl,
+      path: payload.path || '',
+      weight: payload.weight,
+      status: payload.status,
+      adapter: payload.adapter || undefined,
+      headers: payload.headers || {},
+      tags: payload.tags || {}
     }
 
     if (isEdit.value) {
-      // 使用后端返回的实例ID
-      const response = await updateServiceInstance(serviceType, form.instanceId, instanceData)
+      const response = await updateServiceInstance(serviceType, editingId.value, instanceData)
       if (response.data?.success) {
-        // 编辑成功后，清除缓存并重新获取实例列表以确保数据同步
         delete instancesCache.value[serviceType]
-        // 同时清除试验场的缓存，让试验场下拉列表刷新
         clearCache(serviceType)
         fetchServiceInstances(serviceType)
         ElMessage.success(t('instance.messages.editSuccess'))
@@ -919,12 +596,9 @@ const handleSave = async () => {
         return
       }
     } else {
-      // 添加新实例
       const response = await addServiceInstance(serviceType, instanceData)
       if (response.data?.success) {
-        // 添加成功后，清除缓存并重新获取实例列表以确保数据同步
         delete instancesCache.value[serviceType]
-        // 同时清除试验场的缓存，让试验场下拉列表刷新
         clearCache(serviceType)
         fetchServiceInstances(serviceType)
         ElMessage.success(t('instance.messages.addSuccess'))
@@ -951,6 +625,65 @@ const handlePageChange = (page: number) => { currentPage.value = page }
 // 当前正在编辑的实例（使用数据库ID）
 const currentEditInstanceId = ref<string>('')
 const currentEditServiceType = ref<string>('')
+
+/* ---------- 测试模型连通 ---------- */
+const testDialogVisible = ref(false)
+const testTarget = ref<ServiceInstance | null>(null)
+const testForm = reactive({
+  apiKey: '',
+  message: '你好，请回复"接入成功"四个字。'
+})
+const testing = ref(false)
+const testResult = ref<{ ok: boolean; text: string } | null>(null)
+const testValid = computed(() => Boolean(testForm.apiKey.trim() && testForm.message.trim()))
+
+const openTestDialog = (row: ServiceInstance) => {
+  testTarget.value = row
+  testForm.apiKey = ''
+  testForm.message = '你好，请回复"接入成功"四个字。'
+  testResult.value = null
+  testDialogVisible.value = true
+}
+
+const handleTestDialogClose = () => {
+  testDialogVisible.value = false
+}
+
+const runTest = async () => {
+  if (!testTarget.value) return
+  const model = testTarget.value.name
+  if (!model) {
+    ElMessage.warning(t('instance.testConnectionEmptyName'))
+    return
+  }
+  testing.value = true
+  testResult.value = null
+  try {
+    const res = await fetch('/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': testForm.apiKey.trim()
+      },
+      body: JSON.stringify({
+        model: model.trim(),
+        messages: [{ role: 'user', content: testForm.message }],
+        max_tokens: 100
+      })
+    })
+    const body = await res.json().catch(() => ({}))
+    if (res.ok && body?.choices?.[0]?.message?.content) {
+      testResult.value = { ok: true, text: body.choices[0].message.content }
+      ElMessage.success(t('instance.testConnectionSuccess'))
+    } else {
+      testResult.value = { ok: false, text: body?.error?.message || body?.message || `HTTP ${res.status}` }
+    }
+  } catch (e: any) {
+    testResult.value = { ok: false, text: e?.message || t('instance.testConnectionRequestFailed') }
+  } finally {
+    testing.value = false
+  }
+}
 
 // 打开限流器配置弹窗
 const openRateLimitConfig = (row: any) => {
@@ -1119,7 +852,13 @@ onMounted(() => {
 .instance-table {
   width: 100%;
   border-radius: 6px;
-  overflow: hidden;
+  /* 宽表兜底：EP 的 header/body wrapper 默认 overflow:hidden 会裁掉超宽列且无法滚动；
+     放开裁剪并让表格根 auto —— 仅在列总宽超出容器时才出现横向滚动条 */
+  overflow: auto;
+}
+.instance-table :deep(.el-table__header-wrapper),
+.instance-table :deep(.el-table__body-wrapper) {
+  overflow: visible;
 }
 
 .instance-table :deep(.el-table__cell) {
@@ -1169,6 +908,23 @@ onMounted(() => {
 }
 
 /* dialog */
+.status-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.health-dot.is-ok {
+  background: var(--ja-dot-ok, #67c23a);
+}
+.health-dot.is-off {
+  background: var(--ja-dot-off, #909399);
+}
 .instance-dialog :deep(.el-dialog__header) {
   background-color: var(--el-fill-color-light);
   border-bottom: 1px solid var(--ja-border-lighter);
@@ -1205,122 +961,21 @@ onMounted(() => {
   margin-top: 2px;
 }
 
-.form-note {
+.cell-title {
+  font-weight: 600;
+  color: var(--ja-text-primary);
+}
+
+.cell-sub {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+  margin-top: 2px;
+}
+
+.form-tip {
   font-size: 12px;
   color: var(--ja-text-secondary);
   margin-top: 4px;
   line-height: 1.4;
-}
-
-/* 请求头配置样式 - 与基本信息保持一致 */
-.headers-section {
-  margin: 0;
-  padding: 0;
-}
-
-.headers-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.headers-list {
-  margin-top: 16px;
-  padding: 16px;
-  background-color: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color);
-  border-radius: 6px;
-}
-
-.header-row {
-  margin-bottom: 16px;
-  padding-top: 16px;
-  background-color: var(--ja-bg-card);
-  border: 1px solid var(--ja-border-light);
-  border-radius: 6px;
-  transition: all 0.3s ease;
-}
-
-.header-row:hover {
-  border-color: var(--ja-primary);
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
-}
-
-.header-row:last-child {
-  margin-bottom: 0;
-}
-
-.empty-headers {
-  margin: 0;
-  background-color: transparent;
-  border: none;
-  padding: 20px 0;
-}
-
-/* 操作按钮样式 */
-.header-delete-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.remove-header-btn {
-  transition: all 0.3s ease;
-}
-
-.remove-header-btn:hover {
-  transform: scale(1.1);
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .headers-actions {
-    justify-content: center;
-  }
-
-  .header-row .el-col {
-    margin-bottom: 8px;
-  }
-
-  .header-row .el-col:last-child {
-    margin-bottom: 0;
-  }
-
-  .header-delete-wrapper {
-    margin-top: 10px;
-    height: auto;
-  }
-}
-
-/* 滚动条样式 */
-.headers-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.headers-list::-webkit-scrollbar-track {
-  background: var(--el-bg-color-page);
-  border-radius: 3px;
-}
-
-.headers-list::-webkit-scrollbar-thumb {
-  background: var(--el-border-color);
-  border-radius: 3px;
-}
-
-.headers-list::-webkit-scrollbar-thumb:hover {
-  background: var(--el-border-color-dark);
-}
-
-/* 表单项标签样式统一 */
-.headers-section .el-form-item__label {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--ja-text-primary);
-}
-
-/* 请求头启用开关样式 */
-.headers-section .el-switch {
-  margin-left: 0;
 }
 </style>

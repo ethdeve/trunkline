@@ -1,7 +1,7 @@
 <template>
   <PageSkeleton :title="t('adapter.management')">
     <template #actions>
-      <el-button type="primary" @click="handleCreate" size="medium">
+      <el-button type="primary" @click="handleCreate" size="default">
         <el-icon><Plus /></el-icon>
         {{ t('adapter.newAdapter') }}
       </el-button>

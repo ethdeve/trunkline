@@ -26,7 +26,6 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Check, ArrowRight } from '@element-plus/icons-vue'
-import { playgroundTargetRoute } from '@/composables/useRoutePreselect'
 
 const props = defineProps<{
   /** 当前步骤 1-based */
@@ -45,16 +44,15 @@ interface StepItem {
 }
 
 const steps = computed<StepItem[]>(() => [
-  { index: 1, label: t('onboarding.configureAdapter'), route: '/config/adapters' },
-  { index: 2, label: t('onboarding.createService'), route: '/config/services' },
-  { index: 3, label: t('onboarding.addInstance'), route: '/config/instances' },
-  { index: 4, label: t('onboarding.tryPlayground'), route: '/playground/chat' }
+  { index: 1, label: t('onboarding.configureAdapter'), route: '/protocol-adapters' },
+  { index: 2, label: t('onboarding.createService'), route: '/model-categories' },
+  { index: 3, label: t('onboarding.addInstance'), route: '/models' },
+  { index: 4, label: t('onboarding.tryPlayground'), route: '/playground' }
 ])
 
 function navigate(step: StepItem) {
   if (step.index === 4 && props.serviceType) {
-    const target = playgroundTargetRoute(props.serviceType) ?? { name: 'playground-chat' }
-    router.push({ name: target.name, query: { serviceType: props.serviceType } })
+    router.push({ path: '/playground', query: { serviceType: props.serviceType } })
     return
   }
   const target: { path: string; query?: Record<string, string> } = { path: step.route }

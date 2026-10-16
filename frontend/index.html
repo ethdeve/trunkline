@@ -3,101 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JAiRouter</title>
+    <title>JAiRouter 控制台</title>
     <style>
-      body {
-        margin: 0;
-        padding: 0;
-        /* 与 src/styles/tokens.css 中 --ja-login-gradient-start/end 一致 */
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      
-      #app {
-        width: 100%;
-        padding: 20px;
-      }
-      
-      .loading-container {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 16px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-        backdrop-filter: blur(10px);
-        padding: 40px;
-        text-align: center;
-        animation: fadeIn 0.8s ease-out;
-      }
-      
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-20px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      
-      .loading-spinner {
-        width: 50px;
-        height: 50px;
-        border: 4px solid rgba(102, 126, 234, 0.3);
-        border-top: 4px solid #667eea;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin: 0 auto 20px;
-      }
-      
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-      
-      h2 {
-        color: #333;
-        margin-bottom: 15px;
-        font-weight: 600;
-      }
-      
-      p {
-        color: #666;
-        line-height: 1.6;
-        margin: 10px 0;
-      }
-      
-      .brand {
-        color: #667eea;
-        font-weight: bold;
-      }
+      /* 基础重置：常驻 */
+      body { margin: 0; padding: 0; min-height: 100vh;
+             background: #f5f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+      /* 启动屏居中：仅在 .boot 存在时生效（:has 挂载后自动失效），
+         避免 body 长期 display:flex 使 #app 收缩包裹内容并被居中，
+         导致宽页面（如实例表 1420px）把整个壳层撑出视口、左栏被推出屏幕 */
+      body:has(> #app > .boot) { display: flex; align-items: center; justify-content: center; }
+      .boot { text-align: center; color: #606266; }
+      .boot .spinner { width: 36px; height: 36px; margin: 0 auto 16px; border-radius: 50%;
+             border: 3px solid #dcdfe6; border-top-color: #409eff; animation: spin 1s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
     </style>
   </head>
   <body>
     <div id="app">
-      <div class="loading-container">
-        <div class="loading-spinner"></div>
-        <h2 id="boot-title">正在加载 <span class="brand">JAiRouter</span> 管理界面</h2>
-        <p id="boot-sub">系统正在初始化，请稍候...</p>
-        <p id="boot-hint">如果长时间停留在此页面，请按 F12 打开控制台查看详细错误信息。</p>
+      <div class="boot">
+        <div class="spinner"></div>
+        <p>正在加载 JAiRouter 控制台...</p>
       </div>
     </div>
-    <script>
-      // 首帧加载提示按已选/浏览器语言切换（与 src/utils/locale.ts 规则一致）
-      ;(function () {
-        var loc = localStorage.getItem('ja-locale')
-        if (!loc) {
-          loc = (navigator.language || '').toLowerCase().indexOf('zh') === 0 ? 'zh-CN' : 'en-US'
-        }
-        var en = loc === 'en-US'
-        document.documentElement.lang = en ? 'en' : 'zh-CN'
-        if (en) {
-          document.getElementById('boot-title').innerHTML =
-            'Loading <span class="brand">JAiRouter</span>'
-          document.getElementById('boot-sub').textContent =
-            'Initializing the system, please wait...'
-          document.getElementById('boot-hint').textContent =
-            'Stuck here for a while? Press F12 and check the console for errors.'
-        }
-      })()
-    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

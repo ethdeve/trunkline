@@ -1,155 +1,162 @@
 /**
- * 菜单配置（v2.9.8 Phase 4 数据驱动，11 组 → 8 组）
+ * JAiRouter Console 菜单配置（新台 v0.1，方案 A 定稿：6 组 12 项）
  *
- * 9 组结构（开发计划2026 L1158）：
- * - 概览(1)：仪表板
- * - 模型服务(4)：服务 / 实例 / 版本 / Adapter
- * - 流量治理(10)：规则 / LB监控 / LB策略 / CB监控 / CB历史 / CB配置 / 限流 / 资源池 / 响应缓存 / 配额配置
- * - 数据记录(8)：调用历史 4 / 慢查询 / 配额监控 / 异常 2
- * - 链路追踪(3)：dashboard / search / management
- * - 安全管理(4)：api-keys / jwt-tokens / blacklist / audit-logs
- * - 系统管理(3)：账户 / 权限(new) / 状态持久化（配置验证无对应路由，暂不挂载）
- * - AI 试验场(5)：chat / embedding / rerank / audio / image
- * - 开发者工具(1)：客户端接入指南
- *
- * 每项新增可选 `permission` 字段（权限码，格式 `module:resource:action`，
- * 与后端 PermissionCodes 48 权限码体系一致，无 ROLE_ 前缀）。
- *
- * 权限映射原则：
- * - 与后端 PermissionRuleRegistry 已登记的 URL 权限规则对齐
- *   （如 /api/call-history/** → callhistory:view、/api/token-usage/** → monitoring:tokenusage:read）
- * - 菜单可见性采用"读"语义码（如 config:services:read），写操作由后端 URL 规则另行拦截
- * - 后端未登记权限规则（回退 authenticated）的组不设 permission 字段（如异常管理）
- * - security / system 组沿用原 ADMIN-only 语义（security:*:manage / system:accounts:manage）
- *
- * `icon` 为 Element Plus 图标 kebab-case 名称，Layout.vue 中映射为图标组件。
+ * 设计决策（方案 v1.2 第四章）：
+ * - 观测 8 切面合一页、策略 4 合一页、系统 5 合一页、测试场 5 合 1、
+ *   公共模型库/适配器设置降为「接入的模型」页内 tab、LB 监控并入模型健康灯列
+ * - 权限码 1:1 沿用旧台 53 权限码体系（module:resource:action，无 ROLE_ 前缀），
+ *   普通调用角色默认仅见工作台/接入的模型/测试场/密钥 4~5 项
+ * - 标题为字面中文（新台一期不挂 i18n key，避免 42 个 locale 文件同步改；
+ *   ConsoleLayout 渲染时若以 'menu.' 开头则走 t()，为后续 i18n 留后路）
+ * - feature flag：响应缓存 tab 由策略中心页内控制（菜单树不体现）
  */
 
 export interface MenuItem {
-  /** 路由路径（el-menu-item index） */
+  /** 路由路径 */
   path: string
-  /** 菜单标题（v2.10.3 起为 i18n key，如 menu.dashboardMain；Layout.vue 经 t() 渲染） */
+  /** 菜单标题（字面中文；'menu.' 前缀视为 i18n key） */
   title: string
-  /** 权限码（module:resource:action）；缺省表示所有已登录用户可见 */
+  /** 权限码；缺省表示所有已登录用户可见 */
   permission?: string
-  /** 子项图标名（Element Plus 图标 kebab-case 名，可选） */
+  /** Element Plus 图标 kebab-case 名 */
   icon?: string
+  /** 页内副标题（承载技术术语，如观测中心副标题） */
+  subtitle?: string
 }
 
 export interface MenuGroup {
-  /** 组标识（el-sub-menu index，defaultOpeneds 引用） */
+  /** 组标识 */
   index: string
-  /** 组标题（i18n key，如 menu.traffic） */
+  /** 组标题 */
   title: string
-  /** 组图标名（Element Plus 图标 kebab-case 名） */
   icon: string
   children: MenuItem[]
 }
 
-/** 菜单配置：8 组 34 项（v2.9.8 Phase 4 重分类，与 Layout.vue 数据驱动渲染一一对应） */
+/** 菜单配置：6 组 12 项（与路由表一一对应） */
 export const menuGroups: MenuGroup[] = [
   {
-    index: 'dashboard',
-    title: 'menu.dashboard',
+    index: 'workbench',
+    title: '工作台',
     icon: 'house',
     children: [
-      { path: '/dashboard/main', title: 'menu.dashboardMain', permission: 'overview:dashboard:read' }
+      { path: '/overview', title: '总览', permission: 'overview:dashboard:read', icon: 'odometer' },
+      { path: '/quick-start', title: '快速开始', permission: 'config:instances:read', icon: 'guide' }
     ]
   },
   {
-    index: 'model-services',
-    title: 'menu.modelServices',
+    index: 'models',
+    title: '模型接入',
+    icon: 'cpu',
+    children: [
+      {
+        path: '/models',
+        title: '接入的模型',
+        permission: 'config:instances:read',
+        icon: 'connection',
+        subtitle: '已接入模型 / 公共模型库 / 适配器设置'
+      },
+      {
+        path: '/playground',
+        title: '测试场',
+        permission: 'ai:playground:use',
+        icon: 'chat-dot-round',
+        subtitle: '对话 / 向量 / 重排 / 语音 / 图像'
+      }
+    ]
+  },
+  {
+    index: 'keys',
+    title: 'API Keys',
+    icon: 'key',
+    children: [
+      {
+        path: '/keys',
+        title: '密钥管理',
+        permission: 'security:apikeys:manage',
+        icon: 'stamp',
+        subtitle: '签发 / 吊销 / 配额'
+      }
+    ]
+  },
+  {
+    index: 'observe',
+    title: '观测',
+    icon: 'data-line',
+    children: [
+      {
+        path: '/observe',
+        title: '观测中心',
+        permission: 'monitoring:tokenusage:read',
+        icon: 'data-analysis',
+        subtitle: '调用历史 / Token / 慢查询 / 异常 / 配额 / 熔断 / 限流'
+      },
+      {
+        path: '/tracing',
+        title: '链路追踪',
+        permission: 'tracing:dashboard:read',
+        icon: 'share'
+      }
+    ]
+  },
+  {
+    index: 'strategy',
+    title: '策略',
+    icon: 'operation',
+    children: [
+      {
+        path: '/strategy',
+        title: '策略中心',
+        permission: 'config:rules:read',
+        icon: 'set-up',
+        subtitle: '路由规则 / 负载均衡 / 熔断阈值 / 响应缓存'
+      },
+      {
+        path: '/quota',
+        title: '用量配额',
+        permission: 'config:quota:read',
+        icon: 'coin'
+      }
+    ]
+  },
+  {
+    index: 'settings',
+    title: '系统',
     icon: 'setting',
     children: [
-      { path: '/config/services', title: 'menu.configServices', permission: 'config:services:read' },
-      { path: '/config/instances', title: 'menu.configInstances', permission: 'config:instances:read' },
-      { path: '/config/versions', title: 'menu.configVersions', permission: 'config:versions:read' },
-      { path: '/config/adapters', title: 'menu.configAdapters', permission: 'config:adapters:read' }
-    ]
-  },
-  {
-    index: 'traffic',
-    title: 'menu.traffic',
-    icon: 'connection',
-    children: [
-      { path: '/config/rules', title: 'menu.configRules', permission: 'config:rules:read' },
-      { path: '/load-balancers/monitoring', title: 'menu.lbMonitoring', permission: 'lb:monitoring:read' },
-      { path: '/load-balancers/strategy-config', title: 'menu.lbStrategy', permission: 'lb:config:write' },
-      { path: '/circuit-breakers/monitoring', title: 'menu.cbMonitoring', permission: 'cb:monitoring:read' },
-      { path: '/circuit-breakers/history', title: 'menu.cbHistory', permission: 'cb:history:read' },
-      { path: '/circuit-breakers/global-config', title: 'menu.cbConfig', permission: 'config:circuitbreaker:read' },
-      { path: '/rate-limiters/monitoring', title: 'menu.rlMonitoring', permission: 'rl:monitoring:read' },
-      { path: '/config/pools', title: 'menu.configPools', permission: 'config:pools:read' },
-      { path: '/config/cache', title: 'menu.responseCache', permission: 'config:cache:write' },
-      { path: '/config/quota', title: 'menu.quotaConfig', permission: 'config:quota:read' }
-    ]
-  },
-  {
-    index: 'records',
-    title: 'menu.records',
-    icon: 'document',
-    children: [
-      { path: '/call-history/dashboard', title: 'menu.callHistoryDashboard', permission: 'callhistory:view' },
-      { path: '/call-history/list', title: 'menu.callHistoryList', permission: 'callhistory:view' },
-      { path: '/call-history/token-usage', title: 'menu.tokenUsage', permission: 'monitoring:tokenusage:read' },
-      { path: '/call-history/slow-calls', title: 'menu.slowCalls', permission: 'monitoring:slowquery:read' },
-      { path: '/monitoring/slow-queries', title: 'menu.slowQueries', permission: 'monitoring:slowquery:read' },
-      { path: '/monitoring/quota', title: 'menu.quotaMonitoring', permission: 'monitoring:quota:read' },
-      // 后端 /api/exceptions/** 未登记权限规则（回退 authenticated），无需权限控制
-      { path: '/exceptions/list', title: 'menu.exceptionList' },
-      { path: '/exceptions/statistics', title: 'menu.exceptionStatistics' }
-    ]
-  },
-  {
-    index: 'tracing',
-    title: 'menu.tracing',
-    icon: 'position',
-    children: [
-      { path: '/tracing/dashboard', title: 'menu.tracingDashboard', permission: 'tracing:dashboard:read' },
-      { path: '/tracing/search', title: 'menu.tracingSearch', permission: 'tracing:search:read' },
-      { path: '/tracing/management', title: 'menu.tracingManagement', permission: 'tracing:config:manage' }
-    ]
-  },
-  {
-    index: 'security',
-    title: 'menu.security',
-    icon: 'lock',
-    children: [
-      { path: '/security/api-keys', title: 'menu.apiKeys', permission: 'security:apikeys:manage' },
-      { path: '/security/sanitization', title: 'menu.sanitization', permission: 'security:sanitization:manage' },
-      { path: '/security/jwt-tokens', title: 'menu.jwtTokens', permission: 'security:jwttokens:manage' },
-      { path: '/security/blacklist', title: 'menu.blacklist', permission: 'security:blacklist:manage' },
-      { path: '/security/audit-logs', title: 'menu.auditLogs', permission: 'security:audit:read' }
-    ]
-  },
-  {
-    index: 'system',
-    title: 'menu.system',
-    icon: 'user',
-    children: [
-      { path: '/system/accounts', title: 'menu.accounts', permission: 'system:accounts:manage' },
-      { path: '/system/permissions', title: 'menu.permissions', permission: 'system:permissions:manage' },
-      { path: '/config/state-persistence', title: 'menu.statePersistence', permission: 'config:persistence:read' }
-    ]
-  },
-  {
-    index: 'playground',
-    title: 'menu.playground',
-    icon: 'monitor',
-    children: [
-      { path: '/playground/chat', title: 'menu.chat', permission: 'ai:playground:use', icon: 'chat-dot-round' },
-      { path: '/playground/embedding', title: 'menu.embedding', permission: 'ai:playground:use', icon: 'data-line' },
-      { path: '/playground/rerank', title: 'menu.rerank', permission: 'ai:playground:use', icon: 'sort' },
-      { path: '/playground/audio', title: 'menu.audio', permission: 'ai:playground:use', icon: 'headset' },
-      { path: '/playground/image', title: 'menu.image', permission: 'ai:playground:use', icon: 'picture' }
-    ]
-  },
-  {
-    index: 'tools',
-    title: 'menu.tools',
-    icon: 'document',
-    children: [
-      { path: '/tools/client-access', title: 'menu.clientAccess' }
+      {
+        path: '/settings',
+        title: '系统设置',
+        permission: 'system:accounts:manage',
+        icon: 'tools',
+        subtitle: '账号 / 权限 / 审计日志 / 配置版本 / 数据持久化'
+      },
+      {
+        path: '/model-categories',
+        title: '模型分类管理',
+        permission: 'config:instances:read',
+        icon: 'folder-opened',
+        subtitle: '聊天 / 嵌入 / 重排序 / 语音 / 图像等模型类型'
+      },
+      {
+        path: '/model-pools',
+        title: '公共模型池',
+        permission: 'config:instances:read',
+        icon: 'collection-tag',
+        subtitle: '多实例分组与负载均衡'
+      },
+      {
+        path: '/protocol-adapters',
+        title: '适配器设置',
+        permission: 'config:instances:read',
+        icon: 'set-up',
+        subtitle: 'OpenAI / 自定义协议适配'
+      }
     ]
   }
 ]
+
+/** 扁平化全部菜单项（命令面板用） */
+export function flattenMenuItems(): MenuItem[] {
+  return menuGroups.flatMap(g => g.children)
+}

@@ -1,17 +1,17 @@
 <template>
   <PageSkeleton :title="t('service.title')">
     <template #actions>
-      <el-button type="info" plain size="medium" @click="router.push({ name: 'version-management' })">
+      <el-button type="info" plain size="default" @click="router.push({ name: 'version-management' })">
         <el-icon><Document /></el-icon>
         {{ t('service.actions.versionHistory') }}
       </el-button>
       <el-tooltip v-if="availableTypes.length === 0" :content="t('service.allTypesAdded')" placement="left">
-        <el-button type="primary" @click="handleAddService" :disabled="availableTypes.length === 0" size="medium">
+        <el-button type="primary" @click="handleAddService" :disabled="availableTypes.length === 0" size="default">
           <el-icon><Plus /></el-icon>
           {{ t('service.addService') }}
         </el-button>
       </el-tooltip>
-      <el-button v-else type="primary" @click="handleAddService" size="medium">
+      <el-button v-else type="primary" @click="handleAddService" size="default">
         <el-icon><Plus /></el-icon>
         {{ t('service.addService') }}
       </el-button>
@@ -26,7 +26,7 @@
         v-model="searchQuery"
         :placeholder="t('service.searchPlaceholder')"
         clearable
-        size="medium"
+        size="default"
         class="search-input"
         @clear="handleSearchClear"
         @keyup.enter.native="applySearch"
@@ -40,7 +40,7 @@
         v-model="filterLoadBalance"
         :placeholder="t('service.filters.loadBalance')"
         clearable
-        size="medium"
+        size="default"
         class="filter-select"
       >
         <el-option :label="t('service.filters.all')" value=""></el-option>
@@ -53,7 +53,7 @@
         v-model="filterAdapter"
         :placeholder="t('service.filters.adapter')"
         clearable
-        size="medium"
+        size="default"
         class="filter-select adapter-filter"
       >
         <el-option
@@ -97,7 +97,7 @@
           <el-table-column prop="type" :label="t('service.table.serviceType')" sortable>
             <template #default="scope">
               <router-link
-                :to="{ name: 'instance-management', query: { serviceType: scope.row.type } }"
+                :to="{ name: 'models', query: { serviceType: scope.row.type } }"
                 class="cell-link"
                 @click.stop
               >

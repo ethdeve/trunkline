@@ -340,6 +340,12 @@
           </el-select>
           <div class="form-hint">{{ t('apiKeys.form.ipWhitelistHint') }}</div>
         </el-form-item>
+        <el-form-item label="配额快捷设置">
+          <el-button v-for="p in QUOTA_PRESETS" :key="p.id" size="small" @click="applyCreateQuotaPreset(p)">
+            {{ t(p.labelKey) }}
+          </el-button>
+          <div class="form-hint">点击预设一键填入下方限额（0 = 不限），仍可手动微调</div>
+        </el-form-item>
         <el-form-item :label="t('apiKeys.form.dailyRequestLimit')">
           <el-input-number v-model="form.dailyRequestLimit" :min="0" :step="100" :placeholder="t('apiKeys.form.zeroMeansUnlimitedPlaceholder')"/>
           <div class="form-hint">{{ t('apiKeys.form.zeroMeansUnlimited') }}</div>
@@ -659,6 +665,11 @@ const listData = reactive<ApiKeyListVO>({
 const apiKeys = ref<ApiKeyVO[]>([])
 const loading = ref(false)
 const saveLoading = ref(false)
+/** 新台增强：创建 Key 时快捷应用配额预设（方案 A 定稿动作：给 Key 限额就在发 Key 的地方） */
+function applyCreateQuotaPreset(preset: (typeof QUOTA_PRESETS)[number]) {
+  Object.assign(form, preset.limits)
+}
+
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const isEdit = ref(false)
@@ -1281,6 +1292,18 @@ onMounted(() => {
 .table-wrapper .el-table {
   flex: 1;
   overflow: auto;
+}
+/* Keys 主表 12 列共 1760px 本质超宽：EP 的 header/body wrapper 默认 overflow:hidden
+   会把超宽列裁掉且表格根的 auto 无溢出可滚（wrapper 内部已裁掉）。
+   放开 wrapper 裁剪，让表格根 auto 生效——仅在列总宽超出容器时出现横向滚动条 */
+.table-wrapper .el-table :deep(.el-table__header-wrapper),
+.table-wrapper .el-table :deep(.el-table__body-wrapper) {
+  overflow: visible;
+}
+/* 抑制 EP 内部 scrollbar 的横向滚动（纵向保留）：根已是横向滚动端口，
+   内部 wrap 若也可横滚会出现双横向滚动条 */
+.table-wrapper .el-table :deep(.el-scrollbar__wrap) {
+  overflow-x: hidden;
 }
 
 .main-title {

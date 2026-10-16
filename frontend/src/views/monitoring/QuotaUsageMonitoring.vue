@@ -151,50 +151,52 @@
           </el-button>
         </div>
       </template>
-      <el-table
-        :data="usageList"
-        v-loading="loadingUsage"
-        stripe
-        border
-        style="width: 100%"
-      >
-        <el-table-column prop="dimensions.tenantId" :label="t('quotaMonitoring.tenantIdColumn')" min-width="120" show-overflow-tooltip />
-        <el-table-column prop="dimensions.apiKeyId" :label="t('quotaMonitoring.apiKeyIdColumn')" min-width="120" show-overflow-tooltip />
-        <el-table-column prop="dimensions.userId" :label="t('quotaMonitoring.userIdColumn')" min-width="100" show-overflow-tooltip />
-        <el-table-column prop="dimensions.serviceType" :label="t('quotaMonitoring.serviceTypeColumn')" min-width="100" />
-        <el-table-column prop="dimensions.model" :label="t('quotaMonitoring.modelColumn')" min-width="140" show-overflow-tooltip />
-        <el-table-column prop="window" :label="t('quotaMonitoring.windowColumn')" width="100" align="center" />
-        <el-table-column prop="windowStart" :label="t('quotaMonitoring.windowStartColumn')" min-width="170" />
-        <el-table-column prop="requestCount" :label="t('quotaMonitoring.requestCountColumn')" width="110" align="right">
-          <template #default="{ row }">
-            {{ row.requestCount.toLocaleString() }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="tokenCount" :label="t('quotaMonitoring.tokenCountColumn')" width="120" align="right">
-          <template #default="{ row }">
-            {{ row.tokenCount.toLocaleString() }}
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('quotaMonitoring.limitRequestColumn')" width="120" align="right">
-          <template #default="{ row }">
-            {{ formatLimit(limitMap.get(row.dimensions?.apiKeyId)?.dailyRequestLimit) }}
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('quotaMonitoring.limitTokenColumn')" width="120" align="right">
-          <template #default="{ row }">
-            {{ formatLimit(limitMap.get(row.dimensions?.apiKeyId)?.dailyTokenLimit) }}
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('quotaMonitoring.progressColumn')" min-width="140">
-          <template #default="{ row }">
-            <el-progress
-              :percentage="usagePercent(row)"
-              :status="usagePercent(row) >= 80 ? 'exception' : undefined"
-              :stroke-width="10"
-            />
-          </template>
-        </el-table-column>
-      </el-table>
+      <div class="table-scroll-x">
+        <el-table
+          :data="usageList"
+          v-loading="loadingUsage"
+          stripe
+          border
+          style="width: 100%"
+        >
+          <el-table-column prop="dimensions.tenantId" :label="t('quotaMonitoring.tenantIdColumn')" min-width="120" show-overflow-tooltip />
+          <el-table-column prop="dimensions.apiKeyId" :label="t('quotaMonitoring.apiKeyIdColumn')" min-width="120" show-overflow-tooltip />
+          <el-table-column prop="dimensions.userId" :label="t('quotaMonitoring.userIdColumn')" min-width="100" show-overflow-tooltip />
+          <el-table-column prop="dimensions.serviceType" :label="t('quotaMonitoring.serviceTypeColumn')" min-width="100" />
+          <el-table-column prop="dimensions.model" :label="t('quotaMonitoring.modelColumn')" min-width="140" show-overflow-tooltip />
+          <el-table-column prop="window" :label="t('quotaMonitoring.windowColumn')" width="100" align="center" />
+          <el-table-column prop="windowStart" :label="t('quotaMonitoring.windowStartColumn')" min-width="170" />
+          <el-table-column prop="requestCount" :label="t('quotaMonitoring.requestCountColumn')" width="110" align="right">
+            <template #default="{ row }">
+              {{ row.requestCount.toLocaleString() }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="tokenCount" :label="t('quotaMonitoring.tokenCountColumn')" width="120" align="right">
+            <template #default="{ row }">
+              {{ row.tokenCount.toLocaleString() }}
+            </template>
+          </el-table-column>
+          <el-table-column :label="t('quotaMonitoring.limitRequestColumn')" width="120" align="right">
+            <template #default="{ row }">
+              {{ formatLimit(limitMap.get(row.dimensions?.apiKeyId)?.dailyRequestLimit) }}
+            </template>
+          </el-table-column>
+          <el-table-column :label="t('quotaMonitoring.limitTokenColumn')" width="120" align="right">
+            <template #default="{ row }">
+              {{ formatLimit(limitMap.get(row.dimensions?.apiKeyId)?.dailyTokenLimit) }}
+            </template>
+          </el-table-column>
+          <el-table-column :label="t('quotaMonitoring.progressColumn')" min-width="140">
+            <template #default="{ row }">
+              <el-progress
+                :percentage="usagePercent(row)"
+                :status="usagePercent(row) >= 80 ? 'exception' : undefined"
+                :stroke-width="10"
+              />
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
       <el-empty
         v-if="!loadingUsage && usageList.length === 0"
         :description="status?.enabled ? t('quotaMonitoring.noUsageData') : t('quotaMonitoring.quotaNotEnabled')"

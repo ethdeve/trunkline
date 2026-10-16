@@ -276,9 +276,9 @@ const navigateActionTarget = (action: RuleAction) => {
   if (action.type === 'TARGET_ADAPTER' && action.adapterName) {
     router.push({ name: 'adapter-management' })
   } else if (action.type === 'TARGET_MODEL' && action.modelName) {
-    router.push({ name: 'service-management' })
+    router.push({ name: 'model-categories' })
   } else if (action.type === 'TARGET_INSTANCE' && action.instanceId) {
-    router.push({ name: 'service-management' })
+    router.push({ name: 'model-categories' })
   }
 }
 

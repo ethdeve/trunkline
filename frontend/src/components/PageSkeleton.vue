@@ -1,7 +1,7 @@
 <template>
-  <div class="page-skeleton">
-    <!-- 页面标题区 -->
-    <div class="page-header">
+  <div class="page-skeleton" :class="{ 'is-embedded': embedded }">
+    <!-- 页面标题区（嵌入模式下隐藏：标题职责统一归聚合页 PageHeader，避免双重标题） -->
+    <div v-if="!embedded" class="page-header">
       <div class="page-title">
         <slot name="title">
           <h2 v-if="title">{{ title }}</h2>
@@ -35,14 +35,30 @@
 </template>
 
 <script setup lang="ts">
+import { inject, ref } from 'vue'
+
 defineProps<{
   title?: string
 }>()
+
+/**
+ * 嵌入模式（新台壳层规范）：
+ * 聚合页（上游模型/观测中心/策略中心/系统设置等）provide('skeletonEmbedded', true) 后，
+ * 其内部所有收编组件的 PageSkeleton 自动隐藏标题区并去掉自带 padding——
+ * 页级标题由聚合页 PageHeader 统一承担，收编组件零改动生效。
+ * 直挂页（/quota、/guide 之外的场景）不 provide，保持独立页头。
+ */
+const injected = inject<boolean>('skeletonEmbedded', false)
+const embedded = ref(injected)
 </script>
 
 <style scoped>
 .page-skeleton {
   padding: var(--ja-page-padding, 18px);
+}
+
+.page-skeleton.is-embedded {
+  padding: 4px 0 0;
 }
 
 .page-header {
@@ -67,6 +83,10 @@ defineProps<{
 
 .page-stats {
   margin-bottom: 16px;
+}
+
+.is-embedded .page-stats {
+  margin-bottom: 12px;
 }
 
 .page-toolbar {

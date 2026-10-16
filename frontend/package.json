@@ -1,6 +1,6 @@
 {
-  "name": "jairouter-admin",
-  "version": "3.3.1",
+  "name": "jairouter-console",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -8,17 +8,7 @@
     "preview": "vite preview",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
     "type-check": "vue-tsc --noEmit",
-    "test:unit": "vitest run",
-    "test:api": "vitest run src/api",
-    "test:e2e": "node e2e/runner.mjs",
-    "test:e2e:list": "node e2e/runner.mjs --list",
-    "test:e2e:smoke": "node e2e/runner.mjs --only smoke",
-    "test:e2e:auth": "node e2e/runner.mjs --only auth",
-    "test:e2e:deep": "node e2e/runner.mjs --only deep",
-    "test:e2e:dialog": "node e2e/runner.mjs --only dialog",
-    "test:e2e:crud": "node e2e/runner.mjs --only crud",
-    "test:e2e:config": "node e2e/runner.mjs --only config,traffic,records,tracing",
-    "test:e2e:legacy": "node e2e/console-v32.mjs"
+    "test:api": "vitest run src/api"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
@@ -63,5 +53,6 @@
     "vite": "^8.0.16",
     "vitest": "^5.0.1",
     "vue-tsc": "^3.3.7"
-  }
+  },
+  "description": "JAiRouter Console - rebuilt admin frontend"
 }

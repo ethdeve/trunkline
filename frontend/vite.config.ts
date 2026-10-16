@@ -1,11 +1,15 @@
-import {defineConfig} from 'vite'
+import {defineConfig, loadEnv} from 'vite'
 import vue from '@vitejs/plugin-vue'
 import {resolve} from 'path'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import {ElementPlusResolver} from 'unplugin-vue-components/resolvers'
 
-// https://vitejs.dev/config/
+// 教训固化（来自旧工程 UPSTREAM-TOUCH 注释）：process.env 不加载 .env 文件，
+// 必须用 loadEnv 显式加载，否则 proxy target 回退值与 .env 矛盾导致 dev server 502。
+const env = loadEnv('development', process.cwd(), '')
+const API_TARGET = env.VITE_API_URL || 'http://127.0.0.1:8080'
+
 export default defineConfig({
   plugins: [
     vue(),
@@ -21,53 +25,28 @@ export default defineConfig({
       dts: 'components.d.ts'
     }),
   ],
-  base: '/admin/',
+  // 新台不挂在 /admin/ 子路径下（旧台继续占用），根路径即语义
+  base: '/',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,
     minify: 'terser',
-    chunkSizeWarningLimit: 1000, // 增加块大小警告限制
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        // Vite v8 requires manualChunks to be a function
         manualChunks: (id) => {
-          // 核心框架
-          if (id.includes('node_modules/vue/dist/') || id.includes('node_modules\\vue\\dist\\')) {
-            return 'vue'
-          }
-          if (id.includes('node_modules/vue-router/dist/') || id.includes('node_modules\\vue-router\\dist\\')) {
-            return 'vue-router'
-          }
-          if (id.includes('node_modules/pinia/dist/') || id.includes('node_modules\\pinia\\dist\\')) {
-            return 'pinia'
-          }
-          // UI框架
-          if (id.includes('node_modules/element-plus/') || id.includes('node_modules\\element-plus\\')) {
-            return 'element-plus'
-          }
-          if (id.includes('node_modules/@element-plus/icons-vue/') || id.includes('node_modules\\@element-plus\\icons-vue\\')) {
-            return 'element-plus-icons'
-          }
-          // 图表库
-          if (id.includes('node_modules/echarts/') || id.includes('node_modules\\echarts\\')) {
-            return 'echarts'
-          }
-          if (id.includes('node_modules/vue-echarts/') || id.includes('node_modules\\vue-echarts\\')) {
-            return 'vue-echarts'
-          }
-          // 网络请求
-          if (id.includes('node_modules/axios/') || id.includes('node_modules\\axios\\')) {
-            return 'axios'
-          }
-          // 国际化
-          if (id.includes('node_modules/vue-i18n/') || id.includes('node_modules\\vue-i18n\\')) {
-            return 'vue-i18n'
-          }
-          // 其他 node_modules 放入 vendor
-          if (id.includes('node_modules/')) {
-            return 'vendor'
-          }
+          const m = id.replace(/\\/g, '/')
+          if (m.includes('node_modules/vue/dist/')) return 'vue'
+          if (m.includes('node_modules/vue-router/dist/')) return 'vue-router'
+          if (m.includes('node_modules/pinia/dist/')) return 'pinia'
+          if (m.includes('node_modules/element-plus/')) return 'element-plus'
+          if (m.includes('node_modules/@element-plus/icons-vue/')) return 'element-plus-icons'
+          if (m.includes('node_modules/echarts/')) return 'echarts'
+          if (m.includes('node_modules/vue-echarts/')) return 'vue-echarts'
+          if (m.includes('node_modules/axios/')) return 'axios'
+          if (m.includes('node_modules/vue-i18n/')) return 'vue-i18n'
+          if (m.includes('node_modules/')) return 'vendor'
         }
       }
     }
@@ -79,43 +58,10 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 3000,
+    port: 3100, // 旧台 dev 占 3000，双台并行各用各端口
     proxy: {
-      '/api': {
-        target: process.env.VITE_API_URL || 'http://127.0.0.1:9900',
-        changeOrigin: true,
-        secure: false,
-        configure: (proxy, options) => {
-          // 添加请求日志
-          proxy.on('proxyReq', (proxyReq, req, res) => {
-            console.log(`[Vite Proxy] Request: ${req.method} ${req.url} -> ${options.target}${req.url}`)
-          });
-          // 添加响应日志
-          proxy.on('proxyRes', (proxyRes, req, res) => {
-            console.log(`[Vite Proxy] Response: ${req.method} ${req.url} -> Status: ${proxyRes.statusCode}`)
-          });
-          // 添加错误日志
-          proxy.on('error', (err, req, res) => {
-            console.error(`[Vite Proxy] Error: ${req.method} ${req.url} ->`, err.message)
-          });
-        }
-      },
-      '/v1': {
-        target: process.env.VITE_API_URL || 'http://127.0.0.1:9900',
-        changeOrigin: true,
-        secure: false,
-        configure: (proxy, options) => {
-          proxy.on('proxyReq', (proxyReq, req, res) => {
-            console.log(`[Vite Proxy] Request: ${req.method} ${req.url} -> ${options.target}${req.url}`)
-          });
-          proxy.on('proxyRes', (proxyRes, req, res) => {
-            console.log(`[Vite Proxy] Response: ${req.method} ${req.url} -> Status: ${proxyRes.statusCode}`)
-          });
-          proxy.on('error', (err, req, res) => {
-            console.error(`[Vite Proxy] Error: ${req.method} ${req.url} ->`, err.message)
-          });
-        }
-      }
+      '/api': {target: API_TARGET, changeOrigin: true, secure: false},
+      '/v1': {target: API_TARGET, changeOrigin: true, secure: false}
     }
   },
   define: {

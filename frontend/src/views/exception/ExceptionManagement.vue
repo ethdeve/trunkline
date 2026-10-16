@@ -108,7 +108,7 @@
       </div>
 
       <!-- 表格 -->
-      <div class="table-wrapper">
+      <div class="table-scroll-x">
         <el-table
           v-loading="loading"
           :data="exceptionList"
@@ -133,7 +133,7 @@
                 v-if="scope.row.serviceType"
                 type="primary"
                 :underline="false"
-                @click.stop="router.push({ name: 'instance-management', query: { serviceType: normalizeServiceType(scope.row.serviceType) } })"
+                @click.stop="router.push({ name: 'models', query: { serviceType: normalizeServiceType(scope.row.serviceType) } })"
               >
                 <el-tag size="small" type="info">{{ scope.row.serviceType }}</el-tag>
               </el-link>
@@ -240,7 +240,7 @@
             v-if="selectedEvent.serviceType"
             type="primary"
             :underline="false"
-            @click="router.push({ name: 'service-management', query: { serviceType: normalizeServiceType(selectedEvent.serviceType) } })"
+            @click="router.push({ name: 'model-categories', query: { serviceType: normalizeServiceType(selectedEvent.serviceType) } })"
           >
             <el-tag size="small" type="info">{{ selectedEvent.serviceType }}</el-tag>
           </el-link>
@@ -253,7 +253,7 @@
             v-if="selectedEvent.instanceName && selectedEvent.serviceType"
             type="primary"
             :underline="false"
-            @click="router.push({ name: 'instance-management', query: { serviceType: normalizeServiceType(selectedEvent.serviceType) } })"
+            @click="router.push({ name: 'models', query: { serviceType: normalizeServiceType(selectedEvent.serviceType) } })"
           >
             {{ selectedEvent.instanceName }}
           </el-link>

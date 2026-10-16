@@ -161,32 +161,32 @@
         v-loading="loadingEvents"
         class="events-table"
       >
-        <el-table-column prop="timestamp" :label="t('circuitBreaker.monitoring.columns.time')" width="180">
+        <el-table-column prop="timestamp" :label="t('circuitBreaker.monitoring.columns.time')" width="168">
           <template #default="{ row }">
             {{ formatTimestamp(row.timestamp) }}
           </template>
         </el-table-column>
-        <el-table-column prop="instanceId" :label="t('circuitBreaker.monitoring.columns.instanceIdCompact')" min-width="200" show-overflow-tooltip>
+        <el-table-column prop="instanceId" :label="t('circuitBreaker.monitoring.columns.instanceIdCompact')" min-width="170" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tooltip :content="row.instanceId" placement="top">
               <span class="instance-id">{{ getInstanceShortName(row.instanceId) }}</span>
             </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column prop="instanceName" :label="t('circuitBreaker.monitoring.columns.instanceName')" min-width="120" show-overflow-tooltip />
-        <el-table-column prop="serviceType" :label="t('circuitBreaker.monitoring.columns.serviceType')" width="100">
+        <el-table-column prop="instanceName" :label="t('circuitBreaker.monitoring.columns.instanceName')" min-width="110" show-overflow-tooltip />
+        <el-table-column prop="serviceType" :label="t('circuitBreaker.monitoring.columns.serviceType')" width="92">
           <template #default="{ row }">
             <el-tag size="small">{{ row.serviceType || '-' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="eventType" :label="t('circuitBreaker.monitoring.columns.eventType')" width="120">
+        <el-table-column prop="eventType" :label="t('circuitBreaker.monitoring.columns.eventType')" width="110">
           <template #default="{ row }">
             <el-tag :type="getEventTypeTagType(row.eventType)" size="small">
               {{ getEventTypeLabel(row.eventType) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="previousState" :label="t('circuitBreaker.monitoring.columns.previousState')" width="100">
+        <el-table-column prop="previousState" :label="t('circuitBreaker.monitoring.columns.previousState')" width="92">
           <template #default="{ row }">
             <el-tag v-if="row.previousState" :type="getStateTagType(row.previousState)" size="small">
               {{ row.previousState }}
@@ -194,7 +194,7 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="currentState" :label="t('circuitBreaker.monitoring.columns.currentState')" width="100">
+        <el-table-column prop="currentState" :label="t('circuitBreaker.monitoring.columns.currentState')" width="92">
           <template #default="{ row }">
             <el-tag v-if="row.currentState" :type="getStateTagType(row.currentState)" size="small">
               {{ row.currentState }}
@@ -204,7 +204,7 @@
         </el-table-column>
         <el-table-column prop="failureCount" :label="t('circuitBreaker.monitoring.columns.failureCount')" width="80" />
         <el-table-column prop="successCount" :label="t('circuitBreaker.monitoring.columns.successCount')" width="80" />
-        <el-table-column prop="triggerReason" :label="t('circuitBreaker.monitoring.columns.triggerReason')" min-width="120" show-overflow-tooltip>
+        <el-table-column prop="triggerReason" :label="t('circuitBreaker.monitoring.columns.triggerReason')" min-width="110" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.triggerReason || '-' }}
           </template>

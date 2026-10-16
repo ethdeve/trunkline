@@ -106,33 +106,33 @@
         :max-height="600"
         @sort-change="handleSortChange"
       >
-        <el-table-column :label="t('callHistory.common.time')" prop="createdAt" width="180" sortable="custom">
+        <el-table-column :label="t('callHistory.common.time')" prop="createdAt" width="168" sortable="custom">
           <template #default="scope">
             {{ formatTime(scope.row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="Trace ID" prop="traceId" width="140" show-overflow-tooltip>
+        <el-table-column label="Trace ID" prop="traceId" width="128" show-overflow-tooltip>
           <template #default="scope">
             <el-link type="primary" @click="handleTraceIdClick(scope.row.traceId)">
               {{ scope.row.traceId?.substring(0, 8) }}...
             </el-link>
           </template>
         </el-table-column>
-        <el-table-column :label="t('callHistory.common.modelName')" prop="modelName" min-width="160" show-overflow-tooltip />
-        <el-table-column :label="t('callHistory.common.serviceType')" prop="serviceType" width="110">
+        <el-table-column :label="t('callHistory.common.modelName')" prop="modelName" min-width="148" show-overflow-tooltip />
+        <el-table-column :label="t('callHistory.common.serviceType')" prop="serviceType" width="100">
           <template #default="scope">
             <el-link
               v-if="scope.row.serviceType"
               type="primary"
               :underline="false"
-              @click.stop="router.push({ name: 'instance-management', query: { serviceType: scope.row.serviceType } })"
+              @click.stop="router.push({ name: 'models', query: { serviceType: scope.row.serviceType } })"
             >
               <el-tag size="small">{{ getServiceTypeLabel(scope.row.serviceType) }}</el-tag>
             </el-link>
             <el-tag v-else size="small">{{ getServiceTypeLabel(scope.row.serviceType) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('callHistory.common.provider')" prop="provider" width="100" show-overflow-tooltip />
+        <el-table-column :label="t('callHistory.common.provider')" prop="provider" width="92" show-overflow-tooltip />
         <el-table-column :label="t('callHistory.common.httpStatus')" prop="httpStatusCode" width="100" align="center" sortable="custom">
           <template #default="scope">
             <el-tag :type="getStatusType(scope.row.httpStatusCode)" size="small">
@@ -145,7 +145,7 @@
             {{ formatNumber(scope.row.totalTokens) }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('callHistory.common.responseTimeMs')" prop="responseTimeMs" width="120" align="right" sortable="custom">
+        <el-table-column :label="t('callHistory.common.responseTimeMs')" prop="responseTimeMs" width="112" align="right" sortable="custom">
           <template #default="scope">
             <el-tag :type="getResponseTimeType(scope.row.responseTimeMs)" size="small">
               {{ scope.row.responseTimeMs?.toFixed(0) || '-' }}
@@ -214,7 +214,7 @@
               v-if="selectedRecord.serviceType"
               type="primary"
               :underline="false"
-              @click="router.push({ name: 'service-management', query: { serviceType: selectedRecord.serviceType } })"
+              @click="router.push({ name: 'model-categories', query: { serviceType: selectedRecord.serviceType } })"
             >
               {{ getServiceTypeLabel(selectedRecord.serviceType) }}
             </el-link>
@@ -228,7 +228,7 @@
               v-if="selectedRecord.instanceName && selectedRecord.serviceType"
               type="primary"
               :underline="false"
-              @click="router.push({ name: 'instance-management', query: { serviceType: selectedRecord.serviceType } })"
+              @click="router.push({ name: 'models', query: { serviceType: selectedRecord.serviceType } })"
             >
               {{ selectedRecord.instanceName }}
             </el-link>
