@@ -1,0 +1,244 @@
+/**
+ * Console 新增令牌与样式（收编旧 tokens.css 的增量层）
+ * - 12 个新令牌（一期清单 1.3）
+ * - 紧凑模式密度覆盖
+ * - 双栏导航布局样式（浅色随主题，替代旧 sidebar 深色渐变硬编码）
+ */
+
+:root {
+  /* 健康灯四态（拓扑图与状态灯共用） */
+  --ja-dot-ok: #67c23a;
+  --ja-dot-warn: #e6a23c;
+  --ja-dot-error: #f56c6c;
+  --ja-dot-off: #909399;
+
+  /* 拓扑图（自动随主题） */
+  --ja-topo-line: var(--el-border-color);
+  --ja-topo-node-bg: var(--el-bg-color);
+
+  /* 命令面板 */
+  --ja-palette-mask: rgba(0, 0, 0, 0.35);
+
+  /* 布局尺寸 */
+  --ja-layout-nav-w: 220px;
+  --ja-layout-nav-w-collapsed: 64px;
+  --ja-layout-topbar-h: 48px;
+  --ja-card-gap: 12px;
+  --ja-page-padding: 18px;
+}
+
+/* 紧凑模式：卡片间距收窄 + Element Plus 尺寸降档兜底 */
+html.ja-compact {
+  --ja-card-gap: 8px;
+}
+html.ja-compact .el-card__body {
+  padding: 12px;
+}
+
+/* ---------- ConsoleLayout 双栏布局 ---------- */
+.console-shell {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  background: var(--ja-main-bg);
+}
+
+.console-nav {
+  width: var(--ja-layout-nav-w);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--el-bg-color);
+  border-right: 1px solid var(--el-border-color-light);
+  transition: width 0.2s ease;
+}
+.console-nav.is-collapsed {
+  width: var(--ja-layout-nav-w-collapsed);
+}
+
+.console-nav__logo {
+  height: var(--ja-layout-topbar-h);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  font-weight: 600;
+  color: var(--ja-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.console-nav__menu {
+  flex: 1;
+  overflow-y: auto;
+  border-right: none;
+}
+
+.console-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.console-topbar {
+  height: var(--ja-layout-topbar-h);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: var(--el-bg-color);
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+.console-content {
+  flex: 1;
+  padding: var(--ja-card-gap);
+  overflow-y: auto;
+}
+
+/* 命令面板触发提示 */
+.palette-trigger {
+  cursor: pointer;
+  color: var(--ja-text-placeholder);
+  font-size: 12px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 4px;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 180px;
+}
+.palette-trigger:hover {
+  border-color: var(--ja-primary);
+  color: var(--ja-text-regular);
+}
+
+/* 暗色下遮罩加深 */
+html.dark {
+  --ja-palette-mask: rgba(0, 0, 0, 0.6);
+}
+
+
+/* ---------- 全局视觉规顺层（统一设计语言：轻卡片 · 克制用色 · 受控滚动） ---------- */
+
+/* 1. 滚动收敛：横向滚动只发生在内容区，侧边导航永远固定可见 */
+.console-content {
+  overflow: auto;
+}
+
+/* 1b. 细款滚动条：受控滚动容器统一纤细低扰（8px 细轨 + 圆角滑块，hover 加深） */
+.console-content::-webkit-scrollbar,
+.el-drawer__body::-webkit-scrollbar,
+.table-wrapper .el-table::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.console-content::-webkit-scrollbar-thumb,
+.el-drawer__body::-webkit-scrollbar-thumb,
+.table-wrapper .el-table::-webkit-scrollbar-thumb {
+  background: var(--el-border-color-dark, #cdd0d6);
+  border-radius: 4px;
+}
+.console-content::-webkit-scrollbar-thumb:hover,
+.el-drawer__body::-webkit-scrollbar-thumb:hover,
+.table-wrapper .el-table::-webkit-scrollbar-thumb:hover {
+  background: var(--el-text-color-disabled, #a8abb2);
+}
+.console-content::-webkit-scrollbar-track,
+.el-drawer__body::-webkit-scrollbar-track,
+.table-wrapper .el-table::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 2. 卡片统一：所有 el-card 同一圆角/边框/无阴影，hover 不上浮 */
+.el-card {
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color-lighter);
+  box-shadow: none !important;
+  transition: border-color var(--el-transition-duration-fast, 0.2s);
+}
+.el-card:hover {
+  border-color: var(--el-border-color-light);
+}
+.el-card__body {
+  padding: 16px;
+}
+
+/* 3. 表格统一：浅灰表头 + 一致的行高密度 */
+.el-table {
+  --el-table-header-bg-color: var(--el-fill-color-light);
+  --el-table-header-text-color: var(--ja-text-regular);
+  --el-table-row-hover-bg-color: var(--el-fill-color-lighter);
+}
+.el-table th.el-table__cell {
+  font-weight: 600;
+}
+
+/* 4. 工具栏用色克制：语义色按钮（成功/警告）一律降为 plain 轻量形态，
+      主操作保留实色 primary——工具栏只允许一个视觉焦点 */
+.page-actions .el-button--success:not(.is-text):not(.is-link),
+.page-toolbar .el-button--success:not(.is-text):not(.is-link),
+.page-toolbar .el-button--warning:not(.is-text):not(.is-link) {
+  --el-button-bg-color: var(--el-color-success-light-9);
+  --el-button-border-color: var(--el-color-success-light-5);
+  --el-button-hover-bg-color: var(--el-color-success-light-8);
+  --el-button-hover-border-color: var(--el-color-success-light-4);
+  --el-button-active-bg-color: var(--el-color-success-light-8);
+  color: var(--el-color-success);
+}
+.page-actions .el-button--warning:not(.is-text):not(.is-link),
+.page-toolbar .el-button--warning:not(.is-text):not(.is-link) {
+  --el-button-bg-color: var(--el-color-warning-light-9);
+  --el-button-border-color: var(--el-color-warning-light-5);
+  --el-button-hover-bg-color: var(--el-color-warning-light-8);
+  --el-button-hover-border-color: var(--el-color-warning-light-4);
+  --el-button-active-bg-color: var(--el-color-warning-light-8);
+  color: var(--el-color-warning);
+}
+
+/* 5. 页头区下的 el-tabs 统一密度：tab 栏贴卡片顶部，弱化底部留白 */
+.el-card > .el-tabs .el-tabs__header {
+  margin-bottom: 14px;
+}
+.el-tabs--card > .el-tabs__header .el-tabs__item.is-active {
+  background: var(--el-color-primary-light-9);
+  border-bottom-color: transparent;
+}
+
+/* 6. StatCard 统一：白底彩点（去 hover 位移与重阴影，功能色只落在图标上） */
+.stat-card.el-card {
+  min-height: 80px;
+}
+.stat-card .el-card__body {
+  padding: 14px 18px;
+}
+
+/* 7. 弹窗统一圆角 */
+.el-dialog {
+  border-radius: 10px;
+}
+
+/* 8. 宽表横向滚动兜底（.table-scroll-x）：
+      EP 的表格根默认 overflow:hidden 且 width:100%，列总宽超容器时超宽列会被裁在根里且
+      外层容器感知不到溢出（外层滚动失效）。解法与 Keys 主表一致——让表格根本身成为横向
+      滚动端口：根 overflow:auto + 放开 header/body wrapper 裁剪，表头表体随根一起滚动；
+      同时抑制 EP 内部 scrollbar 的横向滚动（纵向保留），避免出现双横向滚动条 */
+.table-scroll-x > .el-table {
+  max-width: none;
+  overflow: auto;
+}
+.table-scroll-x .el-table__header-wrapper,
+.table-scroll-x .el-table__body-wrapper,
+.table-scroll-x .el-table__footer-wrapper {
+  overflow: visible;
+}
+.table-scroll-x .el-table .el-scrollbar__wrap {
+  overflow-x: hidden;
+}
+.el-drawer {
+  border-radius: 10px 0 0 10px;
+}
