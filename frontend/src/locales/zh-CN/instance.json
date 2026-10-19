@@ -35,6 +35,7 @@
     "testConnectionTitle": "测试模型连通",
     "testConnectionModel": "模型名",
     "testConnectionMessage": "测试消息",
+    "testConnectionDefaultMessage": "你好，请回复\"接入成功\"四个字。",
     "testConnectionApiKey": "API Key",
     "testConnectionApiKeyTip": "测试请求会携带该 Key 调用本网关 /v1/chat/completions，不会暴露给浏览器之外。",
     "testConnectionSuccess": "测试成功",

@@ -1,6 +1,7 @@
 // Playground 缓存管理
 import { ref, reactive } from 'vue'
 import { getServiceInstances } from '@/api/dashboard'
+import { getPoolList } from '@/api/pools'
 import { ElMessage } from 'element-plus'
 import { i18n } from '@/i18n'
 
@@ -30,6 +31,7 @@ const CACHE_EXPIRE_TIME = 5 * 60 * 1000
 // 全局缓存状态
 const instancesCache = reactive<Record<string, CacheItem<ServiceInstance[]>>>({})
 const modelsCache = reactive<Record<string, CacheItem<string[]>>>({})
+const groupsCache = reactive<Record<string, CacheItem<string[]>>>({})
 
 // 请求去重控制
 const pendingRequests = new Map<string, Promise<any>>()
@@ -185,6 +187,72 @@ export const getCachedModels = async (serviceType: string, forceRefresh = false)
   }
 }
 
+// 获取分组（模型分组/资源池）名称列表，供测试场把分组作为虚拟模型选择
+export const getCachedGroups = async (serviceType: string, forceRefresh = false): Promise<string[]> => {
+  // 初始化缓存
+  if (!groupsCache[serviceType]) {
+    groupsCache[serviceType] = createEmptyCache<string[]>([])
+  }
+
+  const cache = groupsCache[serviceType]
+
+  // 如果缓存有效且不强制刷新，返回缓存数据
+  if (!forceRefresh && isCacheValid(cache) && cache.data.length > 0) {
+    return cache.data
+  }
+
+  // 如果正在加载，等待加载完成
+  if (cache.loading) {
+    return new Promise((resolve) => {
+      const checkLoading = () => {
+        if (!cache.loading) {
+          resolve(cache.data)
+        } else {
+          setTimeout(checkLoading, 100)
+        }
+      }
+      checkLoading()
+    })
+  }
+
+  // 拉取资源池列表，按服务类型过滤出启用的分组名
+  return dedupeRequest(`groups-${serviceType}`, async () => {
+    cache.loading = true
+
+    try {
+      const response = await getPoolList()
+      const pools = (response.data?.data || []) as Array<{
+        poolName?: string
+        serviceType?: string
+        enabled?: boolean
+      }>
+
+      const names = pools
+        .filter((p) => p.serviceType === serviceType && p.enabled !== false && Boolean(p.poolName))
+        .map((p) => p.poolName as string)
+
+      // 更新缓存
+      cache.data = names
+      cache.timestamp = Date.now()
+
+      return names
+    } catch (error) {
+      console.error(`获取${serviceType}分组列表失败:`, error)
+
+      // 如果有旧缓存数据，继续使用
+      if (cache.data.length > 0) {
+        ElMessage.warning(gt('playgroundCache.refreshGroupsWarn', { serviceType }))
+        return cache.data
+      }
+
+      ElMessage.error(gt('playgroundCache.fetchGroupsFailed', { serviceType }))
+      return []
+    } finally {
+      cache.loading = false
+    }
+  })
+}
+
 // 获取缓存状态
 export const getCacheStatus = () => {
   const instancesStatus = Object.entries(instancesCache).map(([serviceType, cache]) => ({
@@ -213,10 +281,12 @@ export const clearCache = (serviceType?: string) => {
   if (serviceType) {
     delete instancesCache[serviceType]
     delete modelsCache[serviceType]
+    delete groupsCache[serviceType]
   } else {
     // 清除所有缓存
     Object.keys(instancesCache).forEach(key => delete instancesCache[key])
     Object.keys(modelsCache).forEach(key => delete modelsCache[key])
+    Object.keys(groupsCache).forEach(key => delete groupsCache[key])
   }
 }
 
@@ -262,6 +332,7 @@ export const usePlaygroundCache = () => {
     modelsCache: readonly(modelsCache),
     getCachedInstances,
     getCachedModels,
+    getCachedGroups,
     getCacheStatus,
     clearCache,
     preloadCommonData,

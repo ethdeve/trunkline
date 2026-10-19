@@ -1,11 +1,13 @@
 <template>
   <PageSkeleton :title="t('apiKeys.title')">
-    <template #actions>
+    <!-- 操作区：嵌入模式下 PageSkeleton 页头整体隐藏，#actions 插槽不会渲染，
+         故按钮改为内容顶部自渲染，避免"创建密钥/导入/导出"入口丢失 -->
+    <div class="page-actions-row">
       <el-button icon="Download" type="success" @click="handleExport">{{ t('apiKeys.exportConfig') }}</el-button>
       <el-button icon="Upload" type="warning" @click="showImportDialog">{{ t('apiKeys.importConfig') }}</el-button>
       <el-button icon="Plus" type="primary" @click="handleCreateApiKey">{{ t('apiKeys.createApiKey') }}</el-button>
       <el-button icon="DataAnalysis" @click="goQuotaMonitoring">{{ t('apiKeys.gotoQuotaMonitoring') }}</el-button>
-    </template>
+    </div>
 
     <!-- 统计卡片 -->
     <el-row :gutter="20" class="stats-row">
@@ -340,6 +342,20 @@
           </el-select>
           <div class="form-hint">{{ t('apiKeys.form.ipWhitelistHint') }}</div>
         </el-form-item>
+        <el-form-item :label="t('apiKeys.form.allowedModels')">
+          <el-select v-model="form.allowedModels" multiple filterable clearable
+                     :placeholder="t('apiKeys.form.allowedModelsPlaceholder')" style="width: 100%;">
+            <el-option v-for="m in modelOptions" :key="m" :label="m" :value="m" />
+          </el-select>
+          <div class="form-hint">{{ t('apiKeys.form.allowedModelsHint') }}</div>
+        </el-form-item>
+        <el-form-item :label="t('apiKeys.form.allowedGroups')">
+          <el-select v-model="form.allowedGroups" multiple filterable clearable
+                     :placeholder="t('apiKeys.form.allowedGroupsPlaceholder')" style="width: 100%;">
+            <el-option v-for="g in groupOptions" :key="g" :label="g" :value="g" />
+          </el-select>
+          <div class="form-hint">{{ t('apiKeys.form.allowedGroupsHint') }}</div>
+        </el-form-item>
         <el-form-item label="配额快捷设置">
           <el-button v-for="p in QUOTA_PRESETS" :key="p.id" size="small" @click="applyCreateQuotaPreset(p)">
             {{ t(p.labelKey) }}
@@ -547,6 +563,9 @@ import {
 } from '@/api/apiKey'
 import { getApiKeyQuota } from '@/api/apiKey'
 import { updateApiKeyQuota } from '@/api/apiKeyQuotaOps'
+import { getServiceInstances } from '@/api/instance'
+import { getPoolList } from '@/api/pools'
+import { COMMON_SERVICE_TYPES } from '@/constants/serviceTypes'
 import { QUOTA_PRESETS, formatQuotaLimit, formatRemaining } from '@/utils/quotaOps'
 import type {
   ApiKeyVO,
@@ -691,12 +710,36 @@ const form = ref({
   enabled: true,
   permissions: [] as string[],
   allowedIpAddresses: [] as string[],
+  allowedModels: [] as string[],
+  allowedGroups: [] as string[],
   dailyRequestLimit: 0,
   dailyTokenLimit: 0,
   rateLimitPerMinute: 0,
   quotaAlertThreshold: 0.8,
   rotationPeriodDays: 0
 })
+
+// 模型/分组白名单可选数据源
+const modelOptions = ref<string[]>([])
+const groupOptions = ref<string[]>([])
+
+// 加载可选模型（实例名）与模型分组（pool 名），供密钥白名单多选使用
+const loadModelAndGroupOptions = async () => {
+  try {
+    const nameSet = new Set<string>()
+    await Promise.all(COMMON_SERVICE_TYPES.map(async (st: string) => {
+      try {
+        const res = await getServiceInstances(st)
+        ;(res.data?.data || []).forEach((i: any) => { if (i && i.name) nameSet.add(i.name) })
+      } catch { /* 单个服务类型加载失败不影响其它 */ }
+    }))
+    modelOptions.value = [...nameSet].sort()
+  } catch { /* ignore */ }
+  try {
+    const pres = await getPoolList()
+    groupOptions.value = (pres.data?.data || []).map((p: any) => p.poolName).filter(Boolean).sort()
+  } catch { /* ignore */ }
+}
 
 // 密钥ID验证规则（computed：语言切换后校验文案即时更新）
 const keyIdRules = computed(() => [
@@ -896,12 +939,15 @@ const handleCreateApiKey = () => {
     enabled: true,
     permissions: [],
     allowedIpAddresses: [],
+    allowedModels: [],
+    allowedGroups: [],
     dailyRequestLimit: 0,
     dailyTokenLimit: 0,
     rateLimitPerMinute: 0,
     quotaAlertThreshold: 0.8,
     rotationPeriodDays: 0
   }
+  loadModelAndGroupOptions()
   dialogVisible.value = true
 }
 
@@ -916,12 +962,15 @@ const handleEdit = (row: ApiKeyVO) => {
     enabled: row.enabled,
     permissions: row.permissions || [],
     allowedIpAddresses: [],
+    allowedModels: row.allowedModels || [],
+    allowedGroups: row.allowedGroups || [],
     dailyRequestLimit: row.dailyRequestLimit || 0,
     dailyTokenLimit: row.dailyTokenLimit || 0,
     rateLimitPerMinute: row.rateLimitPerMinute || 0,
     quotaAlertThreshold: row.quotaAlertThreshold ?? 0.8,
     rotationPeriodDays: row.rotationPeriodDays || 0
   }
+  loadModelAndGroupOptions()
   dialogVisible.value = true
 }
 
@@ -1029,6 +1078,8 @@ const handleSave = async () => {
         enabled: form.value.enabled,
         permissions: form.value.permissions,
         allowedIpAddresses: form.value.allowedIpAddresses,
+        allowedModels: form.value.allowedModels,
+        allowedGroups: form.value.allowedGroups,
         dailyRequestLimit: form.value.dailyRequestLimit,
         dailyTokenLimit: form.value.dailyTokenLimit,
         rateLimitPerMinute: form.value.rateLimitPerMinute,
@@ -1046,6 +1097,8 @@ const handleSave = async () => {
         enabled: form.value.enabled,
         permissions: form.value.permissions,
         allowedIpAddresses: form.value.allowedIpAddresses,
+        allowedModels: form.value.allowedModels,
+        allowedGroups: form.value.allowedGroups,
         dailyRequestLimit: form.value.dailyRequestLimit,
         dailyTokenLimit: form.value.dailyTokenLimit,
         rateLimitPerMinute: form.value.rateLimitPerMinute,
@@ -1207,6 +1260,14 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.page-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .stats-row {

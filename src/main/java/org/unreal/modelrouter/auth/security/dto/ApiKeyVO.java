@@ -51,6 +51,17 @@ public class ApiKeyVO {
     private List<String> permissions;
 
     /**
+     * 可访问的模型/实例白名单（按路由 model 参数值匹配）。
+     * 为空表示不限制。
+     */
+    private List<String> allowedModels;
+
+    /**
+     * 可访问的模型分组（资源池 / pool）白名单（按分组名匹配）。
+     */
+    private List<String> allowedGroups;
+
+    /**
      * 是否启用
      */
     private boolean enabled;

@@ -3,7 +3,8 @@
     "model": {
       "placeholder": "Select a model",
       "allModels": "All Models",
-      "other": "Other"
+      "other": "Other",
+      "group": "Group"
     },
     "action": {
       "clear": "Clear",

@@ -3,7 +3,8 @@
     "model": {
       "placeholder": "选择模型",
       "allModels": "全部模型",
-      "other": "其他"
+      "other": "其他",
+      "group": "分组"
     },
     "action": {
       "clear": "清空",

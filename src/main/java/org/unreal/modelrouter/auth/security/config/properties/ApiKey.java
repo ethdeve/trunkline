@@ -124,6 +124,19 @@ public class ApiKey {
     private List<String> permissions;
 
     /**
+     * 可访问的模型/实例白名单（按路由时的 model 参数值，即实例名或模型分组名进行匹配）。
+     * 为空（null 或空集合）表示允许该服务类型下所有模型（兼容老 Key）；
+     * 非空时仅放行名单内的模型或分组。
+     */
+    private List<String> allowedModels;
+
+    /**
+     * 可访问的模型分组（资源池 / pool）白名单（按分组名匹配）。
+     * 与 allowedModels 一并参与模型级鉴权；为空表示不额外限制分组。
+     */
+    private List<String> allowedGroups;
+
+    /**
      * 过期时间
      */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -233,6 +246,28 @@ public class ApiKey {
             return true;
         }
         return allowedIpAddresses.contains(ipAddress);
+    }
+
+    /**
+     * 检查指定模型/分组名是否在白名单内。
+     * 白名单为空（null 或空集合）视为放行该服务类型下所有模型（兼容老 Key）。
+     *
+     * @param modelName 调用方请求中的 model 参数（实例名或分组名）
+     * @return 是否允许调用
+     */
+    public boolean isModelAllowed(final String modelName) {
+        boolean hasModels = allowedModels != null && !allowedModels.isEmpty();
+        boolean hasGroups = allowedGroups != null && !allowedGroups.isEmpty();
+        if (!hasModels && !hasGroups) {
+            return true;
+        }
+        if (allowedModels != null && allowedModels.contains(modelName)) {
+            return true;
+        }
+        if (allowedGroups != null && allowedGroups.contains(modelName)) {
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -378,6 +413,8 @@ public class ApiKey {
                 .quotaAlertThreshold(this.quotaAlertThreshold)
                 .description(this.description)
                 .permissions(this.permissions)
+                .allowedModels(this.allowedModels)
+                .allowedGroups(this.allowedGroups)
                 .expiresAt(this.expiresAt)
                 .createdAt(this.createdAt)
                 .createdBy(this.createdBy)
@@ -410,6 +447,8 @@ public class ApiKey {
                 .quotaAlertThreshold(this.quotaAlertThreshold)
                 .description(this.description)
                 .permissions(this.permissions)
+                .allowedModels(this.allowedModels)
+                .allowedGroups(this.allowedGroups)
                 .expiresAt(this.expiresAt)
                 .createdAt(this.createdAt)
                 .createdBy(this.createdBy)

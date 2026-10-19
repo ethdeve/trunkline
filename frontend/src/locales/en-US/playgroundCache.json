@@ -4,6 +4,8 @@
     "refreshInstancesWarn": "Failed to refresh the {serviceType} instance list; using cached data",
     "refreshModelsWarn": "Failed to refresh the {serviceType} model list; using cached data",
     "fetchModelsFailed": "Failed to fetch the {serviceType} model list",
+    "fetchGroupsFailed": "Failed to fetch the {serviceType} group list",
+    "refreshGroupsWarn": "Failed to refresh the {serviceType} group list; using cached data",
     "refreshDone": "Cache refreshed"
   }
 }

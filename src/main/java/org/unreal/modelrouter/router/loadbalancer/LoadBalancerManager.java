@@ -11,6 +11,7 @@ import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 重构后的负载均衡管理器
@@ -22,6 +23,14 @@ public class LoadBalancerManager {
 
     private final Map<ModelServiceRegistry.ServiceType, LoadBalancer> loadBalancers =
             new EnumMap<>(ModelServiceRegistry.ServiceType.class);
+
+    /**
+     * v2.8.9 修复:按策略名缓存负载均衡器实例。
+     * 轮询/加权等有状态策略(如 RoundRobinLoadBalancer 的计数器)必须跨请求复用同一实例,
+     * 否则每次请求 new 一个新实例会导致内部计数器永远从 0 开始,轮询失效(永远选第一个实例)。
+     * 不同实例集合由策略内部(如 generateInstancesKey)各自区分,互不影响。
+     */
+    private final Map<String, LoadBalancer> strategyBalancers = new ConcurrentHashMap<>();
 
     private final ComponentFactory componentFactory;
     private final ServiceTypeResolver serviceTypeResolver;
@@ -261,10 +270,18 @@ public class LoadBalancerManager {
         if (strategy == null || strategy.isBlank()) {
             return null;
         }
+        final String key = strategy.trim().toLowerCase();
+        final LoadBalancer cached = strategyBalancers.get(key);
+        if (cached != null) {
+            return cached;
+        }
         try {
             ModelRouterProperties.LoadBalanceConfig config = new ModelRouterProperties.LoadBalanceConfig();
-            config.setType(strategy.trim().toLowerCase());
-            return componentFactory.createLoadBalancer(config);
+            config.setType(key);
+            final LoadBalancer balancer = componentFactory.createLoadBalancer(config);
+            // 并发创建时保证只注册一个实例,确保有状态策略(轮询计数器)跨请求累积
+            final LoadBalancer existing = strategyBalancers.putIfAbsent(key, balancer);
+            return existing != null ? existing : balancer;
         } catch (Exception e) {
             logger.warn("创建负载均衡器失败, strategy: {}, fallback to null", strategy);
             return null;

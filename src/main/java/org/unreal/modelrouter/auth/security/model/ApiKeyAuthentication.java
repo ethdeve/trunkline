@@ -23,7 +23,9 @@ public final class ApiKeyAuthentication implements Authentication {
     private final Collection<? extends GrantedAuthority> authorities;
     private boolean authenticated = false;
     private Object details;
-    
+    private final List<String> allowedModels;
+    private final List<String> allowedGroups;
+
     /**
      * 构造函数 - 用于未认证的请求
      */
@@ -31,12 +33,25 @@ public final class ApiKeyAuthentication implements Authentication {
         this.principal = null;
         this.credentials = apiKey;
         this.authorities = List.of();
+        this.allowedModels = null;
+        this.allowedGroups = null;
     }
     
     /**
-     * 构造函数 - 用于已认证的请求
+     * 构造函数 - 用于已认证的请求（不携带模型/分组白名单，兼容旧调用方）
      */
     public ApiKeyAuthentication(final String keyId, final String apiKey, final List<String> permissions) {
+        this(keyId, apiKey, permissions, null, null);
+    }
+
+    /**
+     * 构造函数 - 用于已认证的请求（携带模型/分组白名单）
+     *
+     * @param allowedModels  可访问的模型/实例名白名单（null 表示不限制）
+     * @param allowedGroups  可访问的模型分组名白名单（null 表示不限制）
+     */
+    public ApiKeyAuthentication(final String keyId, final String apiKey, final List<String> permissions,
+                               final List<String> allowedModels, final List<String> allowedGroups) {
         this.principal = keyId;
         this.credentials = apiKey;
         this.authorities = permissions != null
@@ -44,6 +59,8 @@ public final class ApiKeyAuthentication implements Authentication {
                     .map(permission -> new SimpleGrantedAuthority("ROLE_" + permission.toUpperCase()))
                     .collect(Collectors.toList())
                 : List.of();
+        this.allowedModels = allowedModels;
+        this.allowedGroups = allowedGroups;
     }
     
     @Override

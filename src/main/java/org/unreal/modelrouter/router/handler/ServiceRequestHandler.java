@@ -63,6 +63,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -262,6 +263,16 @@ public class ServiceRequestHandler {
                     return Mono.error(new ResponseStatusException(
                         HttpStatus.FORBIDDEN,
                         "Caller does not have permission for service: " + endpoint.getServiceType()));
+                }
+
+                // 模型/分组白名单校验（仅对网关 API Key 生效；控制台 JWT 调用方豁免，
+                // 与 hasServicePermission 的 JWT 同源处理一致，避免 Playground 被误拦）
+                if (auth instanceof ApiKeyAuthentication
+                        && !hasModelPermission((ApiKeyAuthentication) auth, modelName)) {
+                    logger.warn("调用主体 '{}' 无权访问模型: {}", callerId, modelName);
+                    return Mono.error(new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Caller does not have permission for model: " + modelName));
                 }
 
                 // API Key 调用保留原属性（用量归因链路依赖）；JWT 登录态只写 CALLER_ID_ATTRIBUTE，
@@ -929,6 +940,28 @@ public class ServiceRequestHandler {
         }
 
         return false;
+    }
+
+    /**
+     * 检查调用主体是否可访问指定模型/分组（API Key 模型级白名单）。
+     * 白名单为空（null 或空集合）表示放行该服务类型下所有模型（兼容老 Key）。
+     *
+     * @param auth      已认证的 API Key 主体
+     * @param modelName 调用方请求中的 model 参数（实例名或分组名）
+     * @return 是否具有权限
+     */
+    private boolean hasModelPermission(final ApiKeyAuthentication auth, final String modelName) {
+        List<String> allowedModels = auth.getAllowedModels();
+        List<String> allowedGroups = auth.getAllowedGroups();
+        boolean hasModels = allowedModels != null && !allowedModels.isEmpty();
+        boolean hasGroups = allowedGroups != null && !allowedGroups.isEmpty();
+        if (!hasModels && !hasGroups) {
+            return true;
+        }
+        if (allowedModels != null && allowedModels.contains(modelName)) {
+            return true;
+        }
+        return allowedGroups != null && allowedGroups.contains(modelName);
     }
 
     /**

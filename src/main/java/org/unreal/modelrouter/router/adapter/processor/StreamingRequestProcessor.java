@@ -2,6 +2,7 @@ package org.unreal.modelrouter.router.adapter.processor;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +37,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.lang.reflect.Method;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -109,18 +112,70 @@ public class StreamingRequestProcessor {
     }
 
     /**
-     * v2.8.9: 池路由后,将请求 Map 的 model 字段改写为实际实例名(仅池名触发)
+     * v2.8.9: 池路由后,将请求中的 model 字段改写为实际实例名(仅池名触发)。
+     * 兼容两种请求载体:Map(早期路径)与强类型 DTO/record(当前 chat/embedding/rerank 等路径)。
+     * record 不可变,无法直接 set model,故对 DTO 走 Jackson 序列化到可变 Map 后再替换 model 字段。
      */
     @SuppressWarnings("unchecked")
     private Object rewriteModelField(final Object target, final String instanceName) {
-        if (target instanceof Map && instanceName != null && poolSelector != null) {
-            Object model = ((Map<String, Object>) target).get("model");
-            if (model instanceof String && poolSelector.isPoolName((String) model)
-                    && !model.equals(instanceName)) {
-                ((Map<String, Object>) target).put("model", instanceName);
-            }
+        if (target == null || instanceName == null || poolSelector == null) {
+            return target;
         }
-        return target;
+        final String originalModel = extractModel(target);
+        if (originalModel == null
+                || !poolSelector.isPoolName(originalModel)
+                || originalModel.equals(instanceName)) {
+            return target;
+        }
+        return replaceModel(target, instanceName);
+    }
+
+    /**
+     * 提取请求载体中的 model 字段值。
+     * 支持三种载体:Jackson ObjectNode(如 GpuStackRequestTransformer 产出的请求)、
+     * Map(早期路径)与带 model() 访问器的强类型 DTO/record(chat/embedding/rerank 等路径)。
+     */
+    private String extractModel(final Object target) {
+        if (target instanceof ObjectNode) {
+            final JsonNode m = ((ObjectNode) target).get("model");
+            return m != null && m.isTextual() ? m.textValue() : null;
+        }
+        if (target instanceof Map) {
+            final Object m = ((Map<String, Object>) target).get("model");
+            return m instanceof String ? (String) m : null;
+        }
+        try {
+            final Method modelMethod = target.getClass().getMethod("model");
+            final Object v = modelMethod.invoke(target);
+            return v instanceof String ? (String) v : null;
+        } catch (final Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * 将请求载体中的 model 字段替换为实际实例名。
+     * ObjectNode 可变,原地 put;Map 复制替换;DTO/record 经 Jackson 转为可变 Map 后替换。
+     */
+    @SuppressWarnings("unchecked")
+    private Object replaceModel(final Object target, final String instanceName) {
+        if (target instanceof ObjectNode) {
+            ((ObjectNode) target).put("model", instanceName);
+            return target;
+        }
+        if (target instanceof Map) {
+            final Map<String, Object> copy = new LinkedHashMap<>((Map<String, Object>) target);
+            copy.put("model", instanceName);
+            return copy;
+        }
+        try {
+            final Map<String, Object> map = objectMapper.convertValue(target, LinkedHashMap.class);
+            map.put("model", instanceName);
+            return map;
+        } catch (final Exception e) {
+            logger.debug("池名 model 改写失败,保持原请求向下游转发: {}", e.getMessage());
+            return target;
+        }
     }
 
     /**

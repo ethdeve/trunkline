@@ -1,7 +1,7 @@
 // Playground 数据管理 Composable
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getCachedInstances, getCachedModels } from '@/stores/playgroundCache'
+import { getCachedInstances, getCachedModels, getCachedGroups } from '@/stores/playgroundCache'
 import { getInstanceServiceType } from '@/api/models'
 import { i18n } from '@/i18n'
 const { t: gt } = i18n.global as unknown as {
@@ -16,7 +16,26 @@ export interface ServiceInstance {
   status?: 'active' | 'inactive'
   healthStatus?: 'HEALTHY' | 'UNHEALTHY' | 'UNKNOWN'
   baseUrl?: string
+  // 标记该条为模型分组（资源池）虚拟模型，用于测试场选择分组
+  isGroup?: boolean
+  type?: string
   [key: string]: any
+}
+
+// 将分组（资源池）名合并为与实例同构的伪实例，使测试场模型下拉可直选分组作为虚拟模型
+const mergeGroups = (instances: ServiceInstance[], groups: string[]): ServiceInstance[] => {
+  const groupItems: ServiceInstance[] = (groups || [])
+    .filter((name) => Boolean(name))
+    .map((name) => ({
+      id: name,
+      instanceId: name,
+      name,
+      status: 'active',
+      healthStatus: 'UNKNOWN',
+      isGroup: true,
+      type: gt('playgroundCommon.model.group')
+    }))
+  return [...instances, ...groupItems]
 }
 
 export const usePlaygroundData = (playgroundServiceType: string) => {
@@ -51,18 +70,19 @@ export const usePlaygroundData = (playgroundServiceType: string) => {
     }
 
     try {
-      // 并行获取实例和模型数据（模型数据会复用实例数据，不会重复请求）
-      const [instances, models] = await Promise.all([
+      // 并行获取实例、模型与分组数据（模型数据会复用实例数据，不会重复请求）
+      const [instances, models, groups] = await Promise.all([
         getCachedInstances(actualServiceType, forceRefresh),
-        getCachedModels(actualServiceType, forceRefresh)
+        getCachedModels(actualServiceType, forceRefresh),
+        getCachedGroups(actualServiceType, forceRefresh)
       ])
 
       // 检查当前选择的实例是否还存在
       const currentInstanceExists = selectedInstanceId.value &&
         instances.some(inst => inst.instanceId === selectedInstanceId.value)
 
-      // 更新数据
-      availableInstances.value = instances
+      // 更新数据（分组作为虚拟模型并入下拉，使测试场可选择分组）
+      availableInstances.value = mergeGroups(instances, groups)
       availableModels.value = models
       
       console.log(`[${playgroundServiceType}] 数据已更新到界面:`, {
@@ -107,23 +127,27 @@ export const usePlaygroundData = (playgroundServiceType: string) => {
     }
 
     try {
-      const instances = await getCachedInstances(actualServiceType, forceRefresh)
+      const [instances, groups] = await Promise.all([
+        getCachedInstances(actualServiceType, forceRefresh),
+        getCachedGroups(actualServiceType, forceRefresh)
+      ])
       
       // 检查当前选择的实例是否还存在
       const currentInstanceExists = selectedInstanceId.value &&
         instances.some(inst => inst.instanceId === selectedInstanceId.value)
 
-      availableInstances.value = instances
+      const merged = mergeGroups(instances, groups)
+      availableInstances.value = merged
 
       if (selectedInstanceId.value && !currentInstanceExists) {
         ElMessage.warning(gt('playgroundData.selectedUnavailable'))
       }
 
       if (showMessage && forceRefresh) {
-        ElMessage.success(gt('playgroundData.refreshedInstances', { count: instances.length }))
+        ElMessage.success(gt('playgroundData.refreshedInstances', { count: merged.length }))
       }
 
-      return instances
+      return merged
     } catch (error) {
       console.error(`获取${playgroundServiceType}实例失败:`, error)
       if (showMessage) {

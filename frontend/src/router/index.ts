@@ -70,7 +70,7 @@ const routes: RouteRecordRaw[] = [
         path: 'model-pools',
         name: 'model-pools',
         component: () => import('@/views/config/pools/PoolManagement.vue'),
-        meta: { permissions: ['config:instances:read'], title: '公共模型池' }
+        meta: { permissions: ['config:instances:read'], title: '模型分组' }
       },
       {
         path: 'protocol-adapters',

@@ -98,7 +98,9 @@ public class ApiKeyService {
             String kh = ApiKeyHashUtil.hashApiKey(kv);
             List<String> validatedPermissions = validatePermissions(req.getPermissions());
             ApiKey ak = ApiKey.builder().keyId(kid).keyHash(kh).keyPrefix("sk-").description(req.getDescription())
-                .permissions(validatedPermissions).enabled(req.getEnabled() != null ? req.getEnabled() : true)
+                .permissions(validatedPermissions)
+                .allowedModels(req.getAllowedModels()).allowedGroups(req.getAllowedGroups())
+                .enabled(req.getEnabled() != null ? req.getEnabled() : true)
                 .expiresAt(req.getExpiresAt()).createdAt(LocalDateTime.now()).createdBy(by).creatorIpAddress(ip)
                 .rotationPeriodDays(req.getRotationPeriodDays() != null ? req.getRotationPeriodDays() : 0)
                 .allowedIpAddresses(req.getAllowedIpAddresses())
@@ -114,7 +116,9 @@ public class ApiKeyService {
             log.info("创建API Key成功: {}", kid);
             return ApiKeyCreationVO.builder().keyId(kid).keyValue(kv).description(ak.getDescription())
                 .createdBy(by)
-                .permissions(ak.getPermissions()).enabled(ak.isEnabled()).createdAt(ak.getCreatedAt())
+                .permissions(ak.getPermissions())
+                .allowedModels(ak.getAllowedModels()).allowedGroups(ak.getAllowedGroups())
+                .enabled(ak.isEnabled()).createdAt(ak.getCreatedAt())
                 .expiresAt(ak.getExpiresAt())
                 .dailyRequestLimit(ak.getDailyRequestLimit())
                 .dailyTokenLimit(ak.getDailyTokenLimit())
@@ -134,6 +138,8 @@ public class ApiKeyService {
             if (req.getEnabled() != null) ak.setEnabled(req.getEnabled());
             if (req.getExpiresAt() != null) ak.setExpiresAt(req.getExpiresAt());
             if (req.getPermissions() != null) ak.setPermissions(validatePermissions(req.getPermissions()));
+            if (req.getAllowedModels() != null) ak.setAllowedModels(req.getAllowedModels());
+            if (req.getAllowedGroups() != null) ak.setAllowedGroups(req.getAllowedGroups());
             if (req.getAllowedIpAddresses() != null) ak.setAllowedIpAddresses(req.getAllowedIpAddresses());
             if (req.getDailyRequestLimit() != null) ak.setDailyRequestLimit(req.getDailyRequestLimit());
             if (req.getRotationPeriodDays() != null) ak.setRotationPeriodDays(req.getRotationPeriodDays());
@@ -397,7 +403,9 @@ public class ApiKeyService {
 
     private ApiKeyVO convertToVO(ApiKey ak) {
         ApiKeyVO vo = ApiKeyVO.builder().keyId(ak.getKeyId()).description(ak.getDescription())
-            .permissions(ak.getPermissions()).enabled(ak.isEnabled()).expired(ak.isExpired())
+            .permissions(ak.getPermissions())
+            .allowedModels(ak.getAllowedModels()).allowedGroups(ak.getAllowedGroups())
+            .enabled(ak.isEnabled()).expired(ak.isExpired())
             .createdAt(ak.getCreatedAt()).createdBy(ak.getCreatedBy()).creatorIpAddress(ak.getCreatorIpAddress())
             .rotationPeriodDays(ak.getRotationPeriodDays()).lastRotatedAt(ak.getLastRotatedAt())
             .needsRotation(ak.needsRotation()).expiresAt(ak.getExpiresAt())

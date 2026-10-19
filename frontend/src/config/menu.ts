@@ -57,6 +57,13 @@ export const menuGroups: MenuGroup[] = [
         subtitle: '已接入模型 / 公共模型库 / 适配器设置'
       },
       {
+        path: '/model-pools',
+        title: '模型分组',
+        permission: 'config:instances:read',
+        icon: 'collection-tag',
+        subtitle: '把多个模型通道归为一组，统一调用、自动分流与容灾'
+      },
+      {
         path: '/playground',
         title: '测试场',
         permission: 'ai:playground:use',
@@ -137,13 +144,6 @@ export const menuGroups: MenuGroup[] = [
         permission: 'config:instances:read',
         icon: 'folder-opened',
         subtitle: '聊天 / 嵌入 / 重排序 / 语音 / 图像等模型类型'
-      },
-      {
-        path: '/model-pools',
-        title: '公共模型池',
-        permission: 'config:instances:read',
-        icon: 'collection-tag',
-        subtitle: '多实例分组与负载均衡'
       },
       {
         path: '/protocol-adapters',

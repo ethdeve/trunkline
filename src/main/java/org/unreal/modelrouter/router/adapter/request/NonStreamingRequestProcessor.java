@@ -126,7 +126,7 @@ public class NonStreamingRequestProcessor {
         String instanceName = selectedInstance.getName();
         // v2.8.9: 池路由后,下游请求 model 改写为实际实例模型名(auto-model/池名不再透传上游)
         String requestedModel = tokenUsageExtractor.extractRequestModel(request);
-        tokenUsageExtractor.rewriteModelField(transformedRequest, requestedModel, instanceName);
+        transformedRequest = tokenUsageExtractor.rewriteModelField(transformedRequest, requestedModel, instanceName);
         long requestStartTime = System.currentTimeMillis();
 
         // v2.9.2: 记录治理 - 序列化转换后的请求体用于调用历史捕获
@@ -331,7 +331,7 @@ public class NonStreamingRequestProcessor {
                         // 响应转换
                         Object transformedData = transformResponseFn.apply(downstreamData);
                         // v2.8.9: 池路由后,响应 model 回显实际实例模型名
-                        tokenUsageExtractor.rewriteModelField(transformedData, requestedModel, instanceName);
+                        transformedData = tokenUsageExtractor.rewriteModelField(transformedData, requestedModel, instanceName);
 
                         // v2.9.9: 响应缓存写 — 仅 2xx 成功分支到达此处(非2xx 已先行短路)；
                         // 流式/非确定性/未启用请求键为空，此处不写

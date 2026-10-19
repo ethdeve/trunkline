@@ -3,6 +3,8 @@ import type { RouterResponse } from '@/types'
 
 // 定义实例配置接口
 export interface InstanceConfig {
+  /** 数据库主键；注意后端 DTO 的 instanceId 字段即此值的字符串形式（兼容字段），并非路由层 UUID */
+  id?: number
   instanceId?: string
   name: string
   baseUrl: string

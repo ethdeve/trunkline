@@ -46,7 +46,7 @@
             </el-link>
           </template>
         </el-table-column>
-        <el-table-column :label="t('pool.actions')" width="180" align="center">
+        <el-table-column :label="t('pool.actions')" width="280" align="center">
           <template #default="{ row }">
             <el-button size="small" @click="handleEdit(row)">{{ t('pool.edit') }}</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)">{{ t('pool.delete') }}</el-button>
@@ -103,6 +103,7 @@
         <el-button type="primary" :loading="saving" @click="handleSave">{{ t('pool.save') }}</el-button>
       </template>
     </el-dialog>
+
 </template>
 
 <script setup lang="ts">
@@ -173,9 +174,11 @@ const loadInstances = async (serviceType: string) => {
   try {
     const res = await getServiceInstances(serviceType)
     instances.value = res.data?.data || []
+    return instances.value
   } catch {
     ElMessage.warning(t('pool.messages.loadInstancesFailed'))
     instances.value = []
+    return []
   } finally {
     instancesLoading.value = false
   }
@@ -183,8 +186,8 @@ const loadInstances = async (serviceType: string) => {
 
 const instanceOptions = computed(() =>
   instances.value
-    .map((i) => ({ value: i.instanceId ?? '', label: `${i.name}(${i.instanceId})` }))
-    .filter((o): o is { value: string; label: string } => Boolean(o.value))
+    .filter((i) => Boolean(i.name))
+    .map((i) => ({ value: i.name as string, label: i.name as string }))
 )
 
 const optionsForRow = (idx: number): { value: string; label: string; disabled?: boolean }[] => {
@@ -213,7 +216,7 @@ const handleCreate = () => {
   loadInstances(form.serviceType)
 }
 
-const handleEdit = (row: PoolDefinition) => {
+const handleEdit = async (row: PoolDefinition) => {
   Object.assign(form, {
     poolName: row.poolName,
     name: row.name || '',
@@ -225,7 +228,22 @@ const handleEdit = (row: PoolDefinition) => {
   })
   isEdit.value = true
   dialogVisible.value = true
-  loadInstances(form.serviceType)
+  const insts = await loadInstances(form.serviceType)
+  // 兼容旧数据：早期版本成员存的是数据库数字 ID（如 "19"），而网关路由层只认 instanceId(UUID) 或实例名，
+  // 会导致「成员实例不存在」而选不出通道。这里在打开编辑时自动把数字 ID 转换为实例名，保存后即生效。
+  let migrated = 0
+  for (const m of form.members) {
+    if (/^\d+$/.test(m.instanceId || '')) {
+      const hit = insts.find(i => String(i.id) === m.instanceId)
+      if (hit?.name) {
+        m.instanceId = hit.name
+        migrated++
+      }
+    }
+  }
+  if (migrated > 0) {
+    ElMessage.info(t('pool.messages.memberIdMigrated', { count: migrated }))
+  }
 }
 
 const addMember = () => {

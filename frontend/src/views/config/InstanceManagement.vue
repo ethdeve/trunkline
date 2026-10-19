@@ -77,10 +77,6 @@
 
                   <el-table-column :label="t('instance.actions')" width="200" align="center">
                     <template #default="scope">
-                      <el-button size="small" type="success" plain circle :title="t('instance.testConnection')" @click="openTestDialog(scope.row)">
-                        <el-icon><VideoPlay /></el-icon>
-                      </el-button>
-
                       <el-button size="small" @click="handleEdit(scope.row)" type="primary" plain circle :title="t('instance.editInstance')">
                         <el-icon><Edit /></el-icon>
                       </el-button>
@@ -159,37 +155,6 @@
     </template>
   </el-dialog>
 
-  <!-- 测试模型连通弹窗 -->
-  <el-dialog v-model="testDialogVisible" :title="t('instance.testConnectionTitle')" width="560px" :before-close="handleTestDialogClose">
-    <el-form label-width="100px">
-      <el-form-item :label="t('instance.testConnectionModel')">
-        <el-input :model-value="testTarget?.name" disabled />
-      </el-form-item>
-
-      <el-form-item :label="t('instance.testConnectionMessage')">
-        <el-input v-model="testForm.message" type="textarea" :rows="2" />
-      </el-form-item>
-
-      <el-form-item :label="t('instance.testConnectionApiKey')">
-        <el-input v-model="testForm.apiKey" type="password" show-password clearable
-          :placeholder="t('instance.testConnectionApiKeyPlaceholder')" />
-        <div class="form-tip">{{ t('instance.testConnectionApiKeyTip') }}</div>
-      </el-form-item>
-    </el-form>
-
-    <el-result
-      v-if="testResult"
-      :icon="testResult.ok ? 'success' : 'error'"
-      :title="testResult.ok ? t('instance.testConnectionSuccess') : t('instance.testConnectionFailed')"
-      :sub-title="testResult.text"
-      style="padding: 12px 0"
-    />
-
-    <template #footer>
-      <el-button @click="handleTestDialogClose">{{ t('instance.cancel') }}</el-button>
-      <el-button type="primary" :loading="testing" :disabled="!testValid" @click="runTest">{{ t('instance.testConnectionSend') }}</el-button>
-    </template>
-  </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -214,9 +179,8 @@ import {
 } from '@/api/instance'
 import { getServiceTypes } from '@/api/dashboard'
 import { getAdapters, getAllConfigurations } from '@/api/service'
-import { deleteApiKey } from '@/api/apiKey'
 import { clearCache } from '@/stores/playgroundCache'
-import { Plus, Delete, Close, Timer, WarningFilled, Edit, Search, Refresh, VideoPlay } from '@element-plus/icons-vue'
+import { Plus, Delete, Close, Timer, WarningFilled, Edit, Search, Refresh } from '@element-plus/icons-vue'
 import RateLimitConfig from '@/components/RateLimitConfig.vue'
 import CircuitBreakerConfig from '@/components/CircuitBreakerConfig.vue'
 import UpstreamInstanceForm from '@/components/UpstreamInstanceForm.vue'
@@ -514,10 +478,9 @@ const onDialogOpened = () => {
 }
 
 // 删除实例
-const handleDelete = (row: ServiceInstance) => {
-  const apiKeyId = row.tags?.apiKeyId
-  ElMessageBox.confirm(
-    apiKeyId ? t('instance.deleteConfirmMessageWithKey') : t('instance.deleteConfirmMessage'),
+  const handleDelete = (row: ServiceInstance) => {
+    ElMessageBox.confirm(
+      t('instance.deleteConfirmMessage'),
     t('instance.confirmTitle'),
     {
       confirmButtonText: t('instance.confirm'),
@@ -532,15 +495,6 @@ const handleDelete = (row: ServiceInstance) => {
       const dbId = row.id
       const response = await deleteServiceInstance(serviceType, String(dbId))
       if (response.data?.success) {
-        // 级联清理关联的网关密钥（若有），避免残留孤儿密钥；失败不影响实例已删除的结果
-        if (apiKeyId) {
-          try {
-            await deleteApiKey(apiKeyId)
-          } catch (ke: any) {
-            console.warn('删除关联网关密钥失败（实例已删除）:', ke)
-            ElMessage.warning(t('instance.messages.deleteKeyFailed'))
-          }
-        }
         instances.value[serviceType] = (instances.value[serviceType] || []).filter(i => i.id !== dbId)
         instancesCache.value[serviceType] = [...(instances.value[serviceType] || [])]
         // 同时清除试验场的缓存，让试验场下拉列表刷新
@@ -625,65 +579,6 @@ const handlePageChange = (page: number) => { currentPage.value = page }
 // 当前正在编辑的实例（使用数据库ID）
 const currentEditInstanceId = ref<string>('')
 const currentEditServiceType = ref<string>('')
-
-/* ---------- 测试模型连通 ---------- */
-const testDialogVisible = ref(false)
-const testTarget = ref<ServiceInstance | null>(null)
-const testForm = reactive({
-  apiKey: '',
-  message: '你好，请回复"接入成功"四个字。'
-})
-const testing = ref(false)
-const testResult = ref<{ ok: boolean; text: string } | null>(null)
-const testValid = computed(() => Boolean(testForm.apiKey.trim() && testForm.message.trim()))
-
-const openTestDialog = (row: ServiceInstance) => {
-  testTarget.value = row
-  testForm.apiKey = ''
-  testForm.message = '你好，请回复"接入成功"四个字。'
-  testResult.value = null
-  testDialogVisible.value = true
-}
-
-const handleTestDialogClose = () => {
-  testDialogVisible.value = false
-}
-
-const runTest = async () => {
-  if (!testTarget.value) return
-  const model = testTarget.value.name
-  if (!model) {
-    ElMessage.warning(t('instance.testConnectionEmptyName'))
-    return
-  }
-  testing.value = true
-  testResult.value = null
-  try {
-    const res = await fetch('/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': testForm.apiKey.trim()
-      },
-      body: JSON.stringify({
-        model: model.trim(),
-        messages: [{ role: 'user', content: testForm.message }],
-        max_tokens: 100
-      })
-    })
-    const body = await res.json().catch(() => ({}))
-    if (res.ok && body?.choices?.[0]?.message?.content) {
-      testResult.value = { ok: true, text: body.choices[0].message.content }
-      ElMessage.success(t('instance.testConnectionSuccess'))
-    } else {
-      testResult.value = { ok: false, text: body?.error?.message || body?.message || `HTTP ${res.status}` }
-    }
-  } catch (e: any) {
-    testResult.value = { ok: false, text: e?.message || t('instance.testConnectionRequestFailed') }
-  } finally {
-    testing.value = false
-  }
-}
 
 // 打开限流器配置弹窗
 const openRateLimitConfig = (row: any) => {

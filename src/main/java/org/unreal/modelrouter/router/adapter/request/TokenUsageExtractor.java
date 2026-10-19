@@ -2,6 +2,7 @@ package org.unreal.modelrouter.router.adapter.request;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -15,6 +16,7 @@ import org.unreal.modelrouter.monitor.tracing.TracingContextHolder;
 import org.unreal.modelrouter.monitor.monitoring.collector.MetricsCollector;
 import org.unreal.modelrouter.router.pool.PoolSelector;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -217,17 +219,37 @@ public class TokenUsageExtractor {
     }
 
     /**
-     * v2.8.9: 池路由后,将目标(Map)的 model 字段改写为实际实例名
-     * 仅当原始请求 model 是池名/auto-model 时触发,不影响普通请求与规则行为
+     * v2.8.9: 池路由后,将目标中的 model 字段改写为实际实例名。
+     * 兼容 Map 与强类型 DTO/record 两种载体;record 不可变,故 DTO 经 Jackson 转为可变 Map 后替换,
+     * 此时必须返回新对象并由调用方接收。仅当原始请求 model 是池名时触发,不影响普通请求。
+     *
+     * @return 改写后的请求载体(可能为新建的 Map);未触发改写时返回原对象
      */
     @SuppressWarnings("unchecked")
-    void rewriteModelField(final Object target, final String requestedModel, final String instanceName) {
-        if (target instanceof Map && instanceName != null && requestedModel != null
-                && poolSelector != null && poolSelector.isPoolName(requestedModel)) {
-            Object model = ((Map<String, Object>) target).get("model");
-            if (model instanceof String && !model.equals(instanceName)) {
-                ((Map<String, Object>) target).put("model", instanceName);
-            }
+    Object rewriteModelField(final Object target, final String requestedModel, final String instanceName) {
+        if (target == null || instanceName == null || requestedModel == null
+                || poolSelector == null || !poolSelector.isPoolName(requestedModel)
+                || requestedModel.equals(instanceName)) {
+            return target;
+        }
+        if (target instanceof ObjectNode) {
+            // Jackson ObjectNode 可变(如 GpuStackRequestTransformer 产出的请求),原地 put
+            ((ObjectNode) target).put("model", instanceName);
+            return target;
+        }
+        if (target instanceof Map) {
+            final Map<String, Object> copy = new LinkedHashMap<>((Map<String, Object>) target);
+            copy.put("model", instanceName);
+            return copy;
+        }
+        // DTO / record:不可变,序列化到可变 Map 后替换 model,返回新对象
+        try {
+            final Map<String, Object> map = objectMapper.convertValue(target, LinkedHashMap.class);
+            map.put("model", instanceName);
+            return map;
+        } catch (final Exception e) {
+            logger.debug("池名 model 改写失败,保持原请求向下游转发: {}", e.getMessage());
+            return target;
         }
     }
 }

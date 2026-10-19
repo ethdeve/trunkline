@@ -24,6 +24,7 @@ import org.unreal.modelrouter.router.ratelimit.RateLimitManager;
 import org.unreal.modelrouter.router.ratelimit.ServiceRateLimitHolder;
 import org.unreal.modelrouter.router.pool.PoolSelector;
 import org.unreal.modelrouter.router.pool.model.PoolDefinition;
+import org.unreal.modelrouter.router.pool.model.PoolMember;
 import org.unreal.modelrouter.router.rule.RuleDecision;
 import org.unreal.modelrouter.router.rule.RuleEngineService;
 import org.unreal.modelrouter.router.rule.RuleStatsService;
@@ -359,7 +360,10 @@ public class ModelServiceRegistry {
         String affinityKey = stickyScope != null
                 ? AffinityContextHolder.resolveKey(stickyScope)
                 : AffinityContextHolder.get();
-        if (affinityKey != null && stickyScope != null) {
+        // v2.9.x: 资源池(模型分组)路由不走粘性 — 池的亲和性键为 apiKeyId|serviceType|池名,
+        // 对同一个池恒定不变,若套上 StickyLoadBalancer 会把该池所有请求(含不同会话)钉死到同一成员,
+        // 直接废掉池自身的 round-robin/weighted 策略。池内成员选择交由池策略(matchedPool.getStrategy())负责。
+        if (affinityKey != null && stickyScope != null && matchedPool == null) {
             loadBalancer = new StickyLoadBalancer(loadBalancer, serviceStateManager, circuitBreakerManager);
         }
 
@@ -426,8 +430,34 @@ public class ModelServiceRegistry {
         Optional<ModelRouterProperties.ModelInstance> matchingInstance = runtimeConfig.getInstances().stream()
                 .filter(instance -> modelName.equals(instance.getName()))
                 .findFirst();
+        if (matchingInstance.isPresent()) {
+            return matchingInstance.get().getPath();
+        }
 
-        return matchingInstance.map(ModelRouterProperties.ModelInstance::getPath).orElse("");
+        // v2.8.9 池路由补全 — model 为池名时按实例名匹配必然落空(原实现返回 "" 导致
+        // 转发打到上游 baseUrl 根路径,上游回 405 METHOD_NOT_ALLOWED);
+        // 回退为取池成员实例的 path(池内成员同属一个服务类型,path 约定一致,取首个非空)。
+        // 匹配口径与 PoolSelector.resolveCandidates 保持一致:instanceId 或 name。
+        if (poolSelector != null) {
+            PoolDefinition pool = poolSelector.findPool(serviceType, modelName);
+            if (pool != null && pool.getMembers() != null) {
+                for (PoolMember member : pool.getMembers()) {
+                    if (member == null || member.getInstanceId() == null) {
+                        continue;
+                    }
+                    Optional<ModelRouterProperties.ModelInstance> memberInstance =
+                            runtimeConfig.getInstances().stream()
+                                    .filter(i -> member.getInstanceId().equals(i.getInstanceId())
+                                            || member.getInstanceId().equals(i.getName()))
+                                    .filter(i -> i.getPath() != null && !i.getPath().isEmpty())
+                                    .findFirst();
+                    if (memberInstance.isPresent()) {
+                        return memberInstance.get().getPath();
+                    }
+                }
+            }
+        }
+        return "";
     }
 
     public String getServiceAdapter(final ServiceType serviceType) {

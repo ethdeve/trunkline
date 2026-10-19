@@ -33,6 +33,12 @@
               </span>
               <span class="instance-name">{{ inst.name }}</span>
               <span
+                v-if="inst.isGroup"
+                class="group-badge"
+              >
+                {{ t('playgroundCommon.model.group') }}
+              </span>
+              <span
                 v-if="inst.healthStatus === 'UNHEALTHY'"
                 class="health-status-text"
               >
@@ -586,6 +592,18 @@ defineExpose({
 
 .instance-name {
   flex: 1;
+}
+
+.group-badge {
+  flex: none;
+  margin-left: 8px;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ja-text-secondary);
+  background-color: var(--ja-bg-card);
+  border: 1px solid var(--ja-border-dark);
+  border-radius: 3px;
 }
 
 .health-status-text {

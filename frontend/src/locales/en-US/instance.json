@@ -35,6 +35,7 @@
     "testConnectionTitle": "Test Model Connection",
     "testConnectionModel": "Model",
     "testConnectionMessage": "Test Message",
+    "testConnectionDefaultMessage": "Hello, please reply with the words \"connection ok\".",
     "testConnectionApiKey": "API Key",
     "testConnectionApiKeyTip": "The test request carries this Key to call our gateway /v1/chat/completions, and is not exposed outside the browser.",
     "testConnectionSuccess": "Success",
