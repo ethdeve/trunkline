@@ -10,7 +10,7 @@ const route = useRoute()
 const title = computed(() => (route.meta.title as string) || '功能建设')
 const subtitle = computed(() => {
   const map: Record<string, string> = {
-    models: '已接入模型 / 公共模型库 / 适配器设置（二期交付）',
+    models: '已接入模型 / 公共模型库 / 模型适配器（二期交付）',
     playground: '对话 / 向量 / 重排 / 语音 / 图像（二期交付）',
     keys: '签发 / 吊销 / 配额（二期交付）',
     observe: '调用历史 / Token / 慢查询 / 异常 / 配额 / 熔断 / 限流（三期交付）',

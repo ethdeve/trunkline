@@ -40,8 +40,7 @@ export const menuGroups: MenuGroup[] = [
     title: '工作台',
     icon: 'house',
     children: [
-      { path: '/overview', title: '总览', permission: 'overview:dashboard:read', icon: 'odometer' },
-      { path: '/quick-start', title: '快速开始', permission: 'config:instances:read', icon: 'guide' }
+      { path: '/overview', title: '总览', permission: 'overview:dashboard:read', icon: 'odometer' }
     ]
   },
   {
@@ -51,10 +50,10 @@ export const menuGroups: MenuGroup[] = [
     children: [
       {
         path: '/models',
-        title: '接入的模型',
+        title: '接入模型',
         permission: 'config:instances:read',
         icon: 'connection',
-        subtitle: '已接入模型 / 公共模型库 / 适配器设置'
+        subtitle: '已接入模型 / 公共模型库'
       },
       {
         path: '/model-pools',
@@ -116,13 +115,7 @@ export const menuGroups: MenuGroup[] = [
         title: '策略中心',
         permission: 'config:rules:read',
         icon: 'set-up',
-        subtitle: '路由规则 / 负载均衡 / 熔断阈值 / 响应缓存'
-      },
-      {
-        path: '/quota',
-        title: '用量配额',
-        permission: 'config:quota:read',
-        icon: 'coin'
+        subtitle: '路由规则 / 负载均衡 / 熔断阈值 / 响应缓存 / 用量配额'
       }
     ]
   },
@@ -137,20 +130,6 @@ export const menuGroups: MenuGroup[] = [
         permission: 'system:accounts:manage',
         icon: 'tools',
         subtitle: '账号 / 权限 / 审计日志 / 配置版本 / 数据持久化'
-      },
-      {
-        path: '/model-categories',
-        title: '模型分类管理',
-        permission: 'config:instances:read',
-        icon: 'folder-opened',
-        subtitle: '聊天 / 嵌入 / 重排序 / 语音 / 图像等模型类型'
-      },
-      {
-        path: '/protocol-adapters',
-        title: '适配器设置',
-        permission: 'config:instances:read',
-        icon: 'set-up',
-        subtitle: 'OpenAI / 自定义协议适配'
       }
     ]
   }

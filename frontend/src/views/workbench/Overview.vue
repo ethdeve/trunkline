@@ -30,9 +30,6 @@ const stats = ref<CallHistoryStatistics | null>(null)
 const recentCalls = ref<ApiCallHistoryRecord[]>([])
 const topoGraph = ref<{ nodes: any[]; links: any[] } | null>(null)
 
-const quickStartVisible = ref(false)
-const QS_KEY = 'console-qs-dismissed'
-
 /* ---------- 图表 ---------- */
 const { chartTheme: palette } = useChartTheme()
 const trendEl = ref<HTMLDivElement>()
@@ -50,9 +47,9 @@ const kpis = computed(() => {
   const s = stats.value
   return [
     { label: '今日调用', value: s?.totalRequests ?? 0, unit: '次', hint: `成功率 ${fmt(s?.successRate ?? 0, '%')}` },
-    { label: '当前 QPS', value: o?.requestStats.requestsPerSecond ?? 0, unit: 'req/s', hint: `平均耗时 ${fmt(s?.avgResponseTimeMs ?? 0, 'ms')}` },
+    { label: '当前 QPS', value: o?.requestStats?.requestsPerSecond ?? 0, unit: 'req/s', hint: `平均耗时 ${fmt(s?.avgResponseTimeMs ?? 0, 'ms')}` },
     { label: 'Token 消耗', value: s?.totalTokens ?? 0, unit: 'tokens', hint: `均次 ${fmt(s?.avgTokensPerRequest ?? 0)}` },
-    { label: '实例健康', value: `${o?.serviceStats.activeServices ?? 0}/${o?.serviceStats.totalServices ?? 0}`, unit: '个', hint: `异常 ${o?.serviceStats.failedServices ?? 0} 个` }
+    { label: '实例健康', value: `${o?.serviceStats?.activeServices ?? 0}/${o?.serviceStats?.totalServices ?? 0}`, unit: '个', hint: `异常 ${o?.serviceStats?.failedServices ?? 0} 个` }
   ]
 })
 
@@ -201,7 +198,6 @@ onMounted(() => {
   })
   if (trendEl.value) resizeObserver.observe(trendEl.value)
   if (topoEl.value) resizeObserver.observe(topoEl.value)
-  quickStartVisible.value = localStorage.getItem(QS_KEY) !== '1'
 })
 
 onBeforeUnmount(() => {
@@ -210,11 +206,6 @@ onBeforeUnmount(() => {
   trendChart?.dispose()
   topoChart?.dispose()
 })
-
-function dismissQuickStart() {
-  quickStartVisible.value = false
-  localStorage.setItem(QS_KEY, '1')
-}
 
 function statusOf(rec: ApiCallHistoryRecord): 'ok' | 'error' | 'warn' {
   if (rec.circuitBroken) return 'error'
@@ -230,13 +221,6 @@ function statusOf(rec: ApiCallHistoryRecord): 'ok' | 'error' | 'warn' {
         <span class="overview-user">{{ userStore.userInfo?.username }}</span>
       </template>
     </PageHeader>
-
-    <!-- 向导入口（未完成/未关闭时显示） -->
-    <el-alert v-if="quickStartVisible" type="primary" :closable="true" class="qs-banner" @close="dismissQuickStart">
-      <template #title>
-        <router-link to="/quick-start" class="qs-link">三步接入新模型：接模型 → 发 Key → 测一下，点此打开快速开始</router-link>
-      </template>
-    </el-alert>
 
     <!-- ① KPI 条 -->
     <div class="kpi-grid">
@@ -317,13 +301,6 @@ function statusOf(rec: ApiCallHistoryRecord): 'ok' | 'error' | 'warn' {
 </template>
 
 <style scoped>
-.qs-banner {
-  margin-bottom: var(--ja-card-gap);
-}
-.qs-link {
-  color: inherit;
-  font-weight: 500;
-}
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

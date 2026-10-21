@@ -118,18 +118,10 @@ public class PermissionManagementController {
                         RouterResponse.error("非法权限码: " + code, "INVALID_PERMISSION"));
             }
         }
-        rolePermissionRepository.deleteByRoleName(normalizedRole);
-        List<RolePermissionEntity> entities = validatedCodes.stream()
-                .map(code -> RolePermissionEntity.builder()
-                        .roleName(normalizedRole)
-                        .permissionCode(code)
-                        .build())
-                .collect(Collectors.toList());
-        rolePermissionRepository.saveAll(entities);
-        // 权限变更后清空缓存（缓存仅用于 JWT 签发，变更需重新登录生效）
-        rolePermissionService.invalidateCache();
-        log.info("已更新角色权限: role={}, codes={}", normalizedRole, validatedCodes);
-        return ResponseEntity.ok(RouterResponse.success(validatedCodes, "角色权限更新成功"));
+        // 删旧+插新+清缓存收敛在服务层 @Transactional 内（派生删除必须在事务中执行，
+        // controller 直调 repository 曾导致「保存权限失败」500，2026-10-21）
+        List<String> savedCodes = rolePermissionService.replaceRolePermissions(normalizedRole, validatedCodes);
+        return ResponseEntity.ok(RouterResponse.success(savedCodes, "角色权限更新成功"));
     }
 
     /**

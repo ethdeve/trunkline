@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import java.util.HashMap;
 import java.util.List;
@@ -14,7 +15,8 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * AdapterTemplateService 模板服务测试
  *
- * TDD 测试先行：15 个测试用例覆盖模板查询、分类筛选、模板生成等场景
+ * TDD 测试先行：15 个测试用例覆盖模板查询、分类筛选、模板生成等场景；
+ * 另覆盖自定义模板 CRUD（内置不可改删语义）。
  */
 @DisplayName("AdapterTemplateService 模板服务测试")
 class AdapterTemplateServiceTest {
@@ -23,7 +25,8 @@ class AdapterTemplateServiceTest {
 
     @BeforeEach
     void setUp() {
-        templateService = new AdapterTemplateService();
+        // 持久化服务 mock 掉：单元测试只验证内存逻辑，不依赖 StoreManager
+        templateService = new AdapterTemplateService(Mockito.mock(ProviderTemplatePersistenceService.class));
     }
 
     // ==================== 获取全部模板测试 ====================
@@ -283,6 +286,98 @@ class AdapterTemplateServiceTest {
             assertTrue(template.getAuth().getHeaderName() == null
                             || template.getAuth().getHeaderName().isEmpty(),
                     "本地 Ollama 模板不应设置认证头名称");
+        }
+    }
+
+    // ==================== 自定义模板 CRUD 测试 ====================
+
+    @Nested
+    @DisplayName("自定义模板 CRUD 测试")
+    class CustomTemplateCrudTests {
+
+        private AdapterTemplate buildCustom(final String id) {
+            AdapterTemplate t = new AdapterTemplate();
+            t.setId(id);
+            t.setName("测试供应商 " + id);
+            t.setCategory("domestic");
+            t.setType("openai-compatible");
+            t.setDefaultBaseUrl("https://api.example.com/v1");
+            t.setCapabilities(new AdapterTemplate.CapabilitiesConfig(
+                    true, false, false, false, false, false, false, true));
+            t.setAuth(new AdapterTemplate.AuthConfig("Authorization", "Bearer "));
+            return t;
+        }
+
+        @Test
+        @DisplayName("TMPL-016: 新增自定义模板并可查询")
+        void testCreateTemplate_custom_ok() {
+            // When
+            AdapterTemplate created = templateService.createTemplate(buildCustom("my-tpl"));
+
+            // Then
+            assertEquals("custom", created.getSource(), "新增模板应标记为 custom");
+            AdapterTemplate loaded = templateService.getTemplateById("my-tpl");
+            assertNotNull(loaded, "新增模板应可查询");
+            assertEquals(14, templateService.getAllTemplates().size(), "总数应为 13 内置 + 1 自定义");
+        }
+
+        @Test
+        @DisplayName("TMPL-017: 模板 ID 与内置重复时抛异常")
+        void testCreateTemplate_duplicateId_throws() {
+            // Given
+            AdapterTemplate dup = buildCustom("deepseek");
+
+            // When & Then
+            assertThrows(IllegalArgumentException.class, () -> templateService.createTemplate(dup));
+        }
+
+        @Test
+        @DisplayName("TMPL-018: 非法分类/类型抛异常")
+        void testCreateTemplate_invalidCategoryOrType_throws() {
+            // Given
+            AdapterTemplate badCategory = buildCustom("bad-1");
+            badCategory.setCategory("unknown");
+
+            AdapterTemplate badType = buildCustom("bad-2");
+            badType.setType("weird-type");
+
+            // When & Then
+            assertThrows(IllegalArgumentException.class, () -> templateService.createTemplate(badCategory));
+            assertThrows(IllegalArgumentException.class, () -> templateService.createTemplate(badType));
+        }
+
+        @Test
+        @DisplayName("TMPL-019: 内置模板不可修改、不可删除")
+        void testUpdateAndDelete_builtin_throws() {
+            // Given
+            AdapterTemplate patch = buildCustom("deepseek");
+
+            // When & Then
+            assertThrows(IllegalArgumentException.class,
+                    () -> templateService.updateTemplate("deepseek", patch), "内置模板不可修改");
+            assertThrows(IllegalArgumentException.class,
+                    () -> templateService.deleteTemplate("deepseek"), "内置模板不可删除");
+        }
+
+        @Test
+        @DisplayName("TMPL-020: 更新与删除自定义模板生效")
+        void testUpdateAndDelete_custom_ok() {
+            // Given
+            templateService.createTemplate(buildCustom("my-tpl-2"));
+
+            // When: 更新
+            AdapterTemplate patch = buildCustom("my-tpl-2");
+            patch.setName("改名后的供应商");
+            templateService.updateTemplate("my-tpl-2", patch);
+
+            // Then
+            assertEquals("改名后的供应商", templateService.getTemplateById("my-tpl-2").getName());
+
+            // When: 删除
+            templateService.deleteTemplate("my-tpl-2");
+
+            // Then
+            assertNull(templateService.getTemplateById("my-tpl-2"), "删除后应查询不到");
         }
     }
 }

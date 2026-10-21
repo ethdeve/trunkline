@@ -11,6 +11,7 @@ import org.unreal.modelrouter.common.util.InstanceIdUtils;
 import org.unreal.modelrouter.persistence.jpa.entity.ServiceInstanceEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.ServiceInstanceRepository;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -60,6 +61,12 @@ public class ConfigQueryService {
                 Map<String, Object> serviceConfig = (Map<String, Object>) serviceEntry.getValue();
                 if (serviceConfig != null && serviceConfig.containsKey("instances")) {
                     List<Map<String, Object>> instances = (List<Map<String, Object>>) serviceConfig.get("instances");
+                    // v2.11.1: 历史持久化快照可能存有 "instances": null（YAML 未配实例时反射转换的产物），
+                    // 直接 for-each 会 NPE；该 NPE 曾吞掉实例变更后的注册表刷新，导致池路由找不到成员。
+                    if (instances == null) {
+                        serviceConfig.put("instances", new ArrayList<>());
+                        continue;
+                    }
                     for (Map<String, Object> instance : instances) {
                         if (instance != null && instance.containsKey("name") && instance.containsKey("baseUrl")) {
                             String name = (String) instance.get("name");

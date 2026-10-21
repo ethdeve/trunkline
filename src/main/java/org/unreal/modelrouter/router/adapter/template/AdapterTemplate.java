@@ -22,6 +22,8 @@ public final class AdapterTemplate {
     private List<String> supportedModels;
     private String setupGuide;
     private int sortOrder;
+    /** 来源：builtin=内置预置（不可改删）/ custom=用户自定义 */
+    private String source;
 
     public AdapterTemplate() {
     }
@@ -275,5 +277,13 @@ public final class AdapterTemplate {
         public void setHeaderPrefix(final String headerPrefix) {
             this.headerPrefix = headerPrefix;
         }
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(final String source) {
+        this.source = source;
     }
 }

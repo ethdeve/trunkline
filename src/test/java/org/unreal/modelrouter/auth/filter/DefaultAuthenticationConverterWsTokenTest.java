@@ -108,4 +108,47 @@ class DefaultAuthenticationConverterWsTokenTest {
         assertInstanceOf(ApiKeyAuthentication.class, auth);
         assertEquals("sk-header", auth.getCredentials());
     }
+
+    @Test
+    @DisplayName("API Key：X-API-Key 缺失时从 Authorization: Bearer 提取（OpenAI 兼容约定）")
+    void apiKey_fromAuthorizationBearerWhenHeaderMissing() {
+        MockServerHttpRequest request = MockServerHttpRequest.get("/v1/chat/completions")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer sk-bearer-key")
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        Authentication auth = converter.convert(exchange).block();
+
+        assertInstanceOf(ApiKeyAuthentication.class, auth);
+        assertEquals("sk-bearer-key", auth.getCredentials());
+    }
+
+    @Test
+    @DisplayName("API Key：X-API-Key 优先于 Authorization: Bearer")
+    void apiKey_configuredHeaderWinsOverBearer() {
+        MockServerHttpRequest request = MockServerHttpRequest.get("/v1/chat/completions")
+                .header("X-API-Key", "sk-header")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer sk-bearer")
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        Authentication auth = converter.convert(exchange).block();
+
+        assertInstanceOf(ApiKeyAuthentication.class, auth);
+        assertEquals("sk-header", auth.getCredentials());
+    }
+
+    @Test
+    @DisplayName("Bearer 大小写不敏感（bearer 小写也可提取）")
+    void apiKey_bearerCaseInsensitive() {
+        MockServerHttpRequest request = MockServerHttpRequest.get("/v1/chat/completions")
+                .header(HttpHeaders.AUTHORIZATION, "bearer sk-lower")
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        Authentication auth = converter.convert(exchange).block();
+
+        assertInstanceOf(ApiKeyAuthentication.class, auth);
+        assertEquals("sk-lower", auth.getCredentials());
+    }
 }

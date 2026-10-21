@@ -56,6 +56,9 @@ class ServiceInstanceManagerSsrfTest {
     @Mock
     private org.unreal.modelrouter.router.circuitbreaker.CircuitBreakerManager circuitBreakerManager;
 
+    @Mock
+    private org.unreal.modelrouter.persistence.jpa.repository.ModelProviderRepository modelProviderRepository;
+
     private ServiceInstanceManager manager;
 
     @BeforeEach
@@ -63,7 +66,7 @@ class ServiceInstanceManagerSsrfTest {
         manager = new ServiceInstanceManager(
                 serviceInstanceRepository, rateLimitRepository, circuitBreakerRepository,
                 serviceConfigRepository, configurationService, configVersionManager,
-                modelServiceRegistry, circuitBreakerManager);
+                modelServiceRegistry, circuitBreakerManager, modelProviderRepository);
         when(serviceInstanceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     }
 

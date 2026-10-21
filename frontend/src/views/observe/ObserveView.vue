@@ -9,6 +9,7 @@
 import { ref, watch, provide } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
+import { usePermission } from '@/composables/usePermission'
 import CallHistoryList from '@/views/callHistory/CallHistoryList.vue'
 import TokenUsageStatistics from '@/views/callHistory/TokenUsageStatistics.vue'
 import SlowQueryAnalysis from '@/views/monitoring/SlowQueryAnalysis.vue'
@@ -22,13 +23,32 @@ import RateLimiterMonitoring from '@/views/rate-limiter/Monitoring.vue'
 const TABS = ['history', 'tokens', 'slow', 'exceptions', 'quota', 'circuit', 'rate'] as const
 type TabKey = (typeof TABS)[number]
 
+// tab → 加载该 tab 所需的后端权限码（与 PermissionRuleRegistry URL 矩阵对齐）。
+// 无对应权限的 tab 直接隐藏，避免「切过去即 403」的体验问题
+// （如 VIEWER 无 callhistory:view，调用历史 tab 隐藏；管理员可在权限 UI 给角色补码后重新登录恢复）。
+const TAB_PERMISSIONS: Record<TabKey, string> = {
+  history: 'callhistory:view',
+  tokens: 'monitoring:tokenusage:read',
+  slow: 'monitoring:slowquery:read',
+  exceptions: 'monitoring:exceptions:read',
+  quota: 'monitoring:quota:read',
+  circuit: 'cb:monitoring:read',
+  rate: 'rl:monitoring:read'
+}
+
 // 壳层规范：内部收编组件的 PageSkeleton 进入嵌入模式（隐藏自带标题，统一由 PageHeader 承担）
 provide('skeletonEmbedded', true)
+
+const { hasPermission } = usePermission()
+const visibleTabs = TABS.filter(tab => hasPermission(TAB_PERMISSIONS[tab]))
+const fallbackTab = visibleTabs[0] ?? 'tokens'
 
 const route = useRoute()
 const router = useRouter()
 
-const active = ref<TabKey>(TABS.includes(route.query.tab as TabKey) ? (route.query.tab as TabKey) : 'history')
+const active = ref<TabKey>(
+  visibleTabs.includes(route.query.tab as TabKey) ? (route.query.tab as TabKey) : fallbackTab
+)
 
 watch(active, tab => {
   router.replace({ query: { ...route.query, tab } })
@@ -36,7 +56,7 @@ watch(active, tab => {
 watch(
   () => route.query.tab,
   tab => {
-    if (TABS.includes(tab as TabKey) && tab !== active.value) active.value = tab as TabKey
+    if (visibleTabs.includes(tab as TabKey) && tab !== active.value) active.value = tab as TabKey
   }
 )
 </script>
@@ -46,16 +66,16 @@ watch(
     <PageHeader title="观测中心" subtitle="调用历史 · Token · 慢查询 · 异常 · 配额 · 熔断 · 限流" />
     <el-card shadow="never">
       <el-tabs v-model="active">
-        <el-tab-pane label="调用历史" name="history">
+        <el-tab-pane v-if="visibleTabs.includes('history')" label="调用历史" name="history">
           <CallHistoryList />
         </el-tab-pane>
-        <el-tab-pane label="Token 用量" name="tokens" lazy>
+        <el-tab-pane v-if="visibleTabs.includes('tokens')" label="Token 用量" name="tokens" lazy>
           <TokenUsageStatistics />
         </el-tab-pane>
-        <el-tab-pane label="慢查询" name="slow" lazy>
+        <el-tab-pane v-if="visibleTabs.includes('slow')" label="慢查询" name="slow" lazy>
           <SlowQueryAnalysis />
         </el-tab-pane>
-        <el-tab-pane label="异常" name="exceptions" lazy>
+        <el-tab-pane v-if="visibleTabs.includes('exceptions')" label="异常" name="exceptions" lazy>
           <el-tabs type="card">
             <el-tab-pane label="异常列表">
               <ExceptionManagement />
@@ -65,10 +85,10 @@ watch(
             </el-tab-pane>
           </el-tabs>
         </el-tab-pane>
-        <el-tab-pane label="配额用量" name="quota" lazy>
+        <el-tab-pane v-if="visibleTabs.includes('quota')" label="配额用量" name="quota" lazy>
           <QuotaUsageMonitoring />
         </el-tab-pane>
-        <el-tab-pane label="熔断" name="circuit" lazy>
+        <el-tab-pane v-if="visibleTabs.includes('circuit')" label="熔断" name="circuit" lazy>
           <el-tabs type="card">
             <el-tab-pane label="熔断监控">
               <CircuitBreakerMonitoring />
@@ -78,7 +98,7 @@ watch(
             </el-tab-pane>
           </el-tabs>
         </el-tab-pane>
-        <el-tab-pane label="限流" name="rate" lazy>
+        <el-tab-pane v-if="visibleTabs.includes('rate')" label="限流" name="rate" lazy>
           <RateLimiterMonitoring />
         </el-tab-pane>
       </el-tabs>

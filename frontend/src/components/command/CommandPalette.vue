@@ -79,7 +79,6 @@ const actionCommands = computed<Command[]>(() => {
   const { toggleTheme } = useTheme()
   const { toggleDensity } = useDensity()
   const list: Command[] = [
-    { key: 'act:quick-start', title: '打开快速开始', group: '动作', icon: 'guide', run: () => router.push('/quick-start') },
     { key: 'act:theme', title: '切换亮/暗主题', group: '动作', icon: 'sunny', run: toggleTheme },
     { key: 'act:density', title: '切换紧凑模式', group: '动作', icon: 'grid', run: toggleDensity }
   ]

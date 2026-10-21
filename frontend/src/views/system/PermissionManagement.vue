@@ -1,11 +1,12 @@
 <template>
   <PageSkeleton :title="t('permissions.title')">
-    <template #actions>
+    <!-- 聚合页嵌入模式下 PageSkeleton 隐藏标题区（含 actions 插槽），按钮需自绘工具行 -->
+    <div class="page-actions-row">
       <el-button @click="refresh">
         <el-icon><Refresh /></el-icon>
         {{ t('permissions.refresh') }}
       </el-button>
-    </template>
+    </div>
 
     <!-- 角色选择 -->
     <el-form label-width="80px" style="margin-bottom: 12px;">
@@ -36,7 +37,7 @@
       style="margin-bottom: 16px"
     />
 
-    <!-- 权限树（按模块分组展示 48 个权限码） -->
+    <!-- 权限树（按模块分组展示 48 个权限码；叶子显示中文名 + 灰色权限码） -->
     <div v-loading="loading" class="tree-wrapper">
       <el-tree
         ref="permissionTreeRef"
@@ -46,12 +47,21 @@
         default-expand-all
         :props="treeProps"
         class="permission-tree"
-      />
+      >
+        <template #default="{ data }">
+          <span v-if="data.code" class="perm-leaf">
+            <span class="perm-name">{{ t('permissions.codes.' + data.code) }}</span>
+            <span class="perm-code">{{ data.code }}</span>
+          </span>
+          <span v-else>{{ data.label }}</span>
+        </template>
+      </el-tree>
+      <div class="tree-tip">{{ t('permissions.leafCodeTip') }}</div>
     </div>
 
     <template #footer>
       <div class="footer-actions">
-        <el-button type="primary" :disabled="!selectedRole" :loading="saving" @click="handleSave">
+        <el-button v-if="canWrite" type="primary" :disabled="!selectedRole" :loading="saving" @click="handleSave">
           {{ t('permissions.save') }}
         </el-button>
         <el-button :disabled="!selectedRole || loading" @click="resetSelection">
@@ -65,6 +75,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { usePermission } from '@/composables/usePermission'
 import { ElMessage } from 'element-plus'
 import type { ElTree } from 'element-plus'
 import {
@@ -79,11 +90,15 @@ import {
 import PageSkeleton from '@/components/PageSkeleton.vue'
 
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = hasPermission('system:permissions:manage')
 
 /** 权限树节点 */
 interface PermissionTreeNode {
   key: string
   label: string
+  /** 叶子节点携带权限码，渲染时转中文名 */
+  code?: string
   children?: PermissionTreeNode[]
 }
 
@@ -105,12 +120,12 @@ const roleOptions = computed<{ value: RoleName; label: string }[]>(() =>
   }))
 )
 
-// 权限树数据（模块分组 → 权限码叶子；模块标题按当前语言翻译）
+// 权限树数据（模块分组 → 权限码叶子；模块标题按当前语言翻译，叶子显示中文名+权限码）
 const treeData = computed<PermissionTreeNode[]>(() =>
   PERMISSION_GROUPS.map(group => ({
     key: `group:${group.module}`,
     label: t(group.module),
-    children: group.codes.map(code => ({ key: code, label: code }))
+    children: group.codes.map(code => ({ key: code, label: code, code }))
   }))
 )
 
@@ -207,6 +222,14 @@ loadRoles()
 </script>
 
 <style scoped>
+.page-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .tree-wrapper {
   min-height: 320px;
   max-height: calc(100vh - 380px);
@@ -219,6 +242,29 @@ loadRoles()
 
 .permission-tree {
   --el-tree-node-hover-bg-color: var(--ja-bg-hover, rgba(64, 158, 255, 0.08));
+}
+
+.perm-leaf {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.perm-name {
+  font-size: 14px;
+  color: var(--ja-text-primary);
+}
+
+.perm-code {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+  font-family: monospace;
+}
+
+.tree-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ja-text-secondary);
 }
 
 .footer-actions {

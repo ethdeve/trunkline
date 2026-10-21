@@ -118,6 +118,14 @@
         <el-table-column prop="owned_by" :label="t('clientAccess.ownedByColumn')" min-width="150" />
       </el-table>
       <el-alert
+        v-if="!loadingModels && modelList.length > 0"
+        :title="t('clientAccess.modelListNote')"
+        type="success"
+        :closable="false"
+        show-icon
+        style="margin-top: 12px"
+      />
+      <el-alert
         v-if="modelLoadFailed"
         :title="t('clientAccess.modelListLoadFailed', { origin })"
         type="info"
@@ -153,16 +161,19 @@ const modelList = ref<ModelItem[]>([])
 const loadingModels = ref(false)
 const modelLoadFailed = ref(false)
 
+// 示例用真实模型名：模型清单加载成功后取第一个（含分组），失败时退化为占位符
+const exampleModel = computed(() => modelList.value[0]?.id ?? '<模型名，见下方可用模型清单>')
+
 // ── OpenAI 兼容面 ──
 
 const openaiBaseUrl = computed(() => `${origin}/v1`)
 
 const openaiCurlCode = computed(() => `curl ${origin}/v1/chat/completions \\
   -H "Content-Type: application/json" \\
-  -H "X-API-Key: <YOUR_API_KEY>" \\
+  -H "Authorization: Bearer <YOUR_API_KEY>" \\
   -d '{
-    "model": "gpt-4o",
-    "messages": [{"role": "user", "content": "Hello!"}],
+    "model": "${exampleModel.value}",
+    "messages": [{"role": "user", "content": "你好"}],
     "stream": true
   }'`)
 
@@ -170,12 +181,12 @@ const openaiSdkCode = computed(() => `from openai import OpenAI
 
 client = OpenAI(
     base_url="${origin}/v1",
-    default_headers={"X-API-Key": "<YOUR_API_KEY>"},
+    api_key="<YOUR_API_KEY>",
 )
 
 response = client.chat.completions.create(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": "Hello!"}],
+    model="${exampleModel.value}",
+    messages=[{"role": "user", "content": "你好"}],
     stream=True,
 )
 for chunk in response:
@@ -185,7 +196,7 @@ for chunk in response:
 
 const anthropicEnvCode = computed(() => `export ANTHROPIC_BASE_URL="${origin}"
 export ANTHROPIC_API_KEY="<YOUR_API_KEY>"
-export ANTHROPIC_MODEL="claude-sonnet-4-20250514"`)
+export ANTHROPIC_MODEL="${exampleModel.value}"`)
 
 const anthropicCliCode = computed(() => `npx -y @anthropic-ai/claude-code`)
 

@@ -1,10 +1,10 @@
 {
   "service": {
-    "title": "服务管理",
-    "addService": "添加服务",
-    "editService": "编辑服务",
-    "allTypesAdded": "已添加所有类型服务",
-    "searchPlaceholder": "搜索服务类型或适配器（回车或暂停）",
+    "title": "模型分类",
+    "addService": "添加分类",
+    "editService": "编辑分类",
+    "allTypesAdded": "已添加所有模型分类",
+    "searchPlaceholder": "搜索模型分类或适配器（回车或暂停）",
     "filters": {
       "loadBalance": "负载策略",
       "adapter": "适配器",
@@ -13,7 +13,7 @@
     "unset": "未设置",
     "loading": "加载中...",
     "table": {
-      "serviceType": "服务类型",
+      "serviceType": "模型分类",
       "adapter": "适配器",
       "loadBalanceType": "负载均衡策略",
       "actions": "操作",
@@ -35,7 +35,7 @@
     "disabled": "禁用",
     "deleteDialog": {
       "title": "删除确认",
-      "message": "确定要删除服务 \"{type}\" 吗？此操作不可恢复！"
+      "message": "确定要删除模型分类 \"{type}\" 吗？此操作不可恢复！"
     },
     "messages": {
       "warning": "警告",
@@ -44,21 +44,21 @@
       "fetchServicesFailed": "获取服务列表失败",
       "fetchConfigFailed": "获取服务配置失败",
       "networkError": "网络错误，请检查网络连接",
-      "deleteSuccess": "服务删除成功",
+      "deleteSuccess": "模型分类删除成功",
       "deleteFailed": "删除失败",
       "deleteCancelled": "已取消删除",
       "savedButRateLimitFailed": "服务已保存,但限流配置保存失败",
-      "editSuccess": "服务编辑成功",
-      "addSuccess": "服务添加成功",
+      "editSuccess": "模型分类编辑成功",
+      "addSuccess": "模型分类添加成功",
       "editFailed": "编辑失败",
       "addFailed": "添加失败"
     },
     "form": {
-      "serviceType": "服务类型",
+      "serviceType": "模型分类",
       "adapter": "适配器",
       "loadBalanceType": "负载均衡策略",
       "description": "说明（可选）",
-      "selectServiceType": "请选择服务类型",
+      "selectServiceType": "请选择模型分类",
       "selectAdapter": "请选择适配器",
       "selectLoadBalance": "请选择负载均衡策略",
       "descriptionPlaceholder": "对该服务做简短说明，方便识别（例如：用于客服对话）"

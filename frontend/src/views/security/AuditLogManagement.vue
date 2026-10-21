@@ -220,7 +220,7 @@
       <el-table-column :label="t('auditLog.actions')" width="140" fixed="right">
         <template #default="scope">
           <el-button size="small" type="primary" link @click="handleViewDetail(scope.row)">{{ t('auditLog.detail') }}</el-button>
-          <el-dropdown v-if="scope.row.ipAddress" trigger="click" @command="(cmd: string) => handleAddToBlacklist(scope.row, cmd)">
+          <el-dropdown v-if="canWrite && scope.row.ipAddress" trigger="click" @command="(cmd: string) => handleAddToBlacklist(scope.row, cmd)">
             <el-button size="small" type="warning" link>{{ t('auditLog.blacklist') }}</el-button>
             <template #dropdown>
               <el-dropdown-menu>
@@ -288,6 +288,7 @@
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
+import { usePermission } from '@/composables/usePermission'
 import { Refresh, ArrowDown, Key, Connection, WarningFilled, Bell } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import {
@@ -305,6 +306,8 @@ import PageSkeleton from '@/components/PageSkeleton.vue'
 import { formatDateTime as formatDateTimeBase } from '@/utils/format'
 
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = hasPermission('security:blacklist:manage')
 
 const { getChartTheme } = useChartTheme()
 

@@ -14,6 +14,7 @@ import org.unreal.modelrouter.router.adapter.AdapterRegistry;
 import org.unreal.modelrouter.router.adapter.ServiceCapability;
 import org.unreal.modelrouter.router.model.ModelCatalogService;
 import org.unreal.modelrouter.router.model.ModelServiceRegistry;
+import org.unreal.modelrouter.router.pool.PoolSelector;
 import reactor.test.StepVerifier;
 
 import java.util.*;
@@ -40,6 +41,9 @@ class ModelInfoControllerTest {
     @Mock
     private AdapterRegistry adapterRegistry;
 
+    @Mock
+    private PoolSelector poolSelector;
+
     /**
      * v3.1: 控制器改为依赖 {@link ModelCatalogService}（与 /v1/models 共用），
      * 此处用真实目录服务 + mock 注册表装配，保持原断言（成功/结构/异常）不变。
@@ -48,7 +52,7 @@ class ModelInfoControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new ModelInfoController(new ModelCatalogService(registry, adapterRegistry));
+        controller = new ModelInfoController(new ModelCatalogService(registry, adapterRegistry, poolSelector));
         // 配置模拟数据 - getAvailableModels 返回 Set<String>
         lenient().when(registry.getAvailableModels(ModelServiceRegistry.ServiceType.chat))
                 .thenReturn(new java.util.HashSet<>(Arrays.asList("gpt-4", "gpt-3.5-turbo")));

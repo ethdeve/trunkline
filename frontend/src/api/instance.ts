@@ -14,6 +14,8 @@ export interface InstanceConfig {
   adapter?: string
   headers?: Record<string, string>
   tags?: Record<string, string>  // v2.9.7: 实例标签(键值对)
+  /** v2.11.0: 关联的模型供应商 ID（0 = 解除关联；不传 = 不改变关联） */
+  providerId?: number
 }
 
 // 限流器配置接口

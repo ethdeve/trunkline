@@ -9,9 +9,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -182,6 +184,71 @@ public class AdapterTemplateController {
             logger.error("从模板创建适配器失败: {}", id, e);
             return ResponseEntity.internalServerError()
                     .body(RouterResponse.error("从模板创建适配器失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 新增自定义供应商模板
+     */
+    @PostMapping
+    @Operation(summary = "新增自定义模板", description = "新增用户自定义的供应商模板（系统设置 → 模型供应商管理）")
+    public ResponseEntity<RouterResponse<AdapterTemplate>> createTemplate(
+            @RequestBody final AdapterTemplate template) {
+        try {
+            AdapterTemplate created = templateService.createTemplate(template);
+            logger.info("Created provider template '{}'", created.getId());
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(RouterResponse.success(created, "模板创建成功"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(RouterResponse.error(e.getMessage(), "INVALID_TEMPLATE"));
+        } catch (Exception e) {
+            logger.error("创建模板失败", e);
+            return ResponseEntity.internalServerError()
+                    .body(RouterResponse.error("创建模板失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 更新自定义供应商模板
+     */
+    @PutMapping("/{id}")
+    @Operation(summary = "更新自定义模板", description = "更新用户自定义的供应商模板（内置模板不可修改）")
+    public ResponseEntity<RouterResponse<AdapterTemplate>> updateTemplate(
+            @Parameter(description = "模板 ID") @PathVariable final String id,
+            @RequestBody final AdapterTemplate template) {
+        try {
+            AdapterTemplate updated = templateService.updateTemplate(id, template);
+            logger.info("Updated provider template '{}'", id);
+            return ResponseEntity.ok(RouterResponse.success(updated, "模板更新成功"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(RouterResponse.error(e.getMessage(), "INVALID_TEMPLATE"));
+        } catch (Exception e) {
+            logger.error("更新模板失败: {}", id, e);
+            return ResponseEntity.internalServerError()
+                    .body(RouterResponse.error("更新模板失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 删除自定义供应商模板
+     */
+    @DeleteMapping("/{id}")
+    @Operation(summary = "删除自定义模板", description = "删除用户自定义的供应商模板（内置模板不可删除）")
+    public ResponseEntity<RouterResponse<Void>> deleteTemplate(
+            @Parameter(description = "模板 ID") @PathVariable final String id) {
+        try {
+            templateService.deleteTemplate(id);
+            logger.info("Deleted provider template '{}'", id);
+            return ResponseEntity.ok(RouterResponse.success(null, "模板删除成功"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(RouterResponse.error(e.getMessage(), "INVALID_TEMPLATE"));
+        } catch (Exception e) {
+            logger.error("删除模板失败: {}", id, e);
+            return ResponseEntity.internalServerError()
+                    .body(RouterResponse.error("删除模板失败: " + e.getMessage()));
         }
     }
 

@@ -13,8 +13,10 @@ import org.unreal.modelrouter.persistence.jpa.entity.InstanceCircuitBreakerEntit
 import org.unreal.modelrouter.persistence.jpa.entity.InstanceRateLimitEntity;
 import org.unreal.modelrouter.persistence.jpa.entity.ServiceConfigEntity;
 import org.unreal.modelrouter.persistence.jpa.entity.ServiceInstanceEntity;
+import org.unreal.modelrouter.persistence.jpa.entity.ModelProviderEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.InstanceCircuitBreakerRepository;
 import org.unreal.modelrouter.persistence.jpa.repository.InstanceRateLimitRepository;
+import org.unreal.modelrouter.persistence.jpa.repository.ModelProviderRepository;
 import org.unreal.modelrouter.persistence.jpa.repository.ServiceConfigRepository;
 import org.unreal.modelrouter.persistence.jpa.repository.ServiceInstanceRepository;
 import org.unreal.modelrouter.router.model.ModelServiceRegistry;
@@ -46,6 +48,8 @@ public class ServiceInstanceManager {
     private final ConfigVersionManager configVersionManager;  // 新增
     private final ModelServiceRegistry modelServiceRegistry;
     private final CircuitBreakerManager circuitBreakerManager;
+    /** v2.11.0: 供应商层 —— 实例带 providerId 时从供应商带出地址/适配器/Key */
+    private final ModelProviderRepository modelProviderRepository;
 
     public ServiceInstanceManager(
             final ServiceInstanceRepository serviceInstanceRepository,
@@ -55,7 +59,8 @@ public class ServiceInstanceManager {
             @Lazy final ConfigurationService configurationService,
             final ConfigVersionManager configVersionManager,
             final ModelServiceRegistry modelServiceRegistry,
-            final CircuitBreakerManager circuitBreakerManager) {
+            final CircuitBreakerManager circuitBreakerManager,
+            final ModelProviderRepository modelProviderRepository) {
         this.serviceInstanceRepository = serviceInstanceRepository;
         this.rateLimitRepository = rateLimitRepository;
         this.circuitBreakerRepository = circuitBreakerRepository;
@@ -64,6 +69,7 @@ public class ServiceInstanceManager {
         this.configVersionManager = configVersionManager;
         this.modelServiceRegistry = modelServiceRegistry;
         this.circuitBreakerManager = circuitBreakerManager;
+        this.modelProviderRepository = modelProviderRepository;
     }
 
     /**
@@ -96,9 +102,20 @@ public class ServiceInstanceManager {
 
     /**
      * 创建实例
+     * v2.11.0: 请求带 providerId 时，从供应商带出 baseUrl / path / adapter / Authorization 头
+     * （请求中的显式值优先），实现「同一供应商只填一次 Key」。
      */
     @Transactional
     public ServiceInstanceDTO createInstance(final Long serviceConfigId, final CreateServiceInstanceRequest request) {
+        // v2.11.0: 供应商继承（在 SSRF 校验之前，供应商地址同样过 SsrfGuard）
+        final Long providerId = normalizeProviderId(request.getProviderId());
+        if (providerId != null) {
+            final ModelProviderEntity provider = modelProviderRepository.findById(providerId)
+                    .orElseThrow(() -> new RuntimeException("Model provider not found: " + providerId));
+            applyProviderDefaults(request, provider);
+            // 创建态：请求头未显式带 Authorization 时，从供应商 Key 生成
+            request.setHeaders(mergeProviderAuthorization(request.getHeaders(), provider));
+        }
         // R3-P0 SSRF：落库前校验出站 baseUrl
         final String safeBaseUrl = org.unreal.modelrouter.config.core.helper.SsrfGuard
                 .validateOutboundBaseUrl(request.getBaseUrl());
@@ -107,6 +124,7 @@ public class ServiceInstanceManager {
 
         ServiceInstanceEntity entity = ServiceInstanceEntity.builder()
                 .serviceConfigId(serviceConfigId)
+                .providerId(providerId)
                 .instanceName(request.getName())
                 .instanceId(instanceUuid)
                 .baseUrl(safeBaseUrl)
@@ -138,6 +156,21 @@ public class ServiceInstanceManager {
                 .orElseThrow(() -> new RuntimeException("Instance not found: " + id));
 
         String instanceName = entity.getInstanceName();
+
+        // v2.11.0: 供应商关联更新。providerId 语义：null=不变；<=0=解除关联；>0=关联并从供应商补全空白字段
+        if (request.getProviderId() != null) {
+            final Long providerId = normalizeProviderId(request.getProviderId());
+            entity.setProviderId(providerId);
+            if (providerId != null) {
+                final ModelProviderEntity provider = modelProviderRepository.findById(providerId)
+                        .orElseThrow(() -> new RuntimeException("Model provider not found: " + providerId));
+                applyProviderDefaults(request, provider);
+                // 请求头显式下发时才合并供应商 Key（null 表示不动实例已有请求头）
+                if (request.getHeaders() != null) {
+                    request.setHeaders(mergeProviderAuthorization(request.getHeaders(), provider));
+                }
+            }
+        }
 
         if (request.getName() != null) {
             entity.setInstanceName(request.getName());
@@ -201,6 +234,83 @@ public class ServiceInstanceManager {
         
         // 保存版本
         saveVersion("删除服务实例: " + instanceName);
+    }
+
+    // ==================== v2.11.0 供应商级联操作 ====================
+
+    /**
+     * 供应商更换 Key 后级联刷新其下所有实例的 Authorization 头。
+     * 实例已显式覆盖过 Authorization（与供应商 Key 不同）时保持原值不动。
+     */
+    @Transactional
+    public int cascadeProviderKeyChange(final Long providerId, final String apiKey) {
+        final List<ServiceInstanceEntity> instances = serviceInstanceRepository.findByProviderId(providerId);
+        int updated = 0;
+        for (ServiceInstanceEntity entity : instances) {
+            final Map<String, String> headers = new HashMap<>();
+            if (entity.getHeaders() != null) {
+                headers.putAll(entity.getHeaders());
+            }
+            // 大小写不敏感地移除旧 Authorization，再按新 Key 重写
+            headers.keySet().removeIf(k -> k != null && k.equalsIgnoreCase("Authorization"));
+            if (apiKey != null && !apiKey.trim().isEmpty()) {
+                headers.put("Authorization", "Bearer " + apiKey.trim());
+            }
+            entity.setHeaders(headers);
+            serviceInstanceRepository.save(entity);
+            updated++;
+        }
+        if (updated > 0) {
+            log.info("Cascaded provider key change to {} instances of provider {}", updated, providerId);
+            saveVersion("供应商更换Key级联更新 " + updated + " 个实例");
+        }
+        return updated;
+    }
+
+    /**
+     * 供应商启停级联：停用供应商时其下实例全部停用；启用时恢复。
+     *
+     * <p>实例 status 与供应商一致存大写（ACTIVE / INACTIVE），API 输出层转小写。
+     * 已单独停用的实例在供应商重新启用时一并恢复（简化语义：实例级状态以供应商为准）。
+     *
+     * @param providerId 供应商主键
+     * @param active     true=启用（ACTIVE） / false=停用（INACTIVE）
+     * @return 受影响实例数
+     */
+    public int cascadeProviderStatus(final Long providerId, final boolean active) {
+        final List<ServiceInstanceEntity> instances = serviceInstanceRepository.findByProviderId(providerId);
+        final String target = active ? "ACTIVE" : "INACTIVE";
+        int updated = 0;
+        for (ServiceInstanceEntity entity : instances) {
+            if (!target.equals(entity.getStatus())) {
+                entity.setStatus(target);
+                serviceInstanceRepository.save(entity);
+                updated++;
+            }
+        }
+        if (updated > 0) {
+            log.info("Cascaded provider status -> {} to {} instances of provider {}", target, updated, providerId);
+            saveVersion("供应商" + (active ? "启用" : "停用") + "级联更新 " + updated + " 个实例");
+        }
+        return updated;
+    }
+
+    /**
+     * 删除供应商时解绑其下实例（provider_id 置空）。
+     * 实例本身保留（地址与 Authorization 已复制到实例上，行为不变），只是不再关联供应商。
+     */
+    @Transactional
+    public int unlinkProvider(final Long providerId) {
+        final List<ServiceInstanceEntity> instances = serviceInstanceRepository.findByProviderId(providerId);
+        for (ServiceInstanceEntity entity : instances) {
+            entity.setProviderId(null);
+            serviceInstanceRepository.save(entity);
+        }
+        if (!instances.isEmpty()) {
+            log.info("Unlinked {} instances from deleted provider {}", instances.size(), providerId);
+            saveVersion("删除供应商，解绑 " + instances.size() + " 个实例");
+        }
+        return instances.size();
     }
 
     /**
@@ -355,12 +465,64 @@ public class ServiceInstanceManager {
         log.info("Deleted circuit breaker config for instance: {}", instanceId);
     }
 
+    // ==================== v2.11.0 供应商继承辅助 ====================
+
+    /**
+     * 归一化 providerId：null 或 <=0 均视为「无供应商」（前端用 0/负数 表示解除关联）。
+     */
+    private Long normalizeProviderId(final Long providerId) {
+        if (providerId == null || providerId <= 0L) {
+            return null;
+        }
+        return providerId;
+    }
+
+    /**
+     * 用供应商值补全请求中的空白字段（显式值优先）：baseUrl / path / adapter。
+     * 请求头（Authorization）不在此处合并 —— 由调用点显式处理，避免把「请求头未下发」
+     * （更新语义为不动）误判为「用空头覆盖」。
+     */
+    private void applyProviderDefaults(final CreateServiceInstanceRequest request, final ModelProviderEntity provider) {
+        if (isBlank(request.getBaseUrl())) {
+            request.setBaseUrl(provider.getBaseUrl());
+        }
+        if (isBlank(request.getPath())) {
+            request.setPath(provider.getPath());
+        }
+        if (isBlank(request.getAdapter())) {
+            request.setAdapter(provider.getAdapter());
+        }
+    }
+
+    /**
+     * 合并供应商 API Key 到请求头：请求头已显式带 Authorization（大小写不敏感）时保留原值，
+     * 否则在供应商配置了 Key 时补 {@code Authorization: Bearer <key>}。
+     */
+    private Map<String, String> mergeProviderAuthorization(final Map<String, String> headers,
+            final ModelProviderEntity provider) {
+        final Map<String, String> merged = new HashMap<>();
+        if (headers != null) {
+            merged.putAll(headers);
+        }
+        final boolean hasAuth = merged.keySet().stream()
+                .anyMatch(k -> k != null && k.equalsIgnoreCase("Authorization"));
+        if (!hasAuth && !isBlank(provider.getApiKey())) {
+            merged.put("Authorization", "Bearer " + provider.getApiKey().trim());
+        }
+        return merged;
+    }
+
+    private boolean isBlank(final String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
     // ==================== 转换方法 ====================
 
     private ServiceInstanceDTO convertToDTO(final ServiceInstanceEntity entity) {
         ServiceInstanceDTO dto = ServiceInstanceDTO.builder()
                 .id(entity.getId())
                 .serviceConfigId(entity.getServiceConfigId())
+                .providerId(entity.getProviderId())
                 .name(entity.getInstanceName())
                 .baseUrl(entity.getBaseUrl())
                 .path(entity.getPath())
@@ -374,6 +536,12 @@ public class ServiceInstanceManager {
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
+
+        // v2.11.0: 带出供应商名称（列表展示「所属供应商」）；供应商已删时静默跳过
+        if (entity.getProviderId() != null) {
+            modelProviderRepository.findById(entity.getProviderId())
+                    .ifPresent(p -> dto.setProviderName(p.getName()));
+        }
 
         // 加载限流器配置
         rateLimitRepository.findByInstanceId(entity.getId())

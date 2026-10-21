@@ -179,8 +179,14 @@ public class LoadBalancerManagementController {
     public ResponseEntity<RouterResponse<LoadBalanceConfigResponse>> getServiceConfig(
             @PathVariable final String serviceType) {
         try {
-            // 使用 ServiceConfigManager 替代废弃方法
-            ServiceConfiguration serviceConfig = serviceConfigManager.getServiceConfiguration(serviceType);
+            // 使用 ServiceConfigManager 替代废弃方法；
+            // 服务未配置（如 imggen/imgedit 尚无实例）时回退全局配置，而非抛 500
+            ServiceConfiguration serviceConfig;
+            try {
+                serviceConfig = serviceConfigManager.getServiceConfiguration(serviceType);
+            } catch (ServiceConfigManager.NotFoundException e) {
+                serviceConfig = null;
+            }
 
             LoadBalanceConfigResponse response = new LoadBalanceConfigResponse();
             response.serviceType = serviceType;

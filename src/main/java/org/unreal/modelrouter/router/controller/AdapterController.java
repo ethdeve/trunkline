@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.unreal.modelrouter.router.adapter.AdapterRegistry;
+import org.unreal.modelrouter.router.adapter.config.AdapterDefinitionProperties;
+import org.unreal.modelrouter.router.adapter.persistence.AdapterDefinitionPersistenceService;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 
 import java.util.ArrayList;
@@ -31,9 +33,40 @@ public class AdapterController {
     private static final Logger logger = LoggerFactory.getLogger(AdapterController.class);
 
     private final AdapterRegistry adapterRegistry;
+    private final AdapterDefinitionProperties adapterDefinitionProperties;
+    private final AdapterDefinitionPersistenceService persistenceService;
 
-    public AdapterController(final AdapterRegistry adapterRegistry) {
+    public AdapterController(final AdapterRegistry adapterRegistry,
+                             final AdapterDefinitionProperties adapterDefinitionProperties,
+                             final AdapterDefinitionPersistenceService persistenceService) {
         this.adapterRegistry = adapterRegistry;
+        this.adapterDefinitionProperties = adapterDefinitionProperties;
+        this.persistenceService = persistenceService;
+    }
+
+    /**
+     * 按名称解析自定义适配器定义（大小写无关）：YAML 配置优先，回退持久化存储。
+     */
+    private AdapterDefinitionProperties.AdapterDefinition resolveDefinition(final String name) {
+        if (name == null) {
+            return null;
+        }
+        AdapterDefinitionProperties.AdapterDefinition def =
+                adapterDefinitionProperties.getAdapterDefinitions().get(name);
+        if (def != null) {
+            return def;
+        }
+        try {
+            for (Map.Entry<String, AdapterDefinitionProperties.AdapterDefinition> entry
+                    : persistenceService.loadAllDefinitions().entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(name)) {
+                    return entry.getValue();
+                }
+            }
+        } catch (Exception ignore) {
+            // 持久化查询失败不影响展示
+        }
+        return null;
     }
 
     /**
@@ -60,6 +93,13 @@ public class AdapterController {
                 // 创建适配器信息对象
                 java.util.Map<String, Object> adapterInfo = new java.util.HashMap<>();
                 adapterInfo.put("name", adapterName);
+                // 内置适配器用静态方言说明；自定义适配器用其存储的描述（YAML 优先，回退持久化）
+                if (adapterRegistry.isBuiltinAdapter(adapterName)) {
+                    adapterInfo.put("dialect", adapterRegistry.getAdapterDialect(adapterName));
+                } else {
+                    AdapterDefinitionProperties.AdapterDefinition def = resolveDefinition(adapterName);
+                    adapterInfo.put("dialect", def != null ? def.getDescription() : null);
+                }
                 adapterInfo.put("className", adapter.getClass().getSimpleName());
                 adapterInfo.put("packageName", adapter.getClass().getPackageName());
                 

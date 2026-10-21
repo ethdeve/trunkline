@@ -92,6 +92,10 @@ public class PermissionRuleRegistry {
                 PermissionRule.get("/api/config/instance/**", PermissionCodes.CONFIG_INSTANCES_READ),
                 PermissionRule.write("/api/config/instance/**", PermissionCodes.CONFIG_INSTANCES_WRITE),
 
+                // ===== 模型供应商（v2.11.0，/api/config/providers）→ 与实例配置同码 =====
+                PermissionRule.get("/api/config/providers/**", PermissionCodes.CONFIG_INSTANCES_READ),
+                PermissionRule.write("/api/config/providers/**", PermissionCodes.CONFIG_INSTANCES_WRITE),
+
                 // ===== 服务类型管理（ServiceTypeController，#116）→ 与实例配置同码 =====
                 PermissionRule.get("/api/config/type/**", PermissionCodes.CONFIG_INSTANCES_READ),
                 PermissionRule.write("/api/config/type/**", PermissionCodes.CONFIG_INSTANCES_WRITE),

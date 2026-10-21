@@ -24,6 +24,13 @@ public final class CreateServiceInstanceRequest {
     private Integer weight;
 
     /**
+     * v2.11.0: 关联的模型供应商 ID（可选）。
+     * 非空时，baseUrl / path / adapter / Authorization 头按供应商带出
+     * （请求中对应的显式值仍优先，便于个别实例覆盖）。
+     */
+    private Long providerId;
+
+    /**
      * 实例状态：active 或 inactive
      */
     private String status;

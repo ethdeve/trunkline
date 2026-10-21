@@ -83,10 +83,21 @@
               <el-option
                 v-for="item in parentAdapters"
                 :key="item.name"
-                :label="item.name + (item.source === 'builtin' ? t('adapter.parentBuiltinSuffix') : t('adapter.parentConfigDrivenSuffix'))"
+                :label="(item.dialect || item.name) + (item.source === 'builtin' ? t('adapter.parentBuiltinSuffix') : t('adapter.parentConfigDrivenSuffix'))"
                 :value="item.name"
               />
             </el-select>
+          </el-form-item>
+
+          <el-form-item :label="t('adapter.dialect')" prop="description">
+            <el-input
+              v-model="form.description"
+              type="textarea"
+              :rows="2"
+              maxlength="200"
+              :placeholder="t('adapter.dialectPlaceholder')"
+            />
+            <div class="type-hint">{{ t('adapter.dialectHint') }}</div>
           </el-form-item>
 
           <el-form-item label="Base URL" prop="baseUrl">
@@ -212,6 +223,7 @@ const form = reactive({
   name: '',
   type: 'openai-compatible',
   parent: '',
+  description: '',
   baseUrl: '',
   apiKey: '',
   capabilities: {
@@ -264,6 +276,8 @@ const selectTemplate = (tpl: AdapterTemplate) => {
   selectedTemplateId.value = tpl.id
   form.type = tpl.type
   form.baseUrl = tpl.defaultBaseUrl
+  // 模板预填方言描述（如：DeepSeek（OpenAI 兼容）），用户可改
+  form.description = tpl.description || ''
   form.capabilities = {
     chat: tpl.capabilities.chat,
     embedding: tpl.capabilities.embedding,
@@ -316,6 +330,7 @@ const handleFinish = async () => {
       name: form.name,
       type: form.type,
       parent: form.type === 'extend' ? form.parent : undefined,
+      description: form.description?.trim() || undefined,
       capabilities: { ...form.capabilities },
       auth: { ...form.auth },
       additionalHeaders: Object.keys(headers).length > 0 ? headers : undefined
@@ -351,6 +366,7 @@ watch(visible, (val) => {
       name: '',
       type: 'openai-compatible',
       parent: '',
+      description: '',
       baseUrl: '',
       apiKey: '',
       capabilities: {

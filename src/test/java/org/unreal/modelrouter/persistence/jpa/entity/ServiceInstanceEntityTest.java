@@ -38,6 +38,7 @@ class ServiceInstanceEntityTest {
         ServiceInstanceEntity entity = new ServiceInstanceEntity(
                 1L,
                 100L,
+                null,
                 "instance1",
                 "uuid-1234",
                 "http://localhost:8080",
@@ -55,6 +56,7 @@ class ServiceInstanceEntityTest {
 
         assertEquals(1L, entity.getId());
         assertEquals(100L, entity.getServiceConfigId());
+        assertNull(entity.getProviderId());
         assertEquals("instance1", entity.getInstanceName());
         assertEquals("uuid-1234", entity.getInstanceId());
         assertEquals("http://localhost:8080", entity.getBaseUrl());
@@ -65,6 +67,23 @@ class ServiceInstanceEntityTest {
         assertEquals("ollama", entity.getAdapter());
         assertEquals(headers, entity.getHeaders());
         assertEquals(tags, entity.getTags());
+    }
+
+    @Test
+    @DisplayName("测试供应商关联字段（v2.11.0）")
+    void testProviderId() {
+        ServiceInstanceEntity entity = ServiceInstanceEntity.builder()
+                .serviceConfigId(400L)
+                .providerId(7L)
+                .instanceName("provider-instance")
+                .baseUrl("https://api.deepseek.com")
+                .build();
+
+        assertEquals(7L, entity.getProviderId());
+        assertEquals(400L, entity.getServiceConfigId());
+
+        entity.setProviderId(null);
+        assertNull(entity.getProviderId());
     }
 
     @Test

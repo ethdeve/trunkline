@@ -1,14 +1,16 @@
 <template>
   <PageSkeleton :title="t('rule.pageTitle')">
-    <template #actions>
+    <!-- 操作区：嵌入模式（策略中心聚合页）下 PageSkeleton 页头整体隐藏，
+         #actions 插槽不会渲染，故按钮改为内容顶部自渲染，避免入口丢失 -->
+    <div class="page-actions-row">
       <el-button :icon="Refresh" circle @click="refresh" :title="t('rule.refreshTooltip')" />
-      <el-button type="success" plain @click="templateDialogVisible = true">
+      <el-button v-if="canWrite" type="success" plain @click="templateDialogVisible = true">
         <el-icon><MagicStick /></el-icon>&nbsp;{{ t('rule.createFromTemplate') }}
       </el-button>
-      <el-button type="primary" @click="handleCreate">
+      <el-button v-if="canWrite" type="primary" @click="handleCreate">
         <el-icon><Plus /></el-icon>&nbsp;{{ t('rule.addRule') }}
       </el-button>
-    </template>
+    </div>
 
     <el-table ref="tableRef" :data="rules" v-loading="loading" style="width: 100%" row-key="id">
       <el-table-column :label="t('rule.sort')" width="60" align="center">
@@ -18,7 +20,7 @@
       </el-table-column>
       <el-table-column :label="t('rule.enabled')" width="70" align="center">
         <template #default="{ row }">
-          <el-switch :model-value="row.enabled" @change="(val: boolean) => handleToggle(row, val)" />
+          <el-switch v-if="canWrite" :model-value="row.enabled" @change="(val: boolean) => handleToggle(row, val)" />
         </template>
       </el-table-column>
       <el-table-column :label="t('rule.name')" min-width="140">
@@ -52,8 +54,8 @@
       </el-table-column>
       <el-table-column :label="t('rule.operations')" width="200" align="center">
         <template #default="{ row }">
-          <el-button size="small" @click="handleEdit(row)">{{ t('rule.edit') }}</el-button>
-          <el-button size="small" type="danger" @click="handleDelete(row)">{{ t('rule.delete') }}</el-button>
+          <el-button v-if="canWrite" size="small" @click="handleEdit(row)">{{ t('rule.edit') }}</el-button>
+          <el-button v-if="canWrite" size="small" type="danger" @click="handleDelete(row)">{{ t('rule.delete') }}</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -72,6 +74,7 @@
 import { nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { usePermission } from '@/composables/usePermission'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, MagicStick, Rank, Refresh } from '@element-plus/icons-vue'
 import Sortable from 'sortablejs'
@@ -98,6 +101,8 @@ const statsMap = ref<Record<string, number>>({})
 const tableRef = ref()
 const templateDialogVisible = ref(false)
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = hasPermission('config:rules:write')
 const router = useRouter()
 
 const fetchRules = async () => {
@@ -274,7 +279,7 @@ const formatAction = (action: RuleAction) => {
 const navigateActionTarget = (action: RuleAction) => {
   if (!action) return
   if (action.type === 'TARGET_ADAPTER' && action.adapterName) {
-    router.push({ name: 'adapter-management' })
+    router.push({ name: 'protocol-adapters' })
   } else if (action.type === 'TARGET_MODEL' && action.modelName) {
     router.push({ name: 'model-categories' })
   } else if (action.type === 'TARGET_INSTANCE' && action.instanceId) {
@@ -289,6 +294,14 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.page-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .drag-handle {
   cursor: grab;
 }

@@ -1,6 +1,7 @@
 <template>
   <PageSkeleton :title="t('accounts.title')">
-    <template #actions>
+    <!-- 聚合页嵌入模式下 PageSkeleton 隐藏标题区（含 actions 插槽），工具行需自绘 -->
+    <div class="page-actions-row">
       <el-input
         v-model="searchKeyword"
         :placeholder="t('accounts.searchPlaceholder')"
@@ -11,7 +12,7 @@
           <el-icon><Search /></el-icon>
         </template>
       </el-input>
-      <el-button type="primary" @click="showCreateDialog = true">
+      <el-button v-if="canWrite" type="primary" @click="showCreateDialog = true">
         <el-icon><Plus /></el-icon>
         {{ t('accounts.createAccount') }}
       </el-button>
@@ -19,7 +20,7 @@
         <el-icon><Refresh /></el-icon>
         {{ t('accounts.refresh') }}
       </el-button>
-    </template>
+    </div>
 
     <!-- 统计信息 -->
     <el-row :gutter="20" style="margin-bottom: 20px;">
@@ -45,11 +46,11 @@
           <el-tag
             v-for="role in scope.row.roles"
             :key="role"
-            :type="role === 'ADMIN' ? 'danger' : 'primary'"
+            :type="roleTagType(role)"
             size="small"
             style="margin-right: 5px;"
           >
-            {{ role === 'ADMIN' ? t('accounts.adminRole') : t('accounts.userRole') }}
+            {{ t('accounts.roleLabels.' + role) }}
           </el-tag>
         </template>
       </el-table-column>
@@ -57,6 +58,7 @@
         <template #default="scope">
           <el-switch
             v-model="scope.row.enabled"
+            :disabled="!canWrite"
             @change="handleStatusChange(scope.row)"
             :loading="scope.row.statusLoading"
           />
@@ -76,6 +78,7 @@
         <template #default="scope">
           <el-button-group>
             <el-button
+              v-if="canWrite"
               size="small"
               type="primary"
               :title="t('accounts.editAccount')"
@@ -85,6 +88,7 @@
               <el-icon><Edit /></el-icon>
             </el-button>
             <el-button
+              v-if="canWrite"
               size="small"
               type="danger"
               :title="t('accounts.messages.confirmDelete')"
@@ -143,13 +147,14 @@
         </el-form-item>
         <el-form-item :label="t('accounts.roles')" prop="roles">
           <el-select v-model="accountForm.roles" multiple :placeholder="t('accounts.rolesPlaceholder')" style="width: 100%;">
-            <el-option :label="t('accounts.adminOptionLabel')" value="ADMIN">
-              <el-tag type="danger" size="small">{{ t('accounts.adminRole') }}</el-tag>
-              <span style="margin-left: 10px; color: var(--ja-text-regular);">{{ t('accounts.adminPermissionDescription') }}</span>
-            </el-option>
-            <el-option :label="t('accounts.userOptionLabel')" value="USER">
-              <el-tag type="primary" size="small">{{ t('accounts.userRole') }}</el-tag>
-              <span style="margin-left: 10px; color: var(--ja-text-regular);">{{ t('accounts.userPermissionDescription') }}</span>
+            <el-option
+              v-for="role in ROLES"
+              :key="role"
+              :label="`${t('accounts.roleLabels.' + role)} (${role})`"
+              :value="role"
+            >
+              <el-tag :type="roleTagType(role)" size="small">{{ t('accounts.roleLabels.' + role) }}</el-tag>
+              <span style="margin-left: 10px; color: var(--ja-text-regular);">{{ t(ROLE_DESCRIPTIONS[role]) }}</span>
             </el-option>
           </el-select>
         </el-form-item>
@@ -172,6 +177,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useI18n } from 'vue-i18n'
+import { usePermission } from '@/composables/usePermission'
 import { Plus, Refresh, Search, Edit, Delete } from '@element-plus/icons-vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import {
@@ -182,8 +188,15 @@ import {
   toggleJwtAccountStatus
 } from '@/api/account'
 import type { JwtAccount, CreateJwtAccountRequest } from '@/api/account'
+import { ROLES, ROLE_DESCRIPTIONS, type RoleName } from '@/api/permission'
 
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = hasPermission('system:accounts:manage')
+
+/** 角色标签颜色：ADMIN 红 / OPERATOR 橙 / USER 蓝 / VIEWER 灰 */
+const roleTagType = (role: string) =>
+  role === 'ADMIN' ? 'danger' : role === 'OPERATOR' ? 'warning' : role === 'VIEWER' ? 'info' : 'primary'
 
 // 数据状态
 const accounts = ref<JwtAccount[]>([])
@@ -400,6 +413,14 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.page-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .dialog-footer {
   text-align: right;
 }

@@ -38,6 +38,14 @@ public class ServiceInstanceEntity {
     @Column(name = "service_config_id", nullable = false)
     private Long serviceConfigId;
 
+    /**
+     * v2.11.0: 关联的模型供应商 ID（可空）。
+     * 非空表示该实例由「供应商 → 管理模型」流程创建，baseUrl / path / adapter /
+     * Authorization 头均继承自供应商；更换供应商 Key 时会级联刷新本实例的 Authorization 头。
+     */
+    @Column(name = "provider_id")
+    private Long providerId;
+
     @Column(name = "instance_name", nullable = false)
     private String instanceName;
 

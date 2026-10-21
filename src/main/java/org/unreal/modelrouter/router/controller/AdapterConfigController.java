@@ -79,6 +79,32 @@ public class AdapterConfigController {
     }
 
     /**
+     * 按名称解析自定义适配器定义（大小写无关）：YAML 配置优先，回退持久化存储。
+     * 用于为配置驱动适配器取回用户填写的描述（方言）。
+     */
+    private AdapterDefinitionProperties.AdapterDefinition resolveDefinition(final String name) {
+        if (name == null) {
+            return null;
+        }
+        AdapterDefinitionProperties.AdapterDefinition def =
+                adapterDefinitionProperties.getAdapterDefinitions().get(name);
+        if (def != null) {
+            return def;
+        }
+        try {
+            for (Map.Entry<String, AdapterDefinitionProperties.AdapterDefinition> entry
+                    : persistenceService.loadAllDefinitions().entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(name)) {
+                    return entry.getValue();
+                }
+            }
+        } catch (Exception ignore) {
+            // 持久化查询失败不影响展示
+        }
+        return null;
+    }
+
+    /**
      * 获取所有adapter列表（内置 + 配置驱动）
      */
     @GetMapping("/list")
@@ -96,6 +122,13 @@ public class AdapterConfigController {
                 ServiceCapability adapter = entry.getValue();
                 Map<String, Object> info = new HashMap<>();
                 info.put("name", name);
+                // 内置适配器用静态方言说明；自定义适配器用其存储的描述（YAML 优先，回退持久化）
+                if (adapterRegistry.isBuiltinAdapter(name)) {
+                    info.put("dialect", adapterRegistry.getAdapterDialect(name));
+                } else {
+                    AdapterDefinitionProperties.AdapterDefinition def = resolveDefinition(name);
+                    info.put("dialect", def != null ? def.getDescription() : null);
+                }
                 info.put("source", adapterRegistry.isBuiltinAdapter(name) ? "builtin" : "configurable");
 
                 if (adapter instanceof ConfigurableAdapter) {
@@ -147,6 +180,7 @@ public class AdapterConfigController {
                 if (adapterRegistry.isAdapterSupported(name)) {
                     Map<String, Object> info = new HashMap<>();
                     info.put("name", name);
+                    info.put("dialect", adapterRegistry.getAdapterDialect(name));
                     info.put("source", "builtin");
                     info.put("type", "builtin");
                     return ResponseEntity.ok(RouterResponse.success(info, "获取adapter详情成功"));
@@ -159,6 +193,8 @@ public class AdapterConfigController {
             info.put("name", name);
             info.put("source", "configurable");
             info.put("type", definition.getType());
+            info.put("dialect", definition.getDescription());
+            info.put("description", definition.getDescription());
             info.put("capabilities", definition.getCapabilities());
             info.put("auth", definition.getAuth());
             info.put("additionalHeaders", definition.getAdditionalHeaders());
@@ -201,6 +237,7 @@ public class AdapterConfigController {
                     new AdapterDefinitionProperties.AdapterDefinition();
             definition.setType(request.getType() != null ? request.getType() : "openai-compatible");
             definition.setParent(request.getParent());  // 设置父adapter
+            definition.setDescription(request.getDescription());  // 方言/描述
 
             if (request.getCapabilities() != null) {
                 AdapterDefinitionProperties.CapabilitiesConfig caps =
@@ -280,6 +317,7 @@ public class AdapterConfigController {
                     new AdapterDefinitionProperties.AdapterDefinition();
             definition.setType(request.getType() != null ? request.getType() : "openai-compatible");
             definition.setParent(request.getParent());  // 设置父adapter
+            definition.setDescription(request.getDescription());  // 方言/描述
 
             if (request.getCapabilities() != null) {
                 AdapterDefinitionProperties.CapabilitiesConfig caps =
@@ -392,6 +430,13 @@ public class AdapterConfigController {
 
                 Map<String, Object> info = new HashMap<>();
                 info.put("name", adapterName);
+                // 内置适配器用静态方言说明；自定义适配器用其存储的描述（YAML 优先，回退持久化）
+                if (adapterRegistry.isBuiltinAdapter(adapterName)) {
+                    info.put("dialect", adapterRegistry.getAdapterDialect(adapterName));
+                } else {
+                    AdapterDefinitionProperties.AdapterDefinition def = resolveDefinition(adapterName);
+                    info.put("dialect", def != null ? def.getDescription() : null);
+                }
                 info.put("source", adapterRegistry.isBuiltinAdapter(adapterName) ? "builtin" : "configurable");
                 parentList.add(info);
             }
@@ -506,6 +551,7 @@ public class AdapterConfigController {
         private String name;
         private String type;
         private String parent;  // 继承模式下的父adapter名称
+        private String description;  // 方言/描述：适配的厂商 API 协议说明
         private Map<String, Boolean> capabilities;
         private Map<String, String> auth;
         private Map<String, String> additionalHeaders;
@@ -516,6 +562,14 @@ public class AdapterConfigController {
 
         public void setName(final String name) {
             this.name = name;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(final String description) {
+            this.description = description;
         }
 
         public String getType() {

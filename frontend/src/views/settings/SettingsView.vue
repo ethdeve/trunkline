@@ -12,8 +12,20 @@ import PermissionManagement from '@/views/system/PermissionManagement.vue'
 import AuditLogManagement from '@/views/security/AuditLogManagement.vue'
 import VersionManagement from '@/views/config/VersionManagement.vue'
 import StatePersistenceManagement from '@/views/config/StatePersistenceManagement.vue'
+import ProviderTemplateManagement from '@/views/settings/ProviderTemplateManagement.vue'
+import ServiceManagement from '@/views/config/ServiceManagement.vue'
+import AdapterManagement from '@/views/config/AdapterManagement.vue'
 
-const TABS = ['accounts', 'permissions', 'audit', 'versions', 'persistence'] as const
+const TABS = [
+  'accounts',
+  'permissions',
+  'audit',
+  'versions',
+  'persistence',
+  'providerTemplates',
+  'modelCategories',
+  'protocolAdapters'
+] as const
 type TabKey = (typeof TABS)[number]
 
 // 壳层规范：内部收编组件的 PageSkeleton 进入嵌入模式（隐藏自带标题，统一由 PageHeader 承担）
@@ -37,7 +49,7 @@ watch(
 
 <template>
   <div>
-    <PageHeader title="系统设置" subtitle="账号 / 权限 / 审计日志 / 配置版本 / 数据持久化" />
+    <PageHeader title="系统设置" subtitle="账号 / 权限 / 审计日志 / 配置版本 / 数据持久化 / 模型供应商模板 / 模型分类 / 模型适配器" />
     <el-card shadow="never">
       <el-tabs v-model="active">
         <el-tab-pane label="账号" name="accounts">
@@ -60,6 +72,15 @@ watch(
             style="margin-bottom: 12px"
           />
           <StatePersistenceManagement />
+        </el-tab-pane>
+        <el-tab-pane label="模型供应商模板" name="providerTemplates" lazy>
+          <ProviderTemplateManagement />
+        </el-tab-pane>
+        <el-tab-pane label="模型分类" name="modelCategories" lazy>
+          <ServiceManagement />
+        </el-tab-pane>
+        <el-tab-pane label="模型适配器" name="protocolAdapters" lazy>
+          <AdapterManagement />
         </el-tab-pane>
       </el-tabs>
     </el-card>

@@ -65,11 +65,11 @@
               >
                 {{ t('version.view') }}
               </el-button>
-              <el-button :disabled="scope.row.status === 'current' || applyingVersions.has(scope.row.version)"
+              <el-button v-if="canWrite" :disabled="scope.row.status === 'current' || applyingVersions.has(scope.row.version)"
                 :loading="applyingVersions.has(scope.row.version)" type="primary" @click="handleApply(scope.row)">
                 {{ t('version.apply') }}
               </el-button>
-              <el-button :disabled="scope.row.status === 'current' || deletingVersions.has(scope.row.version)"
+              <el-button v-if="canWrite" :disabled="scope.row.status === 'current' || deletingVersions.has(scope.row.version)"
                 :loading="deletingVersions.has(scope.row.version)" type="danger" @click="handleDelete(scope.row)">
                 {{ t('version.delete') }}
               </el-button>
@@ -125,11 +125,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { usePermission } from '@/composables/usePermission'
 import { ElLoading, ElMessage, ElMessageBox } from 'element-plus'
 import { applyVersion, deleteConfigVersion, getAllVersionInfo, type Version } from '@/api/version.ts'
 import { formatDateTime } from '@/utils/format'
 
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = hasPermission('config:versions:write')
 const versions = ref<Version[]>([])
 const detailDialogVisible = ref(false)
 const currentVersion = ref({} as Version)

@@ -38,65 +38,69 @@ export const ROLE_DESCRIPTIONS: Record<RoleName, string> = {
  * module 为分组标题的 i18n key（页面以 t(group.module) 渲染），
  * 文案位于 locales/{zh-CN,en-US}/permissions.json 的 groups 节点。
  */
+/**
+ * 权限分组：与左侧菜单结构保持一致（工作台 / 模型接入 / API Keys / 观测 / 策略 / 系统设置），
+ * 用户按「这个功能在哪个菜单」即可找到对应权限项；权限码本身与后端 1:1 不变。
+ */
 export const PERMISSION_GROUPS: PermissionGroup[] = [
-  { module: 'permissions.groups.overview', codes: ['overview:dashboard:read'] },
+  // ---- 工作台 ----
   {
-    module: 'permissions.groups.config',
+    module: 'permissions.groups.workbench',
+    codes: ['overview:dashboard:read']
+  },
+  // ---- 模型接入 ----
+  {
+    module: 'permissions.groups.modelAccess',
     codes: [
-      'config:services:read', 'config:services:write',
       'config:instances:read', 'config:instances:write',
-      'config:versions:read', 'config:versions:write',
-      'config:persistence:read', 'config:persistence:write',
-      'config:adapters:read', 'config:adapters:write',
-      'config:rules:read', 'config:rules:write',
       'config:pools:read', 'config:pools:write',
-      'config:circuitbreaker:read', 'config:circuitbreaker:write',
-      'config:callhistory:read', 'config:callhistory:write',
-      'config:cache:read', 'config:cache:write',
-      'config:quota:read', 'config:quota:write',
-      'config:validation:read', 'config:validation:write'
+      'ai:playground:use'
     ]
   },
+  // ---- API Keys ----
   {
-    module: 'permissions.groups.trafficGovernance',
-    codes: [
-      'lb:monitoring:read', 'lb:config:write',
-      'cb:monitoring:read', 'cb:history:read',
-      'rl:monitoring:read'
-    ]
+    module: 'permissions.groups.apiKeys',
+    codes: ['security:apikeys:manage']
   },
-  { module: 'permissions.groups.callHistory', codes: ['callhistory:view'] },
+  // ---- 观测（观测中心 / 链路追踪） ----
   {
-    module: 'permissions.groups.monitoring',
+    module: 'permissions.groups.observe',
     codes: [
-      'monitoring:metrics:read', 'monitoring:slowquery:read',
-      'monitoring:quota:read',
-      'monitoring:tokenusage:read', 'monitoring:modelstats:read',
-      'monitoring:routing:read'
-    ]
-  },
-  {
-    module: 'permissions.groups.tracing',
-    codes: [
+      'monitoring:tokenusage:read', 'monitoring:metrics:read',
+      'monitoring:slowquery:read', 'monitoring:quota:read',
+      'monitoring:modelstats:read', 'monitoring:routing:read',
+      'callhistory:view', 'config:callhistory:read', 'config:callhistory:write',
       'tracing:dashboard:read', 'tracing:search:read', 'tracing:config:manage'
     ]
   },
+  // ---- 策略（策略中心：路由规则 / 负载均衡 / 熔断 / 响应缓存 / 用量配额） ----
   {
-    module: 'permissions.groups.security',
+    module: 'permissions.groups.strategy',
     codes: [
-      'security:apikeys:manage', 'security:sanitization:manage',
-      'security:jwttokens:manage',
-      'security:blacklist:manage', 'security:audit:read'
+      'config:rules:read', 'config:rules:write',
+      'lb:monitoring:read', 'lb:config:write',
+      'cb:monitoring:read', 'cb:history:read',
+      'config:circuitbreaker:read', 'config:circuitbreaker:write',
+      'config:cache:read', 'config:cache:write',
+      'rl:monitoring:read',
+      'config:quota:read', 'config:quota:write'
     ]
   },
+  // ---- 系统设置（账号 / 权限 / 审计 / 配置版本 / 数据持久化 / 模型供应商模板 / 模型分类 / 模型适配器） ----
   {
-    module: 'permissions.groups.system',
+    module: 'permissions.groups.systemSettings',
     codes: [
-      'system:accounts:manage', 'system:permissions:manage'
+      'system:accounts:manage', 'system:permissions:manage',
+      'security:audit:read', 'security:sanitization:manage',
+      'security:jwttokens:manage', 'security:blacklist:manage',
+      'config:versions:read', 'config:versions:write',
+      'config:persistence:read', 'config:persistence:write',
+      'config:services:read', 'config:services:write',
+      'config:adapters:read', 'config:adapters:write',
+      'config:validation:read', 'config:validation:write',
+      'actuator:admin:manage'
     ]
-  },
-  { module: 'permissions.groups.ai', codes: ['ai:playground:use'] },
-  { module: 'permissions.groups.infrastructure', codes: ['actuator:admin:manage'] }
+  }
 ]
 
 /** 全部权限码集合（叶子节点 key，用于 el-tree 勾选收集/校验） */

@@ -17,6 +17,12 @@
     "actions": "Actions",
     "adminRole": "Admin",
     "userRole": "User",
+    "roleLabels": {
+      "ADMIN": "Admin",
+      "OPERATOR": "Operator",
+      "USER": "User",
+      "VIEWER": "Viewer"
+    },
     "editHintTitle": "Edit Hint",
     "editHintDescription": "Leave the password field blank to keep the current password",
     "password": "Password",

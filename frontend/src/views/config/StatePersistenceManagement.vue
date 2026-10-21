@@ -134,19 +134,19 @@
 
       <el-row :gutter="20">
         <el-col :span="6">
-          <el-button type="primary" @click="recoverAll" :loading="recovering">
+          <el-button v-if="canWrite" type="primary" @click="recoverAll" :loading="recovering">
             <el-icon><RefreshRight /></el-icon>
             {{ t('statePersistence.recoverAll') }}
           </el-button>
         </el-col>
         <el-col :span="6">
-          <el-button type="warning" @click="showSwitchTierDialog">
+          <el-button v-if="canWrite" type="warning" @click="showSwitchTierDialog">
             <el-icon><Switch /></el-icon>
             {{ t('statePersistence.switchTier') }}
           </el-button>
         </el-col>
         <el-col :span="6">
-          <el-button @click="syncStates" :loading="syncing">
+          <el-button v-if="canWrite" @click="syncStates" :loading="syncing">
             <el-icon><Upload /></el-icon>
             {{ t('statePersistence.syncNow') }}
           </el-button>
@@ -197,7 +197,7 @@
         </el-table-column>
         <el-table-column :label="t('statePersistence.actions')" min-width="150">
           <template #default="{ row }">
-            <el-button size="small" type="primary" @click="recoverSingle(row)">
+            <el-button v-if="canWrite" size="small" type="primary" @click="recoverSingle(row)">
               {{ t('statePersistence.recover') }}
             </el-button>
             <el-button size="small" @click="viewStateDetail(row)">
@@ -253,12 +253,15 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { usePermission } from '@/composables/usePermission'
 import { ElMessage } from 'element-plus'
 import { Refresh, RefreshRight, Switch, Upload, View, SuccessFilled, CircleCloseFilled } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = hasPermission('config:persistence:write')
 
 interface TierHealth {
   healthy: boolean

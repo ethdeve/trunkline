@@ -2,6 +2,7 @@ package org.unreal.modelrouter.router.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -63,7 +64,10 @@ public final class ModelRouterProperties {
     }
     public static final class ServiceConfig {
         private LoadBalanceConfig loadBalance;
-        private List<ModelInstance> instances;
+        // v2.11.1: 默认空 List。YAML 未配置 instances 时字段保持空列表而非 null，
+        // 避免反射转 Map 产出 "instances": null 使持久化配置消费端 for-each 抛 NPE
+        // （该 NPE 曾被 saveVersion 的 catch 吞掉，导致实例变更后注册表不刷新、池路由找不到成员）。
+        private List<ModelInstance> instances = new ArrayList<>();
         private String adapter;
         private RateLimitConfig rateLimit; // 服务级别限流配置
         private CircuitBreakerConfig circuitBreaker; // 服务级别熔断器配置

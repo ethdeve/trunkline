@@ -31,6 +31,10 @@ public class JpaStoreManager implements StoreManager {
     @Transactional
     public void saveConfig(final String key, final Map<String, Object> config) {
         if (config == null || config.isEmpty()) {
+            // 空配置表示清空该 key：必须删除既有记录。
+            // 旧实现直接 return 会导致「删除集合中最后一项」变成假删除——
+            // DB 旧值保留，下次 loadAll 又把已删除项读回（模型分组/路由规则/适配器/API Key 均踩过）。
+            deleteConfig(key);
             return;
         }
         try {

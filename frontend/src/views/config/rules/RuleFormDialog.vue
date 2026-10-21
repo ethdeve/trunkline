@@ -136,7 +136,7 @@
           default-first-option
           style="width: 300px"
         >
-          <el-option v-for="n in adapterNames" :key="n" :label="n" :value="n" />
+          <el-option v-for="a in adapterOptions" :key="a.name" :label="a.dialect || a.name" :value="a.name" />
         </el-select>
 
         <el-select
@@ -278,7 +278,7 @@ const saving = ref(false)
 const isEdit = computed(() => !!props.rule?.id)
 
 // ==================== 下拉数据源 ====================
-const adapterNames = ref<string[]>([])
+const adapterOptions = ref<AdapterInfo[]>([])
 const modelNames = ref<string[]>([])
 const instanceNames = ref<string[]>([])
 const loadingModels = ref(false)
@@ -295,7 +295,7 @@ const loadOptions = async () => {
       getModelsByServiceType('chat')
     ])
     if (adapterRes.status === 'fulfilled' && adapterRes.value.data?.data) {
-      adapterNames.value = adapterRes.value.data.data.map((a: AdapterInfo) => a.name)
+      adapterOptions.value = adapterRes.value.data.data
     }
     if (instanceRes.status === 'fulfilled' && instanceRes.value.data?.data) {
       instanceNames.value = instanceRes.value.data.data

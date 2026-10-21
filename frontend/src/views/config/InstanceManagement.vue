@@ -1,6 +1,8 @@
 <template>
   <PageSkeleton :title="t('instance.title')">
-    <template #actions>
+    <!-- 嵌入模式下 #actions 插槽会被 PageSkeleton 整体吞掉（复发性 bug 模式），
+         按钮改为内容顶部 .page-actions-row 自渲染，直挂/嵌入两种模式都可见 -->
+    <div class="page-actions-row">
       <el-button
         type="primary"
         link
@@ -10,11 +12,7 @@
       >
         {{ t('instance.openServiceConfig') }}
       </el-button>
-      <el-button type="primary" @click="handleAddInstance" size="default">
-        <el-icon><Plus /></el-icon>
-        {{ t('instance.addInstance') }}
-      </el-button>
-    </template>
+    </div>
 
     <template #toolbar>
       <el-input v-model="searchQuery" :placeholder="t('instance.searchPlaceholderUser')" clearable size="default"
@@ -54,7 +52,12 @@
                   <!-- 普通用户视角第二列：上游厂商 + 接入地址 -->
                   <el-table-column prop="baseUrl" :label="t('instance.columnVendorAddress')" min-width="260">
                     <template #default="scope">
-                      <div class="cell-title">{{ providerLabelOf(scope.row) }}</div>
+                      <div class="cell-title">
+                        {{ providerLabelOf(scope.row) }}
+                        <el-tag v-if="scope.row.providerName" size="small" type="warning" effect="plain" class="provider-tag">
+                          {{ t('provider.fromProvider') }}{{ scope.row.providerName }}
+                        </el-tag>
+                      </div>
                       <div class="cell-sub">
                         <el-tooltip :content="`${scope.row.baseUrl}${scope.row.path || ''}`" placement="top">
                           <span>{{ extractDomain(scope.row.baseUrl) }}{{ scope.row.path || '' }}</span>
@@ -77,19 +80,19 @@
 
                   <el-table-column :label="t('instance.actions')" width="200" align="center">
                     <template #default="scope">
-                      <el-button size="small" @click="handleEdit(scope.row)" type="primary" plain circle :title="t('instance.editInstance')">
+                      <el-button v-if="canWrite" size="small" @click="handleEdit(scope.row)" type="primary" plain circle :title="t('instance.editInstance')">
                         <el-icon><Edit /></el-icon>
                       </el-button>
 
-                      <el-button size="small" @click="openRateLimitConfig(scope.row)" type="warning" plain circle :title="t('instance.rateLimitConfig')">
+                      <el-button v-if="canWrite" size="small" @click="openRateLimitConfig(scope.row)" type="warning" plain circle :title="t('instance.rateLimitConfig')">
                         <el-icon><Timer /></el-icon>
                       </el-button>
 
-                      <el-button size="small" @click="openCircuitBreakerConfig(scope.row)" type="danger" plain circle :title="t('instance.circuitBreakerConfig')">
+                      <el-button v-if="canWrite" size="small" @click="openCircuitBreakerConfig(scope.row)" type="danger" plain circle :title="t('instance.circuitBreakerConfig')">
                         <el-icon><WarningFilled /></el-icon>
                       </el-button>
 
-                      <el-button size="small" type="info" @click="handleDelete(scope.row)" plain circle :title="t('instance.delete')">
+                      <el-button v-if="canWrite" size="small" type="info" @click="handleDelete(scope.row)" plain circle :title="t('instance.delete')">
                         <el-icon><Delete /></el-icon>
                       </el-button>
                     </template>
@@ -143,8 +146,10 @@
       :service-type-label="serviceTypeLabel"
       :adapters="adapters"
       :global-adapter="globalAdapter"
+      :providers="providerOptions"
       :is-edit="isEdit"
       :advanced="true"
+      :simplified="true"
     />
 
     <template #footer>
@@ -179,17 +184,21 @@ import {
 } from '@/api/instance'
 import { getServiceTypes } from '@/api/dashboard'
 import { getAdapters, getAllConfigurations } from '@/api/service'
+import { getProviders, type ModelProvider } from '@/api/provider'
 import { clearCache } from '@/stores/playgroundCache'
-import { Plus, Delete, Close, Timer, WarningFilled, Edit, Search, Refresh } from '@element-plus/icons-vue'
+import { Delete, Close, Timer, WarningFilled, Edit, Search, Refresh } from '@element-plus/icons-vue'
 import RateLimitConfig from '@/components/RateLimitConfig.vue'
 import CircuitBreakerConfig from '@/components/CircuitBreakerConfig.vue'
 import UpstreamInstanceForm from '@/components/UpstreamInstanceForm.vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import { uid } from '@/utils/uid'
+import { usePermission } from '@/composables/usePermission'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = computed(() => hasPermission('config:instances:write'))
 
 // v2.10.3 双语版：SERVICE_TYPE_LABELS 现为「类型→i18n key」映射，渲染时翻译；未知类型回退原值
 const serviceTypeMap: Record<string, string> = SERVICE_TYPE_LABELS as Record<string, string>
@@ -212,6 +221,19 @@ const adapters = ref<any[]>([])
 const globalConfig = ref<any>({})
 const globalAdapter = ref<string>('')
 
+// v2.11.0: 供应商列表（实例表单「从供应商选择」用，选中即继承地址与 Key）
+const providerOptions = ref<ModelProvider[]>([])
+const fetchProviderOptions = async () => {
+  try {
+    const response = await getProviders()
+    if (response.data?.success) {
+      providerOptions.value = response.data.data || []
+    }
+  } catch (error) {
+    console.error('获取供应商列表失败:', error)
+  }
+}
+
 // 根据 baseUrl/path 识别上游厂商名称（用于列表普通用户视角展示）
 function providerLabelOf(row: ServiceInstance): string {
   const matched = matchProviderPreset(row.baseUrl || '', row.path || '')
@@ -233,6 +255,8 @@ interface ServiceInstance {
   adapter?: string  // 适配器配置
   headers?: Record<string, string>  // 请求头配置
   tags?: Record<string, string>  // 标签配置
+  providerId?: number  // v2.11.0: 关联的供应商 ID
+  providerName?: string  // v2.11.0: 关联的供应商名称（后端带出）
   rateLimit: {
     enabled: boolean
     algorithm: string
@@ -310,6 +334,7 @@ const filtered = computed(() => {
       (item.name && item.name.toLowerCase().includes(q)) ||
       (item.tags?.alias && item.tags.alias.toLowerCase().includes(q)) ||
       (item.baseUrl && item.baseUrl.toLowerCase().includes(q)) ||
+      (item.providerName && item.providerName.toLowerCase().includes(q)) ||
       (providerLabelOf(item).toLowerCase().includes(q))
     )
   })
@@ -450,15 +475,6 @@ const refreshCurrent = () => {
   ElMessage.success(t('instance.messages.refreshing'))
 }
 
-// 添加实例
-const handleAddInstance = () => {
-  dialogTitle.value = t('instance.addInstance')
-  isEdit.value = false
-  editingId.value = ''
-  editingRow.value = null
-  dialogVisible.value = true
-}
-
 // 编辑实例（表单状态交给公共组件管理；回填延迟到 dialog @opened 以保证组件已挂载）
 const handleEdit = (row: ServiceInstance) => {
   dialogTitle.value = t('instance.editInstance')
@@ -468,12 +484,10 @@ const handleEdit = (row: ServiceInstance) => {
   dialogVisible.value = true
 }
 
-// 对话框打开动画结束后回调：此时公共表单已稳定挂载，安全回填/重置
+// 对话框打开动画结束后回调：此时公共表单已稳定挂载，安全回填
 const onDialogOpened = () => {
   if (isEdit.value && editingRow.value) {
     instanceFormRef.value?.loadInstance(editingRow.value)
-  } else {
-    instanceFormRef.value?.resetForm()
   }
 }
 
@@ -534,7 +548,9 @@ const handleSave = async () => {
       status: payload.status,
       adapter: payload.adapter || undefined,
       headers: payload.headers || {},
-      tags: payload.tags || {}
+      tags: payload.tags || {},
+      // v2.11.0: 供应商关联透传（0=解除；不传=不变）
+      providerId: payload.providerId
     }
 
     if (isEdit.value) {
@@ -705,10 +721,19 @@ onMounted(() => {
   fetchServiceTypes()
   fetchAdapters()
   fetchGlobalConfig()
+  fetchProviderOptions()
 })
 </script>
 
 <style scoped>
+.page-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .header-cross-link {
   font-size: 13px;
 }
@@ -859,6 +884,11 @@ onMounted(() => {
 .cell-title {
   font-weight: 600;
   color: var(--ja-text-primary);
+}
+
+.provider-tag {
+  margin-left: 6px;
+  font-weight: 400;
 }
 
 .cell-sub {

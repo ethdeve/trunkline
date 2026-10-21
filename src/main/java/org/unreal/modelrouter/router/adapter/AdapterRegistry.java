@@ -41,6 +41,21 @@ public class AdapterRegistry {
 
     private static final Set<String> BUILTIN_ADAPTER_NAMES = new HashSet<>();
 
+    /**
+     * 内置适配器方言（展示用）说明：描述该适配器适配的厂商 API 协议。
+     * 仅用于 UI 选择展示，不持久化存储。
+     */
+    private static final Map<String, String> BUILTIN_ADAPTER_DIALECTS = Map.of(
+            "normal", "OpenAI 标准协议（OpenAI 兼容）",
+            "claude", "Anthropic Claude 原生协议",
+            "gemini", "Google Gemini 原生协议",
+            "gpustack", "GPUStack（OpenAI 兼容）",
+            "vllm", "vLLM（OpenAI 兼容）",
+            "ollama", "Ollama 本地推理原生协议",
+            "xinference", "Xinference（OpenAI 兼容）",
+            "localai", "LocalAI（OpenAI 兼容）"
+    );
+
     private final Map<String, ServiceCapability> adapters;
     private final ModelRouterProperties properties;
     private final ModelServiceRegistry registry;
@@ -299,6 +314,21 @@ public class AdapterRegistry {
     }
 
     /**
+     * 获取内置适配器的方言（展示用）说明：描述该适配器适配的厂商 API 协议。
+     * 内置适配器返回固定说明；自定义（配置驱动）适配器返回 null，由调用方回退到其存储的描述。
+     * 该说明仅用于 UI 选择展示，不持久化存储。
+     *
+     * @param name 适配器名称
+     * @return 方言说明；若非内置适配器则返回 null
+     */
+    public String getAdapterDialect(final String name) {
+        if (name == null) {
+            return null;
+        }
+        return BUILTIN_ADAPTER_DIALECTS.get(name.toLowerCase());
+    }
+
+    /**
      * 根据服务类型获取对应的Adapter
      */
     public ServiceCapability getAdapter(final ModelServiceRegistry.ServiceType serviceType) {
@@ -328,6 +358,26 @@ public class AdapterRegistry {
     }
 
     /**
+     * 适配器名别名归一：把常见别名/连字符写法映射到内置适配器名。
+     * 背景：OpenAI 兼容协议的内置适配器注册名为 "normal"，但用户与供应商预设习惯写 "openai"，
+     * 历史上已按 "openai" 落库的实例/服务配置会让路由层查表失败抛「Unsupported adapter: openai」。
+     * 未知名称原样返回，保持真实错配的可诊断性。
+     */
+    private String normalizeAdapterName(final String adapterName) {
+        if (adapterName == null) {
+            return null;
+        }
+        final String name = adapterName.trim().toLowerCase();
+        return switch (name) {
+            case "openai", "open-ai", "openai-chat", "openai-completions" -> "normal";
+            case "gpu-stack", "gpu_stack" -> "gpustack";
+            case "local-ai" -> "localai";
+            case "x-inference" -> "xinference";
+            default -> name;
+        };
+    }
+
+    /**
      * 获取指定服务类型的adapter名称
      */
     private String getAdapterName(final ModelServiceRegistry.ServiceType serviceType) {
@@ -338,7 +388,7 @@ public class AdapterRegistry {
                     .orElse("normal");
         }
 
-        return adapterName;
+        return normalizeAdapterName(adapterName);
     }
 
     /**
@@ -347,16 +397,16 @@ public class AdapterRegistry {
     private String getAdapterName(final ModelServiceRegistry.ServiceType serviceType,
                                   final ModelRouterProperties.ModelInstance instance) {
         if (instance != null && instance.getAdapter() != null && !instance.getAdapter().trim().isEmpty()) {
-            return instance.getAdapter();
+            return normalizeAdapterName(instance.getAdapter());
         }
 
         String adapterName = registry.getServiceAdapter(serviceType);
         if (adapterName != null && !adapterName.trim().isEmpty()) {
-            return adapterName;
+            return normalizeAdapterName(adapterName);
         }
 
-        return Optional.ofNullable(properties.getAdapter())
-                .orElse("normal");
+        return normalizeAdapterName(Optional.ofNullable(properties.getAdapter())
+                .orElse("normal"));
     }
 
     /**

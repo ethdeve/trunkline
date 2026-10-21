@@ -1,15 +1,12 @@
 <template>
   <PageSkeleton :title="t('adapter.management')">
-    <template #actions>
-      <el-button type="primary" @click="handleCreate" size="default">
+    <!-- 聚合页嵌入模式下 PageSkeleton 隐藏标题区（含 actions 插槽），按钮需自绘工具行 -->
+    <div class="page-actions-row">
+      <el-button v-if="canWrite" type="primary" @click="handleCreate" size="default">
         <el-icon><Plus /></el-icon>
         {{ t('adapter.newAdapter') }}
       </el-button>
-    </template>
-
-    <template #stats>
-      <OnboardingSteps :current-step="1" />
-    </template>
+    </div>
 
     <el-table
       :data="adapterList"
@@ -19,6 +16,12 @@
       style="width: 100%"
     >
       <el-table-column prop="name" :label="t('adapter.name')" min-width="150" />
+      <el-table-column :label="t('adapter.dialect')" min-width="200">
+        <template #default="{ row }">
+          <span v-if="row.dialect">{{ row.dialect }}</span>
+          <span v-else class="dialect-empty">—</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="type" :label="t('adapter.type')" min-width="120">
         <template #default="{ row }">
           <el-tag :type="row.source === 'builtin' ? 'info' : 'success'" size="small">
@@ -43,7 +46,7 @@
       <el-table-column :label="t('adapter.action')" width="190" fixed="right">
         <template #default="{ row }">
           <el-button
-            v-if="row.source !== 'builtin'"
+            v-if="canWrite && row.source !== 'builtin'"
             type="primary"
             link
             size="small"
@@ -52,6 +55,7 @@
             {{ t('adapter.edit') }}
           </el-button>
           <el-button
+            v-if="canWrite"
             type="success"
             link
             size="small"
@@ -60,7 +64,7 @@
             {{ t('adapter.testAction') }}
           </el-button>
           <el-button
-            v-if="row.source !== 'builtin'"
+            v-if="canWrite && row.source !== 'builtin'"
             type="danger"
             link
             size="small"
@@ -133,12 +137,23 @@
           </div>
         </el-form-item>
 
+        <el-form-item :label="t('adapter.dialect')" prop="description">
+          <el-input
+            v-model="form.description"
+            type="textarea"
+            :rows="2"
+            maxlength="200"
+            :placeholder="t('adapter.dialectPlaceholder')"
+          />
+          <div class="type-hint">{{ t('adapter.dialectHint') }}</div>
+        </el-form-item>
+
         <el-form-item v-if="form.type === 'extend'" :label="t('adapter.parentAdapter')" prop="parent">
           <el-select v-model="form.parent" :placeholder="t('adapter.parentPlaceholder')" style="width: 100%">
             <el-option
               v-for="item in parentAdapters"
               :key="item.name"
-              :label="item.name + (item.source === 'builtin' ? t('adapter.parentBuiltinSuffix') : t('adapter.parentConfigDrivenSuffix'))"
+              :label="(item.dialect || item.name) + (item.source === 'builtin' ? t('adapter.parentBuiltinSuffix') : t('adapter.parentConfigDrivenSuffix'))"
               :value="item.name"
             />
           </el-select>
@@ -181,6 +196,7 @@
     >
       <el-descriptions :column="1" border>
         <el-descriptions-item :label="t('adapter.name')">{{ viewData.name }}</el-descriptions-item>
+        <el-descriptions-item :label="t('adapter.dialect')">{{ viewData.dialect || '—' }}</el-descriptions-item>
         <el-descriptions-item :label="t('adapter.type')">{{ viewData.type }}</el-descriptions-item>
         <el-descriptions-item :label="t('adapter.source')">
           <el-tag :type="viewData.source === 'builtin' ? 'info' : 'success'" size="small">
@@ -194,6 +210,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { usePermission } from '@/composables/usePermission'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import {
@@ -208,10 +225,11 @@ import {
 } from '@/api/adapter'
 import AdapterWizard from './adapter/AdapterWizard.vue'
 import AdapterTestPanel from './adapter/AdapterTestPanel.vue'
-import OnboardingSteps from './adapter/OnboardingSteps.vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = hasPermission('config:adapters:write')
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -247,6 +265,7 @@ const defaultForm = () => ({
   name: '',
   type: 'openai-compatible',
   parent: '',
+  description: '',
   capabilities: {
     chat: true,
     embedding: false,
@@ -333,6 +352,7 @@ const handleEdit = (row: AdapterInfo) => {
   editingName.value = row.name
   form.name = row.name
   form.type = row.type || 'openai-compatible'
+  form.description = row.dialect || ''
   form.capabilities = { ...row.capabilities }
   dialogVisible.value = true
 }
@@ -372,6 +392,7 @@ const handleSubmit = async () => {
     const data = {
       name: form.name,
       type: form.type,
+      description: form.description?.trim() || undefined,
       capabilities: { ...form.capabilities },
       auth: { ...form.auth }
     }
@@ -415,6 +436,14 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.page-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .capability-tags {
   display: flex;
   flex-wrap: wrap;
@@ -432,5 +461,9 @@ onMounted(() => {
   color: var(--ja-text-secondary);
   margin-top: 4px;
   line-height: 1.4;
+}
+
+.dialect-empty {
+  color: var(--ja-text-secondary);
 }
 </style>

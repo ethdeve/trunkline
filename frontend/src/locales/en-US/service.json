@@ -1,10 +1,10 @@
 {
   "service": {
-    "title": "Service Management",
-    "addService": "Add Service",
-    "editService": "Edit Service",
-    "allTypesAdded": "All service types have been added",
-    "searchPlaceholder": "Search service type or adapter (press Enter or pause)",
+    "title": "Model Categories",
+    "addService": "Add Category",
+    "editService": "Edit Category",
+    "allTypesAdded": "All model categories have been added",
+    "searchPlaceholder": "Search model category or adapter (press Enter or pause)",
     "filters": {
       "loadBalance": "Load Balance",
       "adapter": "Adapter",
@@ -13,7 +13,7 @@
     "unset": "Not set",
     "loading": "Loading...",
     "table": {
-      "serviceType": "Service Type",
+      "serviceType": "Model Category",
       "adapter": "Adapter",
       "loadBalanceType": "Load Balance Strategy",
       "actions": "Actions",
@@ -35,7 +35,7 @@
     "disabled": "Disabled",
     "deleteDialog": {
       "title": "Delete Confirmation",
-      "message": "Are you sure you want to delete the service \"{type}\"? This action cannot be undone!"
+      "message": "Are you sure you want to delete the model category \"{type}\"? This action cannot be undone!"
     },
     "messages": {
       "warning": "Warning",
@@ -44,21 +44,21 @@
       "fetchServicesFailed": "Failed to fetch service list",
       "fetchConfigFailed": "Failed to fetch service configuration",
       "networkError": "Network error, please check your connection",
-      "deleteSuccess": "Service deleted successfully",
+      "deleteSuccess": "Model category deleted successfully",
       "deleteFailed": "Delete failed",
       "deleteCancelled": "Deletion cancelled",
       "savedButRateLimitFailed": "Service saved, but the rate limit configuration failed to save",
-      "editSuccess": "Service updated successfully",
-      "addSuccess": "Service added successfully",
+      "editSuccess": "Model category updated successfully",
+      "addSuccess": "Model category added successfully",
       "editFailed": "Update failed",
       "addFailed": "Add failed"
     },
     "form": {
-      "serviceType": "Service Type",
+      "serviceType": "Model Category",
       "adapter": "Adapter",
       "loadBalanceType": "Load Balance Strategy",
       "description": "Description (optional)",
-      "selectServiceType": "Select a service type",
+      "selectServiceType": "Select a model category",
       "selectAdapter": "Select an adapter",
       "selectLoadBalance": "Select a load balance strategy",
       "descriptionPlaceholder": "Add a brief description for identification (e.g. used for customer service chat)"

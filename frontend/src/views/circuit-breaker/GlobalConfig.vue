@@ -68,8 +68,8 @@
         </el-row>
 
         <el-form-item>
-          <el-button type="primary" @click="saveGlobalConfig" :loading="savingConfig">{{ t('circuitBreaker.globalConfig.save') }}</el-button>
-          <el-button @click="resetGlobalConfig">{{ t('circuitBreaker.globalConfig.resetToDefaults') }}</el-button>
+          <el-button v-if="canWrite" type="primary" @click="saveGlobalConfig" :loading="savingConfig">{{ t('circuitBreaker.globalConfig.save') }}</el-button>
+          <el-button v-if="canWrite" @click="resetGlobalConfig">{{ t('circuitBreaker.globalConfig.resetToDefaults') }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -79,6 +79,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { usePermission } from '@/composables/usePermission'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 import PageSkeleton from '@/components/PageSkeleton.vue'
@@ -106,6 +107,8 @@ const globalConfig = ref<GlobalConfig>({
 const savingConfig = ref(false)
 
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = hasPermission('config:circuitbreaker:write')
 
 const loadGlobalConfig = async () => {
   try {

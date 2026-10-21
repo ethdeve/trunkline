@@ -1,10 +1,16 @@
 <template>
   <el-form :model="form" label-width="120px" ref="formRef">
-    <el-alert type="info" :closable="false" show-icon class="paas-tip">
+    <el-alert v-if="!simplified" type="info" :closable="false" show-icon class="paas-tip">
       按三步填写即可：① 选择上游厂商 ② 填写厂商 API Key ③ 填写要用的模型名称。其余参数已自动填好，无需关心。
     </el-alert>
+    <div v-else class="simple-tip-row">
+      <el-alert type="info" :closable="false" show-icon class="paas-tip simple-tip">
+        API Key 与接入地址已在「供应商接入」中配置，无需重复填写；此处修改备注名或启停状态即可。如需调整权重、适配器、请求头、标签等高级参数，请开启「高级模式」。
+      </el-alert>
+      <el-switch v-model="showAdvanced" active-text="高级模式" />
+    </div>
 
-    <el-row :gutter="20">
+    <el-row v-if="!simplified" :gutter="20">
       <el-col :span="24">
         <el-form-item label="① 上游厂商">
           <el-select v-model="selectedTemplate" placeholder="选择服务商，自动填入地址与路径（可清空手动填写）" clearable style="width: 100%" :disabled="isEdit" @change="applyTemplate">
@@ -17,8 +23,23 @@
       </el-col>
     </el-row>
 
+    <el-row :gutter="20" v-if="!simplified && providers.length > 0">
+      <el-col :span="24">
+        <el-form-item label="从供应商选择（选填）">
+          <el-select v-model="selectedProviderId" placeholder="选择已添加的供应商，自动继承地址与 Key（无需重填）"
+            clearable style="width: 100%" :disabled="isEdit" @change="applyProvider">
+            <el-option v-for="p in providers" :key="p.id" :label="providerOptionLabel(p)" :value="p.id">
+              <span>{{ p.name }}</span>
+              <span class="tpl-note">{{ p.hasApiKey ? '已设置Key' : '未设置Key' }}</span>
+            </el-option>
+          </el-select>
+          <div class="form-note">供应商在「接入的模型 → 供应商接入」中添加；同一供应商的 Key 只需填一次</div>
+        </el-form-item>
+      </el-col>
+    </el-row>
+
     <el-row :gutter="20">
-      <el-col :span="12">
+      <el-col v-if="!simplified" :span="12">
         <el-form-item :label="t('instance.serviceType')" prop="serviceType">
           <el-select v-model="form.serviceType" style="width: 100%" :disabled="isEdit">
             <el-option v-for="st in serviceTypes" :key="st" :label="serviceTypeLabel(st)" :value="st" />
@@ -26,14 +47,18 @@
         </el-form-item>
       </el-col>
 
-      <el-col :span="12">
-        <el-form-item label="② 模型名称" prop="name">
-          <el-input v-model="form.name" placeholder="如 deepseek-chat，须与上游真实模型名一致" />
+      <el-col :span="simplified ? 24 : 12">
+        <el-form-item :label="simplified ? '模型名称' : '② 模型名称'" prop="name">
+          <!-- 编辑态模型名称是路由匹配键不可改：用纯文本展示，避免只读输入框让用户误以为可编辑 -->
+          <span v-if="simplified" class="readonly-name">{{ form.name }}</span>
+          <el-input v-else v-model="form.name" placeholder="如 deepseek-chat，须与上游真实模型名一致" />
+          <div v-if="isEdit" class="form-note">模型名称须与上游真实模型保持一致，编辑时不可修改。</div>
         </el-form-item>
       </el-col>
     </el-row>
 
-    <el-form-item label="模型名称说明">
+    <!-- 编辑态模型名称只读，填写引导与快捷模型标签无意义，整块收起 -->
+    <el-form-item v-if="!simplified" label="模型名称说明">
       <div class="form-note">
         这是你调用接口时填写的 <code>model</code> 参数，也是上游服务商要求的模型标识。
         系统按此名称自动把请求路由到本实例，<b>必须与上游真实模型名完全一致</b>（不确定请咨询你的服务商）。
@@ -45,37 +70,38 @@
     </el-form-item>
 
     <el-form-item label="备注名（选填）">
-      <el-input v-model="aliasName" placeholder="如「云起」「我的DeepSeek」，仅用于列表显示，不参与路由" />
-      <div class="form-note">给这个接入起个好记的名字方便区分；不会发给上游，也不影响路由匹配。</div>
+      <el-input v-model="aliasName" placeholder="如「我的DeepSeek」" />
+      <div class="form-note">留空时默认取「供应商名称>>模型名称」；仅用于列表显示，不参与路由匹配。</div>
     </el-form-item>
 
-    <el-form-item :label="t('instance.baseUrl')" prop="baseUrl">
+    <el-form-item :label="t('instance.status')" prop="status">
+      <el-switch v-model="form.status" active-value="active" inactive-value="inactive" :active-text="t('instance.enabled')"
+        :inactive-text="t('instance.disabled')" />
+    </el-form-item>
+
+    <el-form-item v-if="!simplified" :label="t('instance.baseUrl')" prop="baseUrl">
       <el-input v-model="form.baseUrl" :placeholder="t('instance.inputBaseUrl')" />
     </el-form-item>
 
-    <el-form-item :label="t('instance.path')" prop="path">
+    <el-form-item v-if="!simplified" :label="t('instance.path')" prop="path">
       <el-input v-model="form.path" :placeholder="t('instance.inputPath')" />
     </el-form-item>
 
-    <el-form-item label="上游模型 API Key" class="upstream-key-item">
+    <el-form-item v-if="!simplified" label="上游模型 API Key" class="upstream-key-item">
       <el-input v-model="upstreamApiKey" type="password" show-password clearable
-        placeholder="如 sk-xxx，用于网关转发到上游服务商时鉴权" @input="syncUpstreamApiKey" />
-      <div class="form-note">填写后将自动生成 <code>Authorization: Bearer ...</code> 请求头转发给上游（无需手动配请求头）</div>
+        :placeholder="keyPlaceholder" @input="syncUpstreamApiKey" />
+      <div class="form-note">
+        <template v-if="selectedProvider">{{ t('provider.fromProvider') }}「{{ selectedProvider.name }}」，留空即自动继承；也可填写以覆盖。</template>
+        <template v-else>填写后将自动生成 <code>Authorization: Bearer ...</code> 请求头转发给上游（无需手动配请求头）</template>
+      </div>
     </el-form-item>
 
-    <!-- 高级字段：权重 / 状态 / 适配器（仅实例管理弹窗开启） -->
-    <template v-if="advanced">
+    <!-- 高级字段：权重 / 适配器 / 请求头 / 标签（简化模式下由「高级模式」开关控制） -->
+    <template v-if="advanced && showTechFields">
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item :label="t('instance.weight')" prop="weight">
             <el-input-number v-model="form.weight" :min="1" :max="100" />
-          </el-form-item>
-        </el-col>
-
-        <el-col :span="12">
-          <el-form-item :label="t('instance.status')" prop="status">
-            <el-switch v-model="form.status" active-value="active" inactive-value="inactive" :active-text="t('instance.enabled')"
-              :inactive-text="t('instance.disabled')" />
           </el-form-item>
         </el-col>
       </el-row>
@@ -84,11 +110,12 @@
         <el-col :span="12">
           <el-form-item :label="t('instance.adapter')" prop="adapter">
             <el-select v-model="form.adapter" :placeholder="t('instance.selectAdapterPlaceholder')" clearable style="width: 100%">
-              <el-option v-for="adapter in adapters" :key="adapter.name || adapter" :label="adapter.name || adapter"
+              <el-option v-for="adapter in adapters" :key="adapter.name || adapter"
+                :label="adapter.dialect || adapter.name || adapter"
                 :value="adapter.name || adapter" />
             </el-select>
             <div v-if="!form.adapter && globalAdapter" class="form-note">
-              {{ t('instance.usingGlobalAdapter', { adapter: globalAdapter }) }}
+              {{ t('instance.usingGlobalAdapter', { adapter: adapterDialect(globalAdapter) || globalAdapter }) }}
             </div>
           </el-form-item>
         </el-col>
@@ -208,6 +235,7 @@ import { computed, reactive, ref, withDefaults } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { COMMON_SERVICE_TYPES, getServiceTypeLabel } from '@/constants/serviceTypes'
 import { PROVIDER_PRESETS, matchProviderPreset, type ProviderPreset } from '@/constants/providerPresets'
+import type { ModelProvider } from '@/api/provider'
 import { Plus, Delete, Close } from '@element-plus/icons-vue'
 import type { InstanceConfig } from '@/api/instance'
 
@@ -223,14 +251,31 @@ const props = withDefaults(defineProps<{
   globalAdapter?: string
   isEdit?: boolean
   advanced?: boolean
+  /** 简化编辑模式：默认只展示模型名称/备注名/启停，Key 与地址等高级参数收进「高级模式」开关 */
+  simplified?: boolean
+  /** v2.11.0: 已添加的供应商列表（来自「接入的模型 → 供应商接入」），选中即继承地址与 Key */
+  providers?: ModelProvider[]
 }>(), {
   serviceTypes: () => [...COMMON_SERVICE_TYPES] as string[],
   serviceTypeLabel: (type: string) => getServiceTypeLabel(type),
   adapters: () => [],
   globalAdapter: '',
   isEdit: false,
-  advanced: true
+  advanced: true,
+  simplified: false,
+  providers: () => []
 })
+
+// 简化模式下的「高级模式」开关：开启后仅追加 权重/适配器/请求头/标签 四块（厂商/地址/路径/Key 恒不出现）
+const showAdvanced = ref(false)
+const showTechFields = computed(() => !props.simplified || showAdvanced.value)
+
+// 名称 -> 方言（描述）映射；普通用户视角优先展示方言而非 normal 等内部名
+const adapterDialect = (name: string) => {
+  if (!name) return ''
+  const hit = props.adapters.find((a: any) => (a?.name || a) === name)
+  return hit?.dialect || ''
+}
 
 interface FormModel {
   serviceType: string
@@ -265,6 +310,32 @@ const selectedTemplate = ref('')
 const upstreamApiKey = ref('')
 // 备注名（仅用于列表展示，不参与路由/转发），保存时写入实例 tags.alias
 const aliasName = ref('')
+
+// v2.11.0: 供应商选择（同一供应商只填一次 Key，此处选中即继承）
+const selectedProviderId = ref<number | undefined>(undefined)
+const selectedProvider = computed<ModelProvider | undefined>(() =>
+  props.providers.find(p => p.id === selectedProviderId.value)
+)
+const keyPlaceholder = computed(() => {
+  if (selectedProvider.value) {
+    return '留空即继承供应商「' + selectedProvider.value.name + '」的 Key'
+  }
+  return '如 sk-xxx，用于网关转发到上游服务商时鉴权'
+})
+function providerOptionLabel(p: ModelProvider): string {
+  return p.name + '（' + getServiceTypeLabel(p.serviceType) + '）'
+}
+/** 选中供应商：仅补全空白字段（显式填写过的值优先，后端同样以显式 Authorization 优先） */
+function applyProvider(id: number | undefined) {
+  const p = props.providers.find(item => item.id === id)
+  if (!p) return
+  if (!form.baseUrl.trim()) form.baseUrl = p.baseUrl
+  // path 有默认值 /v1/chat/completions：未被用户改过时允许供应商覆盖（如智谱 /v4/...）
+  if (!form.path.trim() || form.path === '/v1/chat/completions') {
+    form.path = p.path || form.path
+  }
+  if (!form.adapter && p.adapter) form.adapter = p.adapter
+}
 
 interface HeaderItem { key: string; value: string }
 const customHeadersList = ref<HeaderItem[]>([])
@@ -352,6 +423,7 @@ function resetForm() {
   upstreamApiKey.value = ''
   aliasName.value = ''
   selectedTemplate.value = ''
+  selectedProviderId.value = undefined
 }
 
 // 载入已有实例（编辑态）：解析 Authorization→上游 Key、alias→备注名，并剥离避免重复展示
@@ -368,6 +440,8 @@ function loadInstance(data: any) {
     headers: { ...(src.headers || {}) },
     tags: { ...(src.tags || {}) }
   })
+  // v2.11.0: 回显供应商关联（编辑态选择器锁定，避免误改继承来源）
+  selectedProviderId.value = src.providerId ? Number(src.providerId) : undefined
   // 上游 API Key 回显：从已有 Authorization 头解析到专门字段，避免与请求头列表重复显示
   const h = form.headers as Record<string, string>
   const authHeader = h['Authorization'] || h['authorization'] || ''
@@ -389,6 +463,13 @@ function loadInstance(data: any) {
   // 根据已保存的 baseUrl/path 反推上游厂商，让编辑时「上游厂商」下拉也正确回显
   const matched = matchProviderPreset(form.baseUrl, form.path)
   selectedTemplate.value = matched ? matched.label : ''
+  // 备注名默认值：供应商名称>>模型名称（已有备注不覆盖；未关联供应商时回退到匹配的预设厂商名）
+  // 供应商名若带「（自定义）」等来源后缀，展示时剥掉，只留主名
+  if (!aliasName.value) {
+    const rawProviderName = selectedProvider.value?.name || (matched ? matched.label : '')
+    const providerName = rawProviderName.replace(/（自定义）$/, '').trim()
+    aliasName.value = [providerName, form.name].filter(Boolean).join('>>')
+  }
 }
 
 // 组装保存负载：合并 alias 到 tags、确保 Authorization 最新
@@ -409,7 +490,9 @@ function buildPayload(): { serviceType: string } & InstanceConfig {
     status: form.status,
     adapter: form.adapter || undefined,
     headers: { ...(form.headers || {}) },
-    tags: savedTags
+    tags: savedTags,
+    // v2.11.0: 关联供应商（后端按此继承地址/Key；0 表示解除关联）
+    providerId: selectedProviderId.value ?? 0
   }
 }
 
@@ -417,6 +500,31 @@ defineExpose({ resetForm, loadInstance, buildPayload, valid })
 </script>
 
 <style scoped>
+/* 编辑态模型名称纯文本展示：占满整行，让下方说明文字换行 */
+.readonly-name {
+  display: inline-block;
+  width: 100%;
+  padding: 5px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ja-text-primary);
+  line-height: 1.5;
+  user-select: text;
+  word-break: break-all;
+}
+
+/* 简化模式提示行：提示 + 高级模式开关 */
+.simple-tip-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.simple-tip {
+  flex: 1;
+}
+
 .paas-tip {
   margin-bottom: 16px;
   line-height: 1.5;

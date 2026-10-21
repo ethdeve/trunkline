@@ -47,6 +47,15 @@ public class PoolSelector {
     }
 
     /**
+     * 获取当前生效的全部池定义(只读快照)。
+     * 供模型目录({@code GET /v1/models})等场景枚举分组名——分组(虚拟模型)与实例名
+     * 一样是对外可调用的模型名,必须出现在 OpenAI 兼容客户端的模型列表中。
+     */
+    public List<PoolDefinition> getAllPools() {
+        return Collections.unmodifiableList(new ArrayList<>(pools));
+    }
+
+    /**
      * 判断模型名是否为已配置的启用池名(供处理器决定是否改写下游请求/响应的 model 字段)
      */
     public boolean isPoolName(final String modelName) {

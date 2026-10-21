@@ -103,7 +103,7 @@
         </el-table-column>
         <el-table-column :label="t('loadBalancer.strategyConfig.columns.actions')" min-width="100" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" type="primary" @click="showConfigDialog(row)">{{ t('loadBalancer.strategyConfig.configure') }}</el-button>
+            <el-button v-if="canWrite" size="small" type="primary" @click="showConfigDialog(row)">{{ t('loadBalancer.strategyConfig.configure') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -157,6 +157,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { usePermission } from '@/composables/usePermission'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 import PageSkeleton from '@/components/PageSkeleton.vue'
@@ -184,6 +185,8 @@ interface LoadBalanceConfig {
 const apiBaseUrl = '/loadbalancer'
 
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = hasPermission('lb:config:write')
 
 /** 策略名(如 round-robin) -> 语言包 key 后缀 */
 const strategyNameKeys: Record<string, string> = {

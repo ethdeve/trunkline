@@ -2,6 +2,7 @@ package org.unreal.modelrouter.auth.filter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.server.authentication.ServerAuthenticationConverter;
 import org.springframework.web.server.ServerWebExchange;
@@ -16,6 +17,8 @@ import java.util.List;
  * 默认的认证转换器
  */
 public final class DefaultAuthenticationConverter implements ServerAuthenticationConverter {
+
+    private static final String BEARER_PREFIX = "Bearer ";
 
     private final SecurityProperties securityProperties;
 
@@ -63,6 +66,11 @@ public final class DefaultAuthenticationConverter implements ServerAuthenticatio
 
     /**
      * 提取API Key
+     *
+     * <p>优先取配置的自定义头（默认 {@code X-API-Key}）；该头缺失时回退标准 OpenAI 约定的
+     * {@code Authorization: Bearer <api-key>}——OpenAI SDK 及各类兼容客户端
+     * （含控制台"自定义 OpenAI 兼容 provider"接入）只发送这一个头。
+     * 回退仅在配置头缺失时生效：既有调用方继续用 X-API-Key，Authorization 透传下游的行为不变。</p>
      */
     private String extractApiKey(final ServerWebExchange exchange) {
         String headerName = securityProperties.getApiKey().getHeaderName();
@@ -70,6 +78,19 @@ public final class DefaultAuthenticationConverter implements ServerAuthenticatio
 
         if (headerValues != null && !headerValues.isEmpty()) {
             return headerValues.get(0);
+        }
+
+        // OpenAI 兼容回退：Authorization: Bearer <token>
+        List<String> authValues = exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION);
+        if (authValues != null && !authValues.isEmpty()) {
+            String authorization = authValues.get(0);
+            if (authorization != null
+                    && authorization.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
+                String token = authorization.substring(BEARER_PREFIX.length()).trim();
+                if (!token.isEmpty()) {
+                    return token;
+                }
+            }
         }
 
         return null;

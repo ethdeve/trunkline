@@ -239,6 +239,12 @@
     
     <!-- 熔断器日志 - 保持警告级别用于监控 -->
     <logger name="org.unreal.modelrouter.circuitbreaker" level="WARN"/>
+
+    <!-- Hibernate schema 管理（ddl-auto=update）对已存在表执行 create table 会产生
+         大量 "Table already exists" WARN（ExceptionHandlerLoggedImpl），属预期噪音：
+         表结构由 Flyway + 首次启动的 ddl-auto 共同维护，这些失败会被 Hibernate 安全忽略。
+         静音到 ERROR，避免每次启动刷屏上百行；真正的 schema 问题仍会以 ERROR 暴露。 -->
+    <logger name="org.hibernate.tool.schema.internal.ExceptionHandlerLoggedImpl" level="ERROR"/>
     
     <!--
       容器 / 多副本部署（issue #211）：stdout 只输出结构化 JSON，一条事件一行。

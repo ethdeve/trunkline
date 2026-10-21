@@ -44,6 +44,17 @@ public final class ServiceInstanceDTO {
     }
 
     private Long serviceConfigId;
+
+    /**
+     * v2.11.0: 关联的模型供应商 ID（可空，老实例为 null）
+     */
+    private Long providerId;
+
+    /**
+     * v2.11.0: 关联的模型供应商名称（展示用，随 providerId 一起带出）
+     */
+    private String providerName;
+
     private String name;
     private String baseUrl;
     private String path;

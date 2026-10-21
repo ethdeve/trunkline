@@ -40,4 +40,14 @@ public interface ServiceInstanceRepository extends JpaRepository<ServiceInstance
      * v2.x: 用于健康状态更新，避免同名实例导致的重复记录错误
      */
     Optional<ServiceInstanceEntity> findByInstanceId(String instanceId);
+
+    /**
+     * v2.11.0: 按供应商 ID 查找其下所有实例（换 Key 级联 / 解绑用）
+     */
+    List<ServiceInstanceEntity> findByProviderId(Long providerId);
+
+    /**
+     * v2.11.0: 统计供应商下已接入的实例数（卡片「可用 N 个模型」）
+     */
+    long countByProviderId(Long providerId);
 }

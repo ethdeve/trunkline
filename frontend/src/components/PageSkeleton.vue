@@ -1,8 +1,9 @@
 <template>
   <div class="page-skeleton" :class="{ 'is-embedded': embedded }">
-    <!-- 页面标题区（嵌入模式下隐藏：标题职责统一归聚合页 PageHeader，避免双重标题） -->
-    <div v-if="!embedded" class="page-header">
-      <div class="page-title">
+    <!-- 页面标题区（嵌入模式下隐藏标题：标题职责统一归聚合页 PageHeader，避免双重标题；
+         但 actions 工具行保留——收编组件的功能按钮不能随标题一起被藏掉） -->
+    <div v-if="!embedded || $slots.actions" class="page-header">
+      <div v-if="!embedded" class="page-title">
         <slot name="title">
           <h2 v-if="title">{{ title }}</h2>
         </slot>
@@ -66,6 +67,10 @@ const embedded = ref(injected)
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+}
+
+.is-embedded .page-header {
+  margin-bottom: 12px;
 }
 
 .page-title h2 {

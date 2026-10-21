@@ -1,7 +1,7 @@
 {
   "instance": {
     "title": "Instance Management",
-    "openServiceConfig": "Open Service Config",
+    "openServiceConfig": "Open Model Categories",
     "searchPlaceholder": "Search by instance name / URL / path (press Enter or pause)",
     "searchPlaceholderUser": "Search by model name / vendor / access address (press Enter or pause)",
     "columnModelName": "Model",
@@ -9,8 +9,8 @@
     "modelPrefix": "Model: ",
     "healthOk": "Health check passed",
     "healthOff": "Health check failed / offline",
-    "addInstance": "Add Instance",
-    "editInstance": "Edit Instance",
+    "addInstance": "Add Upstream Model",
+    "editInstance": "Edit Upstream Model",
     "all": "All",
     "enabled": "Enabled",
     "disabled": "Disabled",

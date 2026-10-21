@@ -1,25 +1,22 @@
 <template>
   <PageSkeleton :title="t('service.title')">
-    <template #actions>
+    <!-- 聚合页嵌入模式下 PageSkeleton 隐藏标题区（含 actions 插槽），按钮需自绘工具行 -->
+    <div class="page-actions-row">
       <el-button type="info" plain size="default" @click="router.push({ name: 'version-management' })">
         <el-icon><Document /></el-icon>
         {{ t('service.actions.versionHistory') }}
       </el-button>
-      <el-tooltip v-if="availableTypes.length === 0" :content="t('service.allTypesAdded')" placement="left">
+      <el-tooltip v-if="canWrite && availableTypes.length === 0" :content="t('service.allTypesAdded')" placement="left">
         <el-button type="primary" @click="handleAddService" :disabled="availableTypes.length === 0" size="default">
           <el-icon><Plus /></el-icon>
           {{ t('service.addService') }}
         </el-button>
       </el-tooltip>
-      <el-button v-else type="primary" @click="handleAddService" size="default">
+      <el-button v-else-if="canWrite" type="primary" @click="handleAddService" size="default">
         <el-icon><Plus /></el-icon>
         {{ t('service.addService') }}
       </el-button>
-    </template>
-
-    <template #stats>
-      <OnboardingSteps :current-step="2" />
-    </template>
+    </div>
 
     <template #toolbar>
       <el-input
@@ -59,7 +56,7 @@
         <el-option
           v-for="a in uniqueAdapters"
           :key="a"
-          :label="a || t('service.unset')"
+          :label="dialectOf(a) || a || t('service.unset')"
           :value="a"
         />
       </el-select>
@@ -110,15 +107,15 @@
 
           <el-table-column prop="adapter" :label="t('service.table.adapter')" sortable>
             <template #default="scope">
-              <el-tooltip :content="scope.row.adapter || t('service.unset')" placement="top">
+              <el-tooltip :content="scope.row.adapter ? (dialectOf(scope.row.adapter) || scope.row.adapter) : t('service.unset')" placement="top">
                 <router-link
                   v-if="scope.row.adapter"
-                  :to="{ name: 'adapter-management' }"
+                  :to="{ name: 'protocol-adapters' }"
                   class="cell-link"
                   @click.stop
                 >
                   <el-tag type="success" class="table-tag">
-                    {{ scope.row.adapter }}
+                    {{ dialectOf(scope.row.adapter) || scope.row.adapter }}
                   </el-tag>
                 </router-link>
                 <el-tag v-else type="warning" class="table-tag">
@@ -138,11 +135,11 @@
 
           <el-table-column :label="t('service.table.actions')" fixed="right" width="180">
             <template #default="scope">
-              <el-button size="small" @click="handleEdit(scope.row)" type="primary" plain circle :title="t('service.edit')">
+              <el-button v-if="canWrite" size="small" @click="handleEdit(scope.row)" type="primary" plain circle :title="t('service.edit')">
                 <el-icon><Edit /></el-icon>
               </el-button>
 
-              <el-button size="small" type="danger" @click="handleDelete(scope.row)" plain circle :title="t('service.delete')">
+              <el-button v-if="canWrite" size="small" type="danger" @click="handleDelete(scope.row)" plain circle :title="t('service.delete')">
                 <el-icon><Delete /></el-icon>
               </el-button>
             </template>
@@ -226,7 +223,7 @@
           <el-option
             v-for="adapter in adapters"
             :key="adapter.name"
-            :label="adapter.name"
+            :label="adapter.dialect || adapter.name"
             :value="adapter.name"
           />
         </el-select>
@@ -351,6 +348,7 @@
 import { ref, onMounted, reactive, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { usePermission } from '@/composables/usePermission'
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
 import { SERVICE_TYPE_LABELS, COMMON_SERVICE_TYPES } from '@/constants/serviceTypes'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -366,11 +364,12 @@ import {
   updateServiceRateLimit
 } from '@/api/service'
 import PageSkeleton from '@/components/PageSkeleton.vue'
-import OnboardingSteps from './adapter/OnboardingSteps.vue'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = hasPermission('config:instances:write')
 
 // 支持的服务类型列表（保持原有）
 const supportedTypes: string[] = [
@@ -520,6 +519,13 @@ const availableTypes = computed(() => {
   const added = new Set(services.value.map(s => s.type))
   return supportedTypes.filter(t => !added.has(t))
 })
+
+// 名称 -> 方言（描述）映射；普通用户视角优先展示方言而非 normal 等内部名
+const dialectOf = (name: string) => {
+  if (!name) return ''
+  const hit = adapters.value.find((a: any) => a.name === name)
+  return hit?.dialect || ''
+}
 
 const uniqueAdapters = computed(() => {
   const set = new Set<string>()
@@ -830,6 +836,14 @@ onMounted(() => { fetchServices() })
 </script>
 
 <style scoped>
+.page-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 /* 搜索/筛选工具栏宽度 */
 .search-input {
   width: 360px;

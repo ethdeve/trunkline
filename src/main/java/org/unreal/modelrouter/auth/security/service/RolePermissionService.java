@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.unreal.modelrouter.auth.security.permission.PermissionCodes;
 import org.unreal.modelrouter.persistence.jpa.entity.RolePermissionEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.RolePermissionRepository;
@@ -78,6 +79,36 @@ public class RolePermissionService {
     public void invalidateCache() {
         permissionCache.invalidateAll();
         log.info("角色权限缓存已清空");
+    }
+
+    /**
+     * 整体替换角色权限码集合（事务内先删后插，成功后清空权限缓存）
+     *
+     * <p>必须加事务：{@link RolePermissionRepository#deleteByRoleName(String)} 是派生删除，
+     * 无事务上下文时 EntityManager 抛
+     * "No EntityManager with actual transaction available - cannot reliably process 'remove' call"
+     * （权限管理页「保存权限失败」根因，2026-10-21）。先删后插收敛在同一事务，
+     * 失败整体回滚，避免删完插不进导致角色权限被清空的中间态。
+     *
+     * @param roleName 角色名（调用方已归一化为大写且校验合法）
+     * @param codes    权限码集合（调用方已校验存在性并去重）
+     * @return 落库后的权限码列表
+     */
+    @Transactional
+    public List<String> replaceRolePermissions(final String roleName, final List<String> codes) {
+        // 必须用批量 JPQL 删除（SQL 立即执行）：派生删除延迟到 flush，而 Hibernate 同事务
+        // flush 顺序 insert 先于 delete，「先删后插同唯一键」会触发 uk_role_permission 冲突
+        rolePermissionRepository.deleteByRoleNameBulk(roleName);
+        final List<RolePermissionEntity> entities = codes.stream()
+                .map(code -> RolePermissionEntity.builder()
+                        .roleName(roleName)
+                        .permissionCode(code)
+                        .build())
+                .collect(Collectors.toList());
+        rolePermissionRepository.saveAll(entities);
+        invalidateCache();
+        log.info("已更新角色权限: role={}, codes={}", roleName, codes);
+        return List.copyOf(codes);
     }
 
     private List<String> normalizeRoles(final List<String> roles) {

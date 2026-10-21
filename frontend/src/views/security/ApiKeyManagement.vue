@@ -3,9 +3,9 @@
     <!-- 操作区：嵌入模式下 PageSkeleton 页头整体隐藏，#actions 插槽不会渲染，
          故按钮改为内容顶部自渲染，避免"创建密钥/导入/导出"入口丢失 -->
     <div class="page-actions-row">
-      <el-button icon="Download" type="success" @click="handleExport">{{ t('apiKeys.exportConfig') }}</el-button>
-      <el-button icon="Upload" type="warning" @click="showImportDialog">{{ t('apiKeys.importConfig') }}</el-button>
-      <el-button icon="Plus" type="primary" @click="handleCreateApiKey">{{ t('apiKeys.createApiKey') }}</el-button>
+      <el-button v-if="canWrite" icon="Download" type="success" @click="handleExport">{{ t('apiKeys.exportConfig') }}</el-button>
+      <el-button v-if="canWrite" icon="Upload" type="warning" @click="showImportDialog">{{ t('apiKeys.importConfig') }}</el-button>
+      <el-button v-if="canWrite" icon="Plus" type="primary" @click="handleCreateApiKey">{{ t('apiKeys.createApiKey') }}</el-button>
       <el-button icon="DataAnalysis" @click="goQuotaMonitoring">{{ t('apiKeys.gotoQuotaMonitoring') }}</el-button>
     </div>
 
@@ -181,7 +181,7 @@
           <template #default="scope">
             <el-switch
                 v-model="scope.row.enabled"
-                :disabled="scope.row.expired"
+                :disabled="!canWrite || scope.row.expired"
                 active-color="var(--ja-success)"
                 inactive-color="var(--ja-danger)"
                 @change="handleStatusChange(scope.row)"
@@ -191,17 +191,17 @@
         <el-table-column fixed="right" :label="t('apiKeys.columns.actions')" width="260">
           <template #default="scope">
             <div class="action-buttons">
-              <el-button icon="Edit" size="small" @click="handleEdit(scope.row)">{{ t('apiKeys.actions.edit') }}</el-button>
-              <el-button icon="RefreshRight" size="small" type="warning" @click="handleRotate(scope.row)"
+              <el-button v-if="canWrite" icon="Edit" size="small" @click="handleEdit(scope.row)">{{ t('apiKeys.actions.edit') }}</el-button>
+              <el-button v-if="canWrite" icon="RefreshRight" size="small" type="warning" @click="handleRotate(scope.row)"
                          :disabled="scope.row.expired">{{ t('apiKeys.actions.rotate') }}</el-button>
-              <el-button icon="Refresh" size="small" type="info" @click="handleReset(scope.row)">{{ t('apiKeys.actions.reset') }}</el-button>
+              <el-button v-if="canWrite" icon="Refresh" size="small" type="info" @click="handleReset(scope.row)">{{ t('apiKeys.actions.reset') }}</el-button>
               <el-tooltip :content="t('apiKeys.actions.quotaResetTooltip')" placement="top">
-                <el-button icon="Timer" size="small" type="success" @click="handleResetQuota(scope.row)">{{ t('apiKeys.actions.quotaReset') }}</el-button>
+                <el-button v-if="canWrite" icon="Timer" size="small" type="success" @click="handleResetQuota(scope.row)">{{ t('apiKeys.actions.quotaReset') }}</el-button>
               </el-tooltip>
-              <el-button icon="Coin" size="small" type="primary" @click="openQuotaDrawer(scope.row)">
+              <el-button v-if="canWrite" icon="Coin" size="small" type="primary" @click="openQuotaDrawer(scope.row)">
                 {{ t('apiKeys.quota') }}
               </el-button>
-              <el-button icon="Delete" size="small" type="danger" @click="handleDelete(scope.row)">{{ t('apiKeys.actions.delete') }}</el-button>
+              <el-button v-if="canWrite" icon="Delete" size="small" type="danger" @click="handleDelete(scope.row)">{{ t('apiKeys.actions.delete') }}</el-button>
             </div>
           </template>
         </el-table-column>
@@ -542,6 +542,7 @@ import { onMounted, ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
+import { usePermission } from '@/composables/usePermission'
 import { Key, CircleCheck, CircleClose, Warning, RefreshRight, Download, Upload, UploadFilled } from '@element-plus/icons-vue'
 import StatCard from '@/components/StatCard.vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
@@ -581,6 +582,8 @@ import type {
 } from '@/types'
 
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = hasPermission('security:apikeys:manage')
 const router = useRouter()
 
 const goQuotaMonitoring = () => {

@@ -1,11 +1,13 @@
 <template>
   <PageSkeleton :title="t('responseCache.pageTitle')">
-    <template #actions>
+    <!-- 操作区：嵌入模式（策略中心聚合页）下 PageSkeleton 页头整体隐藏，
+         #actions 插槽不会渲染，故按钮改为内容顶部自渲染，避免入口丢失 -->
+    <div class="page-actions-row">
       <el-button @click="loadStatus" :loading="loading" size="default">
         <el-icon><Refresh /></el-icon>
         {{ t('responseCache.refreshStatus') }}
       </el-button>
-    </template>
+    </div>
 
     <!-- 顶部状态卡片 -->
     <template #stats>
@@ -118,6 +120,7 @@
 
       <div class="config-actions">
         <el-button
+          v-if="canWrite"
           type="primary"
           :loading="savingConfig"
           :disabled="!configChanged"
@@ -160,7 +163,7 @@
           @confirm="handleInvalidateAll"
         >
           <template #reference>
-            <el-button type="danger" :loading="invalidating" :disabled="!status?.enabled">
+            <el-button v-if="canWrite" type="danger" :loading="invalidating" :disabled="!status?.enabled">
               <el-icon><Delete /></el-icon>
               {{ t('responseCache.clearAllCache') }}
             </el-button>
@@ -188,6 +191,7 @@
             />
           </el-select>
           <el-button
+            v-if="canWrite"
             type="warning"
             :loading="invalidating"
             :disabled="!selectedServiceType || !status?.enabled"
@@ -212,6 +216,7 @@
             clearable
           />
           <el-button
+            v-if="canWrite"
             type="warning"
             :loading="invalidating"
             :disabled="!modelName.trim() || !status?.enabled"
@@ -242,6 +247,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { usePermission } from '@/composables/usePermission'
 import { ElMessage } from 'element-plus'
 import {
   Refresh,
@@ -268,6 +274,8 @@ import {
 } from '@/api/responseCache'
 
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = hasPermission('config:cache:write')
 
 const loading = ref(false)
 const invalidating = ref(false)
@@ -443,6 +451,14 @@ onMounted(loadStatus)
 </script>
 
 <style scoped>
+.page-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .card-title {
   font-weight: 600;
   font-size: 15px;

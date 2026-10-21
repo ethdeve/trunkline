@@ -9,6 +9,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.unreal.modelrouter.router.adapter.AdapterRegistry;
+import org.unreal.modelrouter.router.pool.PoolSelector;
+import org.unreal.modelrouter.router.pool.model.PoolDefinition;
 
 import java.util.List;
 import java.util.Map;
@@ -35,11 +37,14 @@ class ModelCatalogServiceTest {
     @Mock
     private AdapterRegistry adapterRegistry;
 
+    @Mock
+    private PoolSelector poolSelector;
+
     private ModelCatalogService catalogService;
 
     @BeforeEach
     void setUp() {
-        catalogService = new ModelCatalogService(registry, adapterRegistry);
+        catalogService = new ModelCatalogService(registry, adapterRegistry, poolSelector);
     }
 
     @Test
@@ -101,5 +106,26 @@ class ModelCatalogServiceTest {
         final List<Map<String, Object>> data = (List<Map<String, Object>>) response.get("data");
         assertEquals(1, data.size());
         assertEquals("m-chat-1", data.get(0).get("id"));
+    }
+
+    @Test
+    @DisplayName("启用的模型分组(虚拟模型)出现在目录中，禁用的分组被跳过")
+    void listAllModels_shouldIncludeEnabledPools() {
+        when(registry.getAvailableModels(ModelServiceRegistry.ServiceType.chat))
+                .thenReturn(Set.of("m-chat-1"));
+        final PoolDefinition enabled = new PoolDefinition();
+        enabled.setPoolName("model1");
+        enabled.setServiceType("chat");
+        final PoolDefinition disabled = new PoolDefinition();
+        disabled.setPoolName("model-off");
+        disabled.setServiceType("chat");
+        disabled.setEnabled(false);
+        when(poolSelector.getAllPools()).thenReturn(List.of(enabled, disabled));
+
+        final List<Map<String, Object>> models = catalogService.listAllModels();
+
+        assertEquals(2, models.size(), "实例 1 个 + 启用分组 1 个");
+        assertTrue(models.stream().anyMatch(m -> "model1".equals(m.get("id"))));
+        assertTrue(models.stream().noneMatch(m -> "model-off".equals(m.get("id"))));
     }
 }

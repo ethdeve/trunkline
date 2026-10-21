@@ -2,7 +2,7 @@
   <PageSkeleton :title="t('pool.title')">
     <template #actions>
       <el-button :icon="Refresh" circle @click="fetchPools" :title="t('pool.refreshList')" />
-      <el-button type="primary" @click="handleCreate">
+      <el-button v-if="canWrite" type="primary" @click="handleCreate">
         <el-icon><Plus /></el-icon>&nbsp;{{ t('pool.addPool') }}
       </el-button>
     </template>
@@ -18,7 +18,7 @@
     <el-table :data="pools" v-loading="loading" style="width: 100%" row-key="poolName">
         <el-table-column :label="t('pool.enabled')" width="70" align="center">
           <template #default="{ row }">
-            <el-switch :model-value="row.enabled" @change="(val: boolean) => handleToggle(row, val)" />
+            <el-switch v-if="canWrite" :model-value="row.enabled" @change="(val: boolean) => handleToggle(row, val)" />
           </template>
         </el-table-column>
         <el-table-column prop="poolName" :label="t('pool.poolNameCol')" min-width="150" />
@@ -48,8 +48,8 @@
         </el-table-column>
         <el-table-column :label="t('pool.actions')" width="280" align="center">
           <template #default="{ row }">
-            <el-button size="small" @click="handleEdit(row)">{{ t('pool.edit') }}</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">{{ t('pool.delete') }}</el-button>
+            <el-button v-if="canWrite" size="small" @click="handleEdit(row)">{{ t('pool.edit') }}</el-button>
+            <el-button v-if="canWrite" size="small" type="danger" @click="handleDelete(row)">{{ t('pool.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -123,8 +123,11 @@ import {
 } from '@/api/pools'
 import { getServiceInstances, type InstanceConfig } from '@/api/instance'
 import PageSkeleton from '@/components/PageSkeleton.vue'
+import { usePermission } from '@/composables/usePermission'
 
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = hasPermission('config:pools:write')
 const pools = ref<PoolDefinition[]>([])
 const loading = ref(false)
 const saving = ref(false)

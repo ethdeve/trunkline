@@ -30,6 +30,7 @@ public class AdapterDefinitionProperties {
         private CapabilitiesConfig capabilities = new CapabilitiesConfig();
         private AuthConfig auth = new AuthConfig();
         private Map<String, String> additionalHeaders = new HashMap<>();
+        private String description;  // 方言/描述：适配的厂商 API 协议说明（自定义适配器持久化，内置适配器由代码派生不落库）
 
         public String getType() {
             return type;
@@ -69,6 +70,14 @@ public class AdapterDefinitionProperties {
 
         public void setAdditionalHeaders(final Map<String, String> additionalHeaders) {
             this.additionalHeaders = additionalHeaders;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(final String description) {
+            this.description = description;
         }
     }
 

@@ -3,6 +3,8 @@ package org.unreal.modelrouter.router.model;
 import org.springframework.stereotype.Service;
 import org.unreal.modelrouter.router.adapter.AdapterRegistry;
 import org.unreal.modelrouter.router.adapter.ServiceCapability;
+import org.unreal.modelrouter.router.pool.PoolSelector;
+import org.unreal.modelrouter.router.pool.model.PoolDefinition;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -29,17 +31,21 @@ public class ModelCatalogService {
 
     private final ModelServiceRegistry registry;
     private final AdapterRegistry adapterRegistry;
+    private final PoolSelector poolSelector;
 
     /**
      * 构造函数.
      *
      * @param registry        模型服务注册表（提供各服务类型的可用模型）
      * @param adapterRegistry 适配器注册表（提供各服务类型当前适配器名）
+     * @param poolSelector    资源池选择器（提供模型分组/虚拟模型名）
      */
     public ModelCatalogService(final ModelServiceRegistry registry,
-                               final AdapterRegistry adapterRegistry) {
+                               final AdapterRegistry adapterRegistry,
+                               final PoolSelector poolSelector) {
         this.registry = registry;
         this.adapterRegistry = adapterRegistry;
+        this.poolSelector = poolSelector;
     }
 
     /**
@@ -67,6 +73,23 @@ public class ModelCatalogService {
             }
         }
 
+        // 模型分组(虚拟模型)与实例名同为对外可调用的模型名，必须出现在目录中：
+        // OpenAI 兼容客户端常按"配置的模型必须在 /v1/models 列表中"校验连通性，
+        // 缺少分组名会导致自定义 provider 接入(如 model1)测试失败。
+        for (PoolDefinition pool : poolSelector.getAllPools()) {
+            if (!pool.isEnabled() || pool.getPoolName() == null || pool.getPoolName().isBlank()) {
+                continue;
+            }
+            final Map<String, Object> poolInfo = new LinkedHashMap<>();
+            poolInfo.put("id", pool.getPoolName());
+            poolInfo.put("object", "model");
+            poolInfo.put("created", System.currentTimeMillis() / 1000);
+            poolInfo.put("owned_by", "model-router");
+            poolInfo.put("service_type", pool.getServiceType());
+            poolInfo.put("adapter", resolveAdapterNameByString(pool.getServiceType()));
+            allModels.add(poolInfo);
+        }
+
         return allModels;
     }
 
@@ -80,6 +103,17 @@ public class ModelCatalogService {
         response.put("object", "list");
         response.put("data", listAllModels());
         return response;
+    }
+
+    /**
+     * 按服务类型字符串解析适配器名（分组配置里 serviceType 为字符串，需容错转换）.
+     */
+    private String resolveAdapterNameByString(final String serviceType) {
+        try {
+            return resolveAdapterName(ModelServiceRegistry.ServiceType.valueOf(serviceType));
+        } catch (Exception e) {
+            return "unknown";
+        }
     }
 
     /**

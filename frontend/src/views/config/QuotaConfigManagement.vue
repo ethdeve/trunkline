@@ -1,11 +1,12 @@
 <template>
   <PageSkeleton :title="t('quotaConfig.pageTitle')">
-    <template #actions>
+    <!-- 聚合页嵌入模式下 PageSkeleton 隐藏标题区（含 actions 插槽），按钮需自绘工具行 -->
+    <div class="page-actions-row">
       <el-button @click="loadConfig" :loading="loading" size="default">
         <el-icon><Refresh /></el-icon>
         {{ t('quotaConfig.refreshStatus') }}
       </el-button>
-    </template>
+    </div>
 
     <!-- 顶部状态卡片 -->
     <template #stats>
@@ -92,6 +93,7 @@
 
       <div class="config-actions">
         <el-button
+          v-if="canWrite"
           type="primary"
           :loading="saving"
           :disabled="!configChanged"
@@ -213,6 +215,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { usePermission } from '@/composables/usePermission'
 import { ElMessage } from 'element-plus'
 import { Refresh, CircleCheck, CircleClose, Coin, Warning, Timer, Check } from '@element-plus/icons-vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
@@ -225,6 +228,8 @@ import {
 } from '@/api/quota'
 
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = hasPermission('config:quota:write')
 
 const loading = ref(false)
 const saving = ref(false)
@@ -346,6 +351,14 @@ onMounted(loadConfig)
 </script>
 
 <style scoped>
+.page-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .card-title {
   font-weight: 600;
   font-size: 15px;

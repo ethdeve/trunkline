@@ -47,24 +47,18 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/workbench/Overview.vue'),
         meta: { permissions: ['overview:dashboard:read'], title: '总览' }
       },
-      {
-        path: 'quick-start',
-        name: 'quick-start',
-        component: () => import('@/views/workbench/QuickStart.vue'),
-        meta: { permissions: ['config:instances:read'], title: '快速开始' }
-      },
       // ---- 二期接入链路 ----
       {
         path: 'models',
         name: 'models',
         component: () => import('@/views/models/ModelsView.vue'),
-        meta: { permissions: ['config:instances:read'], title: '接入的模型' }
+        meta: { permissions: ['config:instances:read'], title: '接入模型' }
       },
       {
         path: 'model-categories',
         name: 'model-categories',
         component: () => import('@/views/config/ServiceManagement.vue'),
-        meta: { permissions: ['config:instances:read'], title: '模型分类管理' }
+        meta: { permissions: ['config:instances:read'], title: '模型分类' }
       },
       {
         path: 'model-pools',
@@ -76,7 +70,7 @@ const routes: RouteRecordRaw[] = [
         path: 'protocol-adapters',
         name: 'protocol-adapters',
         component: () => import('@/views/config/AdapterManagement.vue'),
-        meta: { permissions: ['config:instances:read'], title: '适配器设置' }
+        meta: { permissions: ['config:instances:read'], title: '模型适配器' }
       },
       {
         path: 'playground',

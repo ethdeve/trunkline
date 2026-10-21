@@ -21,6 +21,7 @@ export interface AdapterInfo {
   name: string
   source: 'builtin' | 'configurable'
   type: string
+  dialect?: string  // 方言/描述：适配的厂商 API 协议说明
   capabilities: AdapterCapabilities
 }
 
@@ -28,6 +29,7 @@ export interface AdapterDetail {
   name: string
   source: 'builtin' | 'configurable'
   type: string
+  dialect?: string
   capabilities?: AdapterCapabilities
   auth?: AdapterAuth
   additionalHeaders?: Record<string, string>
@@ -37,6 +39,7 @@ export interface AdapterDefinitionRequest {
   name: string
   type?: string
   parent?: string  // 继承模式下的父adapter名称
+  description?: string  // 方言/描述：适配的厂商 API 协议说明
   capabilities?: Record<string, boolean>
   auth?: Record<string, string>
   additionalHeaders?: Record<string, string>
@@ -45,6 +48,7 @@ export interface AdapterDefinitionRequest {
 export interface ParentAdapterInfo {
   name: string
   source: 'builtin' | 'configurable'
+  dialect?: string
 }
 
 // 模板相关类型
@@ -78,6 +82,8 @@ export interface AdapterTemplate {
   supportedModels?: string[]
   setupGuide?: string
   sortOrder: number
+  /** 来源：builtin=内置预置（不可改删）/ custom=用户自定义 */
+  source?: 'builtin' | 'custom'
 }
 
 export interface TemplateCreateRequest {
@@ -137,6 +143,19 @@ export const getAdapterTemplates = (category?: string) => {
 
 export const getAdapterTemplate = (id: string) => {
   return request.get<RouterResponse<AdapterTemplate>>(`/config/adapter/templates/${id}`)
+}
+
+// 模板管理 API（系统设置 → 模型供应商管理；内置模板不可改删）
+export const createAdapterTemplate = (data: AdapterTemplate) => {
+  return request.post<RouterResponse<AdapterTemplate>>('/config/adapter/templates', data)
+}
+
+export const updateAdapterTemplate = (id: string, data: AdapterTemplate) => {
+  return request.put<RouterResponse<AdapterTemplate>>(`/config/adapter/templates/${id}`, data)
+}
+
+export const deleteAdapterTemplate = (id: string) => {
+  return request.delete<RouterResponse<void>>(`/config/adapter/templates/${id}`)
 }
 
 export const createAdapterFromTemplate = (templateId: string, data: TemplateCreateRequest) => {

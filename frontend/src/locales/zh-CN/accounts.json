@@ -17,6 +17,12 @@
     "actions": "操作",
     "adminRole": "管理员",
     "userRole": "用户",
+    "roleLabels": {
+      "ADMIN": "管理员",
+      "OPERATOR": "运维",
+      "USER": "用户",
+      "VIEWER": "访客"
+    },
     "editHintTitle": "编辑提示",
     "editHintDescription": "密码字段留空表示不修改密码",
     "password": "密码",

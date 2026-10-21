@@ -12,34 +12,46 @@ import java.util.stream.Collectors;
 
 /**
  * 适配器模板服务
- * 管理常见 AI 供应商的预配置模板
+ * 管理常见 AI 供应商的预配置模板（内置 13 个硬编码预置）
+ * + 用户自定义模板（系统设置 → 模型供应商管理 维护，经 StoreManager 持久化）
  */
 @Service
 public class AdapterTemplateService {
 
+    private static final String SOURCE_BUILTIN = "builtin";
+    private static final String SOURCE_CUSTOM = "custom";
+
     private final List<AdapterTemplate> templates;
 
-    public AdapterTemplateService() {
+    private final ProviderTemplatePersistenceService persistenceService;
+
+    /** 用户自定义模板（内存缓存，与持久化同步） */
+    private final Map<String, AdapterTemplate> customTemplates;
+
+    public AdapterTemplateService(final ProviderTemplatePersistenceService persistenceService) {
+        this.persistenceService = persistenceService;
         this.templates = new ArrayList<>();
+        this.customTemplates = persistenceService.loadAll();
         initTemplates();
     }
 
     /**
-     * 获取全部模板（按 sortOrder 排序）
+     * 获取全部模板（内置 + 自定义，按 sortOrder 排序）
      */
     public List<AdapterTemplate> getAllTemplates() {
-        return templates.stream()
+        List<AdapterTemplate> all = new ArrayList<>(templates);
+        all.addAll(customTemplates.values());
+        return all.stream()
                 .sorted(Comparator.comparingInt(AdapterTemplate::getSortOrder))
                 .collect(Collectors.toList());
     }
 
     /**
-     * 按分类筛选模板
+     * 按分类筛选模板（含自定义）
      */
     public List<AdapterTemplate> getTemplatesByCategory(final String category) {
-        return templates.stream()
+        return getAllTemplates().stream()
                 .filter(t -> t.getCategory().equals(category))
-                .sorted(Comparator.comparingInt(AdapterTemplate::getSortOrder))
                 .collect(Collectors.toList());
     }
 
@@ -47,10 +59,76 @@ public class AdapterTemplateService {
      * 按 ID 获取单个模板
      */
     public AdapterTemplate getTemplateById(final String id) {
-        return templates.stream()
+        return getAllTemplates().stream()
                 .filter(t -> t.getId().equals(id))
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * 新增自定义模板（id 不可与内置/已有自定义重复）
+     */
+    public AdapterTemplate createTemplate(final AdapterTemplate template) {
+        validateTemplate(template);
+        final String id = template.getId();
+        if (getTemplateById(id) != null) {
+            throw new IllegalArgumentException("模板 ID 已存在: " + id);
+        }
+        template.setSource(SOURCE_CUSTOM);
+        if (template.getSortOrder() <= 0) {
+            template.setSortOrder(200 + customTemplates.size() + 1);
+        }
+        customTemplates.put(id, template);
+        persistenceService.saveAll(customTemplates);
+        return template;
+    }
+
+    /**
+     * 更新自定义模板（内置模板不可修改）
+     */
+    public AdapterTemplate updateTemplate(final String id, final AdapterTemplate template) {
+        AdapterTemplate existing = customTemplates.get(id);
+        if (existing == null) {
+            throw new IllegalArgumentException("模板不存在或为内置模板，不可修改: " + id);
+        }
+        validateTemplate(template);
+        template.setId(id);
+        template.setSource(SOURCE_CUSTOM);
+        customTemplates.put(id, template);
+        persistenceService.saveAll(customTemplates);
+        return template;
+    }
+
+    /**
+     * 删除自定义模板（内置模板不可删除）
+     */
+    public void deleteTemplate(final String id) {
+        if (!customTemplates.containsKey(id)) {
+            throw new IllegalArgumentException("模板不存在或为内置模板，不可删除: " + id);
+        }
+        customTemplates.remove(id);
+        persistenceService.saveAll(customTemplates);
+    }
+
+    private void validateTemplate(final AdapterTemplate template) {
+        if (template == null || template.getId() == null || template.getId().isBlank()) {
+            throw new IllegalArgumentException("模板 ID 不能为空");
+        }
+        if (template.getId().length() > 64 || !template.getId().matches("[a-zA-Z0-9_-]+")) {
+            throw new IllegalArgumentException("模板 ID 只能包含字母、数字、下划线和横线，长度不超过 64");
+        }
+        if (template.getName() == null || template.getName().isBlank()) {
+            throw new IllegalArgumentException("模板名称不能为空");
+        }
+        final String type = template.getType();
+        if (type == null || !(type.equals("openai-compatible") || type.equals("ollama-compatible"))) {
+            throw new IllegalArgumentException("模板类型只支持 openai-compatible / ollama-compatible");
+        }
+        final String category = template.getCategory();
+        if (category == null || !(category.equals("domestic") || category.equals("international")
+                || category.equals("local"))) {
+            throw new IllegalArgumentException("模板分类只支持 domestic / international / local");
+        }
     }
 
     /**
@@ -263,6 +341,7 @@ public class AdapterTemplateService {
         template.setAuth(new AdapterTemplate.AuthConfig(authHeaderName, authHeaderPrefix));
         template.setSupportedModels(supportedModels);
         template.setSortOrder(sortOrder);
+        template.setSource(SOURCE_BUILTIN);
         return template;
     }
 }

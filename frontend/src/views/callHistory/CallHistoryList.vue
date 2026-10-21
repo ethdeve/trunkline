@@ -71,6 +71,7 @@
         </el-form-item>
         <el-form-item>
           <el-button
+            v-if="canWrite"
             type="primary"
             :loading="configSaving"
             :disabled="configSaving || configLoading"
@@ -305,6 +306,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { usePermission } from '@/composables/usePermission'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
 import { queryCallHistory, getCallHistoryConfig, updateCallHistoryConfig } from '@/api/callHistory'
@@ -314,6 +316,8 @@ import PageSkeleton from '@/components/PageSkeleton.vue'
 
 const router = useRouter()
 const { t } = useI18n()
+const { hasPermission } = usePermission()
+const canWrite = hasPermission('config:callhistory:write')
 
 // 查询表单
 const queryForm = reactive<CallHistoryQuery>({
