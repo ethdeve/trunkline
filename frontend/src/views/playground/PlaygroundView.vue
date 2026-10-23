@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 /**
  * 测试场（方案 A：对话 / 向量 / 重排 / 语音 / 图像 5 tab 合一页）
  * 容器组件整体收编自旧工程，二期对话 tab 常驻，其余 lazy 按需挂载
@@ -11,6 +12,8 @@ import EmbeddingContainer from '@/views/playground/components/embedding/Embeddin
 import RerankContainer from '@/views/playground/components/rerank/RerankContainer.vue'
 import AudioContainer from '@/views/playground/components/audio/AudioContainer.vue'
 import ImageContainer from '@/views/playground/components/image/ImageContainer.vue'
+
+const { t } = useI18n()
 
 const TABS = ['chat', 'embedding', 'rerank', 'audio', 'image'] as const
 type TabKey = (typeof TABS)[number]
@@ -36,7 +39,7 @@ watch(
 
 <template>
   <div>
-    <PageHeader title="测试场" subtitle="对话 / 向量 / 重排 / 语音 / 图像" />
+    <PageHeader :title="t('shell.playground.title')" :subtitle="t('shell.playground.subtitle')" />
     <el-card shadow="never">
       <el-tabs v-model="active">
         <el-tab-pane label="对话" name="chat">

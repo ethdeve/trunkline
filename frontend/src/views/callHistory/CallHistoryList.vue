@@ -34,10 +34,11 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="t('callHistory.common.status')">
-          <el-select v-model="queryForm.isSuccess" :placeholder="t('callHistory.list.allPlaceholder')" clearable style="width: 100px">
-            <el-option :label="t('callHistory.common.success')" :value="true" />
-            <el-option :label="t('callHistory.common.failed')" :value="false" />
-          </el-select>
+          <el-radio-group v-model="statusFilter">
+            <el-radio-button value="all">{{ t('callHistory.list.allPlaceholder') }}</el-radio-button>
+            <el-radio-button value="failed">{{ t('callHistory.common.failed') }}</el-radio-button>
+            <el-radio-button value="success">{{ t('callHistory.common.success') }}</el-radio-button>
+          </el-radio-group>
         </el-form-item>
         <el-form-item :label="t('callHistory.common.httpStatusCode')">
           <el-input
@@ -105,6 +106,7 @@
         border
         stripe
         :max-height="600"
+        :empty-text="statusFilter === 'failed' ? t('callHistory.list.emptyFailedHint') : undefined"
         @sort-change="handleSortChange"
       >
         <el-table-column :label="t('callHistory.common.time')" prop="createdAt" width="168" sortable="custom">
@@ -125,7 +127,7 @@
             <el-link
               v-if="scope.row.serviceType"
               type="primary"
-              :underline="false"
+              underline="never"
               @click.stop="router.push({ name: 'models', query: { serviceType: scope.row.serviceType } })"
             >
               <el-tag size="small">{{ getServiceTypeLabel(scope.row.serviceType) }}</el-tag>
@@ -133,7 +135,9 @@
             <el-tag v-else size="small">{{ getServiceTypeLabel(scope.row.serviceType) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('callHistory.common.provider')" prop="provider" width="92" show-overflow-tooltip />
+        <el-table-column :label="t('callHistory.common.provider')" prop="provider" width="150" show-overflow-tooltip>
+          <template #default="{ row }">{{ getAdapterDisplay(row.provider) }}</template>
+        </el-table-column>
         <el-table-column :label="t('callHistory.common.httpStatus')" prop="httpStatusCode" width="100" align="center" sortable="custom">
           <template #default="scope">
             <el-tag :type="getStatusType(scope.row.httpStatusCode)" size="small">
@@ -158,6 +162,19 @@
             <el-tag :type="scope.row.isSuccess ? 'success' : 'danger'" size="small">
               {{ scope.row.isSuccess ? t('callHistory.common.success') : t('callHistory.common.failed') }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('callHistory.failureExplain.title')" min-width="220">
+          <template #default="scope">
+            <FailureExplainer
+              v-if="!scope.row.isSuccess"
+              :status-code="scope.row.httpStatusCode"
+              :error-code="scope.row.errorCode"
+              :rate-limited="scope.row.rateLimited"
+              :circuit-broken="scope.row.circuitBroken"
+              :response-time-ms="scope.row.responseTimeMs"
+            />
+            <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column :label="t('callHistory.common.action')" width="80" fixed="right" align="center">
@@ -214,21 +231,21 @@
             <el-link
               v-if="selectedRecord.serviceType"
               type="primary"
-              :underline="false"
-              @click="router.push({ name: 'model-categories', query: { serviceType: selectedRecord.serviceType } })"
+              underline="never"
+              @click="router.push({ path: '/settings', query: { tab: 'modelConfig', sub: 'modelCategories', serviceType: selectedRecord.serviceType } })"
             >
               {{ getServiceTypeLabel(selectedRecord.serviceType) }}
             </el-link>
             <span v-else>{{ getServiceTypeLabel(selectedRecord.serviceType) }}</span>
           </el-descriptions-item>
           <el-descriptions-item :label="t('callHistory.common.provider')">
-            {{ selectedRecord.provider || '-' }}
+            {{ getAdapterDisplay(selectedRecord.provider) }}
           </el-descriptions-item>
           <el-descriptions-item :label="t('callHistory.list.instanceName')">
             <el-link
               v-if="selectedRecord.instanceName && selectedRecord.serviceType"
               type="primary"
-              :underline="false"
+              underline="never"
               @click="router.push({ name: 'models', query: { serviceType: selectedRecord.serviceType } })"
             >
               {{ selectedRecord.instanceName }}
@@ -307,12 +324,15 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
+import { usePersistedState } from '@/composables/usePersistedState'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
 import { queryCallHistory, getCallHistoryConfig, updateCallHistoryConfig } from '@/api/callHistory'
+import { getAdapterList } from '@/api/adapter'
 import type { CallHistoryConfig } from '@/api/callHistory'
 import type { ApiCallHistoryRecord, CallHistoryQuery } from '@/types/callHistory'
 import PageSkeleton from '@/components/PageSkeleton.vue'
+import FailureExplainer from '@/components/common/FailureExplainer.vue'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -335,6 +355,20 @@ const queryForm = reactive<CallHistoryQuery>({
 
 // 日期范围
 const dateRange = ref<[string, string] | null>(null)
+
+/* U7-1 修订（2026-10-23）：默认改「全部」。原默认「仅失败」基于运营排障主诉求，
+   但普通用户测完对话进来看「0 条」会误以为记录没落库（实测：全成功时仅失败=0、全部=49）。
+   排障主诉求由空态引导语承接：仅失败筛选为空时提示切换「全部」。 */
+const statusFilter = ref<'all' | 'failed' | 'success'>('all')
+
+// U10-5：状态筛选持久化，下次进入本页自动恢复。
+// version 升到 2：旧缓存里持久化的默认值 'failed' 必须失效，否则改默认不生效。
+usePersistedState('callHistory.status', statusFilter, 2)
+
+function applyStatusFilter() {
+  queryForm.isSuccess =
+    statusFilter.value === 'all' ? undefined : statusFilter.value === 'failed' ? false : true
+}
 
 // 表格数据
 const tableData = ref<ApiCallHistoryRecord[]>([])
@@ -436,6 +470,7 @@ const loadData = async () => {
       queryForm.startTime = undefined
       queryForm.endTime = undefined
     }
+    applyStatusFilter()
 
     const result = await queryCallHistory(queryForm)
     tableData.value = result.content || []
@@ -461,6 +496,7 @@ const handleReset = () => {
   queryForm.endTime = undefined
   queryForm.modelName = undefined
   queryForm.serviceType = undefined
+  statusFilter.value = 'all'
   queryForm.isSuccess = undefined
   queryForm.httpStatusCode = undefined
   queryForm.page = 0
@@ -517,7 +553,29 @@ const handleDetail = (record: ApiCallHistoryRecord) => {
 onMounted(() => {
   loadData()
   loadConfig()
+  loadAdapterDialects()
 })
+
+// ---- 适配器方言显示 ----
+// 记录里的 provider 字段实际存的是 adapterType（适配器名，如 normal/claude），
+// 展示层转成适配器方言（如「OpenAI 标准协议（OpenAI 兼容）」），用户才看得懂。
+const adapterDialectMap = ref<Record<string, string>>({})
+const loadAdapterDialects = async () => {
+  try {
+    const res = await getAdapterList()
+    const map: Record<string, string> = {}
+    ;(res.data?.data || []).forEach((a: { name?: string; dialect?: string }) => {
+      if (a?.name) map[a.name] = a.dialect || a.name
+    })
+    adapterDialectMap.value = map
+  } catch {
+    // 加载失败时回退显示原始适配器名，不影响列表
+  }
+}
+const getAdapterDisplay = (name?: string) => {
+  if (!name) return '-'
+  return adapterDialectMap.value[name] || name
+}
 </script>
 
 <style scoped>

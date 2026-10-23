@@ -13,6 +13,7 @@ import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import org.unreal.modelrouter.auth.security.config.properties.ApiKey;
 import org.unreal.modelrouter.auth.security.service.ApiKeyService;
+import org.unreal.modelrouter.common.dto.ChatDTO;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -365,6 +366,69 @@ class QuotaEnforcementServiceTest {
      * @param requests        请求次数
      * @param tokensPerRequest 每次预留的 token 数
      */
+    // ==================== N-2: 账本未启用时的日 Token 预估兜底判定 ====================
+
+    @Test
+    @DisplayName("N-2 预估判定：当日已用 + 估算上限(prompt+max_tokens)超过 dailyTokenLimit 时拒绝")
+    void estimatedTokenQuota_shouldRejectWhenUsedPlusEstimateExceedsLimit() {
+        // 复现实测场景：limit=224、已用 214、本次 prompt 约 10 tokens + max_tokens=60
+        // —— 老链路只按历史校验,本次消耗(约 154)事后才入账,累计 368 超额 65%
+        registerApiKeyWithUsage(0L, 224L, 0, 214L);
+
+        final Optional<QuotaLimitViolation> violation =
+                enforcementService.checkEstimatedTokenQuota(KEY_ID, chatRequest("请写一篇500字短文", 60));
+
+        assertTrue(violation.isPresent(), "已用+估算超过限额时应拒绝");
+        final QuotaLimitViolation result = violation.get();
+        assertEquals(QuotaLimitViolation.METRIC_DAILY_TOKENS, result.metric());
+        assertEquals(QuotaWindow.DAY, result.window());
+        assertEquals(224L, result.limit());
+        assertEquals(214L, result.used());
+        assertEquals(10L, result.remaining());
+        assertEquals(SECONDS_TO_NEXT_DAY, result.retryAfterSeconds(), "Retry-After 应指向下一个自然日");
+        assertEquals(0L, tokenCount(QuotaWindow.DAY), "预估判定不得触碰账本");
+    }
+
+    @Test
+    @DisplayName("N-2 预估判定：仅 prompt 侧超限也拒（无 max_tokens 时退化为 prompt 估算）")
+    void estimatedTokenQuota_shouldRejectOnPromptOnly() {
+        registerApiKeyWithUsage(0L, 10L, 0, 5L);
+        // prompt 约 15 tokens(30 字符/2),无 max_tokens;5+15=20 > 10
+        final Optional<QuotaLimitViolation> violation =
+                enforcementService.checkEstimatedTokenQuota(KEY_ID, chatRequest("一二三四五六七八九十甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥", null));
+
+        assertTrue(violation.isPresent(), "prompt 估算超限同样应拒绝");
+    }
+
+    @Test
+    @DisplayName("N-2 预估判定：已用 + 估算未超限额时放行")
+    void estimatedTokenQuota_shouldAllowWhenWithinLimit() {
+        registerApiKeyWithUsage(0L, 1000L, 0, 100L);
+
+        final Optional<QuotaLimitViolation> violation =
+                enforcementService.checkEstimatedTokenQuota(KEY_ID, chatRequest("hi", 60));
+
+        assertTrue(violation.isEmpty());
+    }
+
+    @Test
+    @DisplayName("N-2 预估判定：未配置 Token 限额 / 无估算信息时放行")
+    void estimatedTokenQuota_shouldAllowWhenNoLimitOrNoEstimate() {
+        registerApiKeyWithUsage(0L, 0L, 0, 5000L);
+        assertTrue(enforcementService.checkEstimatedTokenQuota(KEY_ID, chatRequest("hi", 60)).isEmpty(),
+                "未配置 Token 限额时放行");
+        registerApiKeyWithUsage(0L, 1000L, 0, 100L);
+        assertTrue(enforcementService.checkEstimatedTokenQuota(KEY_ID, chatRequest("", null)).isEmpty(),
+                "空 prompt 且无 max_tokens 时无估算信息,放行");
+    }
+
+    /** 构造一个最小 ChatDTO.Request（N-2 预估判定夹具）。 */
+    private ChatDTO.Request chatRequest(final String content, final Integer maxTokens) {
+        return new ChatDTO.Request("test-model",
+                List.of(new ChatDTO.Message("user", content, null)),
+                null, maxTokens, null, null, null, null, null, null, null, null);
+    }
+
     private void seedUsage(final long requests, final long tokensPerRequest) {
         for (long i = 0; i < requests; i++) {
             ledgerService.reserve(QuotaRequest.of(QuotaDimension.ofApiKey(KEY_ID), tokensPerRequest));
@@ -390,6 +454,38 @@ class QuotaEnforcementServiceTest {
             .enabled(true)
             .build());
         keyIdIndex.put(KEY_ID, KEY_HASH);
+    }
+
+    /**
+     * 注册一个带当日 Token 用量与限额的 API Key（N-2 预估判定夹具）。
+     *
+     * @param dailyRequestLimit 日请求限额（0 = 不限）
+     * @param dailyTokenLimit   日 token 限额（0 = 不限）
+     * @param rateLimitPerMinute 每分钟请求限额（0 = 不限）
+     * @param todayTokenUsed    当日已用 token 数（写入 usage.dailyTokenUsage）
+     */
+    private ApiKey registerApiKeyWithUsage(final long dailyRequestLimit,
+                                           final long dailyTokenLimit,
+                                           final int rateLimitPerMinute,
+                                           final long todayTokenUsed) {
+        final Map<String, Long> dailyTokenUsage = new HashMap<>();
+        dailyTokenUsage.put(NOW.toLocalDate().toString(), todayTokenUsed);
+        final ApiKey key = ApiKey.builder()
+            .keyId(KEY_ID)
+            .keyHash(KEY_HASH)
+            .dailyRequestLimit(dailyRequestLimit)
+            .dailyTokenLimit(dailyTokenLimit)
+            .rateLimitPerMinute(rateLimitPerMinute)
+            .enabled(true)
+            .usage(org.unreal.modelrouter.auth.security.model.UsageStatistics.builder()
+                .dailyUsage(new HashMap<>())
+                .dailyTokenUsage(dailyTokenUsage)
+                .totalRequests(0L).successfulRequests(0L).failedRequests(0L)
+                .build())
+            .build();
+        apiKeyCache.put(KEY_HASH, key);
+        keyIdIndex.put(KEY_ID, KEY_HASH);
+        return key;
     }
 
     /**

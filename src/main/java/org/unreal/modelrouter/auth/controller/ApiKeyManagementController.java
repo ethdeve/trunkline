@@ -25,8 +25,10 @@ import org.unreal.modelrouter.auth.security.dto.ApiKeyCreateRequest;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyListVO;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyUpdateRequest;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyVO;
+import org.unreal.modelrouter.auth.security.service.ApiKeyNotFoundException;
 import org.unreal.modelrouter.auth.security.service.ApiKeyService;
 import org.unreal.modelrouter.auth.security.service.ApiKeyQuotaService;
+import org.unreal.modelrouter.auth.security.service.ApiKeyWhitelistMismatchException;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -113,6 +115,18 @@ public class ApiKeyManagementController {
     /**
      * 更新 API 密钥信息
      * 注意：keyValue 不可更新
+     *
+     * <p>2026-10-24：此前此处的 {@code onErrorResume} 把<b>所有</b>异常都压成
+     * NOT_FOUND(404)，导致白名单与权限分类不一致的校验失败也返回 404，
+     * 前端拿不到真实原因。</p>
+     *
+     * <p><b>为什么用单个 {@code onErrorResume} 而不是链式多个：</b>
+     * Reactor 的 {@code onErrorResume} 是「下游 catch-all 兜底」结构——
+     * 上游算子用 {@code Mono.error(newEx)} 换出的新异常信号<b>会继续流向下游算子</b>。
+     * 链式写法 {@code onErrorResume(A).onErrorResume(B).onErrorResume(catchAll)}
+     * 里，catchAll 会把 A/B 已经转换好的语义异常再改写一遍，
+     * 于是 {@code INVALID_REQUEST} 又被压回 {@code NOT_FOUND}。
+     * 因此这里只保留一个算子，在其内部按类型显式分派。</p>
      */
     @PutMapping("/{keyId}")
     @Operation(summary = "更新API密钥",
@@ -125,6 +139,21 @@ public class ApiKeyManagementController {
         return apiKeyService.updateApiKey(keyId, request)
                 .map(vo -> RouterResponse.success(vo, "更新API密钥成功"))
                 .onErrorResume(e -> {
+                    if (e instanceof ApiException) {
+                        return Mono.error(e);
+                    }
+                    if (e instanceof ApiKeyNotFoundException) {
+                        // 资源不存在 → 404
+                        return Mono.error(ApiException.of("NOT_FOUND", e.getMessage()));
+                    }
+                    if (e instanceof ApiKeyWhitelistMismatchException) {
+                        // 白名单与权限的模型分类不一致 → 客户端输入违规 → 400
+                        return Mono.error(ApiException.of("INVALID_REQUEST", e.getMessage()));
+                    }
+                    if (e instanceof IllegalArgumentException) {
+                        // 其余参数问题（含配额阈值越界）→ 400
+                        return Mono.error(ApiException.of("INVALID_REQUEST", e.getMessage()));
+                    }
                     log.error("更新API密钥失败: {}", keyId, e);
                     return Mono.error(ApiException.of("NOT_FOUND", "API密钥不存在"));
                 });

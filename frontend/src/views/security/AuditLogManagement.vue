@@ -92,6 +92,16 @@
     </template>
 
     <template #toolbar>
+      <!-- 常用场景一键筛选（运营最常问的几类问题） -->
+      <div class="quick-filters">
+        <span class="quick-filters-label">{{ t('auditLog.quickFilter.label') }}</span>
+        <el-radio-group v-model="quickFilter" size="small" @change="handleQuickFilterChange">
+          <el-radio-button v-for="f in QUICK_FILTERS" :key="f.key" :value="f.key">
+            {{ t(f.label) }}
+          </el-radio-button>
+        </el-radio-group>
+      </div>
+
       <!-- 搜索条件 -->
       <el-form :model="searchForm" class="search-form">
         <el-row :gutter="20">
@@ -133,7 +143,7 @@
           </el-col>
           <el-col :span="6">
             <el-form-item :label="t('auditLog.eventType')">
-              <el-select v-model="searchForm.eventType" :placeholder="t('auditLog.eventTypePlaceholder')" clearable filterable>
+              <el-select v-model="searchForm.eventType" :placeholder="t('auditLog.eventTypePlaceholder')" clearable filterable @change="handleEventTypeChange">
                 <el-option-group :label="t('auditLog.groupJwtTokens')">
                   <el-option :label="t('auditLog.eventTypes.JWT_TOKEN_ISSUED')" value="JWT_TOKEN_ISSUED" />
                   <el-option :label="t('auditLog.eventTypes.JWT_TOKEN_REFRESHED')" value="JWT_TOKEN_REFRESHED" />
@@ -304,6 +314,7 @@ import { useChartTheme } from '@/composables/useChartTheme'
 import { useChartAutoRefresh } from '@/composables/useChartAutoRefresh'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import { formatDateTime as formatDateTimeBase } from '@/utils/format'
+import { exportCsv, downloadFile, datedFilename } from '@/utils/csvExport'
 
 const { t } = useI18n()
 const { hasPermission } = usePermission()
@@ -321,6 +332,50 @@ const searchForm = reactive({
   clientIp: '',
   success: null as boolean | null
 })
+
+/**
+ * 常用场景快捷筛选（U9-3）
+ * 后端 AuditEventType 枚举只覆盖 JWT / API Key / 安全 / 系统四类，
+ * 并不存在「配置变更」事件类型，因此这里按**实际存在的事件类别**给出快捷入口，
+ * 避免造一个永远查不出数据的假筛选。
+ */
+const QUICK_FILTERS = [
+  { key: 'all', label: 'auditLog.quickFilter.all', eventTypes: [] as string[] },
+  {
+    key: 'keyChange',
+    label: 'auditLog.quickFilter.keyChange',
+    eventTypes: ['API_KEY_CREATED', 'API_KEY_UPDATED', 'API_KEY_REVOKED', 'API_KEY_EXPIRED']
+  },
+  {
+    key: 'authFail',
+    label: 'auditLog.quickFilter.authFail',
+    eventTypes: ['AUTHENTICATION_FAILED', 'AUTHORIZATION_FAILED']
+  },
+  {
+    key: 'suspicious',
+    label: 'auditLog.quickFilter.suspicious',
+    eventTypes: ['SUSPICIOUS_ACTIVITY', 'SECURITY_ALERT']
+  }
+] as const
+
+const quickFilter = ref<string>('all')
+
+/**
+ * 快捷筛选切换：立即查询。
+ * 注意不写回 searchForm.eventType —— 单选框表示「某一个事件类型」，
+ * 快捷筛选表示「一组事件类型」，两者语义不同；buildQuery 优先取快捷筛选。
+ */
+const handleQuickFilterChange = async () => {
+  pagination.currentPage = 1
+  await loadAuditLogs()
+}
+
+/**
+ * 手动选了具体事件类型 → 回到第 1 页（buildQuery 中手动单选优先于快捷筛选）。
+ */
+const handleEventTypeChange = () => {
+  pagination.currentPage = 1
+}
 
 // 分页
 const pagination = reactive({
@@ -409,6 +464,7 @@ const handleReset = async () => {
     clientIp: '',
     success: null
   })
+  quickFilter.value = 'all'
   pagination.currentPage = 1
   await loadAuditLogs()
 }
@@ -424,53 +480,33 @@ const handleExport = async (format: string) => {
   try {
     const query = buildQuery()
     const result: ExtendedAuditQueryResponse = await queryAuditEventsAdvanced({ ...query, size: 10000 })
-    
-    let content = ''
-    let filename = `audit-log-${new Date().toISOString().slice(0, 10)}`
-    
-    if (format === 'csv') {
-      content = convertToCSV(result.events)
-      filename += '.csv'
-    } else if (format === 'json') {
-      content = JSON.stringify(result.events, null, 2)
-      filename += '.json'
-    } else if (format === 'excel') {
-      // 简化版：使用CSV格式，用户可以用Excel打开
-      content = convertToCSV(result.events)
-      filename += '.csv'
+
+    const filename = datedFilename('audit-log')
+
+    if (format === 'json') {
+      downloadFile(JSON.stringify(result.events, null, 2), `${filename}.json`, 'application/json')
+    } else {
+      // csv / excel 都用 CSV 内容（Excel 可直接打开），经公共工具统一加 BOM 与转义
+      exportCsv(AUDIT_CSV_COLUMNS(), result.events, filename)
     }
-    
-    // 创建下载
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-    
+
     ElMessage.success(t('auditLog.exported', { count: result.events.length }))
   } catch (error: any) {
     ElMessage.error(t('auditLog.exportFailed', { message: error.message || t('auditLog.unknownError') }))
   }
 }
 
-const convertToCSV = (events: AuditEvent[]): string => {
-  const headers = [t('auditLog.time'), t('auditLog.eventType'), t('auditLog.userId'), t('auditLog.resourceId'), t('auditLog.clientIp'), t('auditLog.outcome'), t('auditLog.riskLevel'), t('auditLog.description')]
-  const rows = events.map(e => [
-    e.timestamp || '',
-    e.type || '',
-    e.userId || '',
-    e.resourceId || '',
-    e.ipAddress || '',
-    e.success ? t('auditLog.success') : t('auditLog.failed'),
-    e.riskLevel || 'LOW',
-    e.details || ''
-  ])
-  return [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n')
-}
+/** 审计日志 CSV 列定义 */
+const AUDIT_CSV_COLUMNS = () => [
+  { header: t('auditLog.time'), value: (e: AuditEvent) => e.timestamp || '' },
+  { header: t('auditLog.eventType'), value: (e: AuditEvent) => e.type || '' },
+  { header: t('auditLog.userId'), value: (e: AuditEvent) => e.userId || '' },
+  { header: t('auditLog.resourceId'), value: (e: AuditEvent) => e.resourceId || '' },
+  { header: t('auditLog.clientIp'), value: (e: AuditEvent) => e.ipAddress || '' },
+  { header: t('auditLog.outcome'), value: (e: AuditEvent) => (e.success ? t('auditLog.success') : t('auditLog.failed')) },
+  { header: t('auditLog.riskLevel'), value: (e: AuditEvent) => e.riskLevel || 'LOW' },
+  { header: t('auditLog.description'), value: (e: AuditEvent) => e.details || '' }
+]
 
 // 查看详情
 const handleViewDetail = (row: AuditEvent) => {
@@ -540,16 +576,31 @@ const handleCurrentChange = async (val: number) => {
 }
 
 // 构建查询参数
-const buildQuery = () => ({
-  startTime: searchForm.startTime || undefined,
-  endTime: searchForm.endTime || undefined,
-  userId: searchForm.userId || undefined,
-  ipAddress: searchForm.clientIp || undefined,
-  success: searchForm.success,
-  eventType: searchForm.eventType || undefined,
-  page: pagination.currentPage - 1,
-  size: pagination.pageSize
-})
+// 注意：后端 AuditEventQuery 的字段是 eventTypes（List<AuditEventType>），
+// 此前前端一直传 eventType（单数），Jackson 因忽略未知属性而静默丢弃 → 事件类型筛选实际不生效。
+const buildQuery = () => {
+  // 优先级：手动单选（用户显式选择）> 快捷筛选（多值集合）> 不过滤
+  let eventTypes: string[] | undefined
+  if (searchForm.eventType) {
+    eventTypes = [searchForm.eventType]
+  } else {
+    const preset = QUICK_FILTERS.find(f => f.key === quickFilter.value)
+    if (preset && preset.eventTypes.length > 0) {
+      eventTypes = [...preset.eventTypes]
+    }
+  }
+
+  return {
+    startTime: searchForm.startTime || undefined,
+    endTime: searchForm.endTime || undefined,
+    userId: searchForm.userId || undefined,
+    ipAddress: searchForm.clientIp || undefined,
+    success: searchForm.success,
+    eventTypes,
+    page: pagination.currentPage - 1,
+    size: pagination.pageSize
+  }
+}
 
 // 加载审计日志
 const loadAuditLogs = async () => {
@@ -771,6 +822,19 @@ onUnmounted(() => {
   font-size: 14px;
   color: var(--ja-text-secondary);
   margin-top: 4px;
+}
+
+.quick-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.quick-filters-label {
+  font-size: 13px;
+  color: var(--ja-text-secondary);
 }
 
 .search-form {

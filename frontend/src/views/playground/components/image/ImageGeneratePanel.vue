@@ -2,50 +2,12 @@
   <div class="image-generate-panel">
     <!-- 模型选择和配置 -->
     <div class="panel-toolbar">
-      <el-select
+      <PlaygroundModelSelect
         v-model="selectedModel"
-        :placeholder="t('playgroundImage.generate.modelPlaceholder')"
+        :instances="instances"
         :loading="loading"
-        filterable
-        class="model-select"
-      >
-        <template #prefix>
-          <el-icon><Cpu /></el-icon>
-        </template>
-        <el-option
-          v-for="inst in instances"
-          :key="inst.instanceId"
-          :label="inst.name"
-          :value="inst.name"
-          :disabled="inst.healthStatus === 'UNHEALTHY'"
-        >
-          <div class="instance-option">
-            <span
-              class="health-indicator"
-              :class="{
-                'health-healthy': inst.healthStatus === 'HEALTHY',
-                'health-unhealthy': inst.healthStatus === 'UNHEALTHY',
-                'health-unknown': inst.healthStatus === 'UNKNOWN' || !inst.healthStatus
-              }"
-            >
-              ●
-            </span>
-            <span class="instance-name">{{ inst.name }}</span>
-            <span
-              v-if="inst.healthStatus === 'UNHEALTHY'"
-              class="health-status-text"
-            >
-              {{ t('playgroundImage.offlineStatus') }}
-            </span>
-            <span
-              v-else-if="inst.healthStatus === 'UNKNOWN' || !inst.healthStatus"
-              class="health-status-text unknown"
-            >
-              {{ t('playgroundImage.unknownStatus') }}
-            </span>
-          </div>
-        </el-option>
-      </el-select>
+        :placeholder="t('playgroundImage.generate.modelPlaceholder')"
+      />
       <el-button
         text
         @click="showConfig = !showConfig"
@@ -242,9 +204,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Setting, Picture, Download, Loading, Cpu } from '@element-plus/icons-vue'
+import { Setting, Picture, Download, Loading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { sendServiceRequest } from '@/api/playground'
+import PlaygroundModelSelect from '@/views/playground/components/common/PlaygroundModelSelect.vue'
 import type { ImageGenerateRequestConfig } from '../../types/playground'
 
 const { t } = useI18n()

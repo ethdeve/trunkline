@@ -10,6 +10,9 @@
     },
     "save": "保存权限",
     "reset": "重置",
+    "recommended": "日常推荐",
+    "pickRoleHint": "先在上方选择一个角色，即可查看并调整它拥有的权限",
+    "showRawCodes": "显示原始权限码",
     "roleDescriptions": {
       "ADMIN": "拥有全部功能权限，可管理所有配置与账号",
       "OPERATOR": "可查看和管理模型接入、策略、观测等业务功能，不含系统账号与安全设置",

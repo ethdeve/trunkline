@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 /**
  * 策略中心（方案 A：路由规则 / 负载均衡 / 熔断阈值 / 响应缓存 / 用量配额 5 tab 合一页）
  * - 响应缓存 tab 由 feature flag 控制（本期拍板关闭，flag 打开自动恢复）
@@ -15,6 +16,8 @@ import CircuitBreakerGlobalConfig from '@/views/circuit-breaker/GlobalConfig.vue
 import ResponseCacheManagement from '@/views/config/ResponseCacheManagement.vue'
 import QuotaConfigManagement from '@/views/config/QuotaConfigManagement.vue'
 import { RESPONSE_CACHE_ENABLED } from '@/featureFlags'
+
+const { t } = useI18n()
 
 // 壳层规范：内部收编组件的 PageSkeleton 进入嵌入模式（隐藏自带标题，统一由 PageHeader 承担）
 provide('skeletonEmbedded', true)
@@ -40,7 +43,7 @@ watch(
 
 <template>
   <div>
-    <PageHeader title="策略中心" subtitle="路由规则 / 负载均衡 / 熔断阈值 / 响应缓存 / 用量配额" />
+    <PageHeader :title="t('shell.strategy.title')" :subtitle="t('shell.strategy.subtitle')" help-link="/guide" />
     <el-card shadow="never">
       <el-tabs v-model="active">
         <el-tab-pane label="路由规则" name="rules">

@@ -260,9 +260,11 @@ public class ServiceRequestHandler {
                 if (!hasServicePermission(auth, endpoint.getServiceType())) {
                     logger.warn("调用主体 '{}' 无权访问服务类型: {}",
                         callerId, endpoint.getServiceType());
+                    // P2-5: 报错带指引——缺哪个权限、去哪配(新建密钥默认未勾选任何 permissions,开箱即 403)
                     return Mono.error(new ResponseStatusException(
                         HttpStatus.FORBIDDEN,
-                        "Caller does not have permission for service: " + endpoint.getServiceType()));
+                        "API key lacks required permission '" + endpoint.getServiceType()
+                            + "'. Grant it in console > API Keys > edit this key (permissions list), then retry."));
                 }
 
                 // 模型/分组白名单校验（仅对网关 API Key 生效；控制台 JWT 调用方豁免，
@@ -432,6 +434,22 @@ public class ServiceRequestHandler {
             } finally {
                 // v2.9.0: 请求实例选择完成后清理亲和性上下文
                 AffinityContextHolder.clear();
+            }
+
+            // P3-11: 路由决策调试头(仅响应头,不影响 body;调试用,未来可能扩展)
+            try {
+                exchange.getResponse().getHeaders()
+                        .add("X-Trunkline-Instance", selectedInstance.getName());
+                String poolName = registry.resolvePoolName(serviceType, modelName);
+                if (poolName != null) {
+                    exchange.getResponse().getHeaders().add("X-Trunkline-Pool", poolName);
+                }
+                String strategy = registry.resolveRoutingStrategy(serviceType, modelName);
+                if (strategy != null) {
+                    exchange.getResponse().getHeaders().add("X-Trunkline-Strategy", strategy);
+                }
+            } catch (Exception headerEx) {
+                logger.debug("写入路由调试头失败: {}", headerEx.getMessage());
             }
 
             // 2. 获取适配器
@@ -670,7 +688,7 @@ public class ServiceRequestHandler {
     private Optional<QuotaLimitViolation> reserveQuota(final ServerWebExchange exchange,
                                                        final ServerHttpRequest httpRequest,
                                                        final String callerId) {
-        if (quotaEnforcementService == null || !quotaEnforcementService.isEnabled()) {
+        if (quotaEnforcementService == null) {
             return Optional.empty();
         }
         // issue #77: 控制台 JWT 登录态（页面请求，无 API Key）不参与 API Key 配额账本，
@@ -679,6 +697,11 @@ public class ServiceRequestHandler {
             return Optional.empty();
         }
         Object requestDto = exchange != null ? exchange.getAttribute(REQUEST_DTO_ATTRIBUTE) : null;
+        if (!quotaEnforcementService.isEnabled()) {
+            // N-2: 账本未启用时,老链路(认证按历史校验+响应后入账)对单次请求无约束,
+            // 按 prompt 估算+max_tokens 上限做请求前预估校验兜底(超限 429 + X-Quota-* 响应头)
+            return quotaEnforcementService.checkEstimatedTokenQuota(callerId, requestDto);
+        }
         long estimatedTokens = QuotaTokenEstimator.estimate(requestDto);
         return quotaEnforcementService.tryReserve(httpRequest, callerId, estimatedTokens);
     }

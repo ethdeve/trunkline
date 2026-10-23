@@ -101,7 +101,10 @@
               </div>
               <div class="metric-info">
                 <div class="metric-value">{{ stats.samplingRate }}<span class="unit">%</span></div>
-                <div class="metric-label">{{ t('tracing.dashboard.samplingRate') }}</div>
+                <div class="metric-label">
+                  {{ t('tracing.dashboard.samplingRate') }}
+                  <TermHelp term="samplingRate" />
+                </div>
               </div>
             </div>
           </el-card>
@@ -330,6 +333,7 @@ import {
 } from '@/api/tracing'
 import TraceDetail from './components/TraceDetail.vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
+import TermHelp from '@/components/common/TermHelp.vue'
 import { useChartTheme } from '@/composables/useChartTheme'
 import { useChartAutoRefresh } from '@/composables/useChartAutoRefresh'
 import { formatNumber as formatNumberBase } from '@/utils/format'

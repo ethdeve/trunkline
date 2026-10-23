@@ -4,7 +4,7 @@
       "pageTitle": "Rate Limiter Monitoring",
       "totalLimiters": "Total Limiters",
       "globalLimiters": "Global Limiters",
-      "serviceLimiters": "Service Limiters",
+      "serviceLimiters": "Category limiters",
       "instanceLimiters": "Instance Limiters",
       "averageUsage": "Average Usage",
       "highUsage": "High Usage (>80%)",
@@ -14,11 +14,11 @@
       "algorithmPlaceholder": "Algorithm",
       "scopeOptions": {
         "global": "Global",
-        "service": "Service",
-        "instance": "Instance"
+        "service": "By category",
+        "instance": "By instance"
       },
       "columns": {
-        "service": "Service",
+        "service": "Model Category",
         "scope": "Scope",
         "identifier": "Identifier",
         "algorithm": "Algorithm",
@@ -31,10 +31,20 @@
       "collectionInterval": "Collection interval: {interval}",
       "prometheus": {
         "metricsCount": "Metrics Count",
-        "availableMetrics": "Available Metrics"
+        "availableMetrics": "Available Metrics",
+        "hintEvents": "Total rate-limit events, accumulated by model category (service), algorithm, and result (pass / limit)",
+        "hintRemaining": "Remaining quota, by model category (service), scope, and algorithm",
+        "hintUsage": "Quota usage ratio (0~1; closer to 1 means closer to being limited)",
+        "labelDictionary": "Label meanings: service = model category; scope = global / by category / by instance; algorithm = rate-limit algorithm; result = call result"
       },
       "messages": {
         "loadFailed": "Failed to load rate limiter metrics"
+      },
+      "algorithms": {
+        "TOKEN_BUCKET": "Token bucket",
+        "LEAKY_BUCKET": "Leaky bucket",
+        "SLIDING_WINDOW": "Sliding window",
+        "WARM_UP": "Warm up"
       }
     }
   }

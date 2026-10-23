@@ -13,7 +13,12 @@
     },
     "empty": {
       "title": "Start a new conversation",
-      "subtitle": "Type a message to start chatting with AI"
+      "subtitle": "Type a message to start chatting with AI",
+      "step1": "Pick a model",
+      "step2": "Type your message",
+      "step3": "Send",
+      "failureHint": "If a call fails, the error shows up here with the reason and what to do next",
+      "connectModels": "Connect a model"
     },
     "suggestions": {
       "introduce": "Hi, introduce yourself",

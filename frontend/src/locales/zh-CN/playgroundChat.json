@@ -13,7 +13,12 @@
     },
     "empty": {
       "title": "开始新的对话",
-      "subtitle": "输入消息，与 AI 开始交流"
+      "subtitle": "输入消息，与 AI 开始交流",
+      "step1": "选择模型",
+      "step2": "输入内容",
+      "step3": "发送",
+      "failureHint": "调用失败时，错误会显示在这里，并告诉你原因和下一步",
+      "connectModels": "去接入模型"
     },
     "suggestions": {
       "introduce": "你好，请介绍一下你自己",

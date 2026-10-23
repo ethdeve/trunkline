@@ -46,6 +46,25 @@ public final class ServiceInstanceDTO {
     private Long serviceConfigId;
 
     /**
+     * 服务类型（模型分类）：chat / embedding / rerank / tts / stt / imgGen / imgEdit。
+     * <p>实例表本身没有此列——服务类型由 {@code serviceConfigId} 指向的 service_config 行决定
+     * （见 {@code ServiceInstanceEntity#getServiceConfigId()}）。本字段是<b>后端权威的派生值</b>，
+     * 由 {@code ServiceInstanceManager#convertToDTO} 从 service_config 反查带出，
+     * 避免前端靠「当前在哪个 Tab」推断而与真实归属脱节。</p>
+     * <p>前端据此展示「模型分类」，并在编辑时提交目标分类触发跨分类迁移。</p>
+     * @since 2026-10-22
+     */
+    private String serviceType;
+
+    /**
+     * 运行时实例唯一标识（UUID）。
+     * <p>与数据库主键 {@code id} 不同：该值同时是网关路由层与熔断器（{@code CircuitBreakerManager}）使用的 key，
+     * 前端需要它才能把「已接入模型」列表行与「熔断运行态」关联起来。</p>
+     * <p>老数据可能为空（此时运行时退化为使用数据库 ID），前端按空值处理即可。</p>
+     */
+    private String runtimeInstanceId;
+
+    /**
      * v2.11.0: 关联的模型供应商 ID（可空，老实例为 null）
      */
     private Long providerId;

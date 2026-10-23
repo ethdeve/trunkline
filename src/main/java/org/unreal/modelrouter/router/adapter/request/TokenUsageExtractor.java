@@ -93,6 +93,23 @@ public class TokenUsageExtractor {
                                               final String instanceName,
                                               final String apiKeyId,
                                               final QuotaReservation quotaReservation) {
+        extractAndRecordTokenUsage(bodyStr, adapterType, instanceName, apiKeyId, quotaReservation, null);
+    }
+
+    /**
+     * 从下游服务响应中提取 token 使用量并记录，同时完成配额结算；支持透传响应耗时（P1-4）。
+     *
+     * <p>{@code responseTimeMs} 落库到 token_usage 表，供观测中心平均响应时间统计使用；
+     * 传 {@code null} 时该字段保持 NULL（历史行为,AVG 统计自动忽略）。</p>
+     *
+     * @param responseTimeMs 下游响应耗时毫秒数，可为 {@code null}
+     */
+    void extractAndRecordTokenUsage(final String bodyStr,
+                                              final String adapterType,
+                                              final String instanceName,
+                                              final String apiKeyId,
+                                              final QuotaReservation quotaReservation,
+                                              final Long responseTimeMs) {
         try {
             JsonNode jsonNode = objectMapper.readTree(bodyStr);
 
@@ -157,7 +174,7 @@ public class TokenUsageExtractor {
                         true,
                         null,
                         null,
-                        null
+                        responseTimeMs
                 );
             }
 

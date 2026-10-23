@@ -70,6 +70,7 @@
             controls-position="right"
             style="width: 150px"
           />
+          <TermHelp term="minCount" />
         </el-form-item>
         <el-form-item :label="t('slowQuery.operationLabel')">
           <el-select
@@ -233,6 +234,7 @@ import { ElMessage } from 'element-plus'
 import { Refresh, Delete, Search, RefreshRight, Warning, Histogram, Bell, Mute } from '@element-plus/icons-vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import StatCard from '@/components/StatCard.vue'
+import TermHelp from '@/components/common/TermHelp.vue'
 import {
   getSlowQueryStats,
   getSlowQueryCount,

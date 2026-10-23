@@ -17,6 +17,8 @@ public class AuthenticationException extends SecurityException {
     public static final String DAILY_QUOTA_EXCEEDED = "DAILY_QUOTA_EXCEEDED";
     public static final String TOKEN_QUOTA_EXCEEDED = "TOKEN_QUOTA_EXCEEDED";
     public static final String RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED";
+    /** 摘自上游 v3.3.4 #404：API Key 校验链专用限流码（429），与管理面 RATE_LIMIT_EXCEEDED 区分 */
+    public static final String RATE_LIMITED_API_KEY = "RATE_LIMITED_API_KEY";
     
     public AuthenticationException(final String message, final String errorCode) {
         super(message, errorCode, HttpStatus.UNAUTHORIZED);
@@ -73,17 +75,20 @@ public class AuthenticationException extends SecurityException {
     }
 
     /**
-     * 创建每日配额超限异常
+     * 创建每日配额超限异常（HTTP 429 —— 摘自上游 v3.3.4 #404 的状态语义：配额/限流
+     * 属于服务端拒绝而非认证失败，客户端不应把 429 当 401 处理）
      */
     public static AuthenticationException dailyQuotaExceeded() {
-        return new AuthenticationException("超过每日请求配额限制", DAILY_QUOTA_EXCEEDED);
+        return new AuthenticationException("超过每日请求配额限制",
+                DAILY_QUOTA_EXCEEDED, HttpStatus.TOO_MANY_REQUESTS);
     }
 
     /**
-     * 创建 Token 配额超限异常
+     * 创建 Token 配额超限异常（HTTP 429，理由同上）
      */
     public static AuthenticationException tokenQuotaExceeded() {
-        return new AuthenticationException("超过每日 Token 使用配额限制", TOKEN_QUOTA_EXCEEDED);
+        return new AuthenticationException("超过每日 Token 使用配额限制",
+                TOKEN_QUOTA_EXCEEDED, HttpStatus.TOO_MANY_REQUESTS);
     }
 
     /**

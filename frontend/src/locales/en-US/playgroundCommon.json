@@ -4,7 +4,18 @@
       "placeholder": "Select a model",
       "allModels": "All Models",
       "other": "Other",
-      "group": "Group"
+      "group": "Group",
+      "groupSection": "Model groups (primary/backup)",
+      "instanceSection": "Connected models",
+      "emptyTitle": "No usable model yet",
+      "emptyDesc": "Add a provider and models under \"Connect Models\" first, or check whether the model has been disabled",
+      "emptyAction": "Connect a model"
+    },
+    "availability": {
+      "inactive": "Disabled",
+      "unhealthy": "Health check failed",
+      "circuitOpen": "Paused by circuit breaker",
+      "halfOpen": "Recovering (may still fail)"
     },
     "action": {
       "clear": "Clear",

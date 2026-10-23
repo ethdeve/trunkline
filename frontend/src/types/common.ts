@@ -31,12 +31,26 @@ export interface PaginationResponse<T> {
 export interface ServiceInstance {
   instanceId: string
   name: string
-  type: string
+  /**
+   * 模型分类（服务类型）：chat / embedding / rerank / tts / stt / imgGen / imgEdit。
+   * 2026-10-22 起由后端 DTO 权威下发（ServiceInstanceDTO.serviceType），
+   * 不再依赖「前端在哪个 Tab」推断。
+   */
+  serviceType?: string
   adapter: string
   baseUrl: string
   weight: number
   headers?: Record<string, string>
-  health?: boolean
+  /** 启停状态：active / inactive */
+  status?: string
+  /** 健康状态：HEALTHY / UNHEALTHY / UNKNOWN（后端权威字段） */
+  healthStatus?: string
+  /** 健康检查失败原因 */
+  errorMessage?: string
+  /** 运行时实例 UUID，用于关联熔断运行态 */
+  runtimeInstanceId?: string
+  /** 实例级限流配置 */
+  rateLimit?: { enabled?: boolean; algorithm?: string; capacity?: number; rate?: number }
   metadata?: Record<string, unknown>
 }
 

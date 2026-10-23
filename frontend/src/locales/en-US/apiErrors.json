@@ -2,7 +2,7 @@
   "apiErrors": {
     "unknown": "Unknown error",
     "tokenNotFound": "Token not found",
-    "unsupportedServiceType": "Unsupported service type: {serviceType}",
+    "unsupportedServiceType": "Unsupported model category: {serviceType}",
     "cannotGetResponseStream": "Failed to obtain the response stream"
   }
 }

@@ -1,5 +1,5 @@
 /**
- * JAiRouter Console 路由表 + RBAC 守卫（一期骨架）
+ * Trunkline Console 路由表 + RBAC 守卫（一期骨架）
  *
  * - 一期真实页面 2 个（总览/快速开始占位），其余 8 项 comingSoon 占位，
  *   菜单树一次写全（config/menu.ts），二期起只增组件不改配置
@@ -164,7 +164,7 @@ router.beforeEach((to) => {
 
 router.afterEach((to) => {
   const title = to.meta.title as string | undefined
-  document.title = title ? `${title} · JAiRouter 控制台` : 'JAiRouter 控制台'
+  document.title = title ? `${title} · Trunkline 控制台` : 'Trunkline 控制台'
 })
 
 export default router

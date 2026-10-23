@@ -1,0 +1,70 @@
+{
+  "overview": {
+    "kpi": {
+      "todayCalls": "Calls Today",
+      "currentQps": "Current QPS",
+      "recentHourCalls": "Calls in Last Hour",
+      "tokenUsage": "Token Usage",
+      "instanceHealth": "Instance Health",
+      "unitTimes": "calls",
+      "unitQps": "req/s",
+      "unitTokens": "tokens",
+      "unitCount": "",
+      "hintSuccessRate": "success rate {v}",
+      "hintAvgDuration": "avg latency {v}",
+      "hintAvgPerCall": "avg {v} per call",
+      "hintAbnormal": "{v} abnormal",
+      "viewDetail": "View details →"
+    },
+    "attention": {
+      "title": "Needs Attention",
+      "pending": "{n} item(s) pending",
+      "goHandle": "Fix it →",
+      "quotaAlert": "key(s) hit the quota alert and may be throttled at any time",
+      "expiringKey": "key(s) expire within 7 days and calls will fail afterwards",
+      "unhealthyInstance": "instance(s) are currently unavailable and traffic may be routed to a failing channel"
+    },
+    "anomaly": {
+      "healthy": "instance(s) healthy",
+      "circuitOpen": "instance(s) circuit-broken",
+      "unhealthy": "instance(s) health check failed",
+      "inactive": "instance(s) disabled",
+      "rateLimited": "instance(s) with rate limit",
+      "nameSeparator": ", ",
+      "moreCount": " and {n} more"
+    },
+    "topo": {
+      "title": "Instance Health Topology",
+      "hint": "Click an instance node for details",
+      "gateway": "Trunkline Gateway",
+      "catGateway": "Gateway",
+      "catType": "Model Category",
+      "catInstance": "Instance",
+      "legend": {
+        "healthy": "Healthy",
+        "degraded": "Degraded",
+        "broken": "Broken",
+        "notConnected": "Not connected"
+      }
+    },
+    "calls": {
+      "title": "Recent Calls",
+      "all": "All",
+      "onlyFailed": "Failed only",
+      "autoRefresh": "auto-refresh every 30s"
+    },
+    "drawer": {
+      "title": "Instance Details",
+      "instanceName": "Instance Name",
+      "instanceId": "Instance ID",
+      "baseUrl": "Base URL",
+      "adapter": "Adapter",
+      "weight": "Weight",
+      "healthStatus": "Health Status"
+    },
+    "status": {
+      "success": "Success",
+      "failed": "Failed"
+    }
+  }
+}

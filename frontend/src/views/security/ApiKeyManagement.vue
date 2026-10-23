@@ -1,9 +1,10 @@
 <template>
-  <PageSkeleton :title="t('apiKeys.title')">
+  <PageSkeleton :title="t('apiKeys.title')" help-link="/guide">
     <!-- 操作区：嵌入模式下 PageSkeleton 页头整体隐藏，#actions 插槽不会渲染，
          故按钮改为内容顶部自渲染，避免"创建密钥/导入/导出"入口丢失 -->
     <div class="page-actions-row">
       <el-button v-if="canWrite" icon="Download" type="success" @click="handleExport">{{ t('apiKeys.exportConfig') }}</el-button>
+      <el-button v-if="canWrite" icon="Document" @click="handleExportCsv">{{ t('apiKeys.exportCsv') }}</el-button>
       <el-button v-if="canWrite" icon="Upload" type="warning" @click="showImportDialog">{{ t('apiKeys.importConfig') }}</el-button>
       <el-button v-if="canWrite" icon="Plus" type="primary" @click="handleCreateApiKey">{{ t('apiKeys.createApiKey') }}</el-button>
       <el-button icon="DataAnalysis" @click="goQuotaMonitoring">{{ t('apiKeys.gotoQuotaMonitoring') }}</el-button>
@@ -84,6 +85,16 @@
             </template>
           </el-table-column>
           <el-table-column prop="message" :label="t('apiKeys.columns.alertDetail')" min-width="200" show-overflow-tooltip />
+          <el-table-column :label="t('apiKeys.columns.actions')" width="200" align="center" fixed="right">
+            <template #default="{ row }">
+              <el-button size="small" type="primary" text @click="openAlertQuota(row)">
+                {{ t('apiKeys.quotaAlertsActions.adjust') }}
+              </el-button>
+              <el-button size="small" type="success" text @click="handleAlertResetQuota(row)">
+                {{ t('apiKeys.quotaAlertsActions.reset') }}
+              </el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </template>
       <template v-else>
@@ -99,66 +110,56 @@
     <!-- 主卡片 -->
     <el-card class="main-card" shadow="hover">
 
+      <div class="main-card__toolbar">
+        <el-input
+          v-model="searchKey"
+          :placeholder="t('apiKeys.searchPlaceholder')"
+          clearable
+          size="default"
+          class="key-search"
+          @input="onSearchInput"
+        >
+          <template #prefix><el-icon><Search /></el-icon></template>
+        </el-input>
+        <span class="main-card__count">{{ t('apiKeys.listCount', { count: pagination.total }) }}</span>
+        <!-- 批量操作条：选中后浮现，避免常驻按钮造成视觉噪音 -->
+        <div v-if="canWrite && selectedKeys.length > 0" class="batch-bar">
+          <span class="batch-bar__count">{{ t('apiKeys.batch.selected', { count: selectedKeys.length }) }}</span>
+          <el-button size="small" type="success" plain @click="handleBatchEnable">
+            {{ t('apiKeys.batch.enable') }}
+          </el-button>
+          <el-button size="small" type="warning" plain @click="handleBatchDisable">
+            {{ t('apiKeys.batch.disable') }}
+          </el-button>
+          <el-button size="small" type="danger" plain @click="handleBatchDelete">
+            {{ t('apiKeys.batch.delete') }}
+          </el-button>
+          <el-button size="small" link @click="clearSelection">{{ t('apiKeys.batch.clear') }}</el-button>
+        </div>
+      </div>
+
       <div class="table-wrapper">
-        <el-table v-loading="loading" :data="pagedApiKeys" border stripe style="width: 100%">
-        <el-table-column :label="t('apiKeys.columns.keyId')" prop="keyId" width="180">
+        <el-table
+          v-loading="loading"
+          :data="pagedApiKeys"
+          border
+          stripe
+          style="width: 100%"
+          row-key="keyId"
+          @selection-change="onSelectionChange"
+        >
+        <el-table-column v-if="canWrite" type="selection" width="46" :reserve-selection="false" />
+        <el-table-column :label="t('apiKeys.columns.description')" min-width="180" show-overflow-tooltip>
           <template #default="scope">
-            <el-tag effect="plain" type="info">{{ scope.row.keyId }}</el-tag>
+            <span class="key-name">{{ scope.row.description || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('apiKeys.columns.description')" min-width="150" show-overflow-tooltip>
+        <el-table-column :label="t('apiKeys.columns.keyId')" width="210">
           <template #default="scope">
-            <span>{{ scope.row.description || '-' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('apiKeys.columns.permissions')" prop="permissions" width="160">
-          <template #default="scope">
-            <div class="permission-tags">
-              <el-tag
-                  v-for="permission in scope.row.permissions"
-                  :key="permission"
-                  :type="getPermissionTagType(permission)"
-                  size="small"
-              >
-                {{ formatPermission(permission) }}
-              </el-tag>
+            <div class="key-id-cell">
+              <el-tag effect="plain" type="info">{{ scope.row.keyId }}</el-tag>
+              <el-button link type="primary" size="small" :icon="'CopyDocument'" @click="copyKeyId(scope.row.keyId)" />
             </div>
-            <span v-if="!scope.row.permissions?.length">-</span>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('apiKeys.columns.createdAt')" width="160">
-          <template #default="scope">
-            {{ formatDateTime(scope.row.createdAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('apiKeys.columns.createdBy')" width="150" show-overflow-tooltip>
-          <template #default="scope">
-            <span v-if="scope.row.createdBy">{{ scope.row.createdBy }}</span>
-            <span v-else class="text-muted">-</span>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('apiKeys.columns.expiresAt')" prop="expiresAt" width="160">
-          <template #default="scope">
-            <span :class="{ 'expired-text': scope.row.expired }">
-              {{ formatDateTime(scope.row.expiresAt) || t('apiKeys.neverExpires') }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('apiKeys.columns.remainingDays')" width="100" align="center">
-          <template #default="scope">
-            <el-tag :type="getRemainingDaysType(scope.row)" size="small">
-              {{ getRemainingDaysText(scope.row) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('apiKeys.columns.usage')" width="140" align="center">
-          <template #default="scope">
-            <el-tooltip :content="t('apiKeys.usageTooltip', { success: scope.row.successfulRequests, failed: scope.row.failedRequests })">
-              <span class="usage-stat">
-                {{ scope.row.totalRequests }}
-                <span class="usage-detail">({{ scope.row.successfulRequests }}/{{ scope.row.failedRequests }})</span>
-              </span>
-            </el-tooltip>
           </template>
         </el-table-column>
         <el-table-column :label="t('apiKeys.columns.todayToken')" width="120" align="center">
@@ -169,12 +170,19 @@
             <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('apiKeys.columns.alertStatus')" width="100" align="center">
+        <el-table-column :label="t('apiKeys.columns.todayRequest')" width="110" align="center">
           <template #default="scope">
-            <el-tag v-if="scope.row.quotaAlertTriggered" type="danger" size="small">
-              <el-icon><Warning /></el-icon> {{ t('apiKeys.status.alert') }}
-            </el-tag>
-            <el-tag v-else type="success" size="small">{{ t('apiKeys.status.normal') }}</el-tag>
+            <span>{{ scope.row.todayRequestCount ?? '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('apiKeys.columns.quota')" min-width="200">
+          <template #default="scope">
+            <div class="quota-plain">
+              <span class="quota-plain__limit">{{ quotaPlain(scope.row) }}</span>
+              <span v-if="hasQuotaLimit(scope.row)" class="quota-plain__left">
+                {{ remainingPlain(scope.row) }}
+              </span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column :label="t('apiKeys.columns.status')" prop="enabled" width="80" align="center">
@@ -182,26 +190,26 @@
             <el-switch
                 v-model="scope.row.enabled"
                 :disabled="!canWrite || scope.row.expired"
-                active-color="var(--ja-success)"
-                inactive-color="var(--ja-danger)"
                 @change="handleStatusChange(scope.row)"
             />
           </template>
         </el-table-column>
-        <el-table-column fixed="right" :label="t('apiKeys.columns.actions')" width="260">
+        <el-table-column :label="t('apiKeys.columns.expiresAt')" width="170">
+          <template #default="scope">
+            <div class="expire-cell">
+              <span :class="{ 'expired-text': scope.row.expired }">
+                {{ formatDateTime(scope.row.expiresAt) || t('apiKeys.neverExpires') }}
+              </span>
+              <el-tag :type="getRemainingDaysType(scope.row)" size="small">{{ getRemainingDaysText(scope.row) }}</el-tag>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column fixed="right" :label="t('apiKeys.columns.actions')" width="230">
           <template #default="scope">
             <div class="action-buttons">
-              <el-button v-if="canWrite" icon="Edit" size="small" @click="handleEdit(scope.row)">{{ t('apiKeys.actions.edit') }}</el-button>
-              <el-button v-if="canWrite" icon="RefreshRight" size="small" type="warning" @click="handleRotate(scope.row)"
-                         :disabled="scope.row.expired">{{ t('apiKeys.actions.rotate') }}</el-button>
-              <el-button v-if="canWrite" icon="Refresh" size="small" type="info" @click="handleReset(scope.row)">{{ t('apiKeys.actions.reset') }}</el-button>
-              <el-tooltip :content="t('apiKeys.actions.quotaResetTooltip')" placement="top">
-                <el-button v-if="canWrite" icon="Timer" size="small" type="success" @click="handleResetQuota(scope.row)">{{ t('apiKeys.actions.quotaReset') }}</el-button>
-              </el-tooltip>
-              <el-button v-if="canWrite" icon="Coin" size="small" type="primary" @click="openQuotaDrawer(scope.row)">
-                {{ t('apiKeys.quota') }}
-              </el-button>
-              <el-button v-if="canWrite" icon="Delete" size="small" type="danger" @click="handleDelete(scope.row)">{{ t('apiKeys.actions.delete') }}</el-button>
+              <el-button v-if="canWrite" link type="primary" size="small" @click="openDetailDrawer(scope.row)">{{ t('apiKeys.actions.detail') }}</el-button>
+              <el-button v-if="canWrite" link type="primary" size="small" @click="handleEdit(scope.row)">{{ t('apiKeys.actions.edit') }}</el-button>
+              <el-button v-if="canWrite" link type="danger" size="small" @click="handleDelete(scope.row)">{{ t('apiKeys.actions.delete') }}</el-button>
             </div>
           </template>
         </el-table-column>
@@ -294,94 +302,200 @@
         </div>
       </div>
     </el-drawer>
+
+    <!-- 密钥详情抽屉（精简后移出的字段与高级操作） -->
+    <el-drawer v-model="detailDrawerVisible" :title="t('apiKeys.detailDrawerTitle')" size="460px">
+      <template v-if="detailRow">
+        <el-descriptions :column="1" border size="small">
+          <el-descriptions-item :label="t('apiKeys.columns.keyId')">
+            <span class="mono">{{ detailRow.keyId }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('apiKeys.columns.description')">
+            {{ detailRow.description || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('apiKeys.columns.permissions')">
+            <div class="permission-tags">
+              <el-tag v-for="permission in detailRow.permissions" :key="permission"
+                :type="getPermissionTagType(permission)" size="small">{{ formatPermission(permission) }}</el-tag>
+              <span v-if="!detailRow.permissions?.length">-</span>
+            </div>
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('apiKeys.columns.status')">
+            <el-tag :type="detailRow.enabled ? 'success' : 'info'" size="small">
+              {{ detailRow.enabled ? t('apiKeys.status.enabled') : t('apiKeys.status.disabled') }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('apiKeys.columns.alertStatus')">
+            <el-tag :type="detailRow.quotaAlertTriggered ? 'danger' : 'success'" size="small">
+              {{ detailRow.quotaAlertTriggered ? t('apiKeys.status.alert') : t('apiKeys.status.normal') }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('apiKeys.columns.todayToken')">
+            {{ detailRow.todayTokenUsage != null ? formatTokenCount(detailRow.todayTokenUsage) : '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('apiKeys.columns.todayRequest')">
+            {{ detailRow.todayRequestCount ?? '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('apiKeys.columns.quota')">
+            <div class="quota-plain">
+              <span class="quota-plain__limit">{{ quotaPlain(detailRow) }}</span>
+              <span v-if="hasQuotaLimit(detailRow)" class="quota-plain__left">
+                {{ remainingPlain(detailRow) }}
+              </span>
+            </div>
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('apiKeys.columns.usage')">
+            {{ detailRow.totalRequests }}（成功 {{ detailRow.successfulRequests }} / 失败 {{ detailRow.failedRequests }}）
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('apiKeys.columns.createdAt')">
+            {{ formatDateTime(detailRow.createdAt) }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('apiKeys.columns.createdBy')">
+            {{ detailRow.createdBy || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('apiKeys.columns.expiresAt')">
+            {{ formatDateTime(detailRow.expiresAt) || t('apiKeys.neverExpires') }}
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <div class="detail-actions" v-if="canWrite">
+          <el-button type="primary" @click="handleEdit(detailRow)">{{ t('apiKeys.actions.edit') }}</el-button>
+          <el-button type="warning" :disabled="detailRow.expired" @click="handleRotate(detailRow)">{{ t('apiKeys.actions.rotate') }}</el-button>
+          <el-button type="info" @click="handleReset(detailRow)">{{ t('apiKeys.actions.reset') }}</el-button>
+          <el-button type="success" @click="openQuotaDrawer(detailRow)">{{ t('apiKeys.quota') }}</el-button>
+          <el-button type="danger" @click="handleDelete(detailRow)">{{ t('apiKeys.actions.delete') }}</el-button>
+        </div>
+      </template>
+    </el-drawer>
   </PageSkeleton>
 
     <!-- 创建/编辑API密钥对话框 -->
     <el-dialog v-model="dialogVisible" :title="dialogTitle" center width="680px">
-      <el-form ref="formRef" :model="form" label-width="120px" status-icon>
-        <el-form-item :label="t('apiKeys.form.keyId')" prop="keyId" :rules="keyIdRules">
-          <el-input v-model="form.keyId" :disabled="isEdit" maxlength="64" :placeholder="t('apiKeys.form.keyIdPlaceholder')"
-                    show-word-limit/>
-        </el-form-item>
-        <el-form-item :label="t('apiKeys.form.description')">
+      <el-form ref="formRef" :model="form" label-width="150px" status-icon>
+        <!-- 三道闸门总览：填表前先让用户理解密钥的权限模型（① 分类 → ② 白名单 → ③ 护栏） -->
+        <el-alert type="info" :closable="false" show-icon class="form-gates-alert">
+          <template #title>{{ t('apiKeys.form.gatesAlertTitle') }}</template>
+          <div class="gate-desc">{{ t('apiKeys.form.gate1Desc') }}</div>
+          <div class="gate-desc">{{ t('apiKeys.form.gate2Desc') }}</div>
+          <div class="gate-desc">{{ t('apiKeys.form.gate3Desc') }}</div>
+        </el-alert>
+
+        <!-- ===== 基础区：必填项，填完即可正常使用 ===== -->
+        <el-form-item :label="t('apiKeys.form.description')" prop="description"
+          :rules="[{ required: true, message: t('apiKeys.form.descriptionRequired'), trigger: 'blur' }]">
           <el-input v-model="form.description" maxlength="128" :placeholder="t('apiKeys.form.descriptionPlaceholder')" show-word-limit
                     type="textarea"/>
         </el-form-item>
-        <el-form-item :label="t('apiKeys.form.expiresAt')">
-          <el-date-picker
-              v-model="form.expiresAt"
-              clearable
-              format="YYYY-MM-DD HH:mm:ss"
-              :placeholder="t('apiKeys.form.expiresAtPlaceholder')"
-              style="width: 100%;"
-              type="datetime"
-              value-format="YYYY-MM-DD HH:mm:ss"
-          />
-        </el-form-item>
-        <el-form-item :label="t('apiKeys.form.permissions')">
+        <!-- 闸门①：模型分类决定能调哪些接口分类，一个不勾 = 调用全部 403 -->
+        <el-form-item :label="t('apiKeys.form.permissionsGate')">
           <el-checkbox-group v-model="form.permissions">
-            <el-checkbox label="chat">{{ t('apiKeys.permissions.chat') }}</el-checkbox>
-            <el-checkbox label="embedding">{{ t('apiKeys.permissions.embedding') }}</el-checkbox>
-            <el-checkbox label="rerank">{{ t('apiKeys.permissions.rerank') }}</el-checkbox>
-            <el-checkbox label="tts">{{ t('apiKeys.permissions.tts') }}</el-checkbox>
-            <el-checkbox label="stt">{{ t('apiKeys.permissions.stt') }}</el-checkbox>
-            <el-checkbox label="imgGen">{{ t('apiKeys.permissions.imgGen') }}</el-checkbox>
-            <el-checkbox label="imgEdit">{{ t('apiKeys.permissions.imgEdit') }}</el-checkbox>
+            <el-checkbox v-for="p in PERMISSION_OPTIONS" :key="p.value" :label="p.value">
+              {{ p.label }}
+            </el-checkbox>
           </el-checkbox-group>
+          <div class="form-hint">{{ t('apiKeys.form.permissionsHint') }}</div>
         </el-form-item>
-        <el-form-item :label="t('apiKeys.form.ipWhitelist')">
-          <el-select
-              v-model="form.allowedIpAddresses"
-              allow-create
-              clearable
-              filterable
-              multiple
-              :placeholder="t('apiKeys.form.ipWhitelistPlaceholder')"
-              style="width: 100%;"
-          >
-          </el-select>
-          <div class="form-hint">{{ t('apiKeys.form.ipWhitelistHint') }}</div>
-        </el-form-item>
-        <el-form-item :label="t('apiKeys.form.allowedModels')">
-          <el-select v-model="form.allowedModels" multiple filterable clearable
-                     :placeholder="t('apiKeys.form.allowedModelsPlaceholder')" style="width: 100%;">
-            <el-option v-for="m in modelOptions" :key="m" :label="m" :value="m" />
-          </el-select>
-          <div class="form-hint">{{ t('apiKeys.form.allowedModelsHint') }}</div>
-        </el-form-item>
-        <el-form-item :label="t('apiKeys.form.allowedGroups')">
-          <el-select v-model="form.allowedGroups" multiple filterable clearable
-                     :placeholder="t('apiKeys.form.allowedGroupsPlaceholder')" style="width: 100%;">
-            <el-option v-for="g in groupOptions" :key="g" :label="g" :value="g" />
-          </el-select>
-          <div class="form-hint">{{ t('apiKeys.form.allowedGroupsHint') }}</div>
-        </el-form-item>
-        <el-form-item label="配额快捷设置">
-          <el-button v-for="p in QUOTA_PRESETS" :key="p.id" size="small" @click="applyCreateQuotaPreset(p)">
-            {{ t(p.labelKey) }}
-          </el-button>
-          <div class="form-hint">点击预设一键填入下方限额（0 = 不限），仍可手动微调</div>
-        </el-form-item>
-        <el-form-item :label="t('apiKeys.form.dailyRequestLimit')">
-          <el-input-number v-model="form.dailyRequestLimit" :min="0" :step="100" :placeholder="t('apiKeys.form.zeroMeansUnlimitedPlaceholder')"/>
-          <div class="form-hint">{{ t('apiKeys.form.zeroMeansUnlimited') }}</div>
-        </el-form-item>
-        <el-form-item :label="t('apiKeys.form.dailyTokenLimit')">
-          <el-input-number v-model="form.dailyTokenLimit" :min="0" :step="1000" :placeholder="t('apiKeys.form.zeroMeansUnlimitedPlaceholder')"/>
-          <div class="form-hint">{{ t('apiKeys.form.tokenLimitHint') }}</div>
-        </el-form-item>
-        <el-form-item :label="t('apiKeys.form.rateLimitPerMinute')">
-          <el-input-number v-model="form.rateLimitPerMinute" :min="0" :step="10" :placeholder="t('apiKeys.form.zeroMeansUnlimitedPlaceholder')"/>
-          <div class="form-hint">{{ t('apiKeys.form.rateLimitHint') }}</div>
-        </el-form-item>
-        <el-form-item :label="t('apiKeys.form.quotaAlertThreshold')">
-          <el-slider v-model="form.quotaAlertThreshold" :min="0.05" :max="1" :step="0.05" show-input :format-tooltip="(val: number) => `${Math.round(val * 100)}%`"/>
-          <div class="form-hint">{{ t('apiKeys.form.thresholdHint') }}</div>
-        </el-form-item>
-        <el-form-item :label="t('apiKeys.form.rotationPeriod')">
-          <el-input-number v-model="form.rotationPeriodDays" :min="0" :step="30" :placeholder="t('apiKeys.form.rotationPeriodPlaceholder')"/>
-          <div class="form-hint">{{ t('apiKeys.form.rotationPeriodHint') }}</div>
-        </el-form-item>
+
+        <!-- ===== 高级模式开关（同接入模型编辑表单的交互） ===== -->
+        <div class="advanced-toggle-row">
+          <span class="advanced-toggle-hint">{{ t('apiKeys.form.advancedHint') }}</span>
+          <el-switch v-model="showAdvanced" :active-text="t('apiKeys.form.advancedMode')" />
+        </div>
+
+        <!-- ===== 高级区：选填项（留空/默认值即可正常使用） ===== -->
+        <template v-if="showAdvanced">
+          <el-form-item :label="t('apiKeys.form.keyId')" prop="keyId" :rules="keyIdRules">
+            <el-input v-model="form.keyId" :disabled="isEdit" maxlength="64" :placeholder="t('apiKeys.form.keyIdPlaceholder')"
+                      show-word-limit/>
+          </el-form-item>
+          <!-- 闸门②：白名单限定分类内可调用的具体模型/分组，留空 = 该分类下全部放行 -->
+          <el-form-item :label="t('apiKeys.form.allowedModelsGate')">
+            <el-select v-model="form.allowedModels" multiple filterable clearable
+                       :disabled="whitelistDisabled"
+                       :placeholder="t('apiKeys.form.allowedModelsPlaceholder')" style="width: 100%;">
+              <el-option v-for="m in modelSelectOptions" :key="m.value" :label="m.value" :value="m.value">
+                <span>{{ m.value }}</span>
+                <el-tag v-if="m.mismatched" size="small" type="warning" class="option-tag">
+                  {{ t('apiKeys.form.mismatchedTag') }}
+                </el-tag>
+              </el-option>
+            </el-select>
+            <div class="form-hint">{{ t('apiKeys.form.allowedModelsHint') }}</div>
+            <div class="form-hint">{{ t('apiKeys.form.allowedModelsScopeHint') }}</div>
+            <div v-if="whitelistDisabled" class="form-hint form-hint-warning">
+              {{ t('apiKeys.form.whitelistDisabledHint') }}
+            </div>
+          </el-form-item>
+          <el-form-item :label="t('apiKeys.form.allowedGroupsGate')">
+            <el-select v-model="form.allowedGroups" multiple filterable clearable
+                       :disabled="whitelistDisabled"
+                       :placeholder="t('apiKeys.form.allowedGroupsPlaceholder')" style="width: 100%;">
+              <el-option v-for="g in groupSelectOptions" :key="g.value" :label="g.value" :value="g.value">
+                <span>{{ g.value }}</span>
+                <el-tag v-if="g.mismatched" size="small" type="warning" class="option-tag">
+                  {{ t('apiKeys.form.mismatchedTag') }}
+                </el-tag>
+              </el-option>
+            </el-select>
+            <div class="form-hint">{{ t('apiKeys.form.allowedGroupsHint') }}</div>
+            <div class="form-hint">{{ t('apiKeys.form.allowedGroupsScopeHint') }}</div>
+            <el-alert v-if="permissionMismatchHint" type="warning" :closable="false"
+                      class="form-alert" :title="permissionMismatchHint" />
+          </el-form-item>
+          <!-- 闸门③：安全护栏（有效期 / IP / 配额） -->
+          <el-form-item :label="t('apiKeys.form.expiresAtGate')">
+            <el-date-picker
+                v-model="form.expiresAt"
+                clearable
+                format="YYYY-MM-DD HH:mm:ss"
+                :placeholder="t('apiKeys.form.expiresAtPlaceholder')"
+                style="width: 100%;"
+                type="datetime"
+                value-format="YYYY-MM-DD HH:mm:ss"
+            />
+            <div class="form-hint">{{ t('apiKeys.form.expiresAtHint') }}</div>
+          </el-form-item>
+          <el-form-item :label="t('apiKeys.form.ipWhitelistGate')">
+            <el-select
+                v-model="form.allowedIpAddresses"
+                allow-create
+                clearable
+                filterable
+                multiple
+                :placeholder="t('apiKeys.form.ipWhitelistPlaceholder')"
+                style="width: 100%;"
+            >
+            </el-select>
+            <div class="form-hint">{{ t('apiKeys.form.ipWhitelistHint') }}</div>
+          </el-form-item>
+          <el-form-item :label="t('apiKeys.form.quotaPresetGate')">
+            <el-button v-for="p in QUOTA_PRESETS" :key="p.id" size="small" @click="applyCreateQuotaPreset(p)">
+              {{ t(p.labelKey) }}
+            </el-button>
+            <div class="form-hint">{{ t('apiKeys.form.quotaPresetHint') }}</div>
+            <div class="quota-plain-preview">{{ formQuotaPlain }}</div>
+          </el-form-item>
+          <el-form-item :label="t('apiKeys.form.dailyRequestLimit')">
+            <el-input-number v-model="form.dailyRequestLimit" :min="0" :step="100" :placeholder="t('apiKeys.form.zeroMeansUnlimitedPlaceholder')"/>
+            <div class="form-hint">{{ t('apiKeys.form.zeroMeansUnlimited') }}</div>
+          </el-form-item>
+          <el-form-item :label="t('apiKeys.form.dailyTokenLimit')">
+            <el-input-number v-model="form.dailyTokenLimit" :min="0" :step="1000" :placeholder="t('apiKeys.form.zeroMeansUnlimitedPlaceholder')"/>
+            <div class="form-hint">{{ t('apiKeys.form.tokenLimitHint') }}</div>
+          </el-form-item>
+          <el-form-item :label="t('apiKeys.form.rateLimitPerMinute')">
+            <el-input-number v-model="form.rateLimitPerMinute" :min="0" :step="10" :placeholder="t('apiKeys.form.zeroMeansUnlimitedPlaceholder')"/>
+            <div class="form-hint">{{ t('apiKeys.form.rateLimitHint') }}</div>
+          </el-form-item>
+          <el-form-item :label="t('apiKeys.form.quotaAlertThreshold')">
+            <el-slider v-model="form.quotaAlertThreshold" :min="0.05" :max="1" :step="0.05" show-input :format-tooltip="(val: number) => `${Math.round(val * 100)}%`"/>
+            <div class="form-hint">{{ t('apiKeys.form.thresholdHint') }}</div>
+          </el-form-item>
+          <el-form-item :label="t('apiKeys.form.rotationPeriod')">
+            <el-input-number v-model="form.rotationPeriodDays" :min="0" :step="30" :placeholder="t('apiKeys.form.rotationPeriodPlaceholder')"/>
+            <div class="form-hint">{{ t('apiKeys.form.rotationPeriodHint') }}</div>
+          </el-form-item>
+        </template>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
@@ -392,7 +506,7 @@
     </el-dialog>
 
     <!-- 创建成功后弹窗，展示密钥值 -->
-    <el-dialog v-model="showKeyValueDialog" :close-on-click-modal="false" center :title="t('apiKeys.apiKeyCreatedTitle')" width="450px">
+    <el-dialog v-model="showKeyValueDialog" :close-on-click-modal="false" center :title="t('apiKeys.apiKeyCreatedTitle')" width="560px">
       <div class="key-value-dialog-content">
         <el-icon style="font-size: 48px; color: var(--ja-primary); margin-bottom: 16px;">
           <Key />
@@ -403,6 +517,24 @@
             <el-button icon="CopyDocument" type="primary" @click="copyKeyValue">{{ t('apiKeys.actions.copy') }}</el-button>
           </template>
         </el-input>
+
+        <!-- U5-5：一键复制大按钮 -->
+        <el-button class="key-value-copy-big" type="primary" size="large" @click="copyKeyValue">
+          <el-icon><CopyDocument /></el-icon>
+          {{ t('apiKeys.keyValueDialog.copyBig') }}
+        </el-button>
+
+        <!-- U5-5：可复制的 curl 示例 -->
+        <div class="key-value-curl">
+          <div class="key-value-curl__head">
+            <span>{{ t('apiKeys.keyValueDialog.curlTitle') }}</span>
+            <el-button link type="primary" size="small" @click="copyCurlExample">
+              <el-icon><CopyDocument /></el-icon>{{ t('apiKeys.actions.copy') }}
+            </el-button>
+          </div>
+          <pre class="key-value-curl__code">{{ curlExample }}</pre>
+        </div>
+
         <el-alert :closable="false" show-icon style="margin-top: 16px;" type="warning">
           <template #title>
             <strong>{{ t('apiKeys.keyValueDialog.important') }}</strong>
@@ -412,6 +544,10 @@
       </div>
       <template #footer>
         <span class="dialog-footer">
+          <!-- U5-5：去测试场试一下 -->
+          <el-button @click="goPlayground" size="large">
+            <el-icon><Promotion /></el-icon>{{ t('apiKeys.keyValueDialog.tryPlayground') }}
+          </el-button>
           <el-button type="primary" @click="closeKeyValueDialog" size="large">{{ t('apiKeys.actions.savedClose') }}</el-button>
         </span>
       </template>
@@ -539,11 +675,13 @@
 
 <script setup lang="ts">
 import { onMounted, ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
-import { Key, CircleCheck, CircleClose, Warning, RefreshRight, Download, Upload, UploadFilled } from '@element-plus/icons-vue'
+import { usePersistedState } from '@/composables/usePersistedState'
+import { confirmDanger } from '@/utils/dangerConfirm'
+import { Key, CircleCheck, CircleClose, Warning, RefreshRight, Download, Upload, UploadFilled, Promotion } from '@element-plus/icons-vue'
 import StatCard from '@/components/StatCard.vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import { formatDateTime } from '@/utils/format'
@@ -564,10 +702,11 @@ import {
 } from '@/api/apiKey'
 import { getApiKeyQuota } from '@/api/apiKey'
 import { updateApiKeyQuota } from '@/api/apiKeyQuotaOps'
+import { exportCsv, datedFilename } from '@/utils/csvExport'
 import { getServiceInstances } from '@/api/instance'
 import { getPoolList } from '@/api/pools'
-import { COMMON_SERVICE_TYPES } from '@/constants/serviceTypes'
-import { QUOTA_PRESETS, formatQuotaLimit, formatRemaining } from '@/utils/quotaOps'
+import { COMMON_SERVICE_TYPES, ALL_SERVICE_TYPES, getServiceTypeLabel, normalizeServiceType } from '@/constants/serviceTypes'
+import { QUOTA_PRESETS, formatQuotaLimit, formatRemaining, formatQuotaPlain, formatRemainingPlain } from '@/utils/quotaOps'
 import type {
   ApiKeyVO,
   ApiKeyListVO,
@@ -585,9 +724,32 @@ const { t } = useI18n()
 const { hasPermission } = usePermission()
 const canWrite = hasPermission('security:apikeys:manage')
 const router = useRouter()
+const route = useRoute()
 
 const goQuotaMonitoring = () => {
-  router.push('/monitoring/quota')
+  router.push('/observe')
+}
+
+// 列表搜索（按名称/密钥ID 过滤）
+const searchKey = ref('')
+// U10-5：搜索词持久化，下次进入本页自动恢复
+usePersistedState('apiKeys.search', searchKey)
+function onSearchInput() {
+  pagination.currentPage = 1
+}
+
+const copyKeyId = (keyId: string) => {
+  navigator.clipboard.writeText(keyId)
+    .then(() => ElMessage.success(t('apiKeys.messages.keyCopied')))
+    .catch(() => ElMessage.error(t('apiKeys.messages.copyFailed')))
+}
+
+// 详情抽屉（承载精简后移出的字段与高级操作）
+const detailDrawerVisible = ref(false)
+const detailRow = ref<any>(null)
+function openDetailDrawer(row: any) {
+  detailRow.value = row
+  detailDrawerVisible.value = true
 }
 
 // ===== v3.2.1 配额抽屉 =====
@@ -696,6 +858,14 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const isEdit = ref(false)
 const formRef = ref()
+// 高级模式开关（同接入模型编辑表单）：基础区只留必填项，白名单/有效期/IP/配额收进高级区。
+// 编辑时若已设置任一高级字段则自动展开，避免用户误以为已有配置丢失。
+const showAdvanced = ref(false)
+const defaultExpiry = (): string => {
+  const d = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
 
 // 分页状态
 const pagination = reactive({
@@ -725,24 +895,213 @@ const form = ref({
 // 模型/分组白名单可选数据源
 const modelOptions = ref<string[]>([])
 const groupOptions = ref<string[]>([])
+// 分组名 → 模型分类（用于密钥权限与分组分类的一致性校验）
+const groupServiceTypeMap = ref<Record<string, string>>({})
+// 模型（实例）名 → 模型分类（后端 DTO 的 serviceType 为权威派生值）
+const modelServiceTypeMap = ref<Record<string, string>>({})
+
+// 密钥权限可选项：值与后端 ServiceTypeConstants 枚举规范值一致
+// （chat/embedding/rerank/tts/stt/imgGen/imgEdit），标签复用统一的模型分类文案
+const PERMISSION_OPTIONS = ALL_SERVICE_TYPES.map(st => ({
+  value: st,
+  label: getServiceTypeLabel(st)
+}))
 
 // 加载可选模型（实例名）与模型分组（pool 名），供密钥白名单多选使用
 const loadModelAndGroupOptions = async () => {
   try {
     const nameSet = new Set<string>()
+    const typeMap: Record<string, string> = {}
     await Promise.all(COMMON_SERVICE_TYPES.map(async (st: string) => {
       try {
         const res = await getServiceInstances(st)
-        ;(res.data?.data || []).forEach((i: any) => { if (i && i.name) nameSet.add(i.name) })
+        ;(res.data?.data || []).forEach((i: any) => {
+          if (!i || !i.name) return
+          nameSet.add(i.name)
+          // DTO 的 serviceType 是后端权威派生值；缺失时回退到本次查询的分类
+          const resolved = normalizeServiceType(i.serviceType || '') ?? normalizeServiceType(st)
+          if (resolved) typeMap[i.name] = resolved
+        })
       } catch { /* 单个服务类型加载失败不影响其它 */ }
     }))
     modelOptions.value = [...nameSet].sort()
+    modelServiceTypeMap.value = typeMap
   } catch { /* ignore */ }
   try {
     const pres = await getPoolList()
-    groupOptions.value = (pres.data?.data || []).map((p: any) => p.poolName).filter(Boolean).sort()
+    const pools = (pres.data?.data || []) as Array<{ poolName?: string; serviceType?: string }>
+    groupOptions.value = pools.map((p) => p.poolName).filter(Boolean).sort() as string[]
+    // 记录 分组名 → 模型分类，用于校验密钥权限与所选分组是否一致
+    const map: Record<string, string> = {}
+    pools.forEach((p) => {
+      const st = normalizeServiceType(p.serviceType || '')
+      if (p.poolName && st) map[p.poolName] = st
+    })
+    groupServiceTypeMap.value = map
   } catch { /* ignore */ }
 }
+
+// 当前密钥已授权的模型分类集合（归一化后）
+const grantedServiceTypes = computed(() => {
+  const set = new Set<string>()
+  form.value.permissions.forEach((p) => {
+    const canonical = normalizeServiceType(p)
+    if (canonical) set.add(canonical)
+  })
+  return set
+})
+
+/**
+ * 判断某个白名单项在当前权限下是否「可达」。
+ *
+ * 运行时请求先按 URL 端点确定分类 C（C 必须在 permissions 内），
+ * 再在该分类的目录里按名字解析实例/池。因此一个名字可达的充要条件是
+ * 「它所属的分类里至少有一个被授权」。同名实例可跨分类重名，故取并集判定。
+ */
+const isReachable = (name: string, typeMap: Record<string, string>): boolean => {
+  const st = typeMap[name]
+  // 目录中查不到（实例已删除 / 外部模型名）→ 无法判定，视为可达（后端同样放行）
+  if (!st) return true
+  return grantedServiceTypes.value.has(st)
+}
+
+// 可选模型下拉：仅展示当前权限分类下的实例
+const reachableModelOptions = computed(() =>
+  modelOptions.value.filter((m) => isReachable(m, modelServiceTypeMap.value))
+)
+
+// 可选分组下拉：仅展示当前权限分类下的分组
+const reachableGroupOptions = computed(() =>
+  groupOptions.value.filter((g) => isReachable(g, groupServiceTypeMap.value))
+)
+
+// 分类一致性提示：已选模型/分组所属的分类若未被密钥权限覆盖，则调用会被网关拒绝
+const permissionMismatchHint = computed(() => {
+  const required = new Set<string>()
+  form.value.allowedModels.forEach((m) => {
+    const st = modelServiceTypeMap.value[m]
+    if (st) required.add(st)
+  })
+  form.value.allowedGroups.forEach((g) => {
+    const st = groupServiceTypeMap.value[g]
+    if (st) required.add(st)
+  })
+  if (required.size === 0) return ''
+  const missing = [...required].filter(st => !grantedServiceTypes.value.has(st))
+  if (missing.length === 0) return ''
+  return t('apiKeys.form.permissionsMismatchScope', {
+    categories: missing.map(st => getServiceTypeLabel(st)).join(' / ')
+  })
+})
+
+// 存量数据里「分类不被权限覆盖」的已选项（不静默丢弃，只提示用户清理）
+const mismatchedModelItems = computed(() =>
+  form.value.allowedModels.filter((m) => {
+    const st = modelServiceTypeMap.value[m]
+    return st ? !grantedServiceTypes.value.has(st) : false
+  })
+)
+const mismatchedGroupItems = computed(() =>
+  form.value.allowedGroups.filter((g) => {
+    const st = groupServiceTypeMap.value[g]
+    return st ? !grantedServiceTypes.value.has(st) : false
+  })
+)
+
+/**
+ * 计算「分类不被权限覆盖」的白名单项，按模型分类归组。
+ *
+ * 与后端 ApiKeyWhitelistValidator.findInvalidByCategory 完全对称：
+ * - 名字在目录中查不到 → 无法判定，视为可达（不报错）
+ * - 名字所属分类与权限无交集 → 记为不一致
+ */
+const computeInvalidByCategory = (
+  permissions: string[],
+  models: string[],
+  groups: string[]
+): Record<string, string[]> => {
+  const granted = new Set<string>()
+  permissions.forEach((p) => {
+    const canonical = normalizeServiceType(p)
+    if (canonical) granted.add(canonical)
+  })
+  if (granted.size === 0) return {}
+
+  const result: Record<string, string[]> = {}
+  const collect = (names: string[], typeMap: Record<string, string>) => {
+    names.forEach((name) => {
+      const st = typeMap[name]
+      // 查不到 → 无法判定，放行
+      if (!st || granted.has(st)) return
+      if (!result[st]) result[st] = []
+      if (!result[st].includes(name)) result[st].push(name)
+    })
+  }
+  collect(models, modelServiceTypeMap.value)
+  collect(groups, groupServiceTypeMap.value)
+  return result
+}
+
+// 打开弹窗时的原始快照（用于区分「存量不一致」与「本次新引入的不一致」）
+const originalWhitelistSnapshot = ref<{
+  permissions: string[]
+  allowedModels: string[]
+  allowedGroups: string[]
+} | null>(null)
+
+/**
+ * 本次编辑新引入的不一致项。
+ *
+ * 与后端 delta 校验对称：只拦「本次改动新引入的」不一致项 ——
+ * 存量密钥里已有的不一致不阻塞其它字段的编辑。
+ */
+const newlyIntroducedMismatch = computed(() => {
+  const snapshot = originalWhitelistSnapshot.value
+  if (!snapshot) return {} as Record<string, string[]>
+  const oldInvalid = computeInvalidByCategory(
+    snapshot.permissions, snapshot.allowedModels, snapshot.allowedGroups)
+  const newInvalid = computeInvalidByCategory(
+    form.value.permissions, form.value.allowedModels, form.value.allowedGroups)
+  const introduced: Record<string, string[]> = {}
+  Object.entries(newInvalid).forEach(([category, items]) => {
+    const previouslyBad = new Set(oldInvalid[category] || [])
+    const fresh = items.filter((i) => !previouslyBad.has(i))
+    if (fresh.length > 0) introduced[category] = fresh
+  })
+  return introduced
+})
+
+// 权限为空时白名单无从谈起（运行时任何调用都会 403），禁用两个下拉
+const whitelistDisabled = computed(() => form.value.permissions.length === 0)
+
+/** 下拉候选项：可达项 + 已选但不可达的存量项（保留可见并标注，避免静默丢弃） */
+const buildSelectOptions = (
+  reachable: string[],
+  selected: string[],
+  typeMap: Record<string, string>
+) => {
+  const seen = new Set<string>()
+  const options: Array<{ value: string; mismatched: boolean }> = []
+  reachable.forEach((name) => {
+    seen.add(name)
+    options.push({ value: name, mismatched: false })
+  })
+  // 已选但不在候选集中的项：可能是存量跨分类数据，必须保留可见
+  selected.forEach((name) => {
+    if (seen.has(name)) return
+    seen.add(name)
+    const st = typeMap[name]
+    options.push({ value: name, mismatched: !!st && !grantedServiceTypes.value.has(st) })
+  })
+  return options
+}
+
+const modelSelectOptions = computed(() =>
+  buildSelectOptions(reachableModelOptions.value, form.value.allowedModels, modelServiceTypeMap.value)
+)
+const groupSelectOptions = computed(() =>
+  buildSelectOptions(reachableGroupOptions.value, form.value.allowedGroups, groupServiceTypeMap.value)
+)
 
 // 密钥ID验证规则（computed：语言切换后校验文案即时更新）
 const keyIdRules = computed(() => [
@@ -751,7 +1110,8 @@ const keyIdRules = computed(() => [
 
 // 获取权限标签类型
 const getPermissionTagType = (permission: string) => {
-  switch (permission) {
+  const canonical = normalizeServiceType(permission) ?? permission
+  switch (canonical) {
     case 'chat':
       return 'primary'
     case 'embedding':
@@ -779,8 +1139,20 @@ const getPermissionTagType = (permission: string) => {
 }
 
 // 格式化权限显示（后端权限值与 i18n key 同名；未知值原样返回）
+// 存量数据可能是小写 imggen/imgedit，先归一化再查 i18n，避免显示成原始英文
 const formatPermission = (permission: string) => {
+  const canonical = normalizeServiceType(permission)
+  if (canonical) {
+    return getServiceTypeLabel(canonical)
+  }
   return t(`apiKeys.permissions.${permission}`, permission)
+}
+
+// 归一化权限列表：把后端返回的小写 imggen/imgedit 还原为枚举规范值，
+// 使编辑弹窗的复选框能正确回显勾选状态（EP 按 label 精确匹配）
+const normalizePermissionList = (permissions?: string[] | null): string[] => {
+  if (!permissions || permissions.length === 0) return []
+  return permissions.map(p => normalizeServiceType(p) ?? p)
 }
 
 // 获取剩余天数文本
@@ -810,13 +1182,60 @@ const formatTokenCount = (count: number): string => {
   return count.toString()
 }
 
+/* ---------- U5-4：配额口语化 ---------- */
+const hasQuotaLimit = (row: any) =>
+  (row.dailyRequestLimit || 0) > 0 || (row.dailyTokenLimit || 0) > 0 || (row.rateLimitPerMinute || 0) > 0
+
+const quotaPlain = (row: any) =>
+  formatQuotaPlain(
+    row.dailyRequestLimit,
+    row.dailyTokenLimit,
+    row.rateLimitPerMinute,
+    t('apiKeys.quotaUnlimited')
+  )
+
+const remainingPlain = (row: any) => {
+  if ((row.dailyRequestLimit || 0) > 0) {
+    return formatRemainingPlain(row.todayRequestCount, row.dailyRequestLimit, '次', t('apiKeys.quotaUnlimited'))
+  }
+  if ((row.dailyTokenLimit || 0) > 0) {
+    return formatRemainingPlain(row.todayTokenUsage, row.dailyTokenLimit, ' token', t('apiKeys.quotaUnlimited'))
+  }
+  return formatRemainingPlain(row.todayRequestCount, row.rateLimitPerMinute, '次/分钟', t('apiKeys.quotaUnlimited'))
+}
+
+/** 表单内实时预览：把限额翻译成一句人话 */
+const formQuotaPlain = computed(() =>
+  formatQuotaPlain(
+    form.value.dailyRequestLimit,
+    form.value.dailyTokenLimit,
+    form.value.rateLimitPerMinute,
+    t('apiKeys.quotaUnlimited')
+  )
+)
+
 // 分页数据
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
+
+// 搜索过滤后的列表
+const filteredApiKeys = computed(() => {
+  const q = (searchKey.value || '').trim().toLowerCase()
+  if (!q) return apiKeys.value
+  return apiKeys.value.filter(k =>
+    (k.description || '').toLowerCase().includes(q) ||
+    (k.keyId || '').toLowerCase().includes(q)
+  )
+})
 
 const pagedApiKeys = computed(() => {
   const start = (pagination.currentPage - 1) * pagination.pageSize
   const end = start + pagination.pageSize
-  return apiKeys.value.slice(start, end)
+  return filteredApiKeys.value.slice(start, end)
+})
+
+// 过滤后同步分页总数
+watch(filteredApiKeys, (list) => {
+  pagination.total = list.length
 })
 
 // 分页处理
@@ -913,6 +1332,45 @@ const formatAlertType = (alertType: string): string => {
 }
 
 /**
+ * U5-6：告警条目一键操作
+ * 告警只带 keyId，需要在密钥列表里找到对应条目才能打开配额抽屉 / 重置用量。
+ */
+const findKeyRowByKeyId = (keyId: string): any => {
+  return apiKeys.value.find((k: any) => k.keyId === keyId)
+}
+
+/** 一键调高限额：直接打开该 Key 的配额抽屉（抽屉内可改额度并保存） */
+const openAlertQuota = async (alert: QuotaAlertInfo) => {
+  const row = findKeyRowByKeyId(alert.keyId)
+  if (!row) {
+    // 列表未加载到该 Key（可能已翻页/已删除）→ 提示并引导去详情
+    ElMessage.warning(t('apiKeys.quotaAlertsActions.keyNotFound'))
+    return
+  }
+  await openQuotaDrawer(row)
+}
+
+/** 一键重置配额：清零当日用量，告警随之消失 */
+const handleAlertResetQuota = async (alert: QuotaAlertInfo) => {
+  try {
+    await ElMessageBox.confirm(
+      t('apiKeys.quotaAlertsActions.resetConfirm'),
+      t('apiKeys.quotaAlertsActions.reset'),
+      { confirmButtonText: t('common.confirm'), cancelButtonText: t('common.cancel'), type: 'warning' }
+    )
+  } catch {
+    return
+  }
+  try {
+    await resetApiKeyQuota(alert.keyId)
+    ElMessage.success(t('apiKeys.quotaForm.resetSuccess'))
+    await Promise.all([fetchApiKeys(), fetchQuotaAlerts()])
+  } catch (e: any) {
+    ElMessage.error(e?.message || t('apiKeys.quotaForm.resetQuota'))
+  }
+}
+
+/**
  * 获取告警类型标签类型
  */
 const getAlertTypeTag = (alertType: string): 'danger' | 'warning' | 'info' => {
@@ -940,7 +1398,8 @@ const handleCreateApiKey = () => {
     description: '',
     expiresAt: '',
     enabled: true,
-    permissions: [],
+    // P2-5: 新建密钥默认勾选 chat(用户可取消)——permissions 留空时网关调用全部 403,是最高频踩坑点
+    permissions: ['chat'],
     allowedIpAddresses: [],
     allowedModels: [],
     allowedGroups: [],
@@ -949,6 +1408,13 @@ const handleCreateApiKey = () => {
     rateLimitPerMinute: 0,
     quotaAlertThreshold: 0.8,
     rotationPeriodDays: 0
+  }
+  form.value.expiresAt = defaultExpiry()
+  showAdvanced.value = false
+  originalWhitelistSnapshot.value = {
+    permissions: [...form.value.permissions],
+    allowedModels: [],
+    allowedGroups: []
   }
   loadModelAndGroupOptions()
   dialogVisible.value = true
@@ -963,8 +1429,9 @@ const handleEdit = (row: ApiKeyVO) => {
     description: row.description || '',
     expiresAt: row.expiresAt || '',
     enabled: row.enabled,
-    permissions: row.permissions || [],
-    allowedIpAddresses: [],
+    permissions: normalizePermissionList(row.permissions),
+    // 关键修复：从列表 VO 回填现有 IP 白名单，不再硬置空（VO 此前漏出该字段，导致编辑保存即清空）
+    allowedIpAddresses: row.allowedIpAddresses || [],
     allowedModels: row.allowedModels || [],
     allowedGroups: row.allowedGroups || [],
     dailyRequestLimit: row.dailyRequestLimit || 0,
@@ -973,25 +1440,46 @@ const handleEdit = (row: ApiKeyVO) => {
     quotaAlertThreshold: row.quotaAlertThreshold ?? 0.8,
     rotationPeriodDays: row.rotationPeriodDays || 0
   }
+  // 编辑时若已设置任一高级字段，自动展开高级模式（有效期有 90 天默认值，不作为展开条件）
+  showAdvanced.value = Boolean(
+    (row.allowedModels && row.allowedModels.length > 0) ||
+    (row.allowedGroups && row.allowedGroups.length > 0) ||
+    (row.dailyRequestLimit || 0) > 0 ||
+    (row.dailyTokenLimit || 0) > 0 ||
+    (row.rateLimitPerMinute || 0) > 0 ||
+    (row.rotationPeriodDays || 0) > 0
+  )
+  // 记录打开时的原始值：用于区分「存量不一致」与「本次新引入的不一致」
+  originalWhitelistSnapshot.value = {
+    permissions: [...form.value.permissions],
+    allowedModels: [...form.value.allowedModels],
+    allowedGroups: [...form.value.allowedGroups]
+  }
   loadModelAndGroupOptions()
   dialogVisible.value = true
 }
 
 // 删除API密钥
-const handleDelete = (row: ApiKeyVO) => {
-  ElMessageBox.confirm(t('apiKeys.confirmations.deleteMessage', { keyId: row.keyId }), t('apiKeys.confirmations.deleteTitle'), {
-    confirmButtonText: t('apiKeys.confirmations.confirmDelete'),
-    cancelButtonText: t('apiKeys.actions.cancel'),
+const handleDelete = async (row: ApiKeyVO) => {
+  // U10-3：统一危险操作确认模板（影响面 + 补救方式 + 输入名称确认）
+  const confirmed = await confirmDanger({
+    title: t('apiKeys.confirmations.deleteTitle'),
+    target: row.description || row.keyId,
+    impact: t('apiKeys.confirmations.deleteImpact'),
+    remedy: t('apiKeys.confirmations.deleteRemedy'),
+    requireType: row.keyId,
+    confirmText: t('apiKeys.confirmations.confirmDelete'),
+    cancelText: t('apiKeys.actions.cancel'),
     type: 'warning'
-  }).then(async () => {
-    try {
-      await deleteApiKey(row.keyId)
-      await fetchApiKeys()
-      ElMessage.success(t('apiKeys.messages.deleteSuccess'))
-    } catch (error) {
-      ElMessage.error(t('apiKeys.messages.deleteFailed'))
-    }
   })
+  if (!confirmed) return
+  try {
+    await deleteApiKey(row.keyId)
+    await fetchApiKeys()
+    ElMessage.success(t('apiKeys.messages.deleteSuccess'))
+  } catch (error) {
+    ElMessage.error(t('apiKeys.messages.deleteFailed'))
+  }
 }
 
 // 重置API密钥
@@ -1072,7 +1560,19 @@ const handleSave = async () => {
     if (formRef.value) {
       await formRef.value.validate()
     }
-    
+
+    // 前端预检：本次改动新引入的「白名单分类不被权限覆盖」项 → 提前拦截并给出可操作提示。
+    // 与后端 ApiKeyService.validateWhitelistDelta 的 delta 规则对称，
+    // 避免存量不一致数据（旧配置）阻塞其它字段的编辑。
+    const introduced = newlyIntroducedMismatch.value
+    if (Object.keys(introduced).length > 0) {
+      const detail = Object.entries(introduced)
+        .map(([category, items]) => `[${getServiceTypeLabel(category)}] ${items.join('、')}`)
+        .join('；')
+      ElMessage.error(t('apiKeys.messages.whitelistMismatchBlocked', { detail }))
+      return
+    }
+
     if (isEdit.value) {
       // 编辑
       const updateData: ApiKeyUpdateRequest = {
@@ -1134,6 +1634,29 @@ const copyKeyValue = () => {
 const closeKeyValueDialog = () => {
   showKeyValueDialog.value = false
   createdKeyValue.value = ''
+}
+
+/* ---------- U5-5：创建成功弹窗强化（一键复制 / curl 示例 / 去测试场） ---------- */
+const curlExample = computed(() => {
+  const base = window.location.origin
+  return [
+    `curl ${base}/v1/chat/completions \\`,
+    `  -H "Content-Type: application/json" \\`,
+    `  -H "Authorization: Bearer ${createdKeyValue.value}" \\`,
+    `  -d '{"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "你好"}]}'`
+  ].join('\n')
+})
+
+const copyCurlExample = () => {
+  navigator.clipboard.writeText(curlExample.value)
+    .then(() => ElMessage.success(t('apiKeys.messages.curlCopied')))
+    .catch(() => ElMessage.error(t('apiKeys.messages.copyFailed')))
+}
+
+const goPlayground = () => {
+  showKeyValueDialog.value = false
+  createdKeyValue.value = ''
+  router.push('/playground')
 }
 
 // ============ 批量导入/导出功能 ============
@@ -1233,7 +1756,114 @@ const handleExport = async () => {
   }
 }
 
+/** 导出当前筛选结果为 CSV（全量，不受分页限制），便于运营用 Excel 查看 */
+const handleExportCsv = () => {
+  const rows = filteredApiKeys.value
+  if (rows.length === 0) {
+    ElMessage.info(t('apiKeys.exportEmpty'))
+    return
+  }
+  exportCsv(
+    [
+      { header: t('apiKeys.columns.description'), value: r => r.description || '' },
+      { header: t('apiKeys.columns.keyId'), value: r => r.keyId },
+      { header: t('apiKeys.columns.status'), value: r => (r.expired ? t('apiKeys.expired') : r.enabled ? t('apiKeys.yes') : t('apiKeys.no')) },
+      { header: t('apiKeys.columns.todayRequest'), value: r => r.todayRequestCount ?? '' },
+      { header: t('apiKeys.columns.todayToken'), value: r => r.todayTokenUsage ?? '' },
+      { header: t('apiKeys.exportColumnQuota'), value: r => quotaPlain(r) },
+      { header: t('apiKeys.columns.expiresAt'), value: r => formatDateTime(r.expiresAt) || t('apiKeys.neverExpires') },
+      { header: t('apiKeys.exportColumnPermissions'), value: r => (r.permissions || []).join(' / ') }
+    ],
+    rows,
+    datedFilename('api-keys')
+  )
+  ElMessage.success(t('apiKeys.exportSuccess', { count: rows.length }))
+}
+
 // 状态切换
+/* ==================== 批量操作 ==================== */
+/** 当前选中的密钥行 */
+const selectedKeys = ref<ApiKeyVO[]>([])
+
+function onSelectionChange(rows: ApiKeyVO[]) {
+  selectedKeys.value = rows || []
+}
+
+function clearSelection() {
+  selectedKeys.value = []
+}
+
+/** 批量启停：逐条调用单条端点，汇总成功/失败（后端暂无批量启停端点） */
+async function batchToggle(enable: boolean) {
+  const rows = [...selectedKeys.value]
+  if (rows.length === 0) return
+  const succeeded: string[] = []
+  const failed: string[] = []
+  for (const row of rows) {
+    try {
+      if (enable) {
+        await enableApiKey(row.keyId)
+      } else {
+        await disableApiKey(row.keyId)
+      }
+      succeeded.push(row.keyId)
+    } catch (error) {
+      console.error(`批量${enable ? '启用' : '停用'}密钥失败 ${row.keyId}:`, error)
+      failed.push(row.keyId)
+    }
+  }
+  await fetchApiKeys()
+  clearSelection()
+  if (failed.length === 0) {
+    ElMessage.success(
+      t('apiKeys.batch.resultAllOk', { count: succeeded.length, action: t(enable ? 'apiKeys.batch.enable' : 'apiKeys.batch.disable') })
+    )
+  } else {
+    ElMessage.warning(
+      t('apiKeys.batch.resultPartial', { ok: succeeded.length, fail: failed.length, action: t(enable ? 'apiKeys.batch.enable' : 'apiKeys.batch.disable') })
+    )
+  }
+}
+
+const handleBatchEnable = () => batchToggle(true)
+const handleBatchDisable = () => batchToggle(false)
+
+/** 批量删除：走统一危险确认模板（影响面 + 补救方式 + 输入确认词） */
+async function handleBatchDelete() {
+  const rows = [...selectedKeys.value]
+  if (rows.length === 0) return
+  const confirmed = await confirmDanger({
+    title: t('apiKeys.batch.deleteTitle'),
+    target: t('apiKeys.batch.deleteTarget', { count: rows.length }),
+    impact: t('apiKeys.batch.deleteImpact', { count: rows.length }),
+    remedy: t('apiKeys.batch.deleteRemedy'),
+    requireType: String(rows.length),
+    confirmText: t('apiKeys.batch.confirmDelete'),
+    cancelText: t('apiKeys.actions.cancel'),
+    type: 'warning'
+  })
+  if (!confirmed) return
+
+  const succeeded: string[] = []
+  const failed: string[] = []
+  for (const row of rows) {
+    try {
+      await deleteApiKey(row.keyId)
+      succeeded.push(row.keyId)
+    } catch (error) {
+      console.error(`批量删除密钥失败 ${row.keyId}:`, error)
+      failed.push(row.keyId)
+    }
+  }
+  await fetchApiKeys()
+  clearSelection()
+  if (failed.length === 0) {
+    ElMessage.success(t('apiKeys.batch.deleteSuccess', { count: succeeded.length }))
+  } else {
+    ElMessage.warning(t('apiKeys.batch.deletePartial', { ok: succeeded.length, fail: failed.length }))
+  }
+}
+
 const handleStatusChange = async (row: ApiKeyVO) => {
   try {
     if (row.enabled) {
@@ -1253,7 +1883,30 @@ const handleStatusChange = async (row: ApiKeyVO) => {
 // 挂载时加载
 onMounted(() => {
   fetchApiKeys()
+  // 跨页引导：从「接入模型」页跳转过来时，直接打开创建弹窗并预填允许模型
+  applyRoutePrefill()
 })
+
+/**
+ * 处理路由 query 预填（引导直链）。
+ * 支持：
+ *   /keys?action=create            → 打开创建弹窗
+ *   /keys?action=create&model=xxx  → 打开创建弹窗并预填「允许模型」
+ */
+const applyRoutePrefill = () => {
+  const action = route.query.action
+  if (action !== 'create') return
+  const model = typeof route.query.model === 'string' ? route.query.model : ''
+  handleCreateApiKey()
+  if (model) {
+    form.value.allowedModels = Array.from(new Set([...(form.value.allowedModels || []), model]))
+  }
+  // 用 replace 清掉 query，避免刷新后重复弹窗
+  const q = { ...route.query }
+  delete q.action
+  delete q.model
+  router.replace({ path: route.path, query: q })
+}
 </script>
 
 <style scoped>
@@ -1329,6 +1982,66 @@ onMounted(() => {
   flex-direction: column;
   overflow: hidden;
   margin: 0;
+}
+
+.main-card__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.key-search {
+  width: 320px;
+  max-width: 60%;
+}
+
+.main-card__count {
+  font-size: 13px;
+  color: var(--ja-text-secondary);
+}
+
+/* 批量操作条：选中后浮现，靠右对齐 */
+.batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--ja-bg-subtle, rgb(0 0 0 / 3%));
+}
+.batch-bar__count {
+  font-size: 13px;
+  color: var(--ja-text-secondary);
+  white-space: nowrap;
+}
+
+.key-id-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.key-name {
+  font-weight: 500;
+}
+
+.expire-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.mono {
+  font-family: var(--el-font-family-mono, monospace);
 }
 
 .main-card :deep(.el-card__body) {
@@ -1425,6 +2138,50 @@ onMounted(() => {
   margin-top: 4px;
 }
 
+/* 三道闸门总览（表单顶部 alert）：每行一条闸门说明 */
+.form-gates-alert {
+  margin-bottom: 16px;
+}
+
+.form-gates-alert .gate-desc {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--ja-text-secondary);
+}
+
+/* 高级模式开关行：提示语在左、开关在右 */
+.advanced-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 8px;
+  padding: 8px 12px;
+  border-top: 1px dashed var(--el-border-color);
+  border-bottom: 1px dashed var(--el-border-color);
+}
+
+.advanced-toggle-hint {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+  line-height: 1.5;
+}
+
+/* 权限为空时的阻断性提示（白名单整体失效） */
+.form-hint-warning {
+  color: var(--el-color-warning);
+}
+
+/* el-option 自定义内容里的「分类不匹配」标签 */
+.option-tag {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.form-alert {
+  margin-top: 8px;
+}
+
 .action-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -1456,6 +2213,66 @@ onMounted(() => {
   color: var(--ja-text-primary);
   margin-bottom: 16px;
   font-weight: 500;
+}
+
+/* U5-5：一键复制大按钮 */
+.key-value-copy-big {
+  width: 100%;
+  margin-top: 12px;
+  font-size: 15px;
+}
+
+/* U5-5：可复制 curl 示例 */
+.key-value-curl {
+  width: 100%;
+  margin-top: 16px;
+  text-align: left;
+  border: 1px solid var(--ja-border-lighter);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.key-value-curl__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+  background: var(--el-fill-color-light);
+}
+.key-value-curl__code {
+  margin: 0;
+  padding: 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: var(--ja-bg-card);
+  color: var(--ja-text-primary);
+}
+
+/* U5-4：配额口语化展示 */
+.quota-plain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.4;
+}
+.quota-plain__limit {
+  font-size: 13px;
+  color: var(--ja-text-primary);
+}
+.quota-plain__left {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+}
+.quota-plain-preview {
+  margin-top: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--ja-text-primary);
+  background: var(--el-fill-color-light);
+  border-radius: 4px;
 }
 
 :deep(.el-table) {

@@ -2,6 +2,7 @@
   "rule": {
     "pageTitle": "路由规则",
     "refreshTooltip": "刷新列表与命中统计",
+    "emptyText": "还没有路由规则。规则决定「哪个请求用哪个模型」，不配置则按默认路由",
     "createFromTemplate": "从模板创建",
     "addRule": "新增规则",
     "editRule": "编辑规则",
@@ -34,7 +35,7 @@
     "saveFailed": "保存失败,请检查条件与动作配置",
     "conditionsAnd": " 且 ",
     "conditionType": {
-      "SERVICE_TYPE": "服务类型",
+      "SERVICE_TYPE": "模型分类",
       "MODEL_NAME": "模型名",
       "HEADER": "请求头",
       "CLIENT_IP": "来源IP",
@@ -51,7 +52,7 @@
       "TARGET_MODEL": "重写模型",
       "TARGET_INSTANCE": "锁定实例",
       "TARGET_ADAPTER": "切换适配器",
-      "LB_STRATEGY": "LB策略",
+      "LB_STRATEGY": "分流方式",
       "TARGET_TAGS": "标签路由"
     },
     "form": {
@@ -81,7 +82,7 @@
         "TARGET_MODEL": "重写模型名",
         "TARGET_INSTANCE": "锁定实例",
         "TARGET_ADAPTER": "切换适配器",
-        "LB_STRATEGY": "LB策略",
+        "LB_STRATEGY": "分流方式",
         "RATE_LIMIT": "限流",
         "TARGET_TAGS": "标签路由"
       },
@@ -89,7 +90,7 @@
         "TARGET_MODEL": "重写后的模型名",
         "TARGET_INSTANCE": "目标实例名称",
         "TARGET_ADAPTER": "切换到的适配器",
-        "LB_STRATEGY": "负载均衡策略",
+        "LB_STRATEGY": "用哪种方式在多个实例之间分流",
         "RATE_LIMIT": "按规则限流(容量/速率必填)",
         "TARGET_TAGS": "按标签圈选实例(AND)"
       }
@@ -115,7 +116,7 @@
     },
     "test": {
       "title": "规则模拟测试(dry-run)",
-      "serviceType": "服务类型",
+      "serviceType": "模型分类",
       "modelName": "模型名",
       "modelNamePlaceholder": "如 gpt-4",
       "clientIp": "来源IP",

@@ -44,7 +44,7 @@
           <el-link
             v-if="row.action && (row.action.type === 'TARGET_MODEL' || row.action.type === 'TARGET_INSTANCE' || row.action.type === 'TARGET_ADAPTER')"
             type="primary"
-            :underline="false"
+            underline="never"
             @click.stop="navigateActionTarget(row.action)"
           >
             {{ formatAction(row.action) }}
@@ -59,6 +59,12 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <div v-if="!loading && rules.length === 0" class="list-empty">
+      <el-empty :description="t('rule.emptyText')">
+        <el-button v-if="canWrite" type="primary" @click="handleCreate">{{ t('rule.addRule') }}</el-button>
+      </el-empty>
+    </div>
   </PageSkeleton>
 
   <RuleFormDialog
@@ -276,14 +282,15 @@ const formatAction = (action: RuleAction) => {
 }
 
 // Cross-link: 根据动作类型导航到对应配置页
+// U1-3：站内入口统一收归「系统设置 → 模型配置」子页签，游离路由仅保留深链兼容
 const navigateActionTarget = (action: RuleAction) => {
   if (!action) return
   if (action.type === 'TARGET_ADAPTER' && action.adapterName) {
-    router.push({ name: 'protocol-adapters' })
+    router.push({ path: '/settings', query: { tab: 'modelConfig', sub: 'protocolAdapters' } })
   } else if (action.type === 'TARGET_MODEL' && action.modelName) {
-    router.push({ name: 'model-categories' })
+    router.push({ path: '/settings', query: { tab: 'modelConfig', sub: 'modelCategories' } })
   } else if (action.type === 'TARGET_INSTANCE' && action.instanceId) {
-    router.push({ name: 'model-categories' })
+    router.push({ path: '/settings', query: { tab: 'modelConfig', sub: 'modelCategories' } })
   }
 }
 

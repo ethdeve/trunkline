@@ -30,8 +30,8 @@
     "clearAllConfirmTitle": "确认清空全部响应缓存？",
     "confirm": "确认",
     "cancel": "取消",
-    "invalidateByServiceTypeLabel": "按服务类型失效",
-    "selectServiceTypePlaceholder": "选择服务类型",
+    "invalidateByServiceTypeLabel": "按模型分类失效",
+    "selectServiceTypePlaceholder": "选择模型分类",
     "invalidateByService": "按服务失效",
     "invalidateByModelLabel": "按模型失效",
     "inputModelPlaceholder": "输入模型名称",
@@ -45,7 +45,7 @@
     "cacheClearedSuccess": "缓存已清空",
     "cacheNotEnabledWarning": "缓存未启用，操作未执行",
     "operationFailedError": "操作失败",
-    "invalidatedByServiceType": "已按服务类型 [{serviceType}] 失效缓存",
+    "invalidatedByServiceType": "已按模型分类 [{serviceType}] 失效缓存",
     "invalidatedByModel": "已按模型 [{model}] 失效缓存"
   }
 }

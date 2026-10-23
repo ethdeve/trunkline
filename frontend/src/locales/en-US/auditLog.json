@@ -26,6 +26,13 @@
     "endTimePlaceholder": "Select end time",
     "eventType": "Event Type",
     "eventTypePlaceholder": "Select an event type",
+    "quickFilter": {
+      "label": "Quick filters:",
+      "all": "All",
+      "keyChange": "Key changes",
+      "authFail": "Login / permission failures",
+      "suspicious": "Suspicious & alerts"
+    },
     "groupJwtTokens": "JWT Tokens",
     "groupApiKey": "API Keys",
     "groupSecurityEvents": "Security Events",

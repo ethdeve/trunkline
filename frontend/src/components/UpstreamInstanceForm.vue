@@ -39,15 +39,29 @@
     </el-row>
 
     <el-row :gutter="20">
-      <el-col v-if="!simplified" :span="12">
+      <!--
+        模型分类（serviceType）决定该模型由哪个 API 端点调用，是路由的一级维度。
+        完整模式与简化模式都要能看到：简化模式下它是普通用户唯一能纠正「接错分类」的入口。
+        编辑态也允许改——后端支持跨分类迁移（改 service_config 外键 + 级联清理健康状态/限流桶），
+        并会在迁移前校验「目标分类同名冲突」与「是否被模型分组引用」。
+        下拉里只列出后端已存在的分类，避免选到不存在的目标导致迁移失败。
+      -->
+      <el-col :span="12">
         <el-form-item :label="t('instance.serviceType')" prop="serviceType">
-          <el-select v-model="form.serviceType" style="width: 100%" :disabled="isEdit">
+          <el-select
+            v-model="form.serviceType"
+            style="width: 100%"
+            :placeholder="t('instance.serviceTypeSelectTip')"
+          >
             <el-option v-for="st in serviceTypes" :key="st" :label="serviceTypeLabel(st)" :value="st" />
           </el-select>
+          <div class="form-note">
+            {{ isEdit ? t('instance.serviceTypeLockedTip') : t('instance.serviceTypeTip') }}
+          </div>
         </el-form-item>
       </el-col>
 
-      <el-col :span="simplified ? 24 : 12">
+      <el-col :span="12">
         <el-form-item :label="simplified ? '模型名称' : '② 模型名称'" prop="name">
           <!-- 编辑态模型名称是路由匹配键不可改：用纯文本展示，避免只读输入框让用户误以为可编辑 -->
           <span v-if="simplified" class="readonly-name">{{ form.name }}</span>
@@ -482,6 +496,7 @@ function buildPayload(): { serviceType: string } & InstanceConfig {
     delete savedTags.alias
   }
   return {
+    // 模型分类：后端据此判定是否触发跨分类迁移（创建时决定 service_config 归属）
     serviceType: form.serviceType,
     name: form.name.trim(),
     baseUrl: form.baseUrl.trim(),

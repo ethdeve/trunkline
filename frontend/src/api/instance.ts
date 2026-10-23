@@ -16,6 +16,12 @@ export interface InstanceConfig {
   tags?: Record<string, string>  // v2.9.7: 实例标签(键值对)
   /** v2.11.0: 关联的模型供应商 ID（0 = 解除关联；不传 = 不改变关联） */
   providerId?: number
+  /**
+   * 模型分类（服务类型）：chat / embedding / rerank / tts / stt / imgGen / imgEdit。
+   * - 创建时：决定新实例挂到哪个 service_config（服务配置）下
+   * - 更新时：非空表示把实例迁移到该分类（后端做级联迁移与前置校验）
+   */
+  serviceType?: string
 }
 
 // 限流器配置接口

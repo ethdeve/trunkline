@@ -30,7 +30,7 @@
     "admin": "Administrator"
   },
   "login": {
-    "title": "JAiRouter Admin",
+    "title": "Trunkline Admin",
     "subtitle": "Please login to your account",
     "username": "Username",
     "password": "Password",

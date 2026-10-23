@@ -432,6 +432,28 @@ public class RateLimitManager {
         LOGGER.info("Instance limiter removed for {}", key);
     }
 
+    /**
+     * 按实例 ID 移除实例级限流器。
+     * <p>实例跨服务类型迁移时使用：限流桶的键是 {@code TYPE:instanceId}，
+     * 迁移后旧类型前缀下的桶是孤儿（永不再被命中，却持续占用内存），
+     * 需显式清理，避免迁移后实例在旧分类下仍残留一份限流额度。</p>
+     *
+     * @param type       原服务类型
+     * @param instanceId 实例唯一 ID
+     * @since 2026-10-22
+     */
+    public void removeInstanceRateLimiterById(final ModelServiceRegistry.ServiceType type,
+                                              final String instanceId) {
+        if (type == null || instanceId == null || instanceId.isBlank()) {
+            return;
+        }
+        final String key = type.name() + ":" + instanceId;
+        final RateLimiter removed = instanceLimiters.remove(key);
+        if (removed != null) {
+            LOGGER.info("Instance limiter removed by id for {}", key);
+        }
+    }
+
     /* ===================== 配置重载 ===================== */
 
     /**

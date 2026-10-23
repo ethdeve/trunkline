@@ -1,23 +1,25 @@
 <template>
   <PageSkeleton :title="t('circuitBreaker.monitoring.pageTitle')">
     <template #actions>
-      <el-button
-        :type="monitorStatus.paused ? 'success' : 'warning'"
-        @click="toggleMonitor"
-        :loading="togglingMonitor"
-      >
-        {{ monitorStatus.paused ? t('circuitBreaker.monitoring.resumeMonitoring') : t('circuitBreaker.monitoring.pauseMonitoring') }}
-      </el-button>
-      <el-button @click="clearHistory" :loading="clearingHistory">
-        {{ t('circuitBreaker.monitoring.clearHistory') }}
-      </el-button>
-      <el-button
-        type="danger"
-        @click="resetAllCircuitBreakersHandler"
-        :loading="resettingCbs"
-      >
-        {{ t('circuitBreaker.monitoring.clearAllCircuitBreakers') }}
-      </el-button>
+      <template v-if="canWrite">
+        <el-button
+          :type="monitorStatus.paused ? 'success' : 'warning'"
+          @click="toggleMonitor"
+          :loading="togglingMonitor"
+        >
+          {{ monitorStatus.paused ? t('circuitBreaker.monitoring.resumeMonitoring') : t('circuitBreaker.monitoring.pauseMonitoring') }}
+        </el-button>
+        <el-button @click="clearHistory" :loading="clearingHistory">
+          {{ t('circuitBreaker.monitoring.clearHistory') }}
+        </el-button>
+        <el-button
+          type="danger"
+          @click="resetAllCircuitBreakersHandler"
+          :loading="resettingCbs"
+        >
+          {{ t('circuitBreaker.monitoring.clearAllCircuitBreakers') }}
+        </el-button>
+      </template>
       <el-dropdown @command="handleExport">
         <el-button type="primary">
           {{ t('circuitBreaker.monitoring.export') }} <el-icon class="el-icon--right"><Download /></el-icon>
@@ -29,10 +31,10 @@
           </el-dropdown-menu>
         </template>
       </el-dropdown>
-      <el-button type="primary" plain @click="router.push({ name: 'circuit-breaker-global-config' })">
+      <el-button type="primary" plain @click="router.push('/strategy?tab=circuit')">
         {{ t('circuitBreaker.monitoring.actions.globalConfig') }}
       </el-button>
-      <el-button type="primary" plain @click="router.push({ name: 'circuit-breaker-history' })">
+      <el-button type="primary" plain @click="router.push('/observe')">
         {{ t('circuitBreaker.monitoring.actions.history') }}
       </el-button>
     </template>
@@ -48,7 +50,10 @@
       <el-row :gutter="20">
         <el-col :span="6">
           <div class="config-item">
-            <label>{{ t('circuitBreaker.monitoring.sampleRate') }}</label>
+            <label>
+              {{ t('circuitBreaker.monitoring.sampleRate') }}
+              <TermHelp term="samplingRate" />
+            </label>
             <el-slider
               v-model="configForm.sampleRate"
               :min="1"
@@ -116,7 +121,7 @@
         <el-table-column prop="instanceId" :label="t('circuitBreaker.monitoring.columns.instanceId')" min-width="120" show-overflow-tooltip />
         <el-table-column prop="serviceType" :label="t('circuitBreaker.monitoring.columns.serviceType')" width="100">
           <template #default="{ row }">
-            <el-tag size="small">{{ row.serviceType || '-' }}</el-tag>
+            <el-tag size="small">{{ getServiceTypeDisplay(row.serviceType) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="state" :label="t('circuitBreaker.monitoring.columns.state')" width="120">
@@ -176,7 +181,7 @@
         <el-table-column prop="instanceName" :label="t('circuitBreaker.monitoring.columns.instanceName')" min-width="110" show-overflow-tooltip />
         <el-table-column prop="serviceType" :label="t('circuitBreaker.monitoring.columns.serviceType')" width="92">
           <template #default="{ row }">
-            <el-tag size="small">{{ row.serviceType || '-' }}</el-tag>
+            <el-tag size="small">{{ getServiceTypeDisplay(row.serviceType) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="eventType" :label="t('circuitBreaker.monitoring.columns.eventType')" width="110">
@@ -218,9 +223,19 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
+import { usePermission } from '@/composables/usePermission'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, RefreshRight } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import TermHelp from '@/components/common/TermHelp.vue'
+import { getServiceTypeLabel, normalizeServiceType } from '@/constants/serviceTypes'
+
+// 「模型分类」列友好显示：大小写无关归一化，空值/未登记值原样兜底
+const getServiceTypeDisplay = (value?: string) => {
+  if (!value) return '-'
+  const st = normalizeServiceType(value)
+  return st ? getServiceTypeLabel(st) : value
+}
 import { resetCircuitBreakerById, clearAllCircuitBreakers } from '@/api/instance'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 
@@ -262,6 +277,8 @@ interface StateSummary {
 
 const { t } = useI18n()
 const router = useRouter()
+const { hasPermission } = usePermission()
+const canWrite = computed(() => hasPermission('config:rules:write'))
 
 const apiBaseUrl = '/v1/circuit-breaker-monitor'
 

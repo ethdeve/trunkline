@@ -41,10 +41,10 @@
               <el-option :label="t('rateLimiter.monitoring.scopeOptions.instance')" value="instance" />
             </el-select>
             <el-select v-model="filterAlgorithm" :placeholder="t('rateLimiter.monitoring.algorithmPlaceholder')" clearable style="width: 150px; margin-right: 8px">
-              <el-option label="Token Bucket" value="TOKEN_BUCKET" />
-              <el-option label="Leaky Bucket" value="LEAKY_BUCKET" />
-              <el-option label="Sliding Window" value="SLIDING_WINDOW" />
-              <el-option label="Warm Up" value="WARM_UP" />
+              <el-option :label="t('rateLimiter.monitoring.algorithms.TOKEN_BUCKET')" value="TOKEN_BUCKET" />
+              <el-option :label="t('rateLimiter.monitoring.algorithms.LEAKY_BUCKET')" value="LEAKY_BUCKET" />
+              <el-option :label="t('rateLimiter.monitoring.algorithms.SLIDING_WINDOW')" value="SLIDING_WINDOW" />
+              <el-option :label="t('rateLimiter.monitoring.algorithms.WARM_UP')" value="WARM_UP" />
             </el-select>
             <el-button type="primary" size="small" @click="loadMetrics" :loading="loading">
               {{ t('rateLimiter.monitoring.refresh') }}
@@ -62,7 +62,7 @@
       >
         <el-table-column prop="service" :label="t('rateLimiter.monitoring.columns.service')" min-width="100">
           <template #default="{ row }">
-            <el-tag size="small">{{ row.service || '-' }}</el-tag>
+            <el-tag size="small">{{ getServiceDisplay(row.service) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="scope" :label="t('rateLimiter.monitoring.columns.scope')" width="90">
@@ -143,6 +143,10 @@
               {{ metric }}
             </el-tag>
           </div>
+          <div class="metric-hints">
+            <div v-for="line in metricExplanations" :key="line" class="metric-hint-line">{{ line }}</div>
+            <div class="metric-hint-labels">{{ t('rateLimiter.monitoring.prometheus.labelDictionary') }}</div>
+          </div>
         </el-descriptions-item>
       </el-descriptions>
     </el-card>
@@ -166,6 +170,7 @@ import request from '@/utils/request'
 import StatCard from '@/components/StatCard.vue'
 import { useChartTheme } from '@/composables/useChartTheme'
 import PageSkeleton from '@/components/PageSkeleton.vue'
+import { getServiceTypeLabel, normalizeServiceType } from '@/constants/serviceTypes'
 
 const { getChartTheme } = useChartTheme()
 const { t } = useI18n()
@@ -289,19 +294,32 @@ const getAlgorithmTagType = (algorithm: string) => {
 }
 
 const getAlgorithmLabel = (algorithm: string) => {
-  switch (algorithm) {
-    case 'TOKEN_BUCKET':
-      return 'Token Bucket'
-    case 'LEAKY_BUCKET':
-      return 'Leaky Bucket'
-    case 'SLIDING_WINDOW':
-      return 'Sliding Window'
-    case 'WARM_UP':
-      return 'Warm Up'
-    default:
-      return algorithm
-  }
+  // 算法名走 i18n 通俗文案（令牌桶/漏桶/滑动窗口/预热），未知值回退原始串
+  const key = `rateLimiter.monitoring.algorithms.${algorithm}`
+  const label = t(key)
+  return label === key ? algorithm : label
 }
+
+// 「模型分类」列友好显示：大小写无关归一化（后端会返回 imggen 这类小写值），global 行显示 -
+const getServiceDisplay = (value: string) => {
+  if (!value) return '-'
+  if (value.toLowerCase() === 'global') return '-'
+  const st = normalizeServiceType(value)
+  return st ? getServiceTypeLabel(st) : value
+}
+
+// Prometheus 指标的通俗解释（按指标名前缀匹配，未登记的只显示原名）
+const METRIC_HINTS: Array<[string, string]> = [
+  ['jairouter_rate_limit_events_total', 'rateLimiter.monitoring.prometheus.hintEvents'],
+  ['jairouter_rate_limit_remaining', 'rateLimiter.monitoring.prometheus.hintRemaining'],
+  ['jairouter_rate_limit_usage_ratio', 'rateLimiter.monitoring.prometheus.hintUsage']
+]
+const metricExplanations = computed(() =>
+  (prometheusInfo.value.availableMetrics || []).map(m => {
+    const hit = METRIC_HINTS.find(([prefix]) => m.startsWith(prefix))
+    return hit ? `${m} —— ${t(hit[1])}` : m
+  })
+)
 
 const getShortIdentifier = (identifier: string) => {
   if (!identifier) return '-'
@@ -421,5 +439,25 @@ onUnmounted(() => {
 .metric-tag {
   font-family: monospace;
   font-size: 11px;
+}
+
+/* 可用指标的通俗解释行 */
+.metric-hints {
+  margin-top: 10px;
+}
+
+.metric-hint-line {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--ja-text-secondary);
+}
+
+.metric-hint-labels {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--ja-text-secondary);
+  padding-top: 6px;
+  border-top: 1px dashed var(--el-border-color);
 }
 </style>

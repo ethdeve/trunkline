@@ -11,17 +11,23 @@ const request: AxiosInstance = axios.create({
 })
 
 // Request interceptor
+// 请求调试日志默认关闭（此前无条件 console.log，观测中心 30s 自动刷新会刷屏控制台）。
+// 需要时在控制台执行 localStorage.setItem('debug_request','1') 后刷新即可开启。
+const isRequestDebug = () =>
+  import.meta.env.DEV && localStorage.getItem('debug_request') === '1'
+
 request.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // 记录请求信息用于调试
-    console.log('发送请求:', {
-      method: config.method?.toUpperCase(),
-      url: config.url,
-      baseURL: config.baseURL,
-      fullURL: `${config.baseURL}${config.url}`
-    })
-    
-    // Add JWT token using the correct header name for JAiRouter
+    if (isRequestDebug()) {
+      // 记录请求信息用于调试
+      console.log('发送请求:', {
+        method: config.method?.toUpperCase(),
+        url: config.url,
+        baseURL: config.baseURL,
+        fullURL: `${config.baseURL}${config.url}`
+      })
+    }
+    // Add JWT token using the correct header name for Trunkline
     const token = localStorage.getItem('admin_token')
     
     // 检查是否是JWT token获取接口，如果不是则添加token头部

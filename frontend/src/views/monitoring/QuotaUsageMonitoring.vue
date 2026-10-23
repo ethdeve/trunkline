@@ -162,7 +162,11 @@
           <el-table-column prop="dimensions.tenantId" :label="t('quotaMonitoring.tenantIdColumn')" min-width="120" show-overflow-tooltip />
           <el-table-column prop="dimensions.apiKeyId" :label="t('quotaMonitoring.apiKeyIdColumn')" min-width="120" show-overflow-tooltip />
           <el-table-column prop="dimensions.userId" :label="t('quotaMonitoring.userIdColumn')" min-width="100" show-overflow-tooltip />
-          <el-table-column prop="dimensions.serviceType" :label="t('quotaMonitoring.serviceTypeColumn')" min-width="100" />
+          <el-table-column prop="dimensions.serviceType" :label="t('quotaMonitoring.serviceTypeColumn')" min-width="100">
+            <template #default="{ row }">
+              {{ getServiceTypeDisplay(row.dimensions?.serviceType) }}
+            </template>
+          </el-table-column>
           <el-table-column prop="dimensions.model" :label="t('quotaMonitoring.modelColumn')" min-width="140" show-overflow-tooltip />
           <el-table-column prop="window" :label="t('quotaMonitoring.windowColumn')" width="100" align="center" />
           <el-table-column prop="windowStart" :label="t('quotaMonitoring.windowStartColumn')" min-width="170" />
@@ -242,6 +246,14 @@ import {
 } from '@/api/quota'
 import { getQuotaOverview } from '@/api/apiKey'
 import type { QuotaUsageDetail } from '@/types'
+import { getServiceTypeLabel, normalizeServiceType } from '@/constants/serviceTypes'
+
+// 「模型分类」列友好显示：大小写无关归一化，空值/未登记值原样兜底
+const getServiceTypeDisplay = (value?: string) => {
+  if (!value) return '-'
+  const st = normalizeServiceType(value)
+  return st ? getServiceTypeLabel(st) : value
+}
 
 const { t } = useI18n()
 const router = useRouter()

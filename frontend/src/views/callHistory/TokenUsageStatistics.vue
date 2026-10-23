@@ -218,7 +218,9 @@
             <el-tag size="small">{{ getServiceTypeLabel(scope.row.serviceType) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('callHistory.common.provider')" prop="provider" width="120" />
+        <el-table-column :label="t('callHistory.common.provider')" prop="provider" width="150" show-overflow-tooltip>
+          <template #default="{ row }">{{ getAdapterDisplay(row.provider) }}</template>
+        </el-table-column>
         <el-table-column :label="t('callHistory.tokenUsage.stats.inputTokens')" prop="promptTokens" width="100" align="right">
           <template #default="scope">
             {{ formatNumber(scope.row.promptTokens) }}
@@ -277,6 +279,7 @@ import type { TokenUsageStatistics, TokenUsageRecord } from '@/types/tokenUsage'
 import { formatDateTime as formatDateTimeBase, formatNumber as formatNumberBase } from '@/utils/format'
 import { useChartAutoRefresh } from '@/composables/useChartAutoRefresh'
 import PageSkeleton from '@/components/PageSkeleton.vue'
+import { getAdapterList } from '@/api/adapter'
 
 const { t } = useI18n()
 
@@ -714,8 +717,29 @@ const rebuildAll = () => {
 onMounted(() => {
   useChartAutoRefresh(rebuildAll)
   loadData()
+  loadAdapterDialects()
   window.addEventListener('resize', handleResize)
 })
+
+// ---- 适配器方言显示 ----
+// 记录里的 provider 字段实际存的是 adapterType（适配器名），展示层转成方言。
+const adapterDialectMap = ref<Record<string, string>>({})
+const loadAdapterDialects = async () => {
+  try {
+    const res = await getAdapterList()
+    const map: Record<string, string> = {}
+    ;(res.data?.data || []).forEach((a: { name?: string; dialect?: string }) => {
+      if (a?.name) map[a.name] = a.dialect || a.name
+    })
+    adapterDialectMap.value = map
+  } catch {
+    // 加载失败时回退显示原始适配器名
+  }
+}
+const getAdapterDisplay = (name?: string) => {
+  if (!name) return '-'
+  return adapterDialectMap.value[name] || name
+}
 
 // 组件卸载时清理
 onBeforeUnmount(() => {

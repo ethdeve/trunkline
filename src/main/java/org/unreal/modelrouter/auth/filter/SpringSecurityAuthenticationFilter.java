@@ -2,6 +2,7 @@ package org.unreal.modelrouter.auth.filter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
@@ -197,24 +198,40 @@ public class SpringSecurityAuthenticationFilter implements WebFilter {
             final ServerWebExchange exchange, final String message) {
         return Mono.defer(() -> {
             log.warn("请求缺少认证信息: {}", exchange.getRequest().getPath().value());
-            return createAuthenticationErrorResponse(exchange, message, "AUTH_MISSING")
+            return createAuthenticationErrorResponse(exchange, message, "AUTH_MISSING",
+                    HttpStatus.UNAUTHORIZED)
                     .then(Mono.<Authentication>empty());
         });
     }
 
     /**
      * 处理认证错误
+     *
+     * <p>本方法是认证链状态的唯一渲染点：API Key 校验链抛出的 {@link AuthenticationException}
+     * 经认证管理器回到本过滤器、被 onErrorResume 吃掉，因此 {@code /v1/**} 与 {@code /api/**}
+     * 的状态码都由这里决定（两个 @RestControllerAdvice 在这条链上到不了）。</p>
+     *
+     * <ul>
+     *   <li>{@link AuthenticationException}（携带状态）⇒ 状态 = {@link AuthenticationException#getHttpStatus()}，
+     *       于是限流/配额类（摘自上游 v3.3.4 #404 与配额 429 修复）的 429 得以透出；</li>
+     *   <li>{@link SecurityAuthenticationException}（Spring Security 类型，不携带状态）与未知异常
+     *       ⇒ 固定 {@link HttpStatus#UNAUTHORIZED}（既有行为）。</li>
+     * </ul>
      */
     private Mono<Void> handleAuthenticationError(final ServerWebExchange exchange, final Throwable throwable) {
-        log.warn("认证失败: {}", exchange.getRequest().getPath().value(), throwable);
+        final String path = exchange.getRequest().getPath().value();
 
         String message = "认证失败";
         String errorCode = "AUTH_FAILED";
+        HttpStatus status = HttpStatus.UNAUTHORIZED;
 
         // 根据具体异常类型提供更具体的错误信息
         if (throwable instanceof AuthenticationException authException) {
             message = authException.getMessage();
             errorCode = authException.getErrorCode();
+            if (authException.getHttpStatus() != null) {
+                status = authException.getHttpStatus();
+            }
         } else if (throwable instanceof SecurityAuthenticationException authException) {
             message = authException.getMessage();
             errorCode = authException.getErrorCode();
@@ -223,7 +240,17 @@ public class SpringSecurityAuthenticationFilter implements WebFilter {
             errorCode = "AUTH_ERROR";
         }
 
-        return createAuthenticationErrorResponse(exchange, message, errorCode);
+        // 日志分流（摘自上游 #420②/#404）：限流拒绝不再打成「认证失败」且不带栈，
+        // 避免高频限流按「每次一条栈」放大日志量、以及把限流计入认证失败统计
+        final boolean rateLimited = status == HttpStatus.TOO_MANY_REQUESTS
+                || "RATE_LIMITED_API_KEY".equals(errorCode);
+        if (rateLimited) {
+            log.warn("限流拒绝（429）: {} - {}: {}", path, errorCode, message);
+        } else {
+            log.warn("认证失败: {}", path, throwable);
+        }
+
+        return createAuthenticationErrorResponse(exchange, message, errorCode, status);
     }
 
     /**
@@ -232,11 +259,18 @@ public class SpringSecurityAuthenticationFilter implements WebFilter {
      * <p>按请求路径选择错误体形状：{@code /v1/messages}（含子路径）→ Anthropic 形状；
      * 其余 {@code /v1/**} → OpenAI 形状；非 {@code /v1} 路径沿用既有硬编码形状。
      * 路径判定复用 {@link V1ErrorBodyMapper}（与 {@code SecurityExceptionHandler} 同源）。</p>
+     *
+     * <p>状态码由调用方传入（认证异常携带的状态，见 {@link #handleAuthenticationError}）；
+     * 三种形状里的 {@code type} 一律按该状态经 {@link V1ErrorBodyMapper#errorTypeOf(int)} 推导
+     * —— 与 {@code /v1} 协议面映射表同源，不再各写一份。401 的取值仍是
+     * {@code authentication_error}（既有 401 形状逐字节不变）；429 则得到
+     * {@code rate_limit_error}（摘自上游 v3.3.4 #404：状态改了、type 必须跟着改）。</p>
      */
     private Mono<Void> createAuthenticationErrorResponse(
             final ServerWebExchange exchange,
             final String message,
-            final String errorCode) {
+            final String errorCode,
+            final HttpStatus status) {
         // 延迟到订阅时再写响应：本方法含 setStatusCode 等副作用，若在装配期被求值，
         // 会把认证成功请求的响应也改写成 401（见 handleMultipartAuthentication 注释）。
         return Mono.defer(() -> {
@@ -248,21 +282,23 @@ public class SpringSecurityAuthenticationFilter implements WebFilter {
                 return Mono.empty();
             }
 
-            response.setStatusCode(org.springframework.http.HttpStatus.UNAUTHORIZED);
+            response.setStatusCode(status);
+            final String errorType = V1ErrorBodyMapper.errorTypeOf(status.value());
             final String path = exchange.getRequest().getPath().value();
             final String errorResponse;
 
             if (V1ErrorBodyMapper.isAnthropicPath(path)) {
-                errorResponse = buildAnthropicAuthErrorBody(message);
+                errorResponse = buildAnthropicAuthErrorBody(errorType, message);
             } else if (V1ErrorBodyMapper.isV1Path(path)) {
-                errorResponse = buildOpenAiAuthErrorBody(errorCode, message);
+                errorResponse = buildOpenAiAuthErrorBody(errorCode, errorType, message);
             } else {
-                // 非 /v1 路径：沿用既有硬编码形状（逐字节不变）
+                // 非 /v1 路径：沿用既有硬编码形状（type 按状态推导，401 时取值与旧硬编码一致）
                 errorResponse = String.format(
                         "{\"error\": {\"message\": \"%s\", "
-                                + "\"type\": \"authentication_error\", "
+                                + "\"type\": \"%s\", "
                                 + "\"code\": \"%s\"}}",
                         message.replace("\"", "\\\""),
+                        errorType,
                         errorCode
                 );
             }
@@ -277,16 +313,17 @@ public class SpringSecurityAuthenticationFilter implements WebFilter {
     }
 
     /**
-     * 构建 Anthropic 协议形状的 401 认证错误体 JSON.
+     * 构建 Anthropic 协议形状的认证错误体 JSON.
      *
-     * @param message 错误消息
+     * @param errorType 错误类型（按状态经 V1ErrorBodyMapper.errorTypeOf 推导，401 时仍为 authentication_error）
+     * @param message   错误消息
      * @return Anthropic 形状 JSON 文本
      */
-    private String buildAnthropicAuthErrorBody(final String message) {
+    private String buildAnthropicAuthErrorBody(final String errorType, final String message) {
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", "error");
         final Map<String, Object> error = new LinkedHashMap<>();
-        error.put("type", "authentication_error");
+        error.put("type", errorType);
         error.put("message", message);
         body.put("error", error);
         try {
@@ -294,23 +331,24 @@ public class SpringSecurityAuthenticationFilter implements WebFilter {
         } catch (Exception e) {
             log.error("序列化 Anthropic 认证错误体失败", e);
             return "{\"type\":\"error\","
-                    + "\"error\":{\"type\":\"authentication_error\","
+                    + "\"error\":{\"type\":\"" + errorType + "\","
                     + "\"message\":\"internal serialization error\"}}";
         }
     }
 
     /**
-     * 构建 OpenAI 协议形状的 401 认证错误体 JSON.
+     * 构建 OpenAI 协议形状的认证错误体 JSON.
      *
      * @param errorCode 错误码（写入 code 字段）
+     * @param errorType 错误类型（按状态经 V1ErrorBodyMapper.errorTypeOf 推导）
      * @param message   错误消息
      * @return OpenAI 形状 JSON 文本
      */
-    private String buildOpenAiAuthErrorBody(final String errorCode, final String message) {
+    private String buildOpenAiAuthErrorBody(final String errorCode, final String errorType, final String message) {
         final Map<String, Object> body = new LinkedHashMap<>();
         final Map<String, Object> error = new LinkedHashMap<>();
         error.put("message", message);
-        error.put("type", "authentication_error");
+        error.put("type", errorType);
         error.put("code", errorCode);
         body.put("error", error);
         try {
@@ -318,7 +356,7 @@ public class SpringSecurityAuthenticationFilter implements WebFilter {
         } catch (Exception e) {
             log.error("序列化 OpenAI 认证错误体失败", e);
             return "{\"error\":{\"message\":\"internal serialization error\","
-                    + "\"type\":\"authentication_error\",\"code\":\"INTERNAL\"}}";
+                    + "\"type\":\"" + errorType + "\",\"code\":\"INTERNAL\"}}";
         }
     }
 }

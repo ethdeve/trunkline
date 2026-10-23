@@ -23,7 +23,7 @@
       "columns": {
         "instanceId": "实例 ID",
         "instanceIdCompact": "实例ID",
-        "serviceType": "服务类型",
+        "serviceType": "模型分类",
         "state": "状态",
         "actions": "操作",
         "time": "时间",
@@ -84,7 +84,7 @@
       "columns": {
         "instanceId": "实例ID",
         "instanceName": "实例名称",
-        "serviceType": "服务类型",
+        "serviceType": "模型分类",
         "stateTransition": "状态变化",
         "triggerReason": "触发原因",
         "failureCount": "失败次数",

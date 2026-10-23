@@ -1,0 +1,23 @@
+{
+  "settings": {
+    "tabs": {
+      "access": "账号与权限",
+      "modelConfig": "模型配置",
+      "auditVersions": "审计与版本",
+      "monitoring": "状态监控"
+    },
+    "subTabs": {
+      "accounts": "账号",
+      "permissions": "权限",
+      "providerTemplates": "供应商模板",
+      "modelCategories": "模型分类",
+      "protocolAdapters": "模型适配器",
+      "audit": "审计日志",
+      "versions": "配置版本",
+      "persistence": "状态持久化"
+    },
+    "monitoring": {
+      "persistenceAlert": "一次性部署决策：持久化介质（redis / h2 / file）安装后无需再改"
+    }
+  }
+}

@@ -24,6 +24,9 @@ import org.unreal.modelrouter.router.model.ModelRouterProperties;
 import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 import org.unreal.modelrouter.router.model.ServiceRuntimeConfig;
 import org.unreal.modelrouter.router.model.WebClientCacheManager;
+import org.unreal.modelrouter.router.pool.PoolSelector;
+import org.unreal.modelrouter.router.pool.model.PoolDefinition;
+import org.unreal.modelrouter.router.pool.model.PoolMember;
 import org.unreal.modelrouter.router.ratelimit.RateLimitManager;
 import org.unreal.modelrouter.router.rule.model.RuleDefinition;
 
@@ -254,6 +257,77 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
             assertNotNull(selected);
             assertEquals("inst-claude", selected.getInstanceId(),
                     "无 tags 要求时行为与现状完全一致(TARGET_MODEL 重写后按模型名过滤)");
+        }
+    }
+
+    // ==================== N-1: 池路由 + 请求标签二次圈选 ====================
+
+    @Nested
+    @DisplayName("N-1 池路由受请求标签约束（修复半生效）")
+    class PoolTagRoutingTests {
+
+        @BeforeEach
+        void injectPoolSelector() throws Exception {
+            // 池 pool-gpt: 成员 inst-gpt(gpu_type=a100) + inst-claude(region=us-west)
+            PoolDefinition pool = new PoolDefinition();
+            pool.setPoolName("pool-gpt");
+            pool.setName("pool-gpt");
+            pool.setServiceType("chat");
+            pool.setStrategy("round-robin");
+            PoolMember m1 = new PoolMember();
+            m1.setInstanceId("inst-gpt");
+            m1.setWeight(1);
+            PoolMember m2 = new PoolMember();
+            m2.setInstanceId("inst-claude");
+            m2.setWeight(1);
+            pool.setMembers(List.of(m1, m2));
+
+            PoolSelector poolSelector = new PoolSelector(serviceStateManager, circuitBreakerManager);
+            // findPool/isPoolName 直接遍历 pools 列表,反射注入即可(无额外索引需要重建)
+            Field poolsField = PoolSelector.class.getDeclaredField("pools");
+            poolsField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            List<PoolDefinition> pools = (List<PoolDefinition>) poolsField.get(poolSelector);
+            pools.add(pool);
+
+            registry.setPoolSelector(poolSelector);
+        }
+
+        @Test
+        @DisplayName("N-1-001: 池路由 + header 标签圈选到带标签成员（修复前轮转全部成员）")
+        void poolRouting_withMatchingTags_selectsTaggedMember() {
+            Map<String, String> headers = Map.of("X-JAiRouter-Tags", "gpu_type=a100");
+
+            ModelRouterProperties.ModelInstance selected =
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "pool-gpt", "1.1.1.1", headers);
+
+            assertNotNull(selected);
+            assertEquals("inst-gpt", selected.getInstanceId(),
+                    "池候选应按请求标签二次圈选:gpu_type=a100 只剩 inst-gpt");
+        }
+
+        @Test
+        @DisplayName("N-1-002: 池路由 + header 标签无匹配成员抛 404（与非池路径语义一致）")
+        void poolRouting_withoutMatchingTags_throws404() {
+            Map<String, String> headers = Map.of("X-JAiRouter-Tags", "region=eu-central");
+
+            ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                    () -> registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "pool-gpt", "1.1.1.1", headers));
+
+            assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
+            assertTrue(ex.getReason().contains("pool-gpt"), "404 文案应指明池名: " + ex.getReason());
+        }
+
+        @Test
+        @DisplayName("N-1-003: 池路由无 header 标签时走池全量候选（行为不回退）")
+        void poolRouting_withoutTags_usesAllPoolMembers() {
+            ModelRouterProperties.ModelInstance selected =
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "pool-gpt", "1.1.1.1");
+
+            assertNotNull(selected);
+            // loadBalancer mock 返回候选首个:无标签时池成员解析顺序为 inst-gpt → inst-claude
+            assertEquals("inst-gpt", selected.getInstanceId(),
+                    "无标签时池路由行为与修复前一致(全量池候选)");
         }
     }
 

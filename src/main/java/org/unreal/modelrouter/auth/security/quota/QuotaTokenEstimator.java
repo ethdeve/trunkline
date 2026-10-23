@@ -37,6 +37,28 @@ public final class QuotaTokenEstimator {
     }
 
     /**
+     * N-2: 估算一次请求的 token 消耗上限（prompt 估算 + {@code max_tokens} 输出上限）。
+     *
+     * <p>{@link #estimate(Object)} 只覆盖 prompt 侧（v3.1 PR-2 为账本预留设计，
+     * 输出侧由结算冲正确认）。请求前 Token 配额预估若只按 prompt 估算，一次
+     * {@code max_tokens} 很大的请求仍可把当日额度撑爆（实测：prompt 约 10 tokens、
+     * max_tokens=60、实际总消耗 154，仅按 prompt 估算完全防不住）。</p>
+     *
+     * <p>本方法在 prompt 估算之上叠加 chat 请求的 {@code max_tokens}（输出侧硬上限）：
+     * {@code max_tokens} 未设置时退化为纯 prompt 估算（输出侧无上限信号，属可接受降级）。</p>
+     *
+     * @param requestDto 原始请求 DTO，可为 {@code null} 或不认识的类型
+     * @return 估算 token 上限（非负）
+     */
+    public static long estimateUpperBound(final Object requestDto) {
+        long estimate = estimate(requestDto);
+        if (requestDto instanceof ChatDTO.Request chatRequest && chatRequest.maxTokens() != null) {
+            estimate += Math.max(0L, chatRequest.maxTokens());
+        }
+        return estimate;
+    }
+
+    /**
      * 估算一次请求的 prompt 侧 token 数。
      *
      * @param requestDto 原始请求 DTO（Controller 放入 exchange 的 {@code JAIR_REQUEST_DTO} 属性），

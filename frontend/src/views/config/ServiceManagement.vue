@@ -2,7 +2,7 @@
   <PageSkeleton :title="t('service.title')">
     <!-- 聚合页嵌入模式下 PageSkeleton 隐藏标题区（含 actions 插槽），按钮需自绘工具行 -->
     <div class="page-actions-row">
-      <el-button type="info" plain size="default" @click="router.push({ name: 'version-management' })">
+      <el-button type="info" plain size="default" @click="router.push('/settings?tab=auditVersions&sub=versions')">
         <el-icon><Document /></el-icon>
         {{ t('service.actions.versionHistory') }}
       </el-button>
@@ -110,7 +110,7 @@
               <el-tooltip :content="scope.row.adapter ? (dialectOf(scope.row.adapter) || scope.row.adapter) : t('service.unset')" placement="top">
                 <router-link
                   v-if="scope.row.adapter"
-                  :to="{ name: 'protocol-adapters' }"
+                  :to="{ path: '/settings', query: { tab: 'modelConfig', sub: 'protocolAdapters' } }"
                   class="cell-link"
                   @click.stop
                 >

@@ -26,6 +26,13 @@
     "endTimePlaceholder": "选择结束时间",
     "eventType": "事件类型",
     "eventTypePlaceholder": "请选择事件类型",
+    "quickFilter": {
+      "label": "常用筛选：",
+      "all": "全部",
+      "keyChange": "密钥变更",
+      "authFail": "登录/权限失败",
+      "suspicious": "可疑与告警"
+    },
     "groupJwtTokens": "JWT令牌",
     "groupApiKey": "API Key",
     "groupSecurityEvents": "安全事件",

@@ -11,6 +11,8 @@ import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.config.core.helper.ServiceTypeResolver;
 import org.unreal.modelrouter.router.checker.ServiceStateManager;
 import org.unreal.modelrouter.router.circuitbreaker.CircuitBreakerManager;
+import org.unreal.modelrouter.router.model.ModelRouterProperties;
+import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 import org.unreal.modelrouter.router.pool.PoolDefinitionProperties;
 import org.unreal.modelrouter.router.pool.PoolPersistenceService;
 import org.unreal.modelrouter.router.pool.PoolSelector;
@@ -19,9 +21,11 @@ import org.unreal.modelrouter.router.pool.model.PoolMember;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * PoolConfigController 资源池 API 测试
@@ -72,7 +76,22 @@ class PoolConfigControllerTest {
         persistenceService = new InMemoryPoolPersistence();
         poolSelector = new PoolSelector(mock(ServiceStateManager.class), mock(CircuitBreakerManager.class));
         controller = new PoolConfigController(
-                poolProperties, persistenceService, poolSelector, new ServiceTypeResolver());
+                poolProperties, persistenceService, poolSelector, new ServiceTypeResolver(), mockRegistry());
+    }
+
+    /**
+     * mock 运行时注册表:chat 服务类型下含 instanceId=uuid-1 / name=inst-gpt 的实例,
+     * 供成员解析校验(P2-6)使用。
+     */
+    private ModelServiceRegistry mockRegistry() {
+        ModelRouterProperties.ModelInstance inst = new ModelRouterProperties.ModelInstance();
+        inst.setName("inst-gpt");
+        inst.setInstanceId("uuid-1");
+        inst.setStatus("active");
+        ModelServiceRegistry registry = mock(ModelServiceRegistry.class);
+        when(registry.getAllInstances())
+                .thenReturn(Map.of(ModelServiceRegistry.ServiceType.chat, List.of(inst)));
+        return registry;
     }
 
     private PoolDefinition validPool(final String poolName) {
@@ -229,11 +248,65 @@ class PoolConfigControllerTest {
         void testYamlMerge_distinctNames() {
             poolProperties.setPools(List.of(validPool("yaml-pool")));
             controller = new PoolConfigController(
-                    poolProperties, persistenceService, poolSelector, new ServiceTypeResolver());
+                    poolProperties, persistenceService, poolSelector, new ServiceTypeResolver(), mockRegistry());
             controller.createPool(validPool("auto-model"));
 
             List<PoolDefinition> pools = controller.getAllPools().getBody().getData();
             assertEquals(2, pools.size());
+        }
+    }
+
+    @Nested
+    @DisplayName("成员解析校验测试(P2-6)")
+    class MemberValidationTests {
+
+        @Test
+        @DisplayName("POOL-API-014: 成员为实例名时创建成功")
+        void testCreate_memberByName_ok() {
+            ResponseEntity<RouterResponse<PoolDefinition>> response =
+                    controller.createPool(validPool("auto-model"));
+            assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        }
+
+        @Test
+        @DisplayName("POOL-API-015: 成员为运行时 instanceId(UUID)时创建成功")
+        void testCreate_memberByUuid_ok() {
+            PoolDefinition p = validPool("auto-model");
+            p.getMembers().get(0).setInstanceId("uuid-1");
+
+            ResponseEntity<RouterResponse<PoolDefinition>> response =
+                    controller.createPool(p);
+            assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        }
+
+        @Test
+        @DisplayName("POOL-API-016: 成员为数据库数字 id 时返回 400 并列出坏成员")
+        void testCreate_numericIdMember_400() {
+            PoolDefinition p = validPool("auto-model");
+            p.getMembers().get(0).setInstanceId("19");
+
+            ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                    () -> controller.createPool(p));
+            assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+            assertTrue(ex.getReason().contains("19"),
+                    "400 原因应包含坏成员: " + ex.getReason());
+        }
+
+        @Test
+        @DisplayName("POOL-API-017: 多个坏成员全部列出")
+        void testCreate_multipleBadMembers_allListed() {
+            PoolDefinition p = validPool("auto-model");
+            PoolMember bad2 = new PoolMember();
+            bad2.setInstanceId("ghost-instance");
+            bad2.setWeight(1);
+            p.setMembers(List.of(p.getMembers().get(0), bad2));
+            p.getMembers().get(0).setInstanceId("19");
+
+            ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                    () -> controller.createPool(p));
+            assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+            assertTrue(ex.getReason().contains("19") && ex.getReason().contains("ghost-instance"),
+                    "400 原因应列出全部坏成员: " + ex.getReason());
         }
     }
 }

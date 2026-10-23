@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.config.core.helper.ServiceTypeResolver;
+import org.unreal.modelrouter.router.model.ModelRouterProperties;
+import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 import org.unreal.modelrouter.router.pool.PoolDefinitionProperties;
 import org.unreal.modelrouter.router.pool.PoolPersistenceService;
 import org.unreal.modelrouter.router.pool.PoolSelector;
@@ -47,6 +49,7 @@ public class PoolConfigController {
     private final PoolPersistenceService persistenceService;
     private final PoolSelector poolSelector;
     private final ServiceTypeResolver serviceTypeResolver;
+    private final ModelServiceRegistry modelServiceRegistry;
 
     // 当前生效资源池(YAML 默认 + 持久化用户池,按 poolName 唯一)
     private final CopyOnWriteArrayList<PoolDefinition> activePools = new CopyOnWriteArrayList<>();
@@ -54,11 +57,13 @@ public class PoolConfigController {
     public PoolConfigController(final PoolDefinitionProperties poolProperties,
                                 final PoolPersistenceService persistenceService,
                                 final PoolSelector poolSelector,
-                                final ServiceTypeResolver serviceTypeResolver) {
+                                final ServiceTypeResolver serviceTypeResolver,
+                                final ModelServiceRegistry modelServiceRegistry) {
         this.poolProperties = poolProperties;
         this.persistenceService = persistenceService;
         this.poolSelector = poolSelector;
         this.serviceTypeResolver = serviceTypeResolver;
+        this.modelServiceRegistry = modelServiceRegistry;
         reloadActivePools();
     }
 
@@ -183,6 +188,38 @@ public class PoolConfigController {
                             "Pool member instanceId must not be blank");
                 }
             }
+            // P2-6: 成员必须能按 instanceId(UUID)或实例名解析到现存实例。
+            // 运行时 instanceId 是 UUID,数据库自增数字 id 两头都匹配不上,历史上有直连 API
+            // 填数字 id 导致路由 404 的案例,故在入口强校验并列出全部坏成员。
+            final List<String> badMembers = new ArrayList<>();
+            final List<ModelRouterProperties.ModelInstance> instances =
+                    instancesForServiceType(pool.getServiceType());
+            for (PoolMember member : pool.getMembers()) {
+                final String key = member.getInstanceId();
+                final boolean resolved = instances.stream()
+                        .anyMatch(i -> key.equals(i.getInstanceId()) || key.equals(i.getName()));
+                if (!resolved) {
+                    badMembers.add(key);
+                }
+            }
+            if (!badMembers.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Pool members do not match any instance (by instanceId UUID or instance name): "
+                                + badMembers);
+            }
         }
+    }
+
+    /**
+     * 取指定服务类型的全部运行时实例(大小写不敏感).
+     */
+    private List<ModelRouterProperties.ModelInstance> instancesForServiceType(final String serviceType) {
+        if (serviceType == null || serviceType.isBlank()) {
+            return List.of();
+        }
+        return modelServiceRegistry.getAllInstances().entrySet().stream()
+                .filter(e -> e.getKey().name().equalsIgnoreCase(serviceType.trim()))
+                .flatMap(e -> e.getValue().stream())
+                .collect(java.util.stream.Collectors.toList());
     }
 }

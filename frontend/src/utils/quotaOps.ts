@@ -59,3 +59,60 @@ export function quotaProgress(used: number | null | undefined, limit: number | n
   const u = used ?? 0
   return Math.min(100, Math.round((u / limit) * 100))
 }
+
+/**
+ * U5-4：数量口语化——10000 → 1万，2000000 → 200万，50000 → 5万
+ * 小于 1 万保留千分位，避免 "0.5万" 这类反直觉写法。
+ */
+export function formatCountCn(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return '0'
+  const n = Number(value)
+  if (Math.abs(n) >= 100000000) return `${trimZero(n / 100000000)}亿`
+  if (Math.abs(n) >= 10000) return `${trimZero(n / 10000)}万`
+  return n.toLocaleString()
+}
+
+function trimZero(n: number): string {
+  return String(Math.round(n * 100) / 100)
+}
+
+/**
+ * U5-4：配额口语化描述——"每天最多 1 万次调用 / 200 万 token（每分钟最多 300 次）"
+ * 不限的项直接跳过，避免出现 "不限 token" 这种无信息量文案。
+ */
+export function formatQuotaPlain(
+  dailyRequestLimit?: number | null,
+  dailyTokenLimit?: number | null,
+  rateLimitPerMinute?: number | null,
+  unlimitedLabel = '不限'
+): string {
+  const parts: string[] = []
+  if (dailyRequestLimit && dailyRequestLimit > 0) {
+    parts.push(`每天最多 ${formatCountCn(dailyRequestLimit)} 次调用`)
+  }
+  if (dailyTokenLimit && dailyTokenLimit > 0) {
+    parts.push(`${formatCountCn(dailyTokenLimit)} token`)
+  }
+  if (!parts.length) return unlimitedLabel
+  let text = parts.join(' / ')
+  if (rateLimitPerMinute && rateLimitPerMinute > 0) {
+    text += `（每分钟最多 ${formatCountCn(rateLimitPerMinute)} 次）`
+  }
+  return text
+}
+
+/**
+ * U5-4：剩余额度口语化——"还剩 3.2 万次" / "已用 68%"
+ */
+export function formatRemainingPlain(
+  used: number | null | undefined,
+  limit: number | null | undefined,
+  unit = '次',
+  unlimitedLabel = '不限'
+): string {
+  if (!limit || limit <= 0) return unlimitedLabel
+  const u = used ?? 0
+  const left = Math.max(0, limit - u)
+  const pct = Math.min(100, Math.round((u / limit) * 100))
+  return `还剩 ${formatCountCn(left)}${unit}（已用 ${pct}%）`
+}

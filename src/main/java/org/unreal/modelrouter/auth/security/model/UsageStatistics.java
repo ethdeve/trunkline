@@ -68,7 +68,13 @@ public class UsageStatistics {
     }
 
     /**
-     * 增加请求统计
+     * 增加请求统计.
+     *
+     * <p>N-6: {@code dailyUsage}(当日用量,日配额判定口径)仅对成功请求累加——
+     * 被拒请求(配额/限流/权限不足等)不计入当日用量,避免「被拒也占额度」导致
+     * limit=N 实际只能成功不足 N 次;{@code totalRequests}/{@code failedRequests}
+     * 仍记录全部请求(含被拒),保持审计口径完整。</p>
+     *
      * @param success 请求是否成功
      */
     public void incrementRequest(final boolean success) {
@@ -79,11 +85,13 @@ public class UsageStatistics {
             failedRequests++;
         }
         lastUsedAt = LocalDateTime.now();
-        String today = LocalDateTime.now().toLocalDate().toString();
-        if (dailyUsage == null) {
-            dailyUsage = new HashMap<>();
+        if (success) {
+            String today = LocalDateTime.now().toLocalDate().toString();
+            if (dailyUsage == null) {
+                dailyUsage = new HashMap<>();
+            }
+            dailyUsage.put(today, dailyUsage.getOrDefault(today, 0L) + 1);
         }
-        dailyUsage.put(today, dailyUsage.getOrDefault(today, 0L) + 1);
     }
 
     /**

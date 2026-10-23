@@ -8,7 +8,7 @@
         link
         size="small"
         class="header-cross-link"
-        @click="router.push({ name: 'model-categories', query: route.query.serviceType ? { serviceType: route.query.serviceType as string } : {} })"
+        @click="router.push({ path: '/settings', query: { tab: 'modelConfig', sub: 'modelCategories', ...(route.query.serviceType ? { serviceType: route.query.serviceType as string } : {}) } })"
       >
         {{ t('instance.openServiceConfig') }}
       </el-button>
@@ -31,6 +31,25 @@
       <el-button type="text" class="refresh-button" @click="refreshCurrent">
         <el-icon><Refresh /></el-icon>
       </el-button>
+
+      <el-button type="text" class="refresh-button" :disabled="filtered.length === 0" @click="handleExport">
+        <el-icon><Download /></el-icon>
+      </el-button>
+
+      <!-- 批量操作条：选中后浮现 -->
+      <div v-if="canWrite && selectedInstances.length > 0" class="batch-bar">
+        <span class="batch-bar__count">{{ t('instance.batch.selected', { count: selectedInstances.length }) }}</span>
+        <el-button size="small" type="success" plain @click="handleBatchEnable">
+          {{ t('instance.batch.enable') }}
+        </el-button>
+        <el-button size="small" type="warning" plain @click="handleBatchDisable">
+          {{ t('instance.batch.disable') }}
+        </el-button>
+        <el-button size="small" type="danger" plain @click="handleBatchDelete">
+          {{ t('instance.batch.delete') }}
+        </el-button>
+        <el-button size="small" link @click="clearSelection">{{ t('instance.batch.clear') }}</el-button>
+      </div>
     </template>
 
     <div class="tabs-wrap">
@@ -40,7 +59,9 @@
           <div class="table-area">
             <el-skeleton :loading="loading && !hasInstances" :rows="6" animated>
               <template #default>
-                <el-table :data="paginated" style="width: 100%" class="instance-table" row-key="id" border fit>
+                <el-table :data="paginated" style="width: 100%" class="instance-table" row-key="id" border fit
+                  @selection-change="onSelectionChange">
+                  <el-table-column v-if="canWrite" type="selection" width="46" :reserve-selection="false" />
                   <!-- 普通用户视角首列：模型名（有备注名时优先显示备注名，小字标真实模型名） -->
                   <el-table-column prop="name" :label="t('instance.columnModelName')" min-width="180">
                     <template #default="scope">
@@ -66,35 +87,41 @@
                     </template>
                   </el-table-column>
 
-                  <el-table-column prop="status" :label="t('instance.status')" width="110" align="center">
+                  <el-table-column prop="status" :label="t('instance.status')" width="150" align="center">
                     <template #default="scope">
                       <div class="status-cell">
                         <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'" class="table-tag">
                           {{ scope.row.status === 'active' ? t('instance.enabled') : t('instance.disabled') }}
                         </el-tag>
-                        <span v-if="scope.row.health !== undefined" class="health-dot" :class="scope.row.health ? 'is-ok' : 'is-off'"
-                              :title="scope.row.health ? t('instance.healthOk') : t('instance.healthOff')" />
+                        <!-- 运行态标签：熔断中 / 健康异常 / 限流中 -->
+                        <el-tooltip v-if="runtimeStateOf(scope.row).tip" :content="runtimeStateOf(scope.row).tip"
+                          placement="top">
+                          <el-tag :type="runtimeStateOf(scope.row).tagType" size="small" class="table-tag">
+                            {{ runtimeStateOf(scope.row).label }}
+                          </el-tag>
+                        </el-tooltip>
+                        <span v-else-if="scope.row.healthStatus !== undefined && scope.row.healthStatus !== null"
+                          class="health-dot" :class="healthDotClass(scope.row)" :title="healthTitleOf(scope.row)" />
                       </div>
                     </template>
                   </el-table-column>
 
-                  <el-table-column :label="t('instance.actions')" width="200" align="center">
+                  <el-table-column :label="t('instance.actions')" width="180" align="left">
                     <template #default="scope">
-                      <el-button v-if="canWrite" size="small" @click="handleEdit(scope.row)" type="primary" plain circle :title="t('instance.editInstance')">
-                        <el-icon><Edit /></el-icon>
-                      </el-button>
-
-                      <el-button v-if="canWrite" size="small" @click="openRateLimitConfig(scope.row)" type="warning" plain circle :title="t('instance.rateLimitConfig')">
-                        <el-icon><Timer /></el-icon>
-                      </el-button>
-
-                      <el-button v-if="canWrite" size="small" @click="openCircuitBreakerConfig(scope.row)" type="danger" plain circle :title="t('instance.circuitBreakerConfig')">
-                        <el-icon><WarningFilled /></el-icon>
-                      </el-button>
-
-                      <el-button v-if="canWrite" size="small" type="info" @click="handleDelete(scope.row)" plain circle :title="t('instance.delete')">
-                        <el-icon><Delete /></el-icon>
-                      </el-button>
+                      <div class="row-actions">
+                        <el-button v-if="canWrite" link type="primary" size="small" @click="handleEdit(scope.row)">
+                          {{ t('instance.editInstance') }}
+                        </el-button>
+                        <el-button v-if="canWrite" link type="warning" size="small" @click="openRateLimitConfig(scope.row)">
+                          {{ t('instance.rateLimitConfig') }}
+                        </el-button>
+                        <el-button v-if="canWrite" link type="danger" size="small" @click="openCircuitBreakerConfig(scope.row)">
+                          {{ t('instance.circuitBreakerConfig') }}
+                        </el-button>
+                        <el-button v-if="canWrite" link type="danger" size="small" @click="handleDelete(scope.row)">
+                          {{ t('instance.delete') }}
+                        </el-button>
+                      </div>
                     </template>
                   </el-table-column>
                 </el-table>
@@ -168,7 +195,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { SERVICE_TYPE_LABELS, COMMON_SERVICE_TYPES } from '@/constants/serviceTypes'
 import { PROVIDER_PRESETS, matchProviderPreset, extractDomain } from '@/constants/providerPresets'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import {
   addServiceInstance,
   deleteServiceInstance,
@@ -185,14 +212,23 @@ import {
 import { getServiceTypes } from '@/api/dashboard'
 import { getAdapters, getAllConfigurations } from '@/api/service'
 import { getProviders, type ModelProvider } from '@/api/provider'
+import { getPoolList, type PoolDefinition } from '@/api/pools'
 import { clearCache } from '@/stores/playgroundCache'
-import { Delete, Close, Timer, WarningFilled, Edit, Search, Refresh } from '@element-plus/icons-vue'
+import { exportCsv, datedFilename } from '@/utils/csvExport'
+import {
+  fetchCircuitStates as fetchSharedCircuitStates,
+  circuitStateOf as sharedCircuitStateOf
+} from '@/composables/useInstanceAvailability'
+import request from '@/utils/request'
+import { Search, Refresh, Download } from '@element-plus/icons-vue'
 import RateLimitConfig from '@/components/RateLimitConfig.vue'
 import CircuitBreakerConfig from '@/components/CircuitBreakerConfig.vue'
 import UpstreamInstanceForm from '@/components/UpstreamInstanceForm.vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import { uid } from '@/utils/uid'
 import { usePermission } from '@/composables/usePermission'
+import { usePersistedState } from '@/composables/usePersistedState'
+import { confirmDanger } from '@/utils/dangerConfirm'
 
 const route = useRoute()
 const router = useRouter()
@@ -252,6 +288,12 @@ interface ServiceInstance {
   weight: number
   status: 'active' | 'inactive'
   instanceId: string
+  /** 运行时实例 UUID（后端 v2.x 生成），用于关联熔断运行态；老数据可能为空 */
+  runtimeInstanceId?: string
+  /** 健康状态：HEALTHY / UNHEALTHY / UNKNOWN */
+  healthStatus?: string
+  /** 健康检查失败原因 */
+  errorMessage?: string
   adapter?: string  // 适配器配置
   headers?: Record<string, string>  // 请求头配置
   tags?: Record<string, string>  // 标签配置
@@ -278,6 +320,9 @@ interface ServiceInstance {
 const instancesCache = ref<Record<string, ServiceInstance[]>>({})
 const instances = ref<Record<string, ServiceInstance[]>>({})
 
+/** 模型分组列表缓存（用于删除实例时提示影响面） */
+const poolCache = ref<PoolDefinition[]>([])
+
 // 加载与状态
 const loading = ref(false)
 const saveLoading = ref(false)
@@ -295,6 +340,10 @@ const searchQuery = ref('')
 const statusFilter = ref('')
 const pageSize = ref(10)
 const currentPage = ref(1)
+
+// U10-5：筛选条件持久化，下次进入本页自动恢复
+usePersistedState('instances.search', searchQuery)
+usePersistedState('instances.status', statusFilter)
 
 // 限流器配置弹窗相关
 const rateLimitDialogVisible = ref(false)
@@ -339,6 +388,61 @@ const filtered = computed(() => {
     )
   })
 })
+
+// ============ 运行态（熔断 / 健康）============
+
+/**
+ * 熔断器状态：实例 UUID（或 baseUrl）→ 状态名（CLOSED / OPEN / HALF_OPEN）
+ * 统一走 useInstanceAvailability 的全局共享状态，避免与测试场/总览各拉一份导致数据不一致。
+ */
+const fetchCircuitStates = async () => {
+  await fetchSharedCircuitStates()
+}
+
+/** 取该实例的熔断状态；OPEN=已熔断摘除，HALF_OPEN=半开探测中 */
+const circuitStateOf = (row: ServiceInstance): string | undefined => {
+  return sharedCircuitStateOf(row)
+}
+
+/** 健康状态归一化：HEALTHY / UNHEALTHY / UNKNOWN */
+const healthOf = (row: ServiceInstance): string => (row.healthStatus || 'UNKNOWN').toUpperCase()
+
+const healthDotClass = (row: ServiceInstance) => {
+  const h = healthOf(row)
+  if (h === 'HEALTHY') return 'is-ok'
+  if (h === 'UNHEALTHY') return 'is-off'
+  return 'is-unknown'
+}
+
+const healthTitleOf = (row: ServiceInstance) => {
+  const h = healthOf(row)
+  if (h === 'HEALTHY') return t('instance.healthOk')
+  if (h === 'UNHEALTHY') {
+    return row.errorMessage
+      ? `${t('instance.healthOff')}：${row.errorMessage}`
+      : t('instance.healthOff')
+  }
+  return t('instance.healthUnknown')
+}
+
+/** 运行态综合标签：熔断中 > 半开探测 > 健康异常 */
+const runtimeStateOf = (row: ServiceInstance) => {
+  const cs = circuitStateOf(row)
+  if (cs === 'OPEN') {
+    return { label: t('instance.circuitOpen'), tagType: 'danger' as const, tip: t('instance.circuitOpenTip') }
+  }
+  if (cs === 'HALF_OPEN') {
+    return { label: t('instance.circuitHalfOpen'), tagType: 'warning' as const, tip: t('instance.circuitHalfOpenTip') }
+  }
+  if (healthOf(row) === 'UNHEALTHY') {
+    return {
+      label: t('instance.healthBad'),
+      tagType: 'danger' as const,
+      tip: row.errorMessage ? `${t('instance.healthOff')}：${row.errorMessage}` : t('instance.healthOff')
+    }
+  }
+  return { label: '', tagType: 'info' as const, tip: '' }
+}
 
 // 分页计算
 const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize.value)))
@@ -441,10 +545,11 @@ const fetchServiceInstances = (serviceType: string) => {
       if (response.data?.success) {
         const data: any[] = response.data.data || []
         // 确保每个实例都包含正确的服务类型和ID
+        // serviceType 优先取后端权威值（2026-10-22 后端 DTO 已带出），缺失时回退到当前 Tab 上下文
         const typedData: ServiceInstance[] = data.map((item) => ({
           ...item,
           id: item.instanceId || uid(), // 使用后端返回的instanceId作为唯一标识符，如果没有则使用客户端唯一ID
-          serviceType,
+          serviceType: item.serviceType || serviceType,
           adapter: item.adapter || '', // 确保适配器字段存在
           headers: item.headers || {}, // 确保headers字段存在
           tags: item.tags || {} // 确保tags字段存在
@@ -464,14 +569,28 @@ const fetchServiceInstances = (serviceType: string) => {
   }, 200)
 }
 
+/** 拉取模型分组列表（用于删除实例时提示影响面；失败静默降级） */
+const fetchPools = async () => {
+  try {
+    const response = await getPoolList()
+    if (response.data?.success) {
+      poolCache.value = response.data.data || []
+    }
+  } catch (error) {
+    console.error('获取模型分组列表失败:', error)
+  }
+}
+
 // 刷新当前 tab
 const refreshCurrent = () => {
   const serviceType = activeServiceType.value
   delete instancesCache.value[serviceType]
   fetchServiceInstances(serviceType)
-  // 同时刷新适配器列表和全局配置
+  // 同时刷新适配器列表、全局配置与熔断运行态
   fetchAdapters()
   fetchGlobalConfig()
+  fetchCircuitStates()
+  fetchPools()
   ElMessage.success(t('instance.messages.refreshing'))
 }
 
@@ -491,39 +610,216 @@ const onDialogOpened = () => {
   }
 }
 
-// 删除实例
-  const handleDelete = (row: ServiceInstance) => {
-    ElMessageBox.confirm(
-      t('instance.deleteConfirmMessage'),
-    t('instance.confirmTitle'),
-    {
-      confirmButtonText: t('instance.confirm'),
-      cancelButtonText: t('instance.cancel'),
-      type: 'warning'
-    }
-  ).then(async () => {
+/* ==================== 导出 ==================== */
+/** 导出当前筛选结果（全量，不受分页限制），内容与页面所见一致 */
+const handleExport = () => {
+  const rows = filtered.value
+  if (rows.length === 0) {
+    ElMessage.info(t('instance.exportEmpty'))
+    return
+  }
+  exportCsv(
+    [
+      { header: t('instance.columnModelName'), value: r => r.tags?.alias || r.name },
+      { header: t('instance.modelPrefix').replace('：', ''), value: r => r.name },
+      { header: t('instance.columnVendorAddress'), value: r => `${providerLabelOf(r)} ${r.baseUrl}${r.path || ''}`.trim() },
+      { header: t('instance.status'), value: r => (r.status === 'active' ? t('instance.enabled') : t('instance.disabled')) },
+      { header: t('instance.exportColumnHealth'), value: r => healthOf(r) },
+      { header: t('instance.exportColumnCircuit'), value: r => circuitStateOf(r) || 'CLOSED' },
+      { header: t('instance.adapter'), value: r => r.adapter || '' },
+      { header: t('instance.weight'), value: r => r.weight ?? '' }
+    ],
+    rows,
+    datedFilename(`instances-${activeServiceType.value}`)
+  )
+  ElMessage.success(t('instance.exportSuccess', { count: rows.length }))
+}
+
+/* ==================== 批量操作 ==================== */
+/** 当前选中的实例行 */
+const selectedInstances = ref<ServiceInstance[]>([])
+
+function onSelectionChange(rows: ServiceInstance[]) {
+  selectedInstances.value = rows || []
+}
+
+function clearSelection() {
+  selectedInstances.value = []
+}
+
+/**
+ * 由列表行还原为可提交的实例配置（启停是全量 PUT，字段必须完整）。
+ * 注意：后端语义为「字段缺省 = 不变」，因此 undefined 的字段一律不下发，
+ * 避免用空对象覆盖掉实例已有的请求头 / 标签。
+ */
+const toInstanceConfig = (row: ServiceInstance): InstanceConfig => ({
+  name: row.name,
+  baseUrl: row.baseUrl,
+  path: row.path || '',
+  weight: row.weight ?? 1,
+  status: 'active',
+  adapter: row.adapter || undefined,
+  headers: row.headers && Object.keys(row.headers).length > 0 ? row.headers : undefined,
+  tags: row.tags && Object.keys(row.tags).length > 0 ? row.tags : undefined,
+  providerId: row.providerId
+})
+
+/** 批量启停：逐条 PUT，汇总成功/失败 */
+async function batchToggle(enable: boolean) {
+  const rows = [...selectedInstances.value]
+  if (rows.length === 0) return
+  const serviceType = activeServiceType.value
+  const succeeded: string[] = []
+  const failed: string[] = []
+  for (const row of rows) {
     try {
-      // 确保使用当前激活的页签对应的服务类型
-      const serviceType = activeServiceType.value;
-      // 使用数据库ID
-      const dbId = row.id
-      const response = await deleteServiceInstance(serviceType, String(dbId))
+      const config = toInstanceConfig(row)
+      config.status = enable ? 'active' : 'inactive'
+      const response = await updateServiceInstance(serviceType, String(row.id), config)
       if (response.data?.success) {
-        instances.value[serviceType] = (instances.value[serviceType] || []).filter(i => i.id !== dbId)
-        instancesCache.value[serviceType] = [...(instances.value[serviceType] || [])]
-        // 同时清除试验场的缓存，让试验场下拉列表刷新
-        clearCache(serviceType)
-        ElMessage.success(t('instance.messages.deleteSuccess'))
+        succeeded.push(row.name)
       } else {
-        ElMessage.error(response.data?.message || t('instance.messages.deleteFailed'))
+        failed.push(row.name)
       }
     } catch (error) {
-      console.error('删除实例失败:', error)
-      ElMessage.error(t('instance.messages.deleteInstanceFailed'))
+      console.error(`批量${enable ? '启用' : '停用'}实例失败 ${row.name}:`, error)
+      failed.push(row.name)
     }
-  }).catch(() => {
-    ElMessage.info(t('instance.messages.deleteCancelled'))
+  }
+  delete instancesCache.value[serviceType]
+  clearCache(serviceType)
+  await fetchServiceInstances(serviceType)
+  clearSelection()
+  const action = t(enable ? 'instance.batch.enable' : 'instance.batch.disable')
+  if (failed.length === 0) {
+    ElMessage.success(t('instance.batch.resultAllOk', { count: succeeded.length, action }))
+  } else {
+    ElMessage.warning(t('instance.batch.resultPartial', { ok: succeeded.length, fail: failed.length, action }))
+  }
+}
+
+const handleBatchEnable = () => batchToggle(true)
+const handleBatchDisable = () => batchToggle(false)
+
+/** 批量删除：影响面合并所有选中实例引用的分组 */
+async function handleBatchDelete() {
+  const rows = [...selectedInstances.value]
+  if (rows.length === 0) return
+  const serviceType = activeServiceType.value
+
+  // 汇总受影响的模型分组
+  const affected = new Set<string>()
+  for (const row of rows) {
+    findPoolsReferencing(row).forEach(p => affected.add(p))
+  }
+  const impact = affected.size > 0
+    ? t('instance.batch.deleteImpactPools', { pools: [...affected].join('、') })
+    : t('instance.batch.deleteImpactNone')
+
+  const confirmed = await confirmDanger({
+    title: t('instance.batch.deleteTitle'),
+    target: t('instance.batch.deleteTarget', { count: rows.length }),
+    impact,
+    remedy: t('instance.batch.deleteRemedy'),
+    requireType: String(rows.length),
+    confirmText: t('instance.batch.confirmDelete'),
+    cancelText: t('instance.cancel'),
+    type: 'warning'
   })
+  if (!confirmed) return
+
+  const succeeded: string[] = []
+  const failed: string[] = []
+  for (const row of rows) {
+    try {
+      const response = await deleteServiceInstance(serviceType, String(row.id))
+      if (response.data?.success) {
+        succeeded.push(row.name)
+      } else {
+        failed.push(row.name)
+      }
+    } catch (error) {
+      console.error(`批量删除实例失败 ${row.name}:`, error)
+      failed.push(row.name)
+    }
+  }
+  delete instancesCache.value[serviceType]
+  clearCache(serviceType)
+  fetchCircuitStates()
+  await fetchServiceInstances(serviceType)
+  clearSelection()
+  if (failed.length === 0) {
+    ElMessage.success(t('instance.batch.deleteSuccess', { count: succeeded.length }))
+  } else {
+    ElMessage.warning(t('instance.batch.deletePartial', { ok: succeeded.length, fail: failed.length }))
+  }
+}
+
+// 删除实例
+const handleDelete = async (row: ServiceInstance) => {
+  // 先算出影响面：哪些模型分组引用了该实例（池成员匹配 instanceId 或实例名）
+  const affectedPools = findPoolsReferencing(row)
+
+  const impact = affectedPools.length > 0
+    ? t('instance.deleteImpactPools', { pools: affectedPools.join('、') })
+    : t('instance.deleteImpactNone')
+
+  // U10-3：统一危险操作确认模板（影响面 + 补救方式 + 输入名称确认）
+  const confirmed = await confirmDanger({
+    title: t('instance.confirmTitle'),
+    target: row.name,
+    impact,
+    remedy: t('instance.deleteRemedy'),
+    requireType: row.name,
+    confirmText: t('instance.confirm'),
+    cancelText: t('instance.cancel'),
+    type: 'warning'
+  })
+  if (!confirmed) {
+    ElMessage.info(t('instance.messages.deleteCancelled'))
+    return
+  }
+
+  try {
+    // 确保使用当前激活的页签对应的服务类型
+    const serviceType = activeServiceType.value
+    // 使用数据库ID
+    const dbId = row.id
+    const response = await deleteServiceInstance(serviceType, String(dbId))
+    if (response.data?.success) {
+      instances.value[serviceType] = (instances.value[serviceType] || []).filter(i => i.id !== dbId)
+      instancesCache.value[serviceType] = [...(instances.value[serviceType] || [])]
+      // 同时清除试验场的缓存，让试验场下拉列表刷新
+      clearCache(serviceType)
+      // 熔断运行态已变（实例被删），同步刷新
+      fetchCircuitStates()
+      ElMessage.success(t('instance.messages.deleteSuccess'))
+    } else {
+      ElMessage.error(response.data?.message || t('instance.messages.deleteFailed'))
+    }
+  } catch (error) {
+    console.error('删除实例失败:', error)
+    ElMessage.error(t('instance.messages.deleteInstanceFailed'))
+  }
+}
+
+/** 找出引用了该实例的模型分组（池成员匹配 instanceId 或实例名，与后端 PoolSelector 口径一致） */
+const findPoolsReferencing = (row: ServiceInstance): string[] => {
+  const candidates = new Set<string>()
+  if (row.runtimeInstanceId) candidates.add(row.runtimeInstanceId)
+  if (row.instanceId) candidates.add(String(row.instanceId))
+  if (row.name) candidates.add(row.name)
+  if (!candidates.size) return []
+
+  try {
+    const pools = poolCache.value
+    return pools
+      .filter(pool => (pool.members || []).some(m => m.instanceId && candidates.has(m.instanceId)))
+      .map(pool => pool.poolName)
+  } catch (error) {
+    console.error('检查模型分组引用失败:', error)
+    return []
+  }
 }
 
 // 关闭对话框
@@ -537,8 +833,10 @@ const handleSave = async () => {
   if (!payload) return
   saveLoading.value = true
   try {
-    // 确保使用当前选项卡的服务类型
+    // 当前选项卡的模型分类（实例所属分类，也是请求路径参数）
     const serviceType = activeServiceType.value
+    // 表单里选择的模型分类：编辑态可改（跨分类迁移）；新增态与 Tab 一致
+    const targetServiceType = payload.serviceType || serviceType
 
     const instanceData: InstanceConfig = {
       name: payload.name,
@@ -550,16 +848,33 @@ const handleSave = async () => {
       headers: payload.headers || {},
       tags: payload.tags || {},
       // v2.11.0: 供应商关联透传（0=解除；不传=不变）
-      providerId: payload.providerId
+      providerId: payload.providerId,
+      // 模型分类：仅在确实发生变化时下发，避免无谓触发后端迁移校验
+      ...(targetServiceType !== serviceType ? { serviceType: targetServiceType } : {})
     }
 
     if (isEdit.value) {
       const response = await updateServiceInstance(serviceType, editingId.value, instanceData)
       if (response.data?.success) {
-        delete instancesCache.value[serviceType]
-        clearCache(serviceType)
-        fetchServiceInstances(serviceType)
-        ElMessage.success(t('instance.messages.editSuccess'))
+        if (targetServiceType !== serviceType) {
+          // 跨分类迁移：实例已移到目标分类，两个分类的列表缓存都要失效
+          delete instancesCache.value[serviceType]
+          clearCache(serviceType)
+          delete instancesCache.value[targetServiceType]
+          clearCache(targetServiceType)
+          fetchServiceInstances(targetServiceType)
+          // 切到目标分类，让用户直接看到迁移后的实例
+          activeServiceType.value = targetServiceType
+          ElMessage.success(t('instance.serviceTypeChanged', {
+            from: serviceTypeLabel(serviceType),
+            to: serviceTypeLabel(targetServiceType)
+          }))
+        } else {
+          delete instancesCache.value[serviceType]
+          clearCache(serviceType)
+          fetchServiceInstances(serviceType)
+          ElMessage.success(t('instance.messages.editSuccess'))
+        }
       } else {
         ElMessage.error(response.data?.message || t('instance.messages.editFailed'))
         saveLoading.value = false
@@ -722,6 +1037,8 @@ onMounted(() => {
   fetchAdapters()
   fetchGlobalConfig()
   fetchProviderOptions()
+  fetchCircuitStates()
+  fetchPools()
 })
 </script>
 
@@ -750,6 +1067,22 @@ onMounted(() => {
 
 .refresh-button {
   color: var(--ja-text-secondary);
+}
+
+/* 批量操作条：选中后浮现，靠右对齐 */
+.batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--ja-bg-subtle, rgb(0 0 0 / 3%));
+}
+.batch-bar__count {
+  font-size: 13px;
+  color: var(--ja-text-secondary);
+  white-space: nowrap;
 }
 
 /* tabs & table area */
@@ -793,9 +1126,23 @@ onMounted(() => {
   background-color: var(--el-fill-color-light);
 }
 
+.status-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .table-tag {
   font-size: 13px;
   padding: 6px 10px;
+}
+
+/* 删除确认：多行文案（影响面提示）需保留换行 */
+:global(.instance-delete-confirm .el-message-box__message) {
+  white-space: pre-wrap;
+  line-height: 1.7;
 }
 
 .ellipsis {
@@ -813,6 +1160,12 @@ onMounted(() => {
   align-items: center;
 }
 
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+}
+
 .table-footer {
   display: flex;
   justify-content: space-between;
@@ -828,11 +1181,6 @@ onMounted(() => {
 }
 
 /* dialog */
-.status-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
 .health-dot {
   width: 8px;
   height: 8px;
@@ -844,6 +1192,10 @@ onMounted(() => {
 }
 .health-dot.is-off {
   background: var(--ja-dot-off, #909399);
+}
+.health-dot.is-unknown {
+  background: transparent;
+  border: 1px solid var(--ja-text-placeholder, #c0c4cc);
 }
 .instance-dialog :deep(.el-dialog__header) {
   background-color: var(--el-fill-color-light);

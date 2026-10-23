@@ -148,6 +148,68 @@ public class QuotaEnforcementService {
     }
 
     /**
+     * N-2: 账本未启用时的日 Token 配额请求前预估兜底判定.
+     *
+     * <p>账本关闭({@code jairouter.quota.enabled=false},默认)时,主链路退化为
+     * 「认证时按历史 {@code dailyTokenUsage} 校验 + 响应后入账」——单次请求的消耗
+     * 在放行时点尚不可知,一次大请求即可把当日额度撑爆(实测:limit=224/已用 214,
+     * 本次消耗 154 仍放行,累计 368 超限 65%,仅下一次才被拒)。</p>
+     *
+     * <p>本方法在请求转发前按 {@link QuotaTokenEstimator#estimateUpperBound(Object)}
+     * （prompt 估算 + {@code max_tokens} 输出上限）判定:
+     * {@code 当日已用 + 本次估算 > dailyTokenLimit} 即 429。不触碰账本、不创建预留,
+     * 与启用态判定结果形态一致({@link QuotaLimitViolation} + Retry-After 到日窗口重置)。</p>
+     *
+     * <p>只覆盖 Token 维度:请求数({@code dailyRequestLimit})由认证链路实时判定,
+     * 每分钟限流由 {@code RateLimitManager} 实时判定,均无「事后入账」时延;
+     * N-6 修复后被拒请求也不再计入当日用量,请求数口径已闭合。</p>
+     *
+     * @param apiKeyId   API Key ID
+     * @param requestDto 原始请求 DTO（用于估算上限），可为 {@code null}
+     * @return 超限结果；放行时为 {@link Optional#empty()}
+     */
+    public Optional<QuotaLimitViolation> checkEstimatedTokenQuota(final String apiKeyId,
+                                                                  final Object requestDto) {
+        if (apiKeyId == null || apiKeyId.isEmpty()) {
+            return Optional.empty();
+        }
+        final long estimatedUpperBound = QuotaTokenEstimator.estimateUpperBound(requestDto);
+        if (estimatedUpperBound <= 0L) {
+            // 无估算信息(非 chat DTO / 空 messages / 无 max_tokens):无法预判,放行
+            return Optional.empty();
+        }
+        try {
+            final ApiKey apiKey = resolveApiKey(apiKeyId);
+            if (apiKey == null || apiKey.getDailyTokenLimit() <= 0L) {
+                return Optional.empty();
+            }
+            final String today = LocalDateTime.now(clock).toLocalDate().toString();
+            long todayUsed = 0L;
+            if (apiKey.getUsage() != null && apiKey.getUsage().getDailyTokenUsage() != null) {
+                final Long used = apiKey.getUsage().getDailyTokenUsage().get(today);
+                todayUsed = used != null ? used : 0L;
+            }
+            if (todayUsed + estimatedUpperBound > apiKey.getDailyTokenLimit()) {
+                final LocalDateTime now = LocalDateTime.now(clock);
+                final LocalDateTime nextDay = QuotaWindow.DAY.windowStart(now).plusDays(1L);
+                final long millis = Math.max(0L, Duration.between(now, nextDay).toMillis());
+                final long retryAfter = Math.max(1L, (millis + 999L) / 1000L);
+                log.warn("N-2 预估 Token 配额超限，拒绝请求: apiKeyId={}, used={}, estimated={}, limit={}",
+                        apiKeyId, todayUsed, estimatedUpperBound, apiKey.getDailyTokenLimit());
+                return Optional.of(new QuotaLimitViolation(
+                        QuotaLimitViolation.METRIC_DAILY_TOKENS,
+                        QuotaWindow.DAY,
+                        apiKey.getDailyTokenLimit(),
+                        todayUsed,
+                        retryAfter));
+            }
+        } catch (Exception e) {
+            log.warn("N-2 Token 配额预估校验异常，按放行处理: apiKeyId={}, error={}", apiKeyId, e.toString());
+        }
+        return Optional.empty();
+    }
+
+    /**
      * 判定并在放行时完成预留（判定 + 记账 + 挂载结算凭据）。
      *
      * <p>返回空表示“放行且已完成预留”（或账本未启用 / 判定异常降级放行）；返回超限结果表示

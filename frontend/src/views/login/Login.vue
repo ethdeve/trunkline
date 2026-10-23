@@ -43,8 +43,8 @@ function switchLocale() {
   <div class="login-page">
     <el-card class="login-card" shadow="always">
       <div class="login-brand">
-        <el-icon :size="28" color="var(--ja-primary)"><Cpu /></el-icon>
-        <h1>JAiRouter 控制台</h1>
+        <img src="/brand-mark.svg" alt="Trunkline" class="brand-mark" />
+        <h1>Trunkline 控制台</h1>
         <p>统一接入 · 路由调度 · 用量观测</p>
       </div>
 
@@ -78,7 +78,7 @@ function switchLocale() {
       </el-form>
 
       <div class="login-footer">
-        <el-link type="info" :underline="false" @click="switchLocale">
+        <el-link type="info" underline="never" @click="switchLocale">
           {{ locale === 'zh-CN' ? 'English' : '中文' }}
         </el-link>
       </div>
@@ -103,6 +103,11 @@ function switchLocale() {
 .login-brand {
   text-align: center;
   margin-bottom: 24px;
+}
+.login-brand .brand-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
 }
 .login-brand h1 {
   margin: 8px 0 4px;

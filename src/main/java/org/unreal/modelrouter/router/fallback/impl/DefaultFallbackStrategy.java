@@ -21,9 +21,13 @@ public class DefaultFallbackStrategy implements FallbackStrategy<ResponseEntity<
     public ResponseEntity<?> fallback(final Exception cause) {
         logger.warn("Service {} fallback triggered due to: {}", serviceType, cause.getMessage());
 
-        // 返回降级响应
+        // P2-10: 降级响应改 OpenAI error 包裹形态的 JSON,带 serviceType 与 Retry-After,
+        // 替换原纯文本 body(客户端/运维无法程序化识别降级原因)
         return ResponseEntity.status(503)
                 .header("Content-Type", "application/json")
-                .body("Service is currently degraded, please try again later");
+                .header("Retry-After", "60")
+                .body("{\"error\":{\"message\":\"Service is currently degraded, please try again later\","
+                        + "\"type\":\"service_unavailable\",\"code\":\"SERVICE_DEGRADED\","
+                        + "\"service\":\"" + serviceType + "\"}}");
     }
 }

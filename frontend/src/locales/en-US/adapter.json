@@ -1,6 +1,7 @@
 {
   "adapter": {
     "management": "Adapter Management",
+    "emptyText": "No custom adapters yet. Common protocol adapters are built in; add one only when you need to integrate a special protocol.",
     "detailTitle": "Adapter Details",
     "newAdapter": "New Adapter",
     "editAdapter": "Edit Adapter",

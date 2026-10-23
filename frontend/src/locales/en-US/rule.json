@@ -2,6 +2,7 @@
   "rule": {
     "pageTitle": "Routing Rules",
     "refreshTooltip": "Refresh list & hit statistics",
+    "emptyText": "No routing rules yet. Rules decide which request goes to which model. Without rules, default routing applies.",
     "createFromTemplate": "Create from Template",
     "addRule": "New Rule",
     "editRule": "Edit Rule",
@@ -34,7 +35,7 @@
     "saveFailed": "Save failed, please check the conditions and action",
     "conditionsAnd": " and ",
     "conditionType": {
-      "SERVICE_TYPE": "Service Type",
+      "SERVICE_TYPE": "Model Category",
       "MODEL_NAME": "Model Name",
       "HEADER": "Request Header",
       "CLIENT_IP": "Source IP",
@@ -51,7 +52,7 @@
       "TARGET_MODEL": "Rewrite Model",
       "TARGET_INSTANCE": "Lock Instance",
       "TARGET_ADAPTER": "Switch Adapter",
-      "LB_STRATEGY": "LB Strategy",
+      "LB_STRATEGY": "Traffic Splitting",
       "TARGET_TAGS": "Tag Routing"
     },
     "form": {
@@ -81,7 +82,7 @@
         "TARGET_MODEL": "Rewrite Model Name",
         "TARGET_INSTANCE": "Lock Instance",
         "TARGET_ADAPTER": "Switch Adapter",
-        "LB_STRATEGY": "LB Strategy",
+        "LB_STRATEGY": "Traffic Splitting",
         "RATE_LIMIT": "Rate Limit",
         "TARGET_TAGS": "Tag Routing"
       },
@@ -89,7 +90,7 @@
         "TARGET_MODEL": "The model name after rewrite",
         "TARGET_INSTANCE": "Target instance name",
         "TARGET_ADAPTER": "The adapter to switch to",
-        "LB_STRATEGY": "Load balancing strategy",
+        "LB_STRATEGY": "How traffic is split across instances",
         "RATE_LIMIT": "Rate limit per rule (capacity/rate required)",
         "TARGET_TAGS": "Select instances by tags (AND)"
       }
@@ -115,7 +116,7 @@
     },
     "test": {
       "title": "Rule Simulation Test (dry-run)",
-      "serviceType": "Service Type",
+      "serviceType": "Model Category",
       "modelName": "Model Name",
       "modelNamePlaceholder": "e.g. gpt-4",
       "clientIp": "Source IP",

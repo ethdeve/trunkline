@@ -135,6 +135,28 @@ public class ServiceStateManager {
     }
 
     /**
+     * 清理指定实例在指定服务类型下的健康状态记录。
+     * <p>实例跨服务类型迁移时调用：健康位图的键是 {@code serviceType + ":" + instanceId}，
+     * 迁移后旧前缀下的记录是孤儿（永远不会再被读到，且会持续占用 BitSet 位），
+     * 必须显式清除，避免内存泄漏与「同一实例两个健康态」的歧义。</p>
+     *
+     * @param serviceType  原服务类型
+     * @param instanceId   实例唯一 ID
+     * @since 2026-10-22
+     */
+    public void removeInstanceHealthStatus(final String serviceType, final String instanceId) {
+        if (serviceType == null || instanceId == null || instanceId.isBlank()) {
+            return;
+        }
+        final String instanceKey = serviceType + ":" + instanceId;
+        final Boolean removed = instanceHealthStatus.remove(instanceKey);
+        instanceHealthBits.removeInstance(instanceKey);
+        if (removed != null) {
+            log.info("已清理实例健康状态记录: {}", instanceKey);
+        }
+    }
+
+    /**
      * 获取所有服务的健康状态
      */
     public Map<String, Boolean> getAllServiceHealthStatus() {

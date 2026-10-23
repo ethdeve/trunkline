@@ -72,7 +72,7 @@ public class ServiceTypeInstanceController {
      * 更新指定服务类型的实例配置（通过数据库ID）
      * @param serviceType 服务类型
      * @param instanceId 实例数据库ID
-     * @param request 实例配置请求
+     * @param request 实例配置请求（可带 serviceType 表示迁移到目标模型分类）
      * @return 更新后的实例配置
      */
     @PutMapping("/{serviceType}/{instanceId}")
@@ -82,7 +82,7 @@ public class ServiceTypeInstanceController {
             @RequestBody final CreateServiceInstanceRequest request) {
         log.info("Updating instance: serviceType={}, instanceId={}", serviceType, instanceId);
 
-        // 直接通过数据库ID更新实例
+        // 直接通过数据库ID更新实例（serviceType 字段若携带则触发跨模型分类迁移，由 Manager 做级联与校验）
         ServiceInstanceDTO updated = serviceInstanceManager.updateInstance(instanceId, request);
 
         return ResponseEntity.ok(RouterResponse.success(updated, "实例配置更新成功"));

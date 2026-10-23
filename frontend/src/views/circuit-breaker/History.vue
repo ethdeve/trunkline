@@ -27,7 +27,7 @@
       <el-table-column prop="instanceName" :label="t('circuitBreaker.history.columns.instanceName')" min-width="120" show-overflow-tooltip />
       <el-table-column prop="serviceType" :label="t('circuitBreaker.history.columns.serviceType')" min-width="80">
         <template #default="{ row }">
-          <el-tag size="small">{{ row.serviceType || '-' }}</el-tag>
+          <el-tag size="small">{{ getServiceTypeDisplay(row.serviceType) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column :label="t('circuitBreaker.history.columns.stateTransition')" min-width="150">
@@ -68,6 +68,14 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
 import { formatDateTime as formatDateTimeBase } from '@/utils/format'
 import PageSkeleton from '@/components/PageSkeleton.vue'
+import { getServiceTypeLabel, normalizeServiceType } from '@/constants/serviceTypes'
+
+// 「模型分类」列友好显示：大小写无关归一化，空值/未登记值原样兜底
+const getServiceTypeDisplay = (value?: string) => {
+  if (!value) return '-'
+  const st = normalizeServiceType(value)
+  return st ? getServiceTypeLabel(st) : value
+}
 
 interface HistoryRecord {
   id: number

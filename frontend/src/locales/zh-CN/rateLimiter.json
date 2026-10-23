@@ -4,7 +4,7 @@
       "pageTitle": "限流器监控",
       "totalLimiters": "限流器总数",
       "globalLimiters": "全局限流",
-      "serviceLimiters": "服务限流",
+      "serviceLimiters": "分类限流",
       "instanceLimiters": "实例限流",
       "averageUsage": "平均使用率",
       "highUsage": "高使用率(>80%)",
@@ -14,11 +14,11 @@
       "algorithmPlaceholder": "算法",
       "scopeOptions": {
         "global": "全局",
-        "service": "服务",
-        "instance": "实例"
+        "service": "按分类",
+        "instance": "按实例"
       },
       "columns": {
-        "service": "服务",
+        "service": "模型分类",
         "scope": "作用域",
         "identifier": "标识符",
         "algorithm": "算法",
@@ -31,10 +31,20 @@
       "collectionInterval": "采集间隔: {interval}",
       "prometheus": {
         "metricsCount": "指标数量",
-        "availableMetrics": "可用指标"
+        "availableMetrics": "可用指标",
+        "hintEvents": "限流事件总数：按 模型分类(service)、限流算法(algorithm)、结果(result：pass 通过 / limit 被限流) 维度累计",
+        "hintRemaining": "当前剩余可用配额：按 模型分类(service)、作用域(scope)、限流算法(algorithm) 维度",
+        "hintUsage": "配额使用率（0~1，越接近 1 表示越接近被限流）",
+        "labelDictionary": "指标标签含义：service = 模型分类；scope = 作用域（global 全局 / service 按分类 / instance 按实例）；algorithm = 限流算法；result = 本次调用结果"
       },
       "messages": {
         "loadFailed": "加载限流器指标失败"
+      },
+      "algorithms": {
+        "TOKEN_BUCKET": "令牌桶",
+        "LEAKY_BUCKET": "漏桶",
+        "SLIDING_WINDOW": "滑动窗口",
+        "WARM_UP": "预热"
       }
     }
   }

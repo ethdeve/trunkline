@@ -1,0 +1,23 @@
+{
+  "settings": {
+    "tabs": {
+      "access": "Accounts & Permissions",
+      "modelConfig": "Model Config",
+      "auditVersions": "Audit & Versions",
+      "monitoring": "Monitoring"
+    },
+    "subTabs": {
+      "accounts": "Accounts",
+      "permissions": "Permissions",
+      "providerTemplates": "Provider Templates",
+      "modelCategories": "Model Categories",
+      "protocolAdapters": "Model Adapters",
+      "audit": "Audit Log",
+      "versions": "Config Versions",
+      "persistence": "State Persistence"
+    },
+    "monitoring": {
+      "persistenceAlert": "One-time deployment decision: the persistence medium (redis / h2 / file) does not need to change after installation"
+    }
+  }
+}

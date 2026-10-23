@@ -58,7 +58,7 @@
     "weight": "权重",
     "health": "健康",
     "unhealthyStatus": "异常",
-    "serviceType": "服务类型",
+    "serviceType": "模型分类",
     "serviceConfigLoaded": "服务配置加载成功",
     "fetchConfigFailed": "获取服务配置失败: {message}",
     "fetchConfigError": "获取服务配置异常: {message}",

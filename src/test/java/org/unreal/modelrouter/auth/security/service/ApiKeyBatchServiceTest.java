@@ -54,12 +54,41 @@ class ApiKeyBatchServiceTest {
         // Use reflection to inject mocks
         injectField(batchService, "extendedAuditService", extendedAuditService);
         injectField(batchService, "persistenceService", persistenceService);
+        // 2026-10-24: 注入白名单校验器（catalog 为空 → 无法判定分类 → 全部放行，
+        // 与「无实例目录」的生产场景行为一致，不干扰本用例的导入断言）
+        injectField(batchService, "whitelistValidator", new ApiKeyWhitelistValidator(nullCatalogProvider()));
 
         apiKeyCache = new ConcurrentHashMap<>();
         keyIdIndex = new ConcurrentHashMap<>();
 
         lenient().when(extendedAuditService.auditSecurityEvent(any(), any(), any(), any()))
                 .thenReturn(reactor.core.publisher.Mono.empty());
+    }
+
+    /** 空 catalog 的 ObjectProvider：查不到任何名字 → 校验器一律放行 */
+    private static org.springframework.beans.factory.ObjectProvider<
+            org.unreal.modelrouter.common.api.config.ServiceTypeCatalogApi> nullCatalogProvider() {
+        return new org.springframework.beans.factory.ObjectProvider<>() {
+            @Override
+            public org.unreal.modelrouter.common.api.config.ServiceTypeCatalogApi getObject() {
+                return null;
+            }
+
+            @Override
+            public org.unreal.modelrouter.common.api.config.ServiceTypeCatalogApi getObject(final Object... args) {
+                return null;
+            }
+
+            @Override
+            public org.unreal.modelrouter.common.api.config.ServiceTypeCatalogApi getIfAvailable() {
+                return null;
+            }
+
+            @Override
+            public org.unreal.modelrouter.common.api.config.ServiceTypeCatalogApi getIfUnique() {
+                return null;
+            }
+        };
     }
 
     @Nested

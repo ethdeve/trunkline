@@ -3,11 +3,20 @@
     "title": "API密钥管理",
     "quotaAlertsTitle": "配额告警",
     "noQuotaAlerts": "当前无配额告警",
+    "quotaAlertsActions": {
+      "adjust": "调高限额",
+      "reset": "重置用量",
+      "resetConfirm": "确定要清零该密钥今天的用量吗？清零后告警会消失，额度本身不变。",
+      "keyNotFound": "未在列表中找到该密钥，可能已被删除"
+    },
     "refresh": "刷新",
     "exportConfig": "导出配置",
     "importConfig": "导入配置",
     "createApiKey": "创建API密钥",
     "gotoQuotaMonitoring": "配额用量监控",
+    "searchPlaceholder": "搜索名称 / 密钥ID",
+    "listCount": "共 {count} 个密钥",
+    "detailDrawerTitle": "密钥详情",
     "quota": "配额",
     "quotaDrawerTitle": "配额管理",
     "quotaPresets": {
@@ -38,6 +47,7 @@
     "importConfigTitle": "导入API密钥配置",
     "importResultTitle": "导入结果",
     "neverExpires": "永不过期",
+    "quotaUnlimited": "不限",
     "permanent": "永久",
     "expired": "已过期",
     "yes": "是",
@@ -59,6 +69,8 @@
       "remainingDays": "剩余天数",
       "usage": "使用统计",
       "todayToken": "今日Token",
+      "todayRequest": "今日请求",
+      "quota": "额度",
       "alertStatus": "告警状态",
       "status": "状态",
       "actions": "操作",
@@ -72,7 +84,9 @@
     },
     "status": {
       "alert": "告警",
-      "normal": "正常"
+      "normal": "正常",
+      "enabled": "已启用",
+      "disabled": "已禁用"
     },
     "remainingDaysText": {
       "permanent": "永久",
@@ -88,8 +102,13 @@
     "form": {
       "keyId": "密钥ID",
       "description": "描述",
+      "descriptionRequired": "请填写密钥用途描述",
       "expiresAt": "过期时间",
-      "permissions": "权限",
+      "expiresAtHint": "默认 90 天后过期，可改或清空为永不过期",
+      "permissions": "可调用的模型分类",
+      "permissionsHint": "决定该密钥能调用哪些接口分类（如 /v1/chat/completions 属于聊天模型）。必须与要访问的模型分组分类一致，否则调用会被拒绝。默认勾选「聊天模型」",
+      "quotaPresetHint": "点击预设一键填入下方限额（0 = 不限），仍可手动微调",
+      "advancedTitle": "高级选项",
       "ipWhitelist": "IP白名单",
       "dailyRequestLimit": "每日请求上限",
       "dailyTokenLimit": "每日Token上限",
@@ -107,13 +126,31 @@
       "allowedGroups": "可访问模型分组",
       "allowedGroupsPlaceholder": "留空则不限制分组",
       "allowedGroupsHint": "限制此密钥仅可调用所选模型分组（pool），留空表示不额外限制分组",
+      "permissionsMismatch": "所选模型分组属于「{categories}」分类，但上方「可调用的模型分类」未勾选对应项，调用时会返回 403 拒绝。请补勾对应分类。",
       "zeroMeansUnlimited": "0 表示不限制",
       "zeroMeansUnlimitedPlaceholder": "0表示不限制",
       "rotationPeriodPlaceholder": "0表示不自动轮换",
       "tokenLimitHint": "每日 Token 使用量上限，0 表示不限制",
       "rateLimitHint": "每分钟请求速率上限，0 表示不限制",
       "thresholdHint": "配额使用达到此比例时触发告警",
-      "rotationPeriodHint": "设置密钥自动轮换周期（天数），0 表示不自动轮换"
+      "rotationPeriodHint": "设置密钥自动轮换周期（天数），0 表示不自动轮换",
+      "allowedModelsScopeHint": "仅显示与已勾选权限分类一致的模型；取消权限分类后已选项会被标注为不匹配",
+      "allowedGroupsScopeHint": "仅显示与已勾选权限分类一致的模型分组",
+      "mismatchedTag": "分类不匹配",
+      "whitelistDisabledHint": "请先勾选「可调用的模型分类」：权限为空时该密钥无法调用任何接口，白名单也不生效",
+      "permissionsMismatchScope": "所选模型/分组属于「{categories}」分类，但上方「可调用的模型分类」未勾选对应项，调用时会返回 403 拒绝。请补勾对应分类，或从白名单中移除它们。",
+      "gatesAlertTitle": "密钥按「三道闸门」控制调用",
+      "gate1Desc": "闸门① 模型分类（必选）：勾选了哪个分类，密钥才能调用对应接口；一个都不勾 = 无法调用任何接口",
+      "gate2Desc": "闸门② 模型白名单（选填）：限定分类内可调用的具体模型/分组；留空 = 该分类下全部放行",
+      "gate3Desc": "闸门③ 安全护栏（选填）：有效期、IP 白名单、配额限流，兜底防护",
+      "advancedMode": "高级模式",
+      "advancedHint": "填好描述和模型分类即可正常使用；白名单、有效期、IP / 配额等细粒度控制在高级模式",
+      "permissionsGate": "① 可调用的模型分类",
+      "allowedModelsGate": "② 可访问模型",
+      "allowedGroupsGate": "② 可访问模型分组",
+      "expiresAtGate": "③ 过期时间",
+      "ipWhitelistGate": "③ IP 白名单",
+      "quotaPresetGate": "③ 配额快捷设置"
     },
     "permissions": {
       "chat": "聊天模型",
@@ -136,6 +173,7 @@
       "reset": "重置",
       "quotaReset": "配额重置",
       "quotaResetTooltip": "重置每日配额计数器",
+      "detail": "详情",
       "delete": "删除",
       "copy": "复制",
       "save": "保存",
@@ -146,7 +184,10 @@
     "keyValueDialog": {
       "tip": "请妥善保存以下密钥值，密钥值仅此一次显示：",
       "important": "重要提醒",
-      "warning": "密钥值只会显示一次，关闭弹窗后无法再次获取！如果丢失，请使用重置功能生成新密钥。"
+      "warning": "密钥值只会显示一次，关闭弹窗后无法再次获取！如果丢失，请使用重置功能生成新密钥。",
+      "copyBig": "一键复制密钥值",
+      "curlTitle": "调用示例（可直接复制）",
+      "tryPlayground": "去测试场试一下"
     },
     "import": {
       "guideTitle": "导入说明",
@@ -172,6 +213,8 @@
     "confirmations": {
       "deleteTitle": "删除确认",
       "deleteMessage": "确定要删除API密钥 {keyId} 吗？此操作不可恢复。",
+      "deleteImpact": "该密钥正在被应用调用的话，删除后这些应用会立刻收到 401 鉴权失败。",
+      "deleteRemedy": "删错了可以重新创建一个新密钥；旧密钥值无法找回，需要同步更新到所有使用方。",
       "confirmDelete": "确定删除",
       "resetTitle": "重置确认",
       "resetMessage": "确定要重置API密钥 {keyId} 吗？旧的密钥值将立即失效，新的密钥值仅显示一次。",
@@ -199,6 +242,7 @@
       "createFailedDetail": "创建失败: {message}",
       "keyCopied": "密钥值已复制到剪贴板",
       "copyFailed": "复制失败，请手动复制",
+      "curlCopied": "调用示例已复制到剪贴板",
       "importBadFormat": "文件格式不正确",
       "importParseFailed": "解析JSON文件失败",
       "importSelectFile": "请先选择要导入的配置文件",
@@ -208,7 +252,30 @@
       "exportFailedDetail": "导出失败: {message}",
       "enabledDetail": "API密钥 {keyId} 已启用",
       "disabledDetail": "API密钥 {keyId} 已禁用",
-      "statusChangeFailed": "状态变更失败"
-    }
+      "statusChangeFailed": "状态变更失败",
+      "whitelistMismatchBlocked": "保存失败：以下模型/分组所属分类未被权限覆盖 —— {detail}。请为对应分类补勾权限，或从白名单中移除它们。"
+    },
+    "batch": {
+      "selected": "已选 {count} 个",
+      "enable": "批量启用",
+      "disable": "批量停用",
+      "delete": "批量删除",
+      "clear": "取消选择",
+      "resultAllOk": "已{action} {count} 个密钥",
+      "resultPartial": "{action}完成 {ok} 个，失败 {fail} 个",
+      "deleteTitle": "批量删除密钥",
+      "deleteTarget": "即将删除 {count} 个密钥",
+      "deleteImpact": "影响范围：{count} 个密钥将立即失效，正在使用这些密钥的调用会返回 401",
+      "deleteRemedy": "如何补救：删除后无法恢复，只能重新签发新密钥并替换到调用方",
+      "confirmDelete": "确认批量删除",
+      "deleteSuccess": "已删除 {count} 个密钥",
+      "deletePartial": "删除完成 {ok} 个，失败 {fail} 个"
+    },
+    "exportEmpty": "当前没有可导出的密钥",
+    "exportSuccess": "已导出 {count} 个密钥",
+    "exportColumnStatus": "状态",
+    "exportColumnQuota": "配额",
+    "exportCsv": "导出 CSV",
+    "exportColumnPermissions": "权限范围"
   }
 }

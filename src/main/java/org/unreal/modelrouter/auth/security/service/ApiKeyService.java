@@ -31,8 +31,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -54,6 +57,8 @@ public class ApiKeyService {
     @Autowired private ApiKeyBatchService apiKeyBatchService;
     @Autowired private ApiKeyPersistenceService apiKeyPersistenceService;
     @Autowired private ApplicationEventPublisher eventPublisher;
+    /** 白名单与权限分类一致性校验器（2026-10-24 新增） */
+    @Autowired private ApiKeyWhitelistValidator apiKeyWhitelistValidator;
 
     @Autowired
     public ApiKeyService(@Qualifier("jpaStoreManager") StoreManager sm,
@@ -97,6 +102,8 @@ public class ApiKeyService {
             String kv = ApiKey.generateApiKey("sk-", 32);
             String kh = ApiKeyHashUtil.hashApiKey(kv);
             List<String> validatedPermissions = validatePermissions(req.getPermissions());
+            // 白名单与权限分类一致性校验（防止配出「永远调不通」的密钥）
+            apiKeyWhitelistValidator.validate(validatedPermissions, req.getAllowedModels(), req.getAllowedGroups());
             ApiKey ak = ApiKey.builder().keyId(kid).keyHash(kh).keyPrefix("sk-").description(req.getDescription())
                 .permissions(validatedPermissions)
                 .allowedModels(req.getAllowedModels()).allowedGroups(req.getAllowedGroups())
@@ -131,15 +138,31 @@ public class ApiKeyService {
     public Mono<ApiKeyVO> updateApiKey(String kid, ApiKeyUpdateRequest req) {
         return Mono.fromCallable(() -> {
             String kh = keyIdIndex.get(kid);
-            if (kh == null) throw new IllegalArgumentException("API Key不存在: " + kid);
+            if (kh == null) throw new ApiKeyNotFoundException("API Key不存在: " + kid);
             ApiKey ak = apiKeyCache.get(kh);
-            if (ak == null) throw new IllegalArgumentException("API Key缓存不一致: " + kid);
+            if (ak == null) throw new ApiKeyNotFoundException("API Key缓存不一致: " + kid);
+
+            // 2026-10-24：白名单与权限分类一致性校验。
+            // 只拦截「本次改动新引入的」不一致项 —— 存量数据里已有的不一致
+            // （历史遗留）不阻塞其它字段的编辑，避免存量密钥变成不可编辑的死数据。
+            final List<String> oldPermissions = ak.getPermissions();
+            final List<String> oldModels = ak.getAllowedModels();
+            final List<String> oldGroups = ak.getAllowedGroups();
+            final List<String> newPermissions = req.getPermissions() != null
+                    ? validatePermissions(req.getPermissions()) : oldPermissions;
+            final List<String> newModels = req.getAllowedModels() != null
+                    ? req.getAllowedModels() : oldModels;
+            final List<String> newGroups = req.getAllowedGroups() != null
+                    ? req.getAllowedGroups() : oldGroups;
+            validateWhitelistDelta(oldPermissions, oldModels, oldGroups,
+                    newPermissions, newModels, newGroups);
+
             if (req.getDescription() != null) ak.setDescription(req.getDescription());
             if (req.getEnabled() != null) ak.setEnabled(req.getEnabled());
             if (req.getExpiresAt() != null) ak.setExpiresAt(req.getExpiresAt());
-            if (req.getPermissions() != null) ak.setPermissions(validatePermissions(req.getPermissions()));
-            if (req.getAllowedModels() != null) ak.setAllowedModels(req.getAllowedModels());
-            if (req.getAllowedGroups() != null) ak.setAllowedGroups(req.getAllowedGroups());
+            if (req.getPermissions() != null) ak.setPermissions(newPermissions);
+            if (req.getAllowedModels() != null) ak.setAllowedModels(newModels);
+            if (req.getAllowedGroups() != null) ak.setAllowedGroups(newGroups);
             if (req.getAllowedIpAddresses() != null) ak.setAllowedIpAddresses(req.getAllowedIpAddresses());
             if (req.getDailyRequestLimit() != null) ak.setDailyRequestLimit(req.getDailyRequestLimit());
             if (req.getRotationPeriodDays() != null) ak.setRotationPeriodDays(req.getRotationPeriodDays());
@@ -330,10 +353,6 @@ public class ApiKeyService {
                     .build());
         }
         UsageStatistics st = ak.getUsage(); st.incrementRequest(succ);
-        String td = LocalDateTime.now().toLocalDate().toString();
-        Map<String, Long> du = st.getDailyUsage();
-        if (du == null) { du = new HashMap<>(); st.setDailyUsage(du); }
-        du.put(td, du.getOrDefault(td, 0L) + 1);
         apiKeyPersistenceService.saveApiKeysToStore(apiKeyCache);
         log.debug("更新API Key使用统计: {} (成功: {})", kid, succ);
     }
@@ -403,8 +422,9 @@ public class ApiKeyService {
 
     private ApiKeyVO convertToVO(ApiKey ak) {
         ApiKeyVO vo = ApiKeyVO.builder().keyId(ak.getKeyId()).description(ak.getDescription())
-            .permissions(ak.getPermissions())
+            .permissions(normalizeStoredPermissions(ak.getPermissions()))
             .allowedModels(ak.getAllowedModels()).allowedGroups(ak.getAllowedGroups())
+            .allowedIpAddresses(ak.getAllowedIpAddresses())
             .enabled(ak.isEnabled()).expired(ak.isExpired())
             .createdAt(ak.getCreatedAt()).createdBy(ak.getCreatedBy()).creatorIpAddress(ak.getCreatorIpAddress())
             .rotationPeriodDays(ak.getRotationPeriodDays()).lastRotatedAt(ak.getLastRotatedAt())
@@ -425,6 +445,82 @@ public class ApiKeyService {
         }
         vo.calculateRemainingDays();
         return vo;
+    }
+
+    /**
+     * 更新路径的白名单一致性校验（差异比对版）。
+     *
+     * <p><b>为什么不用绝对校验：</b>存量密钥里可能已经存在「权限与白名单分类不一致」
+     * 的历史数据（本次校验上线前允许这么配）。若用绝对校验，这些密钥将完全无法编辑
+     * （改个描述都会被拒），变成死数据。因此这里只拦截<b>本次改动新引入的</b>
+     * 不一致项：</p>
+     * <ul>
+     *   <li>新加的白名单项，分类不被新权限覆盖 → 拒绝</li>
+     *   <li>收窄权限导致原本一致的白名单项变得不一致 → 拒绝</li>
+     *   <li>本来就存在的不一致项（本次未触碰）→ 放行，允许用户逐步清理</li>
+     * </ul>
+     *
+     * @param oldPermissions 变更前权限
+     * @param oldModels      变更前模型白名单
+     * @param oldGroups      变更前分组白名单
+     * @param newPermissions 变更后权限
+     * @param newModels      变更后模型白名单
+     * @param newGroups      变更后分组白名单
+     */
+    private void validateWhitelistDelta(final List<String> oldPermissions,
+                                        final List<String> oldModels,
+                                        final List<String> oldGroups,
+                                        final List<String> newPermissions,
+                                        final List<String> newModels,
+                                        final List<String> newGroups) {
+        final Map<String, Set<String>> oldInvalid =
+                apiKeyWhitelistValidator.findInvalidByCategory(oldPermissions, oldModels, oldGroups);
+        final Map<String, Set<String>> newInvalid =
+                apiKeyWhitelistValidator.findInvalidByCategory(newPermissions, newModels, newGroups);
+        if (newInvalid.isEmpty()) {
+            return;
+        }
+        // 剔除「变更前就已不一致」的名字 → 只保留本次新引入的
+        final Map<String, Set<String>> introduced = new LinkedHashMap<>();
+        newInvalid.forEach((category, items) -> {
+            final Set<String> previouslyBad = oldInvalid.get(category);
+            final Set<String> fresh = new TreeSet<>();
+            for (final String item : items) {
+                if (previouslyBad == null || !previouslyBad.contains(item)) {
+                    fresh.add(item);
+                }
+            }
+            if (!fresh.isEmpty()) {
+                introduced.put(category, fresh);
+            }
+        });
+        if (introduced.isEmpty()) {
+            return;
+        }
+        throw new ApiKeyWhitelistMismatchException(
+                apiKeyWhitelistValidator.buildMessage(introduced, newPermissions));
+    }
+
+    /**
+     * 归一化已落库的权限列表（兼容历史小写值）。
+     *
+     * <p>历史版本 {@code validatePermissions} 用 {@code toLowerCase()} 归一化，
+     * 会把 {@code imgGen}/{@code imgEdit} 存成 {@code imggen}/{@code imgedit}，
+     * 导致前端 i18n 键匹配不到、复选框回显丢失。此处统一还原为枚举规范值。</p>
+     *
+     * @param permissions 已落库的权限列表
+     * @return 规范值权限列表（无法识别的值原样保留）
+     */
+    private List<String> normalizeStoredPermissions(final List<String> permissions) {
+        if (permissions == null || permissions.isEmpty()) {
+            return permissions;
+        }
+        final List<String> normalized = new ArrayList<>(permissions.size());
+        for (final String permission : permissions) {
+            final String canonical = ServiceTypeConstants.ServiceType.normalizeValue(permission);
+            normalized.add(canonical != null ? canonical : permission);
+        }
+        return normalized;
     }
 
     private List<ApiKey> loadApiKeysFromConfig() {
@@ -454,12 +550,17 @@ public class ApiKeyService {
                 continue;
             }
 
-            String trimmedPermission = permission.trim().toLowerCase();
+            String trimmedPermission = permission.trim();
 
             // 检查是否是有效的服务类型
-            if (ServiceTypeConstants.isValidServiceType(trimmedPermission)) {
-                validPermissions.add(trimmedPermission);
-            } else if (isLegacyPermission(trimmedPermission)) {
+            // 归一化到枚举规范值（chat/embedding/.../imgGen/imgEdit），
+            // 不能用 toLowerCase：imgGen/imgEdit 转小写后得到 imggen/imgedit，
+            // 与 ServiceTypeConstants 枚举 value 及前端 i18n 键都不一致，
+            // 会导致密钥列表把权限显示成原始值，且前端复选框回显匹配不到而被静默丢弃。
+            final String normalized = ServiceTypeConstants.ServiceType.normalizeValue(trimmedPermission);
+            if (normalized != null) {
+                validPermissions.add(normalized);
+            } else if (isLegacyPermission(trimmedPermission.toLowerCase())) {
                 // 处理旧权限格式，转换为全部服务类型权限
                 log.warn("检测到旧权限格式 '{}'，将自动转换为全部服务类型权限。"
                     + "请更新 API Key 权限配置为服务类型（chat, embedding, rerank, tts, stt, imgGen, imgEdit）",

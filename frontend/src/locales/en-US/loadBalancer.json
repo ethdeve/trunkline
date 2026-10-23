@@ -23,10 +23,10 @@
       "resume": "Resume",
       "pause": "Pause",
       "eventsTitle": "Real-Time Routing Events",
-      "selectServiceType": "Select Service Type",
+      "selectServiceType": "Select model category",
       "columns": {
         "time": "Time",
-        "serviceType": "Service Type",
+        "serviceType": "Model Category",
         "strategy": "Strategy",
         "selectedInstance": "Selected Instance",
         "clientId": "Client ID",
@@ -55,6 +55,7 @@
     "strategyConfig": {
       "pageTitle": "Load Balancer Strategy Configuration",
       "globalTitle": "Global Default Configuration",
+      "recommendation": "Not sure which to pick? Use \"random split\" - the system distributes requests across instances by weight and automatically skips failing ones.",
       "defaultStrategy": "Default Strategy",
       "selectStrategy": "Select a Strategy",
       "hashAlgorithm": "Hash Algorithm",
@@ -69,27 +70,27 @@
       "cancel": "Cancel",
       "save": "Save",
       "columns": {
-        "serviceType": "Service Type",
+        "serviceType": "Model Category",
         "strategy": "Strategy",
         "hashAlgorithm": "Hash Algorithm",
         "virtualNodes": "Virtual Nodes",
         "actions": "Actions"
       },
       "strategies": {
-        "random": "Random",
-        "roundRobin": "Round Robin",
-        "leastConnections": "Least Connections",
-        "ipHash": "IP Hash",
-        "consistentHash": "Consistent Hash",
-        "latency": "Latency-Aware"
+        "random": "Split Randomly",
+        "roundRobin": "Take Turns",
+        "leastConnections": "Prefer the Idle One",
+        "ipHash": "Pin Users to Instances",
+        "consistentHash": "Pin by Content",
+        "latency": "Prefer the Fastest"
       },
       "strategyDescriptions": {
-        "random": "Selects instances by weight at random, ideal for stateless request scenarios",
-        "roundRobin": "Selects instances by weight in rotation, suitable for evenly distributed load",
-        "leastConnections": "Selects the instance with the fewest active connections, ideal for long-lived connections",
-        "ipHash": "Selects an instance by hashing the client IP, suitable for session-affinity scenarios",
-        "consistentHash": "Selects an instance through a consistent hash ring, suitable for distributed caching",
-        "latency": "Dynamically selects the lowest-latency instance using EWMA-based latency estimates, ideal when backend latency varies significantly"
+        "random": "Picks an instance at random by weight; any instance may be used",
+        "roundRobin": "Takes instances in turn by weight; spreads load most evenly",
+        "leastConnections": "Uses whichever instance has the fewest active connections; good for long-lived connections",
+        "ipHash": "The same client IP always lands on the same instance; good for session affinity",
+        "consistentHash": "Pins instances by content hash; only a few requests shift when scaling",
+        "latency": "Automatically picks the fastest instance; good when instance speeds differ a lot"
       },
       "messages": {
         "loadFailed": "Failed to load service configurations",

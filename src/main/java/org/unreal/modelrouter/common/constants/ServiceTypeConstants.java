@@ -98,6 +98,28 @@ public final class ServiceTypeConstants {
             }
             return false;
         }
+
+        /**
+         * 大小写无关地归一化到枚举的规范值（value），无法识别时返回 null。
+         *
+         * <p>归一化到规范值而非小写：枚举 value 中 {@code imgGen}/{@code imgEdit} 为驼峰，
+         * 若统一转小写会得到 {@code imggen}/{@code imgedit}，与前端 i18n 键及枚举 value 不一致。</p>
+         *
+         * @param value 待归一化的字符串
+         * @return 规范值，无法识别时返回 null
+         */
+        public static String normalizeValue(final String value) {
+            if (value == null) {
+                return null;
+            }
+            final String trimmed = value.trim();
+            for (ServiceType type : values()) {
+                if (type.value.equalsIgnoreCase(trimmed)) {
+                    return type.value;
+                }
+            }
+            return null;
+        }
     }
 
     /**

@@ -58,7 +58,7 @@
     "weight": "Weight",
     "health": "Health",
     "unhealthyStatus": "Unhealthy",
-    "serviceType": "Service Type",
+    "serviceType": "Model Category",
     "serviceConfigLoaded": "Service configuration loaded successfully",
     "fetchConfigFailed": "Failed to load service config: {message}",
     "fetchConfigError": "Error loading service config: {message}",

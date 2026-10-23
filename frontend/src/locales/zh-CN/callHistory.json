@@ -11,8 +11,8 @@
       "endTime": "结束时间",
       "rangeSeparator": "至",
       "modelName": "模型名称",
-      "serviceType": "服务类型",
-      "provider": "提供商",
+      "serviceType": "模型分类",
+      "provider": "适配器",
       "httpStatus": "HTTP 状态",
       "httpStatusCode": "HTTP 状态码",
       "token": "Token",
@@ -39,14 +39,14 @@
         "totalTokenConsumed": "总 Token 消耗",
         "failedRequests": "失败请求数",
         "modelCount": "模型数量",
-        "serviceTypeCount": "服务类型数",
+        "serviceTypeCount": "模型分类数",
         "avgTokensPerRequest": "平均 Token / 请求"
       },
       "chart": {
         "countUnit": "次",
         "dailyTrendTitle": "每日请求趋势",
         "modelDistributionTitle": "模型调用分布 Top 10",
-        "serviceTypeDistributionTitle": "服务类型调用分布",
+        "serviceTypeDistributionTitle": "模型分类调用分布",
         "hourlyDistributionTitle": "24 小时请求分布",
         "statusCodeDistributionTitle": "HTTP 状态码分布",
         "errorCodeDistributionTitle": "错误码分布",
@@ -73,7 +73,7 @@
       "requestId": "请求 ID",
       "requestMethod": "请求方法",
       "requestPath": "请求路径",
-      "instanceName": "实例名称",
+      "instanceName": "模型名称",
       "responseTime": "响应时间",
       "errorCode": "错误码",
       "tokenStatsTitle": "Token 统计",
@@ -93,7 +93,29 @@
       "loadConfigFailed": "加载记录配置失败：{message}",
       "saveConfigFailed": "保存记录配置失败：{message}",
       "saveSuccess": "记录级别已更新",
-      "loadFailed": "加载调用历史失败：{message}"
+      "loadFailed": "加载调用历史失败：{message}",
+      "emptyFailedHint": "没有失败记录——你的调用可能全部成功了。把上方「状态」切换为「全部」即可查看所有调用记录。"
+    },
+    "failureExplain": {
+      "title": "为什么失败",
+      "circuitBroken": "该实例已熔断，暂时被摘除以保护后端",
+      "rateLimited": "调用过于频繁，触发了限流保护",
+      "dailyQuota": "今天的调用次数已用完",
+      "tokenQuota": "今天的 Token 额度已用完",
+      "throttled": "请求被限流拦截了",
+      "unauthorized": "密钥无效或已过期",
+      "forbidden": "该密钥没有调用这个模型的权限",
+      "notFound": "找不到这个模型或接口地址",
+      "upstreamError": "上游模型服务返回了错误",
+      "timeout": "请求超时，上游响应太慢",
+      "badRequest": "请求参数有问题",
+      "actions": {
+        "keys": "去密钥管理",
+        "rate": "去调限流",
+        "instances": "去查实例",
+        "circuit": "去看熔断",
+        "none": ""
+      }
     },
     "slowCalls": {
       "pageTitle": "慢调用分析",
@@ -117,11 +139,11 @@
         "totalRequests": "总请求数",
         "successRate": "成功率",
         "modelUsedCount": "使用模型数",
-        "serviceTypeCount": "服务类型数"
+        "serviceTypeCount": "模型分类数"
       },
       "chart": {
         "modelTokenTopTitle": "模型 Token 使用量 Top 10",
-        "serviceTypeTokenTitle": "服务类型 Token 使用量",
+        "serviceTypeTokenTitle": "各模型分类 Token 使用量",
         "dailyTrendTitle": "每日 Token 使用趋势",
         "weeklyTrendTitle": "每周 Token 使用趋势",
         "monthlyTrendTitle": "每月 Token 使用趋势",

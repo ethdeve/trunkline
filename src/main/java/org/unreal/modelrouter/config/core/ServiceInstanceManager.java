@@ -22,6 +22,7 @@ import org.unreal.modelrouter.persistence.jpa.repository.ServiceInstanceReposito
 import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 import org.unreal.modelrouter.router.circuitbreaker.CircuitBreakerManager;
 import org.unreal.modelrouter.common.util.SecurityUtils;
+import org.unreal.modelrouter.common.exception.ApiException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -50,6 +51,12 @@ public class ServiceInstanceManager {
     private final CircuitBreakerManager circuitBreakerManager;
     /** v2.11.0: 供应商层 —— 实例带 providerId 时从供应商带出地址/适配器/Key */
     private final ModelProviderRepository modelProviderRepository;
+    /** 2026-10-22: 跨模型分类迁移时清理旧分类下的健康状态记录（键含 serviceType 前缀） */
+    private final org.unreal.modelrouter.router.checker.ServiceStateManager serviceStateManager;
+    /** 2026-10-22: 跨模型分类迁移时清理旧分类下的实例限流桶（键含 serviceType 前缀） */
+    private final org.unreal.modelrouter.router.ratelimit.RateLimitManager rateLimitManager;
+    /** 2026-10-22: 迁移前检查实例是否被模型分组（池）引用 */
+    private final org.unreal.modelrouter.router.pool.PoolPersistenceService poolPersistenceService;
 
     public ServiceInstanceManager(
             final ServiceInstanceRepository serviceInstanceRepository,
@@ -60,7 +67,10 @@ public class ServiceInstanceManager {
             final ConfigVersionManager configVersionManager,
             final ModelServiceRegistry modelServiceRegistry,
             final CircuitBreakerManager circuitBreakerManager,
-            final ModelProviderRepository modelProviderRepository) {
+            final ModelProviderRepository modelProviderRepository,
+            @Lazy final org.unreal.modelrouter.router.checker.ServiceStateManager serviceStateManager,
+            @Lazy final org.unreal.modelrouter.router.ratelimit.RateLimitManager rateLimitManager,
+            @Lazy final org.unreal.modelrouter.router.pool.PoolPersistenceService poolPersistenceService) {
         this.serviceInstanceRepository = serviceInstanceRepository;
         this.rateLimitRepository = rateLimitRepository;
         this.circuitBreakerRepository = circuitBreakerRepository;
@@ -70,6 +80,9 @@ public class ServiceInstanceManager {
         this.modelServiceRegistry = modelServiceRegistry;
         this.circuitBreakerManager = circuitBreakerManager;
         this.modelProviderRepository = modelProviderRepository;
+        this.serviceStateManager = serviceStateManager;
+        this.rateLimitManager = rateLimitManager;
+        this.poolPersistenceService = poolPersistenceService;
     }
 
     /**
@@ -149,6 +162,7 @@ public class ServiceInstanceManager {
     /**
      * 更新实例
      * v2.x: 更新实例时重置熔断器状态（使用正确的 instanceId）
+     * 2026-10-22: 支持跨服务类型（模型分类）迁移，见 {@link #migrateServiceType}
      */
     @Transactional
     public ServiceInstanceDTO updateInstance(final Long id, final CreateServiceInstanceRequest request) {
@@ -156,6 +170,9 @@ public class ServiceInstanceManager {
                 .orElseThrow(() -> new RuntimeException("Instance not found: " + id));
 
         String instanceName = entity.getInstanceName();
+
+        // 2026-10-22: 跨分类迁移（先做，因为迁移可能改变后续字段的归属上下文）
+        migrateServiceType(entity, request.getServiceType());
 
         // v2.11.0: 供应商关联更新。providerId 语义：null=不变；<=0=解除关联；>0=关联并从供应商补全空白字段
         if (request.getProviderId() != null) {
@@ -214,6 +231,148 @@ public class ServiceInstanceManager {
         saveVersion("更新服务实例: " + instanceName);
 
         return convertToDTO(saved);
+    }
+
+    /**
+     * 跨服务类型（模型分类）迁移。
+     * <p>实例表没有 service_type 列——服务类型由 {@code service_config_id} 决定，
+     * 所以「换分类」实质是改指向 service_config 的外键。但这个外键是<b>路由的一级维度</b>：
+     * 请求按 URL 端点分桶、健康位图键为 {@code serviceType:instanceId}、
+     * 实例限流桶键同样带 serviceType 前缀、池成员引用按池的 serviceType 匹配。
+     * 因此迁移必须连带处理这些派生状态，否则会出现「路由断裂」与「同实例两套健康态」。</p>
+     *
+     * <p>迁移前置校验（任一不满足则抛 {@link ApiException}，前端会收到明确的 4xx 文案）：</p>
+     * <ol>
+     *   <li>目标分类的 service_config 必须存在；</li>
+     *   <li>目标分类下不能有同名实例（模型名是路由匹配键，重名会导致路由歧义）；</li>
+     *   <li>实例若被任何池引用则<b>拒绝</b>迁移——池的 serviceType 是单值的，
+     *       跨分类后原池的成员引用会悬空（{@code PoolSelector} 会静默跳过不存在的成员），
+     *       导致该池路由 503。需要先在池里移除该成员。</li>
+     * </ol>
+     *
+     * @param entity            实例实体
+     * @param targetServiceType 目标服务类型；为空或与当前一致则不做任何事
+     * @since 2026-10-22
+     */
+    private void migrateServiceType(final ServiceInstanceEntity entity, final String targetServiceType) {
+        if (targetServiceType == null || targetServiceType.isBlank()) {
+            return;
+        }
+        final String normalizedTarget = targetServiceType.trim();
+        final Long currentConfigId = entity.getServiceConfigId();
+
+        // 目标 service_config 必须存在
+        final ServiceConfigEntity targetConfig = serviceConfigRepository
+                .findFirstByServiceTypeAndIsLatestTrue(normalizedTarget)
+                .orElseThrow(() -> new ApiException("SERVICE_CONFIG_NOT_FOUND",
+                        "目标模型分类不存在: " + normalizedTarget));
+
+        // 已是该分类 → 无需迁移
+        if (targetConfig.getId().equals(currentConfigId)) {
+            return;
+        }
+
+        // 当前分类（用于清理旧前缀下的派生状态）
+        final String currentServiceType = serviceConfigRepository.findById(currentConfigId)
+                .map(ServiceConfigEntity::getServiceType)
+                .orElse(null);
+
+        // 目标分类下不能有同名实例（模型名是路由匹配键，重名会导致路由歧义）
+        final boolean nameConflict = serviceInstanceRepository.findAllByInstanceName(entity.getInstanceName())
+                .stream()
+                .anyMatch(other -> !other.getId().equals(entity.getId())
+                        && targetConfig.getId().equals(other.getServiceConfigId()));
+        if (nameConflict) {
+            throw new ApiException("CONFLICT_INSTANCE_NAME",
+                    "目标模型分类「" + normalizedTarget + "」下已存在同名模型「"
+                            + entity.getInstanceName() + "」，请先改名或删除冲突项");
+        }
+
+        // 实例若被池引用 → 拒绝迁移（跨分类的池成员引用无法迁移，会造成池路由 503）
+        final List<String> referencedPools = findPoolsReferencingInstance(entity);
+        if (!referencedPools.isEmpty()) {
+            throw new ApiException("CONFLICT_INSTANCE_IN_POOL",
+                    "该模型已被模型分组「" + String.join("、", referencedPools)
+                            + "」引用，分组不支持跨模型分类的成员。请先从这些分组中移除它，再修改分类");
+        }
+
+        // 执行迁移：改指向目标 service_config
+        entity.setServiceConfigId(targetConfig.getId());
+        log.info("实例 {} 跨模型分类迁移: {} -> {}", entity.getId(), currentServiceType, normalizedTarget);
+
+        // 级联清理旧分类下的派生状态（健康位图 / 实例限流桶，均以 serviceType 为键前缀）
+        final String runtimeInstanceId = entity.getInstanceId();
+        if (runtimeInstanceId != null && !runtimeInstanceId.isBlank() && currentServiceType != null) {
+            serviceStateManager.removeInstanceHealthStatus(currentServiceType, runtimeInstanceId);
+            final ModelServiceRegistry.ServiceType oldType = resolveServiceTypeEnum(currentServiceType);
+            if (oldType != null) {
+                rateLimitManager.removeInstanceRateLimiterById(oldType, runtimeInstanceId);
+            } else {
+                // 未知的服务类型名（历史脏数据）→ 无对应限流桶可清理，跳过
+                log.debug("跳过清理限流桶：无法识别的服务类型 {}", currentServiceType);
+            }
+        }
+    }
+
+    /**
+     * 把服务类型名解析成 {@link ModelServiceRegistry.ServiceType} 枚举。
+     * <p>枚举常量是<b>全小写</b>的（{@code chat / embedding / rerank / tts / stt / imgGen / imgEdit}），
+     * 且大小写混排（{@code imgGen}）——因此不能用 {@code valueOf(name.toUpperCase())}，
+     * 那会永远抛 {@link IllegalArgumentException}。这里改为大小写无关地逐个比对。</p>
+     *
+     * @param serviceType 服务类型名（可空）
+     * @return 对应的枚举；无法识别时返回 {@code null}
+     */
+    private ModelServiceRegistry.ServiceType resolveServiceTypeEnum(final String serviceType) {
+        if (serviceType == null || serviceType.isBlank()) {
+            return null;
+        }
+        for (final ModelServiceRegistry.ServiceType type : ModelServiceRegistry.ServiceType.values()) {
+            if (type.name().equalsIgnoreCase(serviceType.trim())) {
+                return type;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 查出引用了指定实例的模型分组（池）名称列表。
+     * <p>池成员以 {@code instanceId}（运行时 UUID）引用实例；
+     * 老数据可能只匹配实例名，因此两个口径都查。</p>
+     */
+    private List<String> findPoolsReferencingInstance(final ServiceInstanceEntity entity) {
+        if (poolPersistenceService == null) {
+            return List.of();
+        }
+        final List<String> poolNames = new ArrayList<>();
+        final String runtimeInstanceId = entity.getInstanceId();
+        final String instanceName = entity.getInstanceName();
+        try {
+            for (final org.unreal.modelrouter.router.pool.model.PoolDefinition pool
+                    : poolPersistenceService.loadAll()) {
+                if (pool == null || pool.getMembers() == null) {
+                    continue;
+                }
+                final boolean referenced = pool.getMembers().stream().anyMatch(member -> {
+                    if (member == null) {
+                        return false;
+                    }
+                    final String memberId = member.getInstanceId();
+                    if (runtimeInstanceId != null && runtimeInstanceId.equals(memberId)) {
+                        return true;
+                    }
+                    // 老数据口径：池成员按实例名匹配
+                    return instanceName != null && instanceName.equals(memberId);
+                });
+                if (referenced) {
+                    poolNames.add(pool.getPoolName());
+                }
+            }
+        } catch (Exception e) {
+            // 池定义读取异常不能阻断迁移（属于辅助校验），记录告警后继续
+            log.warn("检查实例所属模型分组失败，跳过该校验: {}", e.getMessage());
+        }
+        return poolNames;
     }
 
     /**
@@ -522,6 +681,7 @@ public class ServiceInstanceManager {
         ServiceInstanceDTO dto = ServiceInstanceDTO.builder()
                 .id(entity.getId())
                 .serviceConfigId(entity.getServiceConfigId())
+                .runtimeInstanceId(entity.getInstanceId())
                 .providerId(entity.getProviderId())
                 .name(entity.getInstanceName())
                 .baseUrl(entity.getBaseUrl())
@@ -541,6 +701,13 @@ public class ServiceInstanceManager {
         if (entity.getProviderId() != null) {
             modelProviderRepository.findById(entity.getProviderId())
                     .ifPresent(p -> dto.setProviderName(p.getName()));
+        }
+
+        // 2026-10-22: 带出服务类型（模型分类）权威值——由 service_config 反查，
+        // 不再让前端靠「当前在哪个 Tab」推断（那是伪字段，会与真实归属脱节）
+        if (entity.getServiceConfigId() != null) {
+            serviceConfigRepository.findById(entity.getServiceConfigId())
+                    .ifPresent(cfg -> dto.setServiceType(cfg.getServiceType()));
         }
 
         // 加载限流器配置

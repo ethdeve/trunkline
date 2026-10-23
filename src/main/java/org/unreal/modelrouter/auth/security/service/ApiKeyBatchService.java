@@ -11,6 +11,7 @@ import org.unreal.modelrouter.auth.security.dto.ApiKeyBatchImportResult;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyCreationVO;
 import org.unreal.modelrouter.auth.security.model.UsageStatistics;
 import org.unreal.modelrouter.auth.security.util.ApiKeyHashUtil;
+import org.unreal.modelrouter.common.constants.ServiceTypeConstants;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
@@ -42,6 +43,10 @@ public class ApiKeyBatchService {
     // 持久化服务（用于保存变更）
     @Autowired(required = false)
     private ApiKeyPersistenceService persistenceService;
+
+    // 白名单与权限分类一致性校验器（2026-10-24 新增）
+    @Autowired
+    private ApiKeyWhitelistValidator whitelistValidator;
 
     // 审计辅助类
     private final ApiKeyAuditHelper auditHelper = new ApiKeyAuditHelper();
@@ -357,6 +362,18 @@ public class ApiKeyBatchService {
         // 解析过期时间
         LocalDateTime expiresAt = parseExpiresAt(item.getExpiresAt());
 
+        // 归一化权限
+        final List<String> normalizedPermissions = normalizePermissions(item.getPermissions());
+
+        // 2026-10-24：白名单与权限分类一致性校验（导入路径同样要拦）。
+        // 校验失败 → 该条导入失败（不阻断整批），错误原因回传给前端展示。
+        try {
+            whitelistValidator.validate(normalizedPermissions,
+                    item.getAllowedModels(), item.getAllowedGroups());
+        } catch (IllegalArgumentException e) {
+            return ApiKeyImportResult.failure(keyId, e.getMessage());
+        }
+
         // 构建 ApiKey 实体
         ApiKey apiKey = ApiKey.builder()
                 .keyId(keyId)
@@ -364,7 +381,11 @@ public class ApiKeyBatchService {
                 .keyValue(null)
                 .keyPrefix("sk-")
                 .description(item.getDescription())
-                .permissions(item.getPermissions())
+                .permissions(normalizedPermissions)
+                // 2026-10-24 修复：此前导入路径丢弃了白名单字段（DTO 有、实体没设），
+                // 导致「导出→导入」后模型/分组白名单静默丢失
+                .allowedModels(item.getAllowedModels())
+                .allowedGroups(item.getAllowedGroups())
                 .enabled(item.getEnabled() != null ? item.getEnabled() : true)
                 .expiresAt(expiresAt)
                 .createdAt(LocalDateTime.now())
@@ -445,6 +466,10 @@ public class ApiKeyBatchService {
                 .keyId(apiKey.getKeyId())
                 .description(apiKey.getDescription())
                 .permissions(apiKey.getPermissions())
+                // 2026-10-24 修复：此前导出漏掉白名单字段（DTO 有、builder 没设），
+                // 导致「导出→导入」往返后模型/分组白名单丢失
+                .allowedModels(apiKey.getAllowedModels())
+                .allowedGroups(apiKey.getAllowedGroups())
                 .enabled(apiKey.isEnabled())
                 .createdAt(apiKey.getCreatedAt())
                 .createdBy(apiKey.getCreatedBy())
@@ -454,6 +479,27 @@ public class ApiKeyBatchService {
                 .rotationPeriodDays(apiKey.getRotationPeriodDays())
                 .lastRotatedAt(apiKey.getLastRotatedAt())
                 .build();
+    }
+
+    /**
+     * 归一化导入的权限列表到枚举规范值（chat/embedding/.../imgGen/imgEdit）。
+     *
+     * <p>导入路径不经过 {@code ApiKeyService.validatePermissions}，需在此单独归一化，
+     * 否则 CSV 里写 {@code imggen} 会被原样落库，前端 i18n 键匹配不到。</p>
+     *
+     * @param permissions 导入项中的权限列表
+     * @return 规范值权限列表（无法识别的值原样保留）
+     */
+    private List<String> normalizePermissions(final List<String> permissions) {
+        if (permissions == null || permissions.isEmpty()) {
+            return permissions;
+        }
+        final List<String> normalized = new ArrayList<>(permissions.size());
+        for (final String permission : permissions) {
+            final String canonical = ServiceTypeConstants.ServiceType.normalizeValue(permission);
+            normalized.add(canonical != null ? canonical : permission);
+        }
+        return normalized;
     }
 
 }

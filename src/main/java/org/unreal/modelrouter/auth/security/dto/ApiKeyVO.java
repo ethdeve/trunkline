@@ -62,6 +62,12 @@ public class ApiKeyVO {
     private List<String> allowedGroups;
 
     /**
+     * 允许使用的 IP 白名单（为空表示不限制）。
+     * 2026-10-23 补充：此前 VO 漏出该字段，导致前端编辑密钥时拿不到现值、保存即清空。
+     */
+    private List<String> allowedIpAddresses;
+
+    /**
      * 是否启用
      */
     private boolean enabled;

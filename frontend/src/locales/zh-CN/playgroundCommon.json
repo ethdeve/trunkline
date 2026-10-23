@@ -4,7 +4,18 @@
       "placeholder": "选择模型",
       "allModels": "全部模型",
       "other": "其他",
-      "group": "分组"
+      "group": "分组",
+      "groupSection": "模型分组（主备/分流）",
+      "instanceSection": "已接入模型",
+      "emptyTitle": "还没有可用的模型",
+      "emptyDesc": "需要先在「接入模型」里添加供应商与模型，或检查模型是否已停用",
+      "emptyAction": "去接入模型"
+    },
+    "availability": {
+      "inactive": "已停用",
+      "unhealthy": "健康检查失败",
+      "circuitOpen": "已熔断暂停使用",
+      "halfOpen": "恢复探测中（可能仍不可用）"
     },
     "action": {
       "clear": "清空",

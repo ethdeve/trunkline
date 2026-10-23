@@ -1,6 +1,7 @@
 {
   "adapter": {
     "management": "模型适配器",
+    "emptyText": "还没有自定义适配器。网关已内置常用协议适配器，仅在需要对接特殊协议时才需新增",
     "detailTitle": "适配器详情",
     "newAdapter": "添加适配器",
     "editAdapter": "编辑适配器",

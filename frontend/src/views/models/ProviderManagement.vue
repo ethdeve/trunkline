@@ -35,33 +35,32 @@
               <template #header>
                 <div class="card-header">
                   <span class="card-title" :title="p.name">{{ p.name }}</span>
-                  <el-tag :type="p.status === 'ACTIVE' ? 'success' : 'info'" size="small" effect="light">
-                    {{ p.status === 'ACTIVE' ? t('provider.statusActive') : t('provider.statusInactive') }}
-                  </el-tag>
+                  <div class="card-header__right">
+                    <!-- Key 状态改用角标（悬停看说明），不再占一整行 -->
+                    <el-tooltip :content="p.hasApiKey ? t('provider.keySet') : t('provider.keyNotSet')" placement="top">
+                      <el-icon class="key-badge" :class="p.hasApiKey ? 'key-ok' : 'key-missing'">
+                        <CircleCheck v-if="p.hasApiKey" />
+                        <WarningFilled v-else />
+                      </el-icon>
+                    </el-tooltip>
+                    <el-tag :type="p.status === 'ACTIVE' ? 'success' : 'info'" size="small" effect="light">
+                      {{ p.status === 'ACTIVE' ? t('provider.statusActive') : t('provider.statusInactive') }}
+                    </el-tag>
+                  </div>
                 </div>
               </template>
 
               <div class="card-body">
                 <div class="card-line">
-                  <span class="line-label">{{ t('provider.formServiceType') }}</span>
-                  <span class="line-value">{{ serviceTypeLabel(p.serviceType) }}</span>
-                </div>
-                <div class="card-line">
-                  <span class="line-label">{{ t('provider.formBaseUrl') }}</span>
-                  <span class="line-value" :title="p.baseUrl">{{ extractDomain(p.baseUrl) }}</span>
-                </div>
-                <div class="card-line">
-                  <span class="line-label">Key</span>
-                  <span class="line-value" :class="p.hasApiKey ? 'key-ok' : 'key-missing'">
-                    <el-icon><CircleCheck v-if="p.hasApiKey" /><WarningFilled v-else /></el-icon>
-                    {{ p.hasApiKey ? t('provider.keySet') : t('provider.keyNotSet') }}
-                  </span>
-                </div>
-                <div class="card-line">
-                  <span class="line-label">{{ t('provider.columnModel') }}</span>
-                  <span class="line-value model-count">
+                  <el-tag size="small" type="info" effect="plain" class="cat-tag">
+                    {{ serviceTypeLabel(p.serviceType) }}
+                  </el-tag>
+                  <span class="line-value model-count" :class="{ 'is-empty': !p.modelCount }">
                     {{ p.modelCount > 0 ? t('provider.modelCount', { count: p.modelCount }) : t('provider.noModels') }}
                   </span>
+                </div>
+                <div class="card-line">
+                  <span class="line-value addr" :title="p.baseUrl">{{ extractDomain(p.baseUrl) }}</span>
                 </div>
               </div>
 
@@ -70,21 +69,85 @@
                   <el-icon><Management /></el-icon>
                   {{ t('provider.actions.manageModels') }}
                 </el-button>
-                <template v-if="canWrite">
-                  <el-button size="small" @click="openRotateKey(p)">{{ t('provider.actions.rotateKey') }}</el-button>
-                  <el-button size="small" @click="openConfig(p)">{{ t('provider.actions.config') }}</el-button>
-                  <el-button size="small" :type="p.status === 'ACTIVE' ? 'warning' : 'success'" plain @click="toggleStatus(p)">
-                    {{ p.status === 'ACTIVE' ? t('provider.actions.disable') : t('provider.actions.enable') }}
-                  </el-button>
-                  <el-button size="small" type="danger" plain @click="handleDelete(p)">{{ t('provider.actions.delete') }}</el-button>
-                </template>
+                <div class="card-actions__right">
+                  <el-switch
+                    v-if="canWrite"
+                    :model-value="p.status === 'ACTIVE'"
+                    size="small"
+                    inline-prompt
+                    :active-text="t('provider.statusActive')"
+                    :inactive-text="t('provider.statusInactive')"
+                    @change="toggleStatus(p)"
+                  />
+                  <el-dropdown v-if="canWrite" trigger="click" @command="(cmd: string) => handleCardCommand(cmd, p)">
+                    <el-button size="small" text>
+                      {{ t('provider.more') }}
+                      <el-icon><ArrowDown /></el-icon>
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="rotateKey">
+                          <el-icon><Key /></el-icon>{{ t('provider.actions.rotateKey') }}
+                        </el-dropdown-item>
+                        <el-dropdown-item command="config">
+                          <el-icon><Setting /></el-icon>{{ t('provider.actions.config') }}
+                        </el-dropdown-item>
+                        <el-dropdown-item command="delete" divided>
+                          <el-icon><Delete /></el-icon>{{ t('provider.actions.delete') }}
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
+              </div>
+
+              <!-- 下一步引导：按完成度给出唯一的下一步动作 -->
+              <div v-if="nextStepHint(p)" class="card-next-step">
+                <el-icon><Right /></el-icon>
+                <span class="next-step-text">{{ nextStepHint(p) }}</span>
+                <el-button v-if="canWrite" size="small" type="text" @click="goNextStep(p)">
+                  {{ nextStepActionLabel(p) }}
+                </el-button>
               </div>
             </el-card>
           </el-col>
         </el-row>
 
         <div v-else class="empty-wrap">
-          <el-empty :description="t('provider.emptyText')">
+          <!-- 新手首访：零供应商时给出「三步接入」图形引导，而非干瘪的空白表格 -->
+          <div v-if="providers.length === 0 && !searchQuery && !statusFilter" class="onboarding">
+            <div class="onboarding-head">
+              <span class="onboarding-title">{{ t('provider.onboarding.title') }}</span>
+              <span class="onboarding-sub">{{ t('provider.onboarding.subtitle') }}</span>
+            </div>
+            <div class="onboarding-steps">
+              <div v-for="(step, idx) in onboardingSteps" :key="step.key" class="onboarding-step">
+                <div class="step-index">{{ idx + 1 }}</div>
+                <div class="step-body">
+                  <div class="step-title">{{ step.title }}</div>
+                  <div class="step-desc">{{ step.desc }}</div>
+                </div>
+                <el-button
+                  v-if="canWrite"
+                  size="small"
+                  :type="idx === 0 ? 'primary' : 'default'"
+                  plain
+                  @click="step.action"
+                >
+                  {{ step.actionLabel }}
+                </el-button>
+              </div>
+            </div>
+            <div class="onboarding-foot">
+              <el-button v-if="canWrite" type="primary" @click="openPresetDrawer">
+                <el-icon><Plus /></el-icon>
+                {{ t('provider.onboarding.cta') }}
+              </el-button>
+              <span class="onboarding-foot-tip">{{ t('provider.onboarding.footTip') }}</span>
+            </div>
+          </div>
+
+          <el-empty v-else :description="t('provider.emptyText')">
             <el-button v-if="canWrite" type="primary" @click="openPresetDrawer">{{ t('provider.addProvider') }}</el-button>
           </el-empty>
         </div>
@@ -296,7 +359,8 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus, CircleCheck, WarningFilled, Management } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { Search, Refresh, Plus, CircleCheck, WarningFilled, Management, ArrowDown, Key, Setting, Delete, Right } from '@element-plus/icons-vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import { COMMON_SERVICE_TYPES, getServiceTypeLabel } from '@/constants/serviceTypes'
 import { PROVIDER_PRESETS, customTemplateToPreset, extractDomain, type ProviderPreset } from '@/constants/providerPresets'
@@ -316,9 +380,68 @@ import {
 import { deleteServiceInstance } from '@/api/instance'
 import { getAdapterList, getAdapterTemplates } from '@/api/adapter'
 import { usePermission } from '@/composables/usePermission'
+import { usePersistedState } from '@/composables/usePersistedState'
 
 const { t } = useI18n()
 const serviceTypeLabel = (type: string): string => getServiceTypeLabel(type)
+const router = useRouter()
+
+/** 下一步引导文案：按供应商当前完成度给出唯一的下一步 */
+const nextStepHint = (p: ModelProvider): string => {
+  if (!p.hasApiKey) return t('provider.nextStepSetKey')
+  if (!p.modelCount) return t('provider.nextStepAddModel')
+  return t('provider.nextStepCreateKey')
+}
+
+/** 下一步动作按钮文案 */
+const nextStepActionLabel = (p: ModelProvider): string => {
+  if (!p.hasApiKey) return t('provider.nextStepActionSetKey')
+  if (!p.modelCount) return t('provider.nextStepActionAddModel')
+  return t('provider.nextStepAction')
+}
+
+/** 执行下一步：未配 Key → 打开配置弹窗；未加模型 → 打开管理模型抽屉；已就绪 → 去创建密钥 */
+const goNextStep = (p: ModelProvider) => {
+  if (!p.hasApiKey) {
+    openConfig(p)
+    return
+  }
+  if (!p.modelCount) {
+    openManage(p)
+    return
+  }
+  goCreateKey()
+}
+
+/** 跳转到密钥管理并直接打开创建弹窗 */
+const goCreateKey = () => {
+  router.push({ path: '/keys', query: { action: 'create' } })
+}
+
+/** 新手首访引导：零供应商时展示的「三步接入」步骤定义 */
+const onboardingSteps = computed(() => [
+  {
+    key: 'pick',
+    title: t('provider.onboarding.step1Title'),
+    desc: t('provider.onboarding.step1Desc'),
+    actionLabel: t('provider.onboarding.step1Action'),
+    action: openPresetDrawer
+  },
+  {
+    key: 'key',
+    title: t('provider.onboarding.step2Title'),
+    desc: t('provider.onboarding.step2Desc'),
+    actionLabel: t('provider.onboarding.step2Action'),
+    action: openPresetDrawer
+  },
+  {
+    key: 'apikey',
+    title: t('provider.onboarding.step3Title'),
+    desc: t('provider.onboarding.step3Desc'),
+    actionLabel: t('provider.onboarding.step3Action'),
+    action: goCreateKey
+  }
+])
 
 // v2.11.1: 写操作权限控制（VIEWER 等只读角色隐藏 添加/配置/启停/删除 按钮；后端同码二次拦截）
 const { hasPermission } = usePermission()
@@ -341,6 +464,10 @@ const providers = ref<ModelProvider[]>([])
 const loading = ref(false)
 const searchQuery = ref('')
 const statusFilter = ref('')
+
+// U10-5：筛选条件持久化，下次进入本页自动恢复
+usePersistedState('providers.search', searchQuery)
+usePersistedState('providers.status', statusFilter)
 
 const filtered = computed(() => {
   const list = providers.value
@@ -556,6 +683,13 @@ const submitForm = async () => {
   } finally {
     formSaving.value = false
   }
+}
+
+// ---------- 卡片「更多」下拉分发 ----------
+function handleCardCommand(cmd: string, provider: ModelProvider) {
+  if (cmd === 'rotateKey') openRotateKey(provider)
+  else if (cmd === 'config') openConfig(provider)
+  else if (cmd === 'delete') handleDelete(provider)
 }
 
 // ---------- 启停 / 删除 / 换 Key ----------
@@ -839,6 +973,27 @@ onMounted(() => {
   gap: 8px;
 }
 
+.card-header__right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Key 状态角标 */
+.key-badge {
+  font-size: 15px;
+  cursor: default;
+}
+
+.key-badge.key-ok {
+  color: var(--el-color-success);
+}
+
+.key-badge.key-missing {
+  color: var(--el-color-warning);
+}
+
 .card-title {
   font-weight: 600;
   color: var(--ja-text-primary);
@@ -885,20 +1040,155 @@ onMounted(() => {
   color: var(--el-color-warning);
 }
 
+.cat-tag {
+  flex-shrink: 0;
+}
+
+.line-value.addr {
+  color: var(--ja-text-secondary);
+  font-size: 12px;
+  max-width: 100%;
+}
+
 .line-value.model-count {
   font-weight: 600;
 }
 
+.line-value.model-count.is-empty {
+  color: var(--ja-text-secondary);
+  font-weight: 400;
+}
+
 .card-actions {
   display: flex;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
   gap: 6px;
   border-top: 1px solid var(--ja-border-lighter);
   padding-top: 10px;
 }
 
+.card-actions__right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 下一步引导条 */
+.card-next-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 7px 10px;
+  border-radius: var(--ja-radius-md, 6px);
+  background: var(--el-fill-color-lighter);
+  color: var(--ja-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.card-next-step .el-icon {
+  flex-shrink: 0;
+  color: var(--ja-primary);
+}
+
+.next-step-text {
+  flex: 1;
+  min-width: 0;
+}
+
 .empty-wrap {
   padding: 30px 0;
+}
+
+/* 新手首访：三步接入引导 */
+.onboarding {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 24px 20px;
+  border: 1px solid var(--ja-border-light);
+  border-radius: 10px;
+  background: var(--el-fill-color-lighter);
+}
+
+.onboarding-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+
+.onboarding-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ja-text-primary);
+}
+
+.onboarding-sub {
+  font-size: 13px;
+  color: var(--ja-text-secondary);
+}
+
+.onboarding-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.onboarding-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--ja-border-lighter);
+  border-radius: 8px;
+  background: var(--ja-bg-card, var(--el-bg-color));
+}
+
+.step-index {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--ja-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.step-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.step-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ja-text-primary);
+}
+
+.step-desc {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+  margin-top: 2px;
+  line-height: 1.5;
+}
+
+.onboarding-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.onboarding-foot-tip {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
 }
 
 /* 预设目录抽屉 */

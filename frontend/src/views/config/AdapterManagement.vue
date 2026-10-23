@@ -84,6 +84,10 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <div v-if="!loading && adapterList.length === 0" class="list-empty">
+      <el-empty :description="t('adapter.emptyText')" />
+    </div>
   </PageSkeleton>
 
     <!-- 测试弹窗 -->

@@ -23,7 +23,7 @@
       "columns": {
         "instanceId": "Instance ID",
         "instanceIdCompact": "Instance ID",
-        "serviceType": "Service Type",
+        "serviceType": "Model Category",
         "state": "State",
         "actions": "Actions",
         "time": "Time",
@@ -84,7 +84,7 @@
       "columns": {
         "instanceId": "Instance ID",
         "instanceName": "Instance Name",
-        "serviceType": "Service Type",
+        "serviceType": "Model Category",
         "stateTransition": "State Transition",
         "triggerReason": "Trigger Reason",
         "failureCount": "Failures",

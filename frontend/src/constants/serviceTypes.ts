@@ -4,7 +4,7 @@
  * 与后端 ServiceTypeConstants 保持一致
  * @see org.unreal.modelrouter.constants.ServiceTypeConstants
  * 
- * @author JAiRouter Team
+ * @author Trunkline Team
  * @since v2.1.0
  */
 
@@ -75,9 +75,26 @@ export function toServiceType(value: string): ServiceType | null {
 }
 
 /**
+ * 大小写无关地归一化服务类型到枚举规范值，无法识别时返回 null。
+ *
+ * 后端历史版本曾用 toLowerCase() 归一化权限值，把 imgGen/imgEdit 存成
+ * imggen/imgedit，与本枚举的规范值不一致；此处做兼容还原，
+ * 保证密钥权限的复选框回显与 i18n 标签都能正确匹配。
+ */
+export function normalizeServiceType(value: string): ServiceType | null {
+  if (!value) return null
+  const lower = value.toLowerCase()
+  return ALL_SERVICE_TYPES.find(t => t.toLowerCase() === lower) ?? null
+}
+
+/**
  * 获取服务类型显示名称（调用时求值，随语言切换生效）
+ *
+ * 2026-10-23：内置大小写无关归一化——不同后端接口返回的 serviceType 大小写不一
+ * （调用历史返回小写 chat，Token 用量返回大写 CHAT），此前精确匹配会回退显示原始值。
  */
 export function getServiceTypeLabel(value: string): string {
-  const key = SERVICE_TYPE_LABELS[value as ServiceType]
+  const st = normalizeServiceType(value)
+  const key = st ? SERVICE_TYPE_LABELS[st] : undefined
   return key ? gt(key) : value
 }

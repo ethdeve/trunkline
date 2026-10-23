@@ -13,6 +13,7 @@ import { usePermission } from '@/composables/usePermission'
 import { useTheme } from '@/composables/useTheme'
 import { useDensity } from '@/composables/useDensity'
 import { useUserStore } from '@/stores/user'
+import { getApiKeys, getQuotaAlerts } from '@/api/apiKey'
 import CommandPalette from '@/components/command/CommandPalette.vue'
 
 const collapsed = ref(false)
@@ -38,6 +39,30 @@ const activeGroup = computed(() => filteredGroups.value.find(g => g.children.som
 
 const username = computed(() => userStore.userInfo?.username || '')
 
+/* ---------- 菜单徽标（U1-2）：密钥即将过期数量 + 观测告警红点 ---------- */
+const expiringKeysCount = ref(0)
+const quotaAlertCount = ref(0)
+let badgeTimer: ReturnType<typeof setInterval> | null = null
+async function loadNavBadges() {
+  try {
+    const [keys, alerts] = await Promise.all([
+      getApiKeys().catch(() => null),
+      getQuotaAlerts().catch(() => [])
+    ])
+    const items: any[] = (keys as any)?.items || []
+    const now = Date.now()
+    const in7 = now + 7 * 24 * 3600 * 1000
+    expiringKeysCount.value = items.filter((k: any) => {
+      if (k.enabled === false || k.expired) return false
+      const t = k.expiresAt ? new Date(k.expiresAt).getTime() : NaN
+      return !Number.isNaN(t) && t > now && t <= in7
+    }).length
+    quotaAlertCount.value = (alerts as any[])?.length || 0
+  } catch {
+    /* 无权限或接口异常不影响菜单渲染 */
+  }
+}
+
 /* 最近访问路由（命令面板第二层候补） */
 watch(
   () => route.path,
@@ -58,8 +83,13 @@ function syncCollapsed() {
 onMounted(() => {
   syncCollapsed()
   window.addEventListener('resize', syncCollapsed)
+  loadNavBadges()
+  badgeTimer = setInterval(loadNavBadges, 60_000)
 })
-onBeforeUnmount(() => window.removeEventListener('resize', syncCollapsed))
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncCollapsed)
+  if (badgeTimer) clearInterval(badgeTimer)
+})
 
 async function onLogout() {
   await userStore.logout()
@@ -72,8 +102,8 @@ async function onLogout() {
     <!-- 左栏导航 -->
     <aside class="console-nav" :class="{ 'is-collapsed': collapsed }">
       <div class="console-nav__logo">
-        <el-icon :size="18"><Cpu /></el-icon>
-        <span v-if="!collapsed">JAiRouter</span>
+        <img src="/brand-mark.svg" alt="Trunkline" class="brand-mark" />
+        <span v-if="!collapsed">Trunkline</span>
       </div>
       <el-scrollbar class="console-nav__menu">
         <el-menu :collapse="collapsed" :default-active="activePath" router class="nav-menu">
@@ -92,7 +122,21 @@ async function onLogout() {
                 :index="item.path"
               >
                 <el-icon><component :is="item.icon" /></el-icon>
-                <template #title>{{ item.title }}</template>
+                <template #title>
+                  {{ item.title }}
+                  <el-badge
+                    v-if="item.path === '/keys' && expiringKeysCount > 0"
+                    :value="expiringKeysCount"
+                    type="warning"
+                    class="nav-badge"
+                  />
+                  <el-badge
+                    v-else-if="item.path === '/observe' && quotaAlertCount > 0"
+                    is-dot
+                    type="danger"
+                    class="nav-badge"
+                  />
+                </template>
               </el-menu-item>
             </template>
           </template>
@@ -176,6 +220,9 @@ async function onLogout() {
   justify-content: center;
   padding: 10px 0;
   color: var(--ja-text-placeholder);
+}
+.nav-badge {
+  margin-left: 6px;
 }
 .topbar-crumb {
   font-size: 13px;

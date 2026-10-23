@@ -8,6 +8,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import org.unreal.modelrouter.common.exception.PoolUnavailableException;
 import org.unreal.modelrouter.router.checker.ServiceStateManager;
 import org.unreal.modelrouter.router.circuitbreaker.CircuitBreaker;
 import org.unreal.modelrouter.router.circuitbreaker.CircuitBreakerManager;
@@ -60,6 +61,12 @@ public class ModelServiceRegistry {
 
     /** v2.9.7: 请求级标签路由 header,值格式 key=value,key2=value2(逗号分隔,容忍空格,空项跳过) */
     private static final String TAGS_HEADER = "X-JAiRouter-Tags";
+
+    /**
+     * N-4：池不可用（503）时给客户端的退避提示秒数。
+     * 与 fallback 降级路径的 {@code Retry-After: 60} 取同一值，客户端可统一退避策略。
+     */
+    private static final int POOL_UNAVAILABLE_RETRY_AFTER_SECONDS = 60;
 
     /**
      * 获取所有服务类型
@@ -245,9 +252,10 @@ public class ModelServiceRegistry {
         ServiceRuntimeConfig runtimeConfig = serviceConfigCache.get(serviceKey);
 
         if (runtimeConfig == null || runtimeConfig.getInstances().isEmpty()) {
+            // 文案不带 modelName：此处是整个 serviceType 无实例,与具体模型名无关(避免误导排查方向)
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
-                    "No instances found for model '" + modelName + "' in service type '" + serviceType + "'");
+                    "No instances configured for service type '" + serviceType + "'");
         }
 
         // v2.8.5: 规则引擎求值(命中后重写模型名/锁定实例/覆盖LB策略;未命中走原逻辑)
@@ -302,7 +310,7 @@ public class ModelServiceRegistry {
         }
 
         // v2.9.7: 标签过滤 — 规则 TARGET_TAGS 优先,否则解析请求 header X-JAiRouter-Tags;
-        // 过滤后空候选与 TARGET_INSTANCE 一致抛 404;池路由(池名显式圈选)不受 tags 影响
+        // 过滤后空候选与 TARGET_INSTANCE 一致抛 404
         Map<String, String> requiredTags = ruleDecision != null ? ruleDecision.getTargetTags() : null;
         if (requiredTags == null) {
             requiredTags = parseTagsHeader(headers);
@@ -319,12 +327,14 @@ public class ModelServiceRegistry {
 
         // v2.8.9: 资源池路由 — effectiveModelName 命中池名 → 池成员候选 + 池策略;
         // 未命中时 auto-model 回退为该服务全部健康实例,其余走原模型名过滤
+        // N-1: 池候选 = 池成员 ∩ candidates(candidates 已按请求标签过滤),
+        // 池路由同样受 X-JAiRouter-Tags 约束(此前用全量实例解析导致标签被忽略)
         List<ModelRouterProperties.ModelInstance> availableInstances;
         LoadBalancer loadBalancer;
         PoolDefinition matchedPool = poolSelector != null
                 ? poolSelector.findPool(serviceType, effectiveModelName) : null;
         if (matchedPool != null) {
-            availableInstances = poolSelector.resolveCandidates(matchedPool, runtimeConfig.getInstances());
+            availableInstances = poolSelector.resolveCandidates(matchedPool, candidates);
             loadBalancer = loadBalancerManager.getLoadBalancerByStrategy(matchedPool.getStrategy());
             if (loadBalancer == null) {
                 loadBalancer = loadBalancerManager.getLoadBalancer(null);
@@ -352,6 +362,20 @@ public class ModelServiceRegistry {
         }
 
         if (availableInstances.isEmpty()) {
+            if (matchedPool != null) {
+                // N-1: 池候选受请求标签约束后可能为空。若池成员在全量实例中可解析(仅被标签过滤掉),
+                // 抛标签 404(与非池路径语义一致);否则才是池成员不健康/不存在,抛池感知异常
+                // (createAppropriateException 按「池名==实例名」过滤,永远落 404 分支误导排查,
+                // 故改为池感知异常,带逐成员状态明细,见 gateway-fix-plan P2-7/P2-8)
+                if (requiredTags != null && !requiredTags.isEmpty()
+                        && !poolSelector.resolveCandidates(matchedPool, runtimeConfig.getInstances()).isEmpty()) {
+                    throw new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "No instances found matching tags " + requiredTags
+                                    + " for pool '" + matchedPool.getPoolName() + "'");
+                }
+                throw buildPoolUnavailableException(serviceType, matchedPool, runtimeConfig.getInstances());
+            }
             throw instanceSelector.createAppropriateException(serviceType, effectiveModelName, candidates);
         }
 
@@ -514,6 +538,85 @@ public class ModelServiceRegistry {
         return circuitBreakerManager.getState(instance.getInstanceId(), instance.getBaseUrl());
     }
 
+    /**
+     * 构建池路由不可用的池感知异常（P2-7/P2-8）.
+     *
+     * <p>池成员解析失败/全不健康/熔断打开统一返回 503,message 附带逐成员状态明细:
+     * {@code name(status=..., health=..., circuitBreaker=...)} 或 {@code memberKey(UNRESOLVED)},
+     * 便于「模型分组」页排查哪个成员挂了。</p>
+     *
+     * <p>N-3：明细里的 {@code status} 是<strong>配置管理态</strong>（ACTIVE=已启用），
+     * 真正决定成员能否参与分流的是<strong>探活态</strong>。原先只输出 status，
+     * 运维会看到 {@code status=ACTIVE} 却收不到请求，误以为实例正常。
+     * 现补出 {@code health} 字段（HEALTHY / UNHEALTHY / UNKNOWN）。</p>
+     *
+     * <p>N-4：改抛 {@link PoolUnavailableException}，由全局异常处理器补 {@code Retry-After} 头，
+     * 与 fallback 降级路径的 {@code Retry-After: 60} 保持一致，客户端可统一退避。</p>
+     */
+    private PoolUnavailableException buildPoolUnavailableException(
+            final ServiceType serviceType,
+            final PoolDefinition pool,
+            final List<ModelRouterProperties.ModelInstance> allInstances) {
+        final List<String> memberStates = new ArrayList<>();
+        boolean anyResolved = false;
+        if (pool.getMembers() != null) {
+            for (final PoolMember member : pool.getMembers()) {
+                final String memberKey = member.getInstanceId();
+                final ModelRouterProperties.ModelInstance resolved = allInstances.stream()
+                        .filter(i -> memberKey != null
+                                && (memberKey.equals(i.getInstanceId()) || memberKey.equals(i.getName())))
+                        .findFirst()
+                        .orElse(null);
+                if (resolved == null) {
+                    memberStates.add(memberKey + "(UNRESOLVED)");
+                    continue;
+                }
+                anyResolved = true;
+                memberStates.add(resolved.getName()
+                        + "(status=" + resolved.getStatus()
+                        + ", health=" + resolveHealthStatus(serviceType, resolved)
+                        + ", circuitBreaker=" + getInstanceCircuitBreakerState(resolved) + ")");
+            }
+        }
+        if (!anyResolved) {
+            return new PoolUnavailableException(
+                    "Pool '" + pool.getPoolName() + "' has no resolvable members (members: " + memberStates + ")",
+                    POOL_UNAVAILABLE_RETRY_AFTER_SECONDS);
+        }
+        return new PoolUnavailableException(
+                "Pool '" + pool.getPoolName() + "' has no available members (members: " + memberStates + ")",
+                POOL_UNAVAILABLE_RETRY_AFTER_SECONDS);
+    }
+
+    /**
+     * N-3：解析实例的探活态（HEALTHY / UNHEALTHY / UNKNOWN）。
+     *
+     * <p>优先读运行时的健康位图（{@link ServiceStateManager#getInstanceHealthStatus}）——
+     * 那才是路由时真正使用的判定；运行态未记录（UNKNOWN）时回退到配置上的 {@code isHealthy} 字段。
+     * 注意<strong>不能</strong>只输出配置的 {@code status}（ACTIVE=已启用），
+     * 运维会误以为实例正常，实际却是探活失败被排除。</p>
+     */
+    private String resolveHealthStatus(
+            final ServiceType serviceType,
+            final ModelRouterProperties.ModelInstance instance) {
+        if (serviceType != null && serviceStateManager != null) {
+            try {
+                final String runtimeStatus = serviceStateManager.getInstanceHealthStatus(
+                        serviceType.name() + ":" + instance.getInstanceId());
+                if (runtimeStatus != null && !"UNKNOWN".equals(runtimeStatus)) {
+                    return runtimeStatus;
+                }
+            } catch (Exception ignored) {
+                // 运行态不可查时退到配置字段
+            }
+        }
+        final Boolean configured = instance.isHealthy();
+        if (configured == null) {
+            return "UNKNOWN";
+        }
+        return configured ? "HEALTHY" : "UNHEALTHY";
+    }
+
     // ==================== 查询方法 ====================
 
     public Set<ServiceType> getAvailableServiceTypes() {
@@ -570,8 +673,39 @@ public class ModelServiceRegistry {
     }
 
     public String getLoadBalanceStrategy(final ServiceType serviceType) {
-        LoadBalancer loadBalancer = loadBalancerManager.getLoadBalancer(serviceType);
-        return loadBalancer != null ? loadBalancer.getClass().getSimpleName() : "Unknown";
+        // N-5: 返回策略语义名(配置 type,如 round-robin/random),而非 LoadBalancer 实现类名
+        // (曾误返回 LoadBalancerTracingWrapper,对调用方无信息量)
+        ServiceRuntimeConfig config = serviceConfigCache.get(serviceTypeResolver.getServiceConfigKey(serviceType));
+        if (config == null || config.getLoadBalanceConfig() == null) {
+            return null;
+        }
+        return config.getLoadBalanceConfig().getType();
+    }
+
+    /**
+     * P3-11: 解析请求模型名命中的资源池名(池名即虚拟模型名);非池路由返回 {@code null}.
+     * 仅供响应调试头(X-Trunkline-Pool)使用,与 selectInstance 的池匹配同源。
+     */
+    public String resolvePoolName(final ServiceType serviceType, final String modelName) {
+        if (poolSelector == null || modelName == null) {
+            return null;
+        }
+        PoolDefinition pool = poolSelector.findPool(serviceType, modelName);
+        return pool != null ? pool.getPoolName() : null;
+    }
+
+    /**
+     * P3-11: 解析请求实际生效的负载均衡策略名(池路由返回池策略,否则返回服务配置策略).
+     * 仅供响应调试头(X-Trunkline-Strategy)使用。
+     */
+    public String resolveRoutingStrategy(final ServiceType serviceType, final String modelName) {
+        if (poolSelector != null && modelName != null) {
+            PoolDefinition pool = poolSelector.findPool(serviceType, modelName);
+            if (pool != null) {
+                return pool.getStrategy();
+            }
+        }
+        return getLoadBalanceStrategy(serviceType);
     }
 
     public FallbackManager getFallbackManager() {

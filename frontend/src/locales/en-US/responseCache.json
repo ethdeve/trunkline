@@ -30,8 +30,8 @@
     "clearAllConfirmTitle": "Clear all response cache?",
     "confirm": "Confirm",
     "cancel": "Cancel",
-    "invalidateByServiceTypeLabel": "Invalidate by Service Type",
-    "selectServiceTypePlaceholder": "Select a service type",
+    "invalidateByServiceTypeLabel": "Invalidate by model category",
+    "selectServiceTypePlaceholder": "Select model category",
     "invalidateByService": "Invalidate Service",
     "invalidateByModelLabel": "Invalidate by Model",
     "inputModelPlaceholder": "Enter a model name",
@@ -45,7 +45,7 @@
     "cacheClearedSuccess": "Cache cleared",
     "cacheNotEnabledWarning": "Cache is not enabled; operation was not executed",
     "operationFailedError": "Operation failed",
-    "invalidatedByServiceType": "Cache invalidated for service type [{serviceType}]",
+    "invalidatedByServiceType": "Cache invalidated for model category [{serviceType}]",
     "invalidatedByModel": "Cache invalidated for model [{model}]"
   }
 }

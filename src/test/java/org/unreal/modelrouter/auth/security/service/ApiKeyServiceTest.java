@@ -101,6 +101,12 @@ class ApiKeyServiceTest {
         eventField.setAccessible(true);
         eventField.set(apiKeyService, eventPublisher);
 
+        // 2026-10-24: 注入白名单校验器（catalog 为空 → 无法判定分类 → 全部放行，
+        // 与「无实例目录」的生产场景行为一致，不干扰本用例的既有断言）
+        Field whitelistField = ApiKeyService.class.getDeclaredField("apiKeyWhitelistValidator");
+        whitelistField.setAccessible(true);
+        whitelistField.set(apiKeyService, new ApiKeyWhitelistValidator(nullCatalogProvider()));
+
         Field cacheField = ApiKeyService.class.getDeclaredField("apiKeyCache");
         cacheField.setAccessible(true);
         apiKeyCache = (Map<String, ApiKey>) cacheField.get(apiKeyService);
@@ -128,6 +134,32 @@ class ApiKeyServiceTest {
 
         apiKeyCache.put(testApiKey.getKeyHash(), testApiKey);
         keyIdIndex.put(testApiKey.getKeyId(), testApiKey.getKeyHash());
+    }
+
+    /** 空 catalog 的 ObjectProvider：查不到任何名字 → 校验器一律放行 */
+    private static org.springframework.beans.factory.ObjectProvider<
+            org.unreal.modelrouter.common.api.config.ServiceTypeCatalogApi> nullCatalogProvider() {
+        return new org.springframework.beans.factory.ObjectProvider<>() {
+            @Override
+            public org.unreal.modelrouter.common.api.config.ServiceTypeCatalogApi getObject() {
+                return null;
+            }
+
+            @Override
+            public org.unreal.modelrouter.common.api.config.ServiceTypeCatalogApi getObject(final Object... args) {
+                return null;
+            }
+
+            @Override
+            public org.unreal.modelrouter.common.api.config.ServiceTypeCatalogApi getIfAvailable() {
+                return null;
+            }
+
+            @Override
+            public org.unreal.modelrouter.common.api.config.ServiceTypeCatalogApi getIfUnique() {
+                return null;
+            }
+        };
     }
 
     @Nested
@@ -395,6 +427,45 @@ class ApiKeyServiceTest {
 
             assertEquals(1L, testApiKey.getUsage().getFailedRequests());
             assertEquals(1L, testApiKey.getUsage().getTotalRequests());
+        }
+
+        @Test
+        @DisplayName("更新使用统计 - 每日计数每次请求恰好 +1（防双重累加回归）")
+        void updateUsageStatistics_DailyUsage_IncrementExactlyOnce() {
+            String today = java.time.LocalDateTime.now().toLocalDate().toString();
+
+            apiKeyService.updateUsageStatistics("test-key-id", true);
+
+            assertEquals(1L, testApiKey.getUsage().getDailyUsage().get(today),
+                    "单次请求后当日计数必须为 1（历史 bug：incrementRequest 内部 +1 后又手动 +1，导致 +2）");
+
+            apiKeyService.updateUsageStatistics("test-key-id", true);
+            assertEquals(2L, testApiKey.getUsage().getDailyUsage().get(today),
+                    "两次请求后当日计数必须为 2");
+        }
+
+        @Test
+        @DisplayName("N-6 被拒请求不计入当日用量（审计口径保留 totalRequests/failedRequests）")
+        void updateUsageStatistics_Rejected_DoesNotCountDailyUsage() {
+            String today = java.time.LocalDateTime.now().toLocalDate().toString();
+
+            // 先放行 1 次建立当日用量基线
+            apiKeyService.updateUsageStatistics("test-key-id", true);
+            assertEquals(1L, testApiKey.getUsage().getDailyUsage().get(today));
+
+            // 被拒请求（配额/限流/权限不足，succ=false）：当日用量不得增加
+            apiKeyService.updateUsageStatistics("test-key-id", false);
+            apiKeyService.updateUsageStatistics("test-key-id", false);
+            assertEquals(1L, testApiKey.getUsage().getDailyUsage().get(today),
+                    "被拒请求不得计入当日用量（否则 limit=N 实际成功不足 N 次）");
+
+            // 审计口径仍记录全部请求
+            assertEquals(3L, testApiKey.getUsage().getTotalRequests());
+            assertEquals(2L, testApiKey.getUsage().getFailedRequests());
+
+            // 再次放行仍应正常计入（当日用量只统计成功请求）
+            apiKeyService.updateUsageStatistics("test-key-id", true);
+            assertEquals(2L, testApiKey.getUsage().getDailyUsage().get(today));
         }
 
         @Test

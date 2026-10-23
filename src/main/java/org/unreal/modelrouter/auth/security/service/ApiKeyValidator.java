@@ -142,8 +142,9 @@ public class ApiKeyValidator {
             return ValidationResult.success();
         }
         if (!rateLimiter.tryAcquire(apiKey.getKeyId(), apiKey.getRateLimitPerMinute())) {
+            // 摘自上游 v3.3.4 #404：API Key 限流用专用码（429），不再与认证失败共用语义
             return ValidationResult.failure("请求频率超过限制，请稍后再试",
-                    AuthenticationException.RATE_LIMIT_EXCEEDED);
+                    AuthenticationException.RATE_LIMITED_API_KEY);
         }
         return ValidationResult.success();
     }
@@ -326,12 +327,27 @@ public class ApiKeyValidator {
 
         /**
          * 转换为 AuthenticationException
+         *
+         * <p>摘自上游 v3.3.4 #404：限流与配额类失败不是认证失败，透出 429 而非 401
+         * （双参构造默认 UNAUTHORIZED，会让客户端把限流当认证错误处理）。</p>
          */
         public AuthenticationException toException() {
             if (success) {
                 throw new IllegalStateException("验证成功，无需转换为异常");
             }
+            if (isQuotaOrRateLimitCode(errorCode)) {
+                return new AuthenticationException(errorMessage, errorCode,
+                        org.springframework.http.HttpStatus.TOO_MANY_REQUESTS);
+            }
             return new AuthenticationException(errorMessage, errorCode);
+        }
+
+        /** 限流/配额类错误码（这些码客户端可见状态为 429） */
+        private static boolean isQuotaOrRateLimitCode(final String code) {
+            return AuthenticationException.RATE_LIMITED_API_KEY.equals(code)
+                    || AuthenticationException.RATE_LIMIT_EXCEEDED.equals(code)
+                    || AuthenticationException.DAILY_QUOTA_EXCEEDED.equals(code)
+                    || AuthenticationException.TOKEN_QUOTA_EXCEEDED.equals(code);
         }
     }
 

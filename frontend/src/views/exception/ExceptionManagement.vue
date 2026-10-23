@@ -132,10 +132,10 @@
               <el-link
                 v-if="scope.row.serviceType"
                 type="primary"
-                :underline="false"
+                underline="never"
                 @click.stop="router.push({ name: 'models', query: { serviceType: normalizeServiceType(scope.row.serviceType) } })"
               >
-                <el-tag size="small" type="info">{{ scope.row.serviceType }}</el-tag>
+                <el-tag size="small" type="info">{{ serviceTypeLabel(scope.row.serviceType) }}</el-tag>
               </el-link>
               <span v-else>-</span>
             </template>
@@ -145,9 +145,9 @@
               <span>{{ scope.row.modelName || '-' }}</span>
             </template>
           </el-table-column>
-          <el-table-column :label="t('exception.list.provider')" prop="provider" width="100" show-overflow-tooltip>
+          <el-table-column :label="t('exception.list.provider')" prop="provider" width="150" show-overflow-tooltip>
             <template #default="scope">
-              <span>{{ scope.row.provider || '-' }}</span>
+              <span>{{ getAdapterDisplay(scope.row.provider) }}</span>
             </template>
           </el-table-column>
           <el-table-column :label="t('exception.list.responseTime')" prop="responseTimeMs" width="120" sortable>
@@ -239,20 +239,20 @@
           <el-link
             v-if="selectedEvent.serviceType"
             type="primary"
-            :underline="false"
+            underline="never"
             @click="router.push({ name: 'model-categories', query: { serviceType: normalizeServiceType(selectedEvent.serviceType) } })"
           >
-            <el-tag size="small" type="info">{{ selectedEvent.serviceType }}</el-tag>
+            <el-tag size="small" type="info">{{ serviceTypeLabel(selectedEvent.serviceType) }}</el-tag>
           </el-link>
           <span v-else>-</span>
         </el-descriptions-item>
         <el-descriptions-item :label="t('exception.list.modelName')">{{ selectedEvent.modelName || '-' }}</el-descriptions-item>
-        <el-descriptions-item :label="t('exception.list.provider')">{{ selectedEvent.provider || '-' }}</el-descriptions-item>
+        <el-descriptions-item :label="t('exception.list.provider')">{{ getAdapterDisplay(selectedEvent.provider) }}</el-descriptions-item>
         <el-descriptions-item :label="t('exception.list.instanceName')">
           <el-link
             v-if="selectedEvent.instanceName && selectedEvent.serviceType"
             type="primary"
-            :underline="false"
+            underline="never"
             @click="router.push({ name: 'models', query: { serviceType: normalizeServiceType(selectedEvent.serviceType) } })"
           >
             {{ selectedEvent.instanceName }}
@@ -352,6 +352,7 @@ import {
 import type { ExceptionEvent, ExceptionQueryParams, ExceptionQueryResponse } from '@/types/exception'
 import StatCard from '@/components/StatCard.vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
+import { getAdapterList } from '@/api/adapter'
 
 const router = useRouter()
 
@@ -361,6 +362,23 @@ const { t } = useI18n()
 const normalizeServiceType = (st?: string): string => {
   if (!st) return ''
   return st.toLowerCase()
+}
+
+// 「模型分类」列友好显示：异常事件用大写枚举（含 IMG_GENERATE 这类变体），映射到统一分类文案
+const ST_LABEL_KEYS: Record<string, string> = {
+  CHAT: 'serviceTypes.chat',
+  EMBEDDING: 'serviceTypes.embedding',
+  RERANK: 'serviceTypes.rerank',
+  TTS: 'serviceTypes.tts',
+  STT: 'serviceTypes.stt',
+  IMG_GENERATE: 'serviceTypes.imgGen',
+  IMG_GEN: 'serviceTypes.imgGen',
+  IMG_EDIT: 'serviceTypes.imgEdit'
+}
+const serviceTypeLabel = (st?: string): string => {
+  if (!st) return '-'
+  const key = ST_LABEL_KEYS[st.toUpperCase()]
+  return key ? t(key) : st
 }
 
 // 加载状态
@@ -611,7 +629,28 @@ const handleCleanup = async () => {
 // 初始化
 onMounted(() => {
   loadData()
+  loadAdapterDialects()
 })
+
+// ---- 适配器方言显示 ----
+// 异常事件里的 provider 字段实际存的是 adapterType（适配器名），展示层转成方言。
+const adapterDialectMap = ref<Record<string, string>>({})
+const loadAdapterDialects = async () => {
+  try {
+    const res = await getAdapterList()
+    const map: Record<string, string> = {}
+    ;(res.data?.data || []).forEach((a: { name?: string; dialect?: string }) => {
+      if (a?.name) map[a.name] = a.dialect || a.name
+    })
+    adapterDialectMap.value = map
+  } catch {
+    // 加载失败时回退显示原始适配器名
+  }
+}
+const getAdapterDisplay = (name?: string) => {
+  if (!name) return '-'
+  return adapterDialectMap.value[name] || name
+}
 </script>
 
 <style scoped>

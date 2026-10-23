@@ -107,7 +107,7 @@
       "chartTitle": "Trace Timeline",
       "chartTitleWithCount": "Trace Timeline ({count} Spans)",
       "spanDetailsTitle": "Span Details",
-      "serviceTypePrefix": "Service type: {value}",
+      "serviceTypePrefix": "Model category: {value}",
       "operation": "Operation",
       "durationMsColumn": "Duration (ms)",
       "statusCode": "Status Code",

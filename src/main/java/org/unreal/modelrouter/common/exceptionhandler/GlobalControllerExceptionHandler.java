@@ -7,6 +7,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import org.unreal.modelrouter.common.controller.response.RouterResponse; // 确保引入您项目中的Response类
 import org.unreal.modelrouter.common.exception.ApiException;
+import org.unreal.modelrouter.common.exception.PoolUnavailableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +55,39 @@ public class GlobalControllerExceptionHandler {
         }
 
         return new ResponseEntity<>(errorResponse, ex.getStatusCode());
+    }
+
+    /**
+     * 处理池路由不可用异常（N-4）.
+     *
+     * <p>本 advice 优先于 {@link ReactiveGlobalExceptionHandler} 拿到异常，
+     * 所以 {@code Retry-After} 头必须在此附加，否则 N-4 的修复不生效。
+     * 池不可用（熔断打开 / 成员不健康）返回 503 + {@code Retry-After: 60}，
+     * 与 fallback 降级路径的退避语义一致，客户端可统一退避策略。</p>
+     *
+     * @param ex       池不可用异常
+     * @param exchange 当前交换对象（仅用于取请求路径，决定错误体形状）
+     * @return 503 响应（带 Retry-After 头）
+     */
+    @ExceptionHandler(PoolUnavailableException.class)
+    public ResponseEntity<?> handlePoolUnavailableException(final PoolUnavailableException ex,
+                                                           final ServerWebExchange exchange) {
+
+        logger.error("通过 @RestControllerAdvice 捕获到池路由不可用异常: retryAfter={}s, message={}",
+                ex.getRetryAfterSeconds(), ex.getMessage(), ex);
+
+        final ResponseEntity<?> clientResponse = V1ErrorBodyMapper.toClientErrorResponse(
+                exchange, ex.getStatus().value(), ex.getMessage(), String.valueOf(ex.getStatus().value()));
+        if (clientResponse != null) {
+            // 客户端协议形状的错误体也要带 Retry-After
+            return ResponseEntity.status(ex.getStatus())
+                    .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+                    .body(clientResponse.getBody());
+        }
+
+        return ResponseEntity.status(ex.getStatus())
+                .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+                .body(RouterResponse.error(ex.getMessage(), String.valueOf(ex.getStatus().value())));
     }
 
     /**

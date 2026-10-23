@@ -107,7 +107,7 @@
       "chartTitle": "追踪链路时序图",
       "chartTitleWithCount": "追踪链路时序图 ({count} 个 Span)",
       "spanDetailsTitle": "Span详情列表",
-      "serviceTypePrefix": "服务类型: {value}",
+      "serviceTypePrefix": "模型分类: {value}",
       "operation": "操作",
       "durationMsColumn": "耗时(ms)",
       "statusCode": "状态码",

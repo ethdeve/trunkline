@@ -1,5 +1,5 @@
 /**
- * JAiRouter Console 菜单配置（新台 v0.1，方案 A 定稿：6 组 12 项）
+ * Trunkline Console 菜单配置（新台 v0.1，方案 A 定稿：5 组 9 项，按任务流组织）
  *
  * 设计决策（方案 v1.2 第四章）：
  * - 观测 8 切面合一页、策略 4 合一页、系统 5 合一页、测试场 5 合 1、
@@ -33,7 +33,7 @@ export interface MenuGroup {
   children: MenuItem[]
 }
 
-/** 菜单配置：6 组 12 项（与路由表一一对应） */
+/** 菜单配置：5 组 9 项（与路由表一一对应） */
 export const menuGroups: MenuGroup[] = [
   {
     index: 'workbench',
@@ -44,8 +44,8 @@ export const menuGroups: MenuGroup[] = [
     ]
   },
   {
-    index: 'models',
-    title: '模型接入',
+    index: 'access',
+    title: '接入',
     icon: 'cpu',
     children: [
       {
@@ -63,6 +63,13 @@ export const menuGroups: MenuGroup[] = [
         subtitle: '把多个模型通道归为一组，统一调用、自动分流与容灾'
       },
       {
+        path: '/keys',
+        title: '密钥管理',
+        permission: 'security:apikeys:manage',
+        icon: 'stamp',
+        subtitle: '签发 / 吊销 / 配额'
+      },
+      {
         path: '/playground',
         title: '测试场',
         permission: 'ai:playground:use',
@@ -72,22 +79,8 @@ export const menuGroups: MenuGroup[] = [
     ]
   },
   {
-    index: 'keys',
-    title: 'API Keys',
-    icon: 'key',
-    children: [
-      {
-        path: '/keys',
-        title: '密钥管理',
-        permission: 'security:apikeys:manage',
-        icon: 'stamp',
-        subtitle: '签发 / 吊销 / 配额'
-      }
-    ]
-  },
-  {
     index: 'observe',
-    title: '观测',
+    title: '运营观测',
     icon: 'data-line',
     children: [
       {
@@ -107,7 +100,7 @@ export const menuGroups: MenuGroup[] = [
   },
   {
     index: 'strategy',
-    title: '策略',
+    title: '高级策略',
     icon: 'operation',
     children: [
       {
@@ -121,7 +114,7 @@ export const menuGroups: MenuGroup[] = [
   },
   {
     index: 'settings',
-    title: '系统',
+    title: '系统管理',
     icon: 'setting',
     children: [
       {

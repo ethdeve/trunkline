@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.common.exception.AuthenticationException;
 import org.unreal.modelrouter.common.exception.AuthorizationException;
+import org.unreal.modelrouter.common.exception.PoolUnavailableException;
 import org.unreal.modelrouter.common.exception.SanitizationException;
 import org.unreal.modelrouter.common.exception.SecurityException;
 import org.unreal.modelrouter.common.exception.SecurityAuthenticationException;
@@ -107,11 +108,22 @@ public class ReactiveGlobalExceptionHandler implements ErrorWebExceptionHandler 
             } else {
                 RouterResponse<Void> errorResponse;
                 HttpStatus status;
-                
+                Integer retryAfterSeconds = null;
+
                 if (ex instanceof ServerWebInputException) {
                     logger.error("请求体读取异常: {}", ex.getMessage());
                     errorResponse = RouterResponse.error("请求体无效或缺失: " + ex.getMessage(), "400");
                     status = HttpStatus.BAD_REQUEST;
+                } else if (ex instanceof PoolUnavailableException) {
+                    // N-4：池不可用（熔断打开 / 成员不健康）——503 带 Retry-After，
+                    // 与 fallback 降级路径的 Retry-After: 60 语义一致，客户端可统一退避。
+                    PoolUnavailableException pue = (PoolUnavailableException) ex;
+                    logger.error("池路由不可用: retryAfter={}s, message={}",
+                            pue.getRetryAfterSeconds(), pue.getMessage());
+                    errorResponse = RouterResponse.error(pue.getMessage(),
+                            String.valueOf(pue.getStatus().value()));
+                    status = pue.getStatus();
+                    retryAfterSeconds = pue.getRetryAfterSeconds();
                 } else if (ex instanceof ResponseStatusException) {
                     ResponseStatusException rse = (ResponseStatusException) ex;
                     logger.error("响应状态异常: status={}, message={}", rse.getStatusCode(), rse.getMessage());
@@ -136,7 +148,7 @@ public class ReactiveGlobalExceptionHandler implements ErrorWebExceptionHandler 
                 }
                 
                 // 安全地设置响应状态和头
-                return setResponse(exchange, errorResponse, status);
+                return setResponse(exchange, errorResponse, status, retryAfterSeconds);
             }
         } catch (Exception e) {
             logger.error("异常处理器本身发生异常", e);
@@ -191,11 +203,23 @@ public class ReactiveGlobalExceptionHandler implements ErrorWebExceptionHandler 
     }
     
     /**
-     * 安全地设置响应
+     * 安全地设置响应（不带 Retry-After）
      */
     private Mono<Void> setResponse(
             final ServerWebExchange exchange,
             final RouterResponse<Void> errorResponse, final HttpStatus status) {
+        return setResponse(exchange, errorResponse, status, null);
+    }
+
+    /**
+     * 安全地设置响应
+     *
+     * @param retryAfterSeconds 非空时附加 {@code Retry-After} 头（N-4：池不可用 503 的退避提示）
+     */
+    private Mono<Void> setResponse(
+            final ServerWebExchange exchange,
+            final RouterResponse<Void> errorResponse, final HttpStatus status,
+            final Integer retryAfterSeconds) {
         try {
             final ServerHttpResponse response = exchange.getResponse();
             // 检查响应是否已提交
@@ -203,15 +227,21 @@ public class ReactiveGlobalExceptionHandler implements ErrorWebExceptionHandler 
                 logger.warn("响应已提交，无法设置错误响应");
                 return Mono.empty();
             }
-            
+
             // 设置状态码
             response.setStatusCode(status);
-            
+
             // 安全地设置响应头，避免重复设置
             if (!response.getHeaders().containsKey("Content-Type")) {
                 response.getHeaders().add("Content-Type", MediaType.APPLICATION_JSON_VALUE);
             }
-            
+
+            // N-4：Retry-After 头（客户端退避提示，与 fallback 降级路径语义一致）
+            if (retryAfterSeconds != null && retryAfterSeconds > 0
+                    && !response.getHeaders().containsKey("Retry-After")) {
+                response.getHeaders().add("Retry-After", String.valueOf(retryAfterSeconds));
+            }
+
             // 序列化响应体：/v1/** 按客户端协议形状输出，其余路径沿用 RouterResponse（状态码不变）
             String jsonResponse = serializeErrorBody(exchange, errorResponse, status);
             DataBuffer buffer = response.bufferFactory().wrap(jsonResponse.getBytes(StandardCharsets.UTF_8));

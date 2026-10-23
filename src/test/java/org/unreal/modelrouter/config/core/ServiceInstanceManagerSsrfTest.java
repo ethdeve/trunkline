@@ -59,6 +59,16 @@ class ServiceInstanceManagerSsrfTest {
     @Mock
     private org.unreal.modelrouter.persistence.jpa.repository.ModelProviderRepository modelProviderRepository;
 
+    /** 2026-10-22：跨模型分类迁移所需的三个新依赖 */
+    @Mock
+    private org.unreal.modelrouter.router.checker.ServiceStateManager serviceStateManager;
+
+    @Mock
+    private org.unreal.modelrouter.router.ratelimit.RateLimitManager rateLimitManager;
+
+    @Mock
+    private org.unreal.modelrouter.router.pool.PoolPersistenceService poolPersistenceService;
+
     private ServiceInstanceManager manager;
 
     @BeforeEach
@@ -66,7 +76,8 @@ class ServiceInstanceManagerSsrfTest {
         manager = new ServiceInstanceManager(
                 serviceInstanceRepository, rateLimitRepository, circuitBreakerRepository,
                 serviceConfigRepository, configurationService, configVersionManager,
-                modelServiceRegistry, circuitBreakerManager, modelProviderRepository);
+                modelServiceRegistry, circuitBreakerManager, modelProviderRepository,
+                serviceStateManager, rateLimitManager, poolPersistenceService);
         when(serviceInstanceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     }
 

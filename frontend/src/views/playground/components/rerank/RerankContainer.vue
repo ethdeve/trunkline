@@ -3,56 +3,12 @@
     <!-- 顶部工具栏 -->
     <div class="service-toolbar">
       <div class="toolbar-left">
-        <el-select
+        <PlaygroundModelSelect
           v-model="selectedModel"
-          :placeholder="t('playgroundRerank.modelPlaceholder')"
+          :instances="availableInstances"
           :loading="instancesLoading"
-          filterable
-          class="model-select"
-        >
-          <template #prefix>
-            <el-icon><Cpu /></el-icon>
-          </template>
-          <el-option
-            v-for="inst in availableInstances"
-            :key="inst.instanceId"
-            :label="inst.name"
-            :value="inst.name"
-            :disabled="inst.healthStatus === 'UNHEALTHY'"
-          >
-            <div class="instance-option">
-              <span
-                class="health-indicator"
-                :class="{
-                  'health-healthy': inst.healthStatus === 'HEALTHY',
-                  'health-unhealthy': inst.healthStatus === 'UNHEALTHY',
-                  'health-unknown': inst.healthStatus === 'UNKNOWN' || !inst.healthStatus
-                }"
-              >
-                ●
-              </span>
-              <span class="instance-name">{{ inst.name }}</span>
-              <span
-                v-if="inst.isGroup"
-                class="group-badge"
-              >
-                {{ t('playgroundCommon.model.group') }}
-              </span>
-              <span
-                v-if="inst.healthStatus === 'UNHEALTHY'"
-                class="health-status-text"
-              >
-                {{ t('playgroundRerank.offlineStatus') }}
-              </span>
-              <span
-                v-else-if="inst.healthStatus === 'UNKNOWN' || !inst.healthStatus"
-                class="health-status-text unknown"
-              >
-                {{ t('playgroundRerank.unknownStatus') }}
-              </span>
-            </div>
-          </el-option>
-        </el-select>
+          :placeholder="t('playgroundRerank.modelPlaceholder')"
+        />
         <el-button
           text
           @click="showConfig = !showConfig"
@@ -255,6 +211,7 @@ import {
 import { ElMessage } from 'element-plus'
 import { usePlaygroundData } from '@/composables/usePlaygroundData'
 import { useRoutePreselect, preselectInstanceName } from '@/composables/useRoutePreselect'
+import PlaygroundModelSelect from '@/views/playground/components/common/PlaygroundModelSelect.vue'
 import { sendServiceRequest } from '@/api/playground'
 import type { RerankRequestConfig, PlaygroundResponse } from '../../types/playground'
 import { parseErrorMessage, getErrorSuggestion } from '../../utils/errorHandler'
@@ -565,53 +522,5 @@ defineExpose({
   color: var(--ja-text-regular);
   line-height: 1.6;
   word-break: break-word;
-}
-
-/* 健康状态指示器样式 */
-.instance-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.health-indicator {
-  font-size: 12px;
-}
-
-.health-healthy {
-  color: var(--ja-success);
-}
-
-.health-unhealthy {
-  color: var(--ja-danger);
-}
-
-.health-unknown {
-  color: var(--ja-text-secondary);
-}
-
-.instance-name {
-  flex: 1;
-}
-
-.group-badge {
-  flex: none;
-  margin-left: 8px;
-  padding: 0 6px;
-  font-size: 11px;
-  line-height: 16px;
-  color: var(--ja-text-secondary);
-  background-color: var(--ja-bg-card);
-  border: 1px solid var(--ja-border-dark);
-  border-radius: 3px;
-}
-
-.health-status-text {
-  font-size: 12px;
-  color: var(--ja-danger);
-}
-
-.health-status-text.unknown {
-  color: var(--ja-text-secondary);
 }
 </style>

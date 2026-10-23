@@ -10,6 +10,9 @@
     },
     "save": "Save Permissions",
     "reset": "Reset",
+    "recommended": "Recommended",
+    "pickRoleHint": "Pick a role above to view and adjust the permissions it holds",
+    "showRawCodes": "Show raw permission codes",
     "roleDescriptions": {
       "ADMIN": "Full access to all features, config and accounts",
       "OPERATOR": "Can view and manage model access, strategy and observability; no system accounts or security settings",

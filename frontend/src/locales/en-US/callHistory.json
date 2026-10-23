@@ -11,8 +11,8 @@
       "endTime": "End Time",
       "rangeSeparator": "to",
       "modelName": "Model Name",
-      "serviceType": "Service Type",
-      "provider": "Provider",
+      "serviceType": "Model Category",
+      "provider": "Adapter",
       "httpStatus": "HTTP Status",
       "httpStatusCode": "HTTP Status Code",
       "token": "Tokens",
@@ -39,14 +39,14 @@
         "totalTokenConsumed": "Total Tokens Consumed",
         "failedRequests": "Failed Requests",
         "modelCount": "Models",
-        "serviceTypeCount": "Service Types",
+        "serviceTypeCount": "Model Categories",
         "avgTokensPerRequest": "Avg. Tokens / Request"
       },
       "chart": {
         "countUnit": "requests",
         "dailyTrendTitle": "Daily Request Trend",
         "modelDistributionTitle": "Top 10 Model Call Distribution",
-        "serviceTypeDistributionTitle": "Service Type Call Distribution",
+        "serviceTypeDistributionTitle": "Calls by Model Category",
         "hourlyDistributionTitle": "24-Hour Request Distribution",
         "statusCodeDistributionTitle": "HTTP Status Code Distribution",
         "errorCodeDistributionTitle": "Error Code Distribution",
@@ -73,7 +73,7 @@
       "requestId": "Request ID",
       "requestMethod": "Request Method",
       "requestPath": "Request Path",
-      "instanceName": "Instance Name",
+      "instanceName": "Model Name",
       "responseTime": "Response Time",
       "errorCode": "Error Code",
       "tokenStatsTitle": "Token Statistics",
@@ -93,7 +93,29 @@
       "loadConfigFailed": "Failed to load recording config: {message}",
       "saveConfigFailed": "Failed to save recording config: {message}",
       "saveSuccess": "Record level updated",
-      "loadFailed": "Failed to load call history: {message}"
+      "loadFailed": "Failed to load call history: {message}",
+      "emptyFailedHint": "No failed calls — your calls may have all succeeded. Switch the status filter above to 'All' to see all records."
+    },
+    "failureExplain": {
+      "title": "Why it failed",
+      "circuitBroken": "This instance is circuit-broken and temporarily removed",
+      "rateLimited": "Called too frequently and hit rate limiting",
+      "dailyQuota": "Today's request count is used up",
+      "tokenQuota": "Today's token quota is used up",
+      "throttled": "The request was blocked by rate limiting",
+      "unauthorized": "The API key is invalid or expired",
+      "forbidden": "This key is not allowed to call this model",
+      "notFound": "Model or endpoint not found",
+      "upstreamError": "The upstream model service returned an error",
+      "timeout": "Request timed out, the upstream was too slow",
+      "badRequest": "The request parameters are invalid",
+      "actions": {
+        "keys": "Manage keys",
+        "rate": "Adjust limits",
+        "instances": "Check instances",
+        "circuit": "View circuit breaker",
+        "none": ""
+      }
     },
     "slowCalls": {
       "pageTitle": "Slow Call Analysis",
@@ -117,11 +139,11 @@
         "totalRequests": "Total Requests",
         "successRate": "Success Rate",
         "modelUsedCount": "Models Used",
-        "serviceTypeCount": "Service Types"
+        "serviceTypeCount": "Model Categories"
       },
       "chart": {
         "modelTokenTopTitle": "Top 10 Models by Token Usage",
-        "serviceTypeTokenTitle": "Token Usage by Service Type",
+        "serviceTypeTokenTitle": "Token Usage by Model Category",
         "dailyTrendTitle": "Daily Token Usage Trend",
         "weeklyTrendTitle": "Weekly Token Usage Trend",
         "monthlyTrendTitle": "Monthly Token Usage Trend",

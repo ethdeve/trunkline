@@ -49,4 +49,14 @@ public final class CreateServiceInstanceRequest {
      * v2.9.7: 实例标签配置(标签路由按键值对圈选)
      */
     private Map<String, String> tags;
+
+    /**
+     * 目标服务类型（模型分类）：chat / embedding / rerank / tts / stt / imgGen / imgEdit。
+     * <p>仅在<b>更新</b>时有意义，值为空表示不改变分类；非空表示把实例迁移到该分类。</p>
+     * <p>迁移不是单纯改一个字段——实例的服务类型由 {@code service_config_id} 决定，
+     * 且健康状态、实例限流、池成员引用都按「serviceType:instanceId」组织，
+     * 因此由 {@code ServiceInstanceManager#updateInstance} 统一做级联迁移与前置校验。</p>
+     * @since 2026-10-22
+     */
+    private String serviceType;
 }

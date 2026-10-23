@@ -1,0 +1,70 @@
+{
+  "overview": {
+    "kpi": {
+      "todayCalls": "今日调用",
+      "currentQps": "当前 QPS",
+      "recentHourCalls": "近 1 小时请求",
+      "tokenUsage": "Token 消耗",
+      "instanceHealth": "实例健康",
+      "unitTimes": "次",
+      "unitQps": "req/s",
+      "unitTokens": "tokens",
+      "unitCount": "个",
+      "hintSuccessRate": "成功率 {v}",
+      "hintAvgDuration": "平均耗时 {v}",
+      "hintAvgPerCall": "均次 {v}",
+      "hintAbnormal": "异常 {v} 个",
+      "viewDetail": "查看明细 →"
+    },
+    "attention": {
+      "title": "需要关注",
+      "pending": "有 {n} 项待处理",
+      "goHandle": "去处理 →",
+      "quotaAlert": "个密钥已触发配额告警，可能随时被限流",
+      "expiringKey": "个密钥将在 7 天内过期，到期后调用会直接失败",
+      "unhealthyInstance": "个实例当前不可用，请求可能被分流到故障通道"
+    },
+    "anomaly": {
+      "healthy": "个实例正常",
+      "circuitOpen": "个实例熔断中",
+      "unhealthy": "个实例健康异常",
+      "inactive": "个实例已停用",
+      "rateLimited": "个实例开了限流",
+      "nameSeparator": "、",
+      "moreCount": " 等 {n} 个"
+    },
+    "topo": {
+      "title": "实例健康拓扑",
+      "hint": "点击实例节点查看详情",
+      "gateway": "Trunkline 网关",
+      "catGateway": "网关",
+      "catType": "模型分类",
+      "catInstance": "实例",
+      "legend": {
+        "healthy": "健康",
+        "degraded": "降级",
+        "broken": "故障",
+        "notConnected": "未接入"
+      }
+    },
+    "calls": {
+      "title": "最近调用",
+      "all": "全部",
+      "onlyFailed": "仅失败",
+      "autoRefresh": "30 秒自动刷新"
+    },
+    "drawer": {
+      "title": "实例详情",
+      "instanceName": "实例名",
+      "instanceId": "实例 ID",
+      "baseUrl": "Base URL",
+      "adapter": "适配器",
+      "weight": "权重",
+      "healthStatus": "健康状态"
+    },
+    "status": {
+      "success": "成功",
+      "failed": "失败"
+    }
+  }
+}

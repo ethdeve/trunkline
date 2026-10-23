@@ -324,8 +324,10 @@ public class NonStreamingRequestProcessor {
                             downstreamData = objectMapper.readValue(bodyStr, Object.class);
 
                             // 提取并记录 token 使用量（v3.1 PR-2: 同时完成配额结算）
+                            // P1-4: 透传下游响应耗时,token_usage.responseTimeMs 供平均响应时间统计
                             tokenUsageExtractor.extractAndRecordTokenUsage(bodyStr, adapterType, instanceName,
-                                    capturedKeyId, quotaReservation);
+                                    capturedKeyId, quotaReservation,
+                                    System.currentTimeMillis() - requestStartTime);
                         }
 
                         // 响应转换

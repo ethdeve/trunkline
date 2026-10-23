@@ -287,10 +287,11 @@ class ServiceRequestHandlerQuotaIntegrationTest {
     // ==================== 不变量 ====================
 
     @Test
-    @DisplayName("enabled=false：零行为变更（零账本访问、零响应头、零凭据）")
+    @DisplayName("enabled=false：不访问账本、无凭据、无配额头（N-2 预估不触发时放行）")
     void quotaDisabled_shouldBehaveAsBefore() throws Exception {
         quotaProperties.setEnabled(false);
-        registerApiKey(1L, 1L, 1);
+        // dailyTokenLimit=0：不触发 N-2 预估判定,复验 disabled 路径本身零账本交互
+        registerApiKey(1L, 0L, 1);
         seedUsage(10, 100000L);
         final int invocationsBefore = repository.invocationCount();
 
@@ -302,7 +303,34 @@ class ServiceRequestHandlerQuotaIntegrationTest {
         assertEquals("downstream-ok", response.getBody());
         assertNull(QuotaReservation.from(exchange.getRequest()), "未启用时不得挂载凭据");
         assertEquals(invocationsBefore, repository.invocationCount(), "未启用时不得访问账本");
-        assertTrue(exchange.getResponse().getHeaders().isEmpty(), "未启用时不得新增任何响应头");
+        // P3-11 路由调试头(X-Trunkline-*)与配额无关,始终存在;此处断言不变量收窄为「零配额头」
+        assertTrue(exchange.getResponse().getHeaders().keySet().stream()
+                        .allMatch(h -> h.startsWith("X-Trunkline-")),
+                "未启用时不得新增任何配额响应头(仅允许 P3-11 路由调试头)");
+    }
+
+    @Test
+    @DisplayName("N-2：enabled=false 时日 Token 预估判定仍生效（429，但不访问账本、无凭据）")
+    void quotaDisabled_estimatedTokenQuotaStillApplies() throws Exception {
+        quotaProperties.setEnabled(false);
+        // dailyTokenLimit=1 且请求 max_tokens=256:老链路(disabled)会放行导致单次超额,
+        // N-2 预估兜底(prompt+max_tokens=上限)应在请求前拒绝
+        registerApiKey(1L, 1L, 1);
+        final int invocationsBefore = repository.invocationCount();
+
+        final ServerWebExchange exchange = buildExchange(deterministicChat("hello!"));
+        final ServiceRequestExecutor executor = downstreamExecutor();
+
+        StepVerifier.create(invoke(exchange, executor))
+                .expectErrorMatches(error -> error instanceof ResponseStatusException statusException
+                        && statusException.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS)
+                .verify(java.time.Duration.ofSeconds(10));
+
+        verify(executor, never()).execute(any(), any(), any());
+        assertEquals(invocationsBefore, repository.invocationCount(), "预估判定不得访问账本");
+        assertNull(QuotaReservation.from(exchange.getRequest()), "预估判定不得挂载凭据");
+        assertTrue(exchange.getResponse().getHeaders().containsKey(ServiceRequestHandler.QUOTA_HEADER_LIMIT),
+                "预估拒绝应携带 X-Quota-Limit 响应头");
     }
 
     @Test
@@ -334,7 +362,10 @@ class ServiceRequestHandlerQuotaIntegrationTest {
 
         assertEquals(HttpStatus.OK, invoke(exchange, executor).block().getStatusCode());
         assertNull(QuotaReservation.from(exchange.getRequest()));
-        assertTrue(exchange.getResponse().getHeaders().isEmpty());
+        // P3-11 路由调试头与配额无关;不变量收窄为「零配额头」
+        assertTrue(exchange.getResponse().getHeaders().keySet().stream()
+                        .allMatch(h -> h.startsWith("X-Trunkline-")),
+                "配额服务未装配时不得新增任何配额响应头(仅允许 P3-11 路由调试头)");
     }
 
     @Test

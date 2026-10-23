@@ -3,56 +3,12 @@
     <!-- 顶部工具栏 -->
     <div class="chat-toolbar">
       <div class="toolbar-left">
-        <el-select
+        <PlaygroundModelSelect
           v-model="selectedModel"
-          :placeholder="t('playgroundChat.toolbar.selectModel')"
+          :instances="availableInstances"
           :loading="instancesLoading"
-          filterable
-          class="model-select"
-        >
-          <template #prefix>
-            <el-icon><Cpu /></el-icon>
-          </template>
-          <el-option
-            v-for="inst in availableInstances"
-            :key="inst.instanceId"
-            :label="inst.name"
-            :value="inst.name"
-            :disabled="inst.healthStatus === 'UNHEALTHY'"
-          >
-            <div class="instance-option">
-              <span
-                class="health-indicator"
-                :class="{
-                  'health-healthy': inst.healthStatus === 'HEALTHY',
-                  'health-unhealthy': inst.healthStatus === 'UNHEALTHY',
-                  'health-unknown': inst.healthStatus === 'UNKNOWN' || !inst.healthStatus
-                }"
-              >
-                ●
-              </span>
-              <span class="instance-name">{{ inst.name }}</span>
-              <span
-                v-if="inst.isGroup"
-                class="group-badge"
-              >
-                {{ t('playgroundCommon.model.group') }}
-              </span>
-              <span
-                v-if="inst.healthStatus === 'UNHEALTHY'"
-                class="health-status-text"
-              >
-                {{ t('playgroundChat.instance.offline') }}
-              </span>
-              <span
-                v-else-if="inst.healthStatus === 'UNKNOWN' || !inst.healthStatus"
-                class="health-status-text unknown"
-              >
-                {{ t('playgroundChat.instance.unknown') }}
-              </span>
-            </div>
-          </el-option>
-        </el-select>
+          :placeholder="t('playgroundChat.toolbar.selectModel')"
+        />
         <el-button
           text
           @click="showConfig = !showConfig"
@@ -110,6 +66,35 @@
         </el-icon>
         <div class="empty-title">{{ t('playgroundChat.empty.title') }}</div>
         <div class="empty-subtitle">{{ t('playgroundChat.empty.subtitle') }}</div>
+
+        <!-- 首次进入：三步操作指引（U6-2） -->
+        <div class="empty-steps">
+          <div
+            v-for="(step, idx) in emptySteps"
+            :key="step.key"
+            class="empty-step"
+            :class="{ 'is-done': step.done }"
+          >
+            <span class="empty-step-index">{{ idx + 1 }}</span>
+            <span class="empty-step-text">{{ step.text }}</span>
+          </div>
+        </div>
+        <div class="empty-note">{{ t('playgroundChat.empty.failureHint') }}</div>
+
+        <!-- 完全没有可用模型时，直接给出接入入口 -->
+        <div
+          v-if="availableInstances.length === 0"
+          class="empty-no-model"
+        >
+          <el-button
+            type="primary"
+            size="small"
+            @click="goConnectModels"
+          >
+            {{ t('playgroundChat.empty.connectModels') }}
+          </el-button>
+        </div>
+
         <div class="suggestions">
           <el-button
             v-for="suggestion in suggestions"
@@ -157,11 +142,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Setting, Plus, Delete, ChatDotRound, Cpu } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { Setting, Plus, Delete, ChatDotRound } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import MessageList from './MessageList.vue'
 import MessageInput from './MessageInput.vue'
 import ChatConfigPanel from './ChatConfigPanel.vue'
+import PlaygroundModelSelect from '@/views/playground/components/common/PlaygroundModelSelect.vue'
 import { useChatSession } from '../../composables/useChatSession'
 import { useStreaming } from '../../composables/useStreaming'
 import { usePlaygroundData } from '@/composables/usePlaygroundData'
@@ -172,6 +159,7 @@ import { parseErrorMessage, getErrorSuggestion } from '../../utils/errorHandler'
 import { throttle } from '@/utils/throttle'
 
 const { t } = useI18n()
+const router = useRouter()
 
 // Refs
 const messageListRef = ref<HTMLElement>()
@@ -252,6 +240,33 @@ const suggestions = computed(() => [
   t('playgroundChat.suggestions.writeCode'),
   t('playgroundChat.suggestions.machineLearning')
 ])
+
+/**
+ * 首次进入引导（U6-2）：把「怎么用」拆成三步，让新用户不必猜。
+ * done 表示该步当前是否已完成，用于视觉上标记进度。
+ */
+const emptySteps = computed(() => [
+  {
+    key: 'model',
+    text: t('playgroundChat.empty.step1'),
+    done: !!selectedModel.value
+  },
+  {
+    key: 'input',
+    text: t('playgroundChat.empty.step2'),
+    done: false
+  },
+  {
+    key: 'send',
+    text: t('playgroundChat.empty.step3'),
+    done: false
+  }
+])
+
+/** 跳到「接入模型」页配置供应商与模型 */
+const goConnectModels = () => {
+  router.push({ path: '/models', query: { tab: 'providers' } })
+}
 
 // 初始化
 onMounted(() => {
@@ -603,6 +618,54 @@ defineExpose({
   margin-bottom: 24px;
 }
 
+/* 首次进入三步引导 */
+.empty-steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 20px;
+  margin-bottom: 10px;
+}
+
+.empty-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ja-text-secondary);
+}
+
+.empty-step-index {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--ja-text-secondary);
+  color: #fff;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-step.is-done {
+  color: var(--ja-success);
+}
+
+.empty-step.is-done .empty-step-index {
+  background: var(--ja-success);
+}
+
+.empty-note {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+  margin-bottom: 16px;
+}
+
+.empty-no-model {
+  margin-bottom: 16px;
+}
+
 .suggestions {
   display: flex;
   flex-wrap: wrap;
@@ -628,53 +691,5 @@ defineExpose({
 
 .tip-warning {
   color: var(--ja-danger);
-}
-
-/* 健康状态指示器样式 */
-.instance-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.health-indicator {
-  font-size: 12px;
-}
-
-.health-healthy {
-  color: var(--ja-success);
-}
-
-.health-unhealthy {
-  color: var(--ja-danger);
-}
-
-.health-unknown {
-  color: var(--ja-text-secondary);
-}
-
-.instance-name {
-  flex: 1;
-}
-
-.group-badge {
-  flex: none;
-  margin-left: 8px;
-  padding: 0 6px;
-  font-size: 11px;
-  line-height: 16px;
-  color: var(--ja-text-secondary);
-  background-color: var(--ja-bg-card);
-  border: 1px solid var(--ja-border-dark);
-  border-radius: 3px;
-}
-
-.health-status-text {
-  font-size: 12px;
-  color: var(--ja-danger);
-}
-
-.health-status-text.unknown {
-  color: var(--ja-text-secondary);
 }
 </style>

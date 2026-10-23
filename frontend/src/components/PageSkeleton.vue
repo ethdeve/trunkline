@@ -8,8 +8,15 @@
           <h2 v-if="title">{{ title }}</h2>
         </slot>
       </div>
-      <div v-if="$slots.actions" class="page-actions">
-        <slot name="actions" />
+      <div class="page-header__right">
+        <el-tooltip v-if="helpLink && !embedded" content="查看接入指南" placement="bottom">
+          <el-button text class="page-header__help" @click="openHelp">
+            <el-icon :size="16"><QuestionFilled /></el-icon>
+          </el-button>
+        </el-tooltip>
+        <div v-if="$slots.actions" class="page-actions">
+          <slot name="actions" />
+        </div>
       </div>
     </div>
 
@@ -37,10 +44,21 @@
 
 <script setup lang="ts">
 import { inject, ref } from 'vue'
+import { QuestionFilled } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 
-defineProps<{
+const props = defineProps<{
   title?: string
+  /** 帮助链接：以 '/' 开头走路由，否则新窗口打开（如接入指南锚点） */
+  helpLink?: string
 }>()
+
+const router = useRouter()
+function openHelp() {
+  if (!props.helpLink) return
+  if (props.helpLink.startsWith('/')) router.push(props.helpLink)
+  else window.open(props.helpLink, '_blank', 'noopener')
+}
 
 /**
  * 嵌入模式（新台壳层规范）：
@@ -84,6 +102,19 @@ const embedded = ref(injected)
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.page-header__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-header__help {
+  color: var(--ja-text-placeholder);
+}
+.page-header__help:hover {
+  color: var(--ja-primary);
 }
 
 .page-stats {

@@ -27,19 +27,25 @@
           <template #default="{ row }">
             <el-link
               type="primary"
-              :underline="false"
+              underline="never"
               @click.stop="router.push({ name: 'models', query: { serviceType: row.serviceType } })"
             >
-              {{ row.serviceType }}
+              {{ serviceTypeLabel(row.serviceType) }}
             </el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="strategy" :label="t('pool.strategy')" width="140" align="center" />
+        <el-table-column prop="strategy" :label="t('pool.strategy')" min-width="150" align="center">
+          <template #default="{ row }">
+            <el-tooltip :content="t('pool.strategyHints.' + (row.strategy || 'weighted-random'))" placement="top">
+              <span class="strategy-name">{{ t('pool.strategies.' + (row.strategy || 'weighted-random')) }}</span>
+            </el-tooltip>
+          </template>
+        </el-table-column>
         <el-table-column :label="t('pool.members')" min-width="160">
           <template #default="{ row }">
             <el-link
               type="primary"
-              :underline="false"
+              underline="never"
               @click.stop="router.push({ name: 'models', query: { serviceType: row.serviceType } })"
             >
               {{ formatMembers(row.members) }}
@@ -53,10 +59,31 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <div v-if="!loading && pools.length === 0" class="list-empty">
+        <el-empty :description="t('pool.emptyText')">
+          <el-button v-if="canWrite" type="primary" @click="handleCreate">{{ t('pool.addPool') }}</el-button>
+        </el-empty>
+      </div>
   </PageSkeleton>
 
-    <el-dialog v-model="dialogVisible" :title="isEdit ? t('pool.editPool') : t('pool.addPool')" width="640px" destroy-on-close>
-      <el-form :model="form" label-width="110px">
+    <!--
+      宽度说明：穿梭框需要「已选成员 / 穿梭按钮 / 可选实例」三栏，
+      每栏还要放得下实例名 + 权重输入框。640px 扣掉 padding 与左侧 label 后
+      每栏只剩 ~220px，实例名会被压成 "gl..."。
+      故用 min(900px, 100vw - 48px)：宽屏给足空间，窄屏自适应不溢出。
+    -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="isEdit ? t('pool.editPool') : t('pool.addPool')"
+      width="min(900px, calc(100vw - 48px))"
+      class="pool-edit-dialog"
+      top="5vh"
+      :body-style="dialogBodyStyle"
+      destroy-on-close
+    >
+      <!-- 弹窗体限高并可滚动：内容较高时底部「保存/取消」不会被挤出视口 -->
+      <el-form :model="form" label-width="110px" class="pool-edit-form">
         <el-form-item :label="t('pool.poolName')" required>
           <el-input v-model="form.poolName" :placeholder="t('pool.poolNamePlaceholder')" :disabled="isEdit" />
         </el-form-item>
@@ -64,35 +91,138 @@
           <el-input v-model="form.name" :placeholder="t('pool.displayNamePlaceholder')" />
         </el-form-item>
         <el-form-item :label="t('pool.serviceType')" required>
-          <el-select v-model="form.serviceType" :placeholder="t('pool.selectServiceType')" style="width: 200px">
-            <el-option v-for="s in SERVICE_TYPES" :key="s" :label="s" :value="s" />
+          <el-select v-model="form.serviceType" :placeholder="t('pool.selectServiceType')" style="width: 240px">
+            <el-option v-for="s in SERVICE_TYPES" :key="s" :label="serviceTypeLabel(s)" :value="s" />
           </el-select>
         </el-form-item>
         <el-form-item :label="t('pool.selectStrategy')">
-          <el-select v-model="form.strategy" style="width: 200px">
-            <el-option :label="t('pool.strategies.weightedRandom')" value="weighted-random" />
-            <el-option :label="t('pool.strategies.roundRobin')" value="round-robin" />
-            <el-option :label="t('pool.strategies.leastConnections')" value="least-connections" />
-            <el-option :label="t('pool.strategies.ipHash')" value="ip-hash" />
-            <el-option :label="t('pool.strategies.consistentHash')" value="consistent-hash" />
+          <el-select v-model="form.strategy" style="width: 260px">
+            <el-option
+              v-for="s in STRATEGY_OPTIONS"
+              :key="s.value"
+              :label="t(s.label)"
+              :value="s.value"
+            >
+              <div class="strategy-option">
+                <span class="strategy-option-name">{{ t(s.label) }}</span>
+                <span class="strategy-option-desc">{{ t(s.hint) }}</span>
+              </div>
+            </el-option>
           </el-select>
+          <div class="form-tip">{{ t('pool.strategyHints.' + (form.strategy || 'weighted-random')) }}</div>
         </el-form-item>
         <el-form-item :label="t('pool.enabled')">
           <el-switch v-model="form.enabled" :active-text="t('pool.enabled')" :inactive-text="t('pool.disabled')" />
         </el-form-item>
         <el-form-item :label="t('pool.members')">
-          <div style="width: 100%">
-            <div v-for="(m, idx) in form.members" :key="idx" style="display: flex; gap: 8px; margin-bottom: 8px">
-              <el-select v-model="m.instanceId" :placeholder="t('pool.selectInstance')" style="flex: 1">
-                <el-option v-for="o in optionsForRow(idx)" :key="o.value" :label="o.label" :value="o.value" :disabled="o.disabled" />
-              </el-select>
-              <el-input-number v-model="m.weight" :min="1" :max="10000" :placeholder="t('pool.weightPlaceholder')" style="width: 120px" />
-              <el-button type="danger" :icon="Delete" circle size="small" @click="removeMember(idx)" />
+          <div class="member-picker">
+            <!-- 左侧：已选成员（权重内联调整） -->
+            <div class="member-pane member-pane-selected">
+              <div class="member-pane-head">
+                <span class="member-pane-title">{{ t('pool.memberPaneSelected') }}</span>
+                <span class="member-pane-count">{{ form.members.length }}</span>
+              </div>
+              <div class="member-list">
+                <div
+                  v-for="(m, idx) in form.members"
+                  :key="idx"
+                  class="member-row"
+                  :class="{ 'is-active': selectedMember === idx }"
+                  @click="selectedMember = idx"
+                >
+                  <!--
+                    两行布局：名称独占第一行，权重与移除放第二行。
+                    单行时名称会被权重框(100px 固定) + 移除按钮挤到只剩几十像素，
+                    实例名被截成 "gl..."，无法辨认是哪个模型。
+                  -->
+                  <div class="member-row-name">
+                    <span class="member-name" :class="{ 'is-missing': !m.instanceId }" :title="m.instanceId || t('pool.memberUnselected')">
+                      {{ m.instanceId || t('pool.memberUnselected') }}
+                    </span>
+                  </div>
+                  <div class="member-row-actions">
+                    <span class="member-weight-label">{{ t('pool.weight') }}</span>
+                    <el-input-number
+                      v-model="m.weight"
+                      :min="1"
+                      :max="10000"
+                      size="small"
+                      :placeholder="t('pool.weightPlaceholder')"
+                      class="member-weight"
+                      @click.stop
+                    />
+                    <el-button type="danger" text size="small" @click.stop="removeMember(idx)">
+                      {{ t('pool.removeMember') }}
+                    </el-button>
+                  </div>
+                </div>
+                <div v-if="form.members.length === 0" class="member-empty">
+                  {{ t('pool.memberEmptyHint') }}
+                </div>
+              </div>
             </div>
-            <el-button type="primary" plain size="small" :icon="Plus" @click="addMember">{{ t('pool.addMember') }}</el-button>
-            <div v-if="!instancesLoading && instances.length === 0 && form.members.length > 0" class="form-tip">{{ t('pool.noInstancesTip') }}</div>
-            <div class="form-tip">{{ t('pool.memberWeightTip') }}</div>
+
+            <!-- 中间：穿梭操作 -->
+            <div class="member-transfer">
+              <el-tooltip :content="t('pool.memberAddHint')" placement="top">
+                <el-button
+                  size="small"
+                  :disabled="selectedCandidate.length === 0"
+                  @click="addMember"
+                >
+                  <el-icon><Right /></el-icon>
+                </el-button>
+              </el-tooltip>
+              <el-tooltip :content="t('pool.memberRemoveHint')" placement="top">
+                <el-button
+                  size="small"
+                  :disabled="selectedMember < 0"
+                  @click="removeSelectedMember"
+                >
+                  <el-icon><Back /></el-icon>
+                </el-button>
+              </el-tooltip>
+            </div>
+
+            <!-- 右侧：候选实例（带搜索） -->
+            <div class="member-pane member-pane-candidates">
+              <div class="member-pane-head">
+                <span class="member-pane-title">{{ t('pool.memberPaneCandidates') }}</span>
+                <el-input
+                  v-model="candidateKeyword"
+                  size="small"
+                  :placeholder="t('pool.memberSearchPlaceholder')"
+                  clearable
+                  class="member-search"
+                >
+                  <template #prefix>
+                    <el-icon><Search /></el-icon>
+                  </template>
+                </el-input>
+              </div>
+              <div class="member-list" v-loading="instancesLoading">
+                <el-checkbox-group v-model="selectedCandidate" class="candidate-list">
+                  <el-checkbox
+                    v-for="o in candidateOptions"
+                    :key="o.value"
+                    :value="o.value"
+                    :disabled="o.disabled"
+                    class="candidate-item"
+                    :title="o.label"
+                  >
+                    {{ o.label }}
+                  </el-checkbox>
+                </el-checkbox-group>
+                <div v-if="!instancesLoading && candidateOptions.length === 0" class="member-empty">
+                  {{ instances.length === 0 ? t('pool.noInstancesTip') : t('pool.noCandidateMatch') }}
+                </div>
+              </div>
+            </div>
           </div>
+          <div class="form-tip">{{ t('pool.memberWeightTip') }}</div>
+          <!-- 分类级联说明：候选实例仅来自本分组所属分类，跨分类实例无法加入 -->
+          <el-alert type="info" :closable="false" class="form-alert"
+                    :title="t('pool.memberCategoryHint', { category: currentServiceTypeLabel })" />
         </el-form-item>
         <el-form-item :label="t('pool.description')">
           <el-input v-model="form.description" type="textarea" :rows="2" :placeholder="t('pool.descriptionPlaceholder')" />
@@ -110,9 +240,9 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, Delete } from '@element-plus/icons-vue'
-import { ALL_SERVICE_TYPES as SERVICE_TYPES } from '@/constants/serviceTypes'
+import { ElMessage } from 'element-plus'
+import { Plus, Refresh, Right, Back, Search } from '@element-plus/icons-vue'
+import { ALL_SERVICE_TYPES as SERVICE_TYPES, getServiceTypeLabel } from '@/constants/serviceTypes'
 import {
   getPoolList,
   createPool,
@@ -122,12 +252,28 @@ import {
   type PoolMember
 } from '@/api/pools'
 import { getServiceInstances, type InstanceConfig } from '@/api/instance'
+import { confirmDanger } from '@/utils/dangerConfirm'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import { usePermission } from '@/composables/usePermission'
 
 const { t } = useI18n()
 const { hasPermission } = usePermission()
 const canWrite = hasPermission('config:pools:write')
+
+/** 服务类型本地化显示名（chat → 聊天模型；未知类型回退原值） */
+const serviceTypeLabel = (type: string): string => getServiceTypeLabel(type)
+
+/**
+ * 弹窗体样式：限高并可纵向滚动。
+ * 内容（表单 + 穿梭框 + 描述）总高可能超过视口，Element Plus 默认不滚动，
+ * 底部「保存/取消」会被挤出视口，用户以为按钮丢了。
+ * 用 body-style 而非 scoped :deep() —— 弹窗根元素是子组件根，拿不到本组件 scope 属性。
+ */
+const dialogBodyStyle = {
+  maxHeight: 'calc(90vh - 120px)',
+  overflowY: 'auto',
+  paddingRight: '8px'
+} as const
 const pools = ref<PoolDefinition[]>([])
 const loading = ref(false)
 const saving = ref(false)
@@ -193,20 +339,88 @@ const instanceOptions = computed(() =>
     .map((i) => ({ value: i.name as string, label: i.name as string }))
 )
 
-const optionsForRow = (idx: number): { value: string; label: string; disabled?: boolean }[] => {
-  const currentId = form.members[idx]?.instanceId
-  const otherSelected = new Set(
-    form.members
-      .filter((m, i) => i !== idx && m.instanceId)
-      .map((m) => m.instanceId)
-  )
-  const filtered: { value: string; label: string; disabled?: boolean }[] =
-    instanceOptions.value.filter((o) => !otherSelected.has(o.value))
-  if (currentId && !filtered.some((o) => o.value === currentId)) {
-    filtered.push({ value: currentId, label: t('pool.instanceDeleted', { id: currentId }), disabled: true })
+/** 当前分组所属的模型分类（本地化），用于提示成员候选的分类范围 */
+const currentServiceTypeLabel = computed(() => serviceTypeLabel(form.serviceType))
+
+/** 已加入分组的实例名集合（候选列表中置灰） */
+const selectedInstanceNames = computed(() =>
+  new Set(form.members.map(m => m.instanceId).filter(Boolean) as string[])
+)
+
+/** 候选实例（带搜索；已加入的置灰并标注） */
+const candidateOptions = computed(() => {
+  const kw = (candidateKeyword.value || '').trim().toLowerCase()
+  return instanceOptions.value
+    .filter(o => !kw || o.label.toLowerCase().includes(kw))
+    .map(o => ({
+      ...o,
+      disabled: selectedInstanceNames.value.has(o.value)
+    }))
+})
+
+/**
+ * 穿梭框：右侧候选中勾选的实例。
+ * 必须是数组 —— Element Plus 的 el-checkbox-group 用 isArray(val) 校验
+ * update:modelValue，v-model 绑字符串会被直接拒绝，勾选状态永远回写不进去
+ * （表现为：勾了候选但「→」按钮仍是禁用、点不动）。
+ * 业务上仍是单选语义：addMember 只取第一个。
+ */
+const selectedCandidate = ref<string[]>([])
+
+/** 穿梭框：左侧已选中待移除的成员下标 */
+const selectedMember = ref<number>(-1)
+
+/** 穿梭：候选 → 已选 */
+const addMember = () => {
+  // 单选语义：取勾选项中的第一个
+  const candidate = selectedCandidate.value[0]
+  if (!candidate) return
+  if (selectedInstanceNames.value.has(candidate)) {
+    ElMessage.warning(t('pool.messages.memberAlreadyAdded'))
+    return
   }
-  return filtered
+  form.members.push({ instanceId: candidate, weight: 1 })
+  selectedCandidate.value = []
 }
+
+/** 穿梭：已选 → 移除 */
+const removeSelectedMember = () => {
+  if (selectedMember.value < 0) return
+  removeMember(selectedMember.value)
+  selectedMember.value = -1
+}
+
+/** 候选实例搜索关键字 */
+const candidateKeyword = ref('')
+
+/** 负载均衡策略选项（白话名 + 一句话说明，U4-2） */
+const STRATEGY_OPTIONS = [
+  {
+    value: 'weighted-random',
+    label: 'pool.strategies.weighted-random',
+    hint: 'pool.strategyHints.weighted-random'
+  },
+  {
+    value: 'round-robin',
+    label: 'pool.strategies.round-robin',
+    hint: 'pool.strategyHints.round-robin'
+  },
+  {
+    value: 'least-connections',
+    label: 'pool.strategies.least-connections',
+    hint: 'pool.strategyHints.least-connections'
+  },
+  {
+    value: 'ip-hash',
+    label: 'pool.strategies.ip-hash',
+    hint: 'pool.strategyHints.ip-hash'
+  },
+  {
+    value: 'consistent-hash',
+    label: 'pool.strategies.consistent-hash',
+    hint: 'pool.strategyHints.consistent-hash'
+  }
+] as const
 
 watch(() => form.serviceType, (st) => {
   if (st) loadInstances(st)
@@ -249,16 +463,13 @@ const handleEdit = async (row: PoolDefinition) => {
   }
 }
 
-const addMember = () => {
-  form.members.push({ instanceId: '', weight: 1 })
-}
-
 const removeMember = (idx: number) => {
   if (form.members.length <= 1) {
     ElMessage.warning(t('pool.messages.atLeastOneMember'))
     return
   }
   form.members.splice(idx, 1)
+  selectedMember.value = -1
 }
 
 const handleSave = async () => {
@@ -302,20 +513,26 @@ const handleToggle = async (row: PoolDefinition, val: boolean) => {
   }
 }
 
-const handleDelete = (row: PoolDefinition) => {
-  ElMessageBox.confirm(
-    t('pool.deleteDialog.message', { name: row.poolName }),
-    t('pool.deleteDialog.title'),
-    { confirmButtonText: t('pool.deleteDialog.confirm'), cancelButtonText: t('pool.deleteDialog.cancel'), type: 'warning' }
-  ).then(async () => {
-    try {
-      await deletePool(row.poolName)
-      ElMessage.success(t('pool.messages.deleted'))
-      await fetchPools()
-    } catch (e) {
-      ElMessage.error(t('pool.messages.deleteFailed'))
-    }
-  }).catch(() => {})
+const handleDelete = async (row: PoolDefinition) => {
+  // U10-3：统一危险操作确认模板（影响面 + 补救方式 + 输入名称确认）
+  const confirmed = await confirmDanger({
+    title: t('pool.deleteDialog.title'),
+    target: row.poolName,
+    impact: t('pool.deleteDialog.impact'),
+    remedy: t('pool.deleteDialog.remedy'),
+    requireType: row.poolName,
+    confirmText: t('pool.deleteDialog.confirm'),
+    cancelText: t('pool.deleteDialog.cancel'),
+    type: 'warning'
+  })
+  if (!confirmed) return
+  try {
+    await deletePool(row.poolName)
+    ElMessage.success(t('pool.messages.deleted'))
+    await fetchPools()
+  } catch (e) {
+    ElMessage.error(t('pool.messages.deleteFailed'))
+  }
 }
 
 const formatMembers = (members?: PoolMember[]) => {
@@ -327,9 +544,181 @@ onMounted(() => { fetchPools() })
 </script>
 
 <style scoped>
+/*
+  Element Plus 的 .el-form-item__content 是 flex 容器，
+  直接放 <el-select> + <div class="form-tip"> 会变成并排的 flex item，
+  提示文字被挤到控件右侧（截图里"每次轮选一个，分配最均匀"就串到了下拉框右边）。
+  form-tip 显式占满一行即可强制换行。
+*/
 .form-tip {
+  width: 100%;
   margin-top: 6px;
   font-size: 12px;
   color: var(--ja-text-secondary);
+  line-height: 1.5;
+}
+
+/* 策略：白话名 + 一句话说明 */
+.strategy-name {
+  cursor: help;
+}
+
+.strategy-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+}
+
+.strategy-option-name {
+  font-size: 13px;
+  color: var(--ja-text-primary);
+}
+
+.strategy-option-desc {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+}
+
+/* 成员穿梭框 */
+.member-picker {
+  display: grid;
+  /* 双栏 + 中间按钮列；minmax(0,1fr) 允许栏内内容收缩，min-width 保底可读宽度 */
+  grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+
+.member-pane {
+  min-width: 0;
+  border: 1px solid var(--ja-border-light);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.member-pane-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--el-fill-color-light);
+  border-bottom: 1px solid var(--ja-border-lighter);
+}
+
+.member-pane-title {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+  white-space: nowrap;
+}
+
+.member-pane-count {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+}
+
+.member-search {
+  margin-left: auto;
+  width: 150px;
+  flex-shrink: 1;
+  min-width: 90px;
+}
+
+.member-list {
+  flex: 1;
+  min-height: 180px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 6px 10px;
+}
+
+.member-row {
+  padding: 6px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--ja-border-lighter);
+}
+
+.member-row:last-child {
+  border-bottom: none;
+}
+
+.member-row.is-active {
+  background: var(--el-color-primary-light-9);
+}
+
+/* 第一行：实例名独占整行，保证长名称可完整辨认 */
+.member-row-name {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.member-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--ja-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-name.is-missing {
+  color: var(--ja-text-secondary);
+  font-style: italic;
+}
+
+/* 第二行：权重 + 移除 */
+.member-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.member-weight-label {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+  white-space: nowrap;
+}
+
+.member-weight {
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.member-empty {
+  padding: 16px 4px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+}
+
+.member-transfer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.candidate-item {
+  margin: 0;
+  min-width: 0;
+}
+
+.candidate-item :deep(.el-checkbox__label) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

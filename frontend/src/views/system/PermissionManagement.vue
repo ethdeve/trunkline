@@ -8,56 +8,66 @@
       </el-button>
     </div>
 
-    <!-- 角色选择 -->
-    <el-form label-width="80px" style="margin-bottom: 12px;">
-      <el-form-item :label="t('permissions.role')">
-        <el-select
-          v-model="selectedRole"
-          :placeholder="t('permissions.rolePlaceholder')"
-          style="width: 480px"
-          @change="handleRoleChange"
-        >
-          <el-option
-            v-for="option in roleOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
-      </el-form-item>
-    </el-form>
-
-    <el-alert
-      v-if="selectedRole"
-      :title="t('permissions.changeAlert.title')"
-      type="warning"
-      :closable="false"
-      show-icon
-      :description="t('permissions.changeAlert.description')"
-      style="margin-bottom: 16px"
-    />
-
-    <!-- 权限树（按模块分组展示 48 个权限码；叶子显示中文名 + 灰色权限码） -->
-    <div v-loading="loading" class="tree-wrapper">
-      <el-tree
-        ref="permissionTreeRef"
-        :data="treeData"
-        node-key="key"
-        show-checkbox
-        default-expand-all
-        :props="treeProps"
-        class="permission-tree"
+    <!-- 角色「套餐」视角（U9-2）：先看 4 个角色是干什么的，点开才展开权限树 -->
+    <div class="role-cards">
+      <div
+        v-for="role in ROLES"
+        :key="role"
+        class="role-card"
+        :class="{ 'is-active': selectedRole === role, 'is-recommended': role === 'OPERATOR' }"
+        role="button"
+        tabindex="0"
+        @click="selectRole(role)"
+        @keyup.enter="selectRole(role)"
       >
-        <template #default="{ data }">
-          <span v-if="data.code" class="perm-leaf">
-            <span class="perm-name">{{ t('permissions.codes.' + data.code) }}</span>
-            <span class="perm-code">{{ data.code }}</span>
-          </span>
-          <span v-else>{{ data.label }}</span>
-        </template>
-      </el-tree>
-      <div class="tree-tip">{{ t('permissions.leafCodeTip') }}</div>
+        <div class="role-card-head">
+          <el-tag :type="roleTagType(role)" size="small">{{ t('accounts.roleLabels.' + role) }}</el-tag>
+          <span v-if="role === 'OPERATOR'" class="role-recommend">{{ t('permissions.recommended') }}</span>
+          <span class="role-card-count">{{ rolePermissionCount(role) }}</span>
+        </div>
+        <div class="role-card-desc">{{ t(ROLE_DESCRIPTIONS[role]) }}</div>
+      </div>
     </div>
+
+    <!-- 权限树：选定角色后才展开 -->
+    <div v-if="selectedRole" class="permission-panel">
+      <el-alert
+        :title="t('permissions.changeAlert.title')"
+        type="warning"
+        :closable="false"
+        show-icon
+        :description="t('permissions.changeAlert.description')"
+        style="margin-bottom: 16px"
+      />
+
+      <div class="tree-wrapper" v-loading="loading">
+        <el-tree
+          ref="permissionTreeRef"
+          :data="treeData"
+          node-key="key"
+          show-checkbox
+          default-expand-all
+          :props="treeProps"
+          class="permission-tree"
+        >
+          <template #default="{ data }">
+            <span v-if="data.code" class="perm-leaf">
+              <span class="perm-name">{{ t('permissions.codes.' + data.code) }}</span>
+              <span v-if="showCodes" class="perm-code">{{ data.code }}</span>
+            </span>
+            <span v-else>{{ data.label }}</span>
+          </template>
+        </el-tree>
+        <div class="tree-tip">
+          {{ t('permissions.leafCodeTip') }}
+          <el-checkbox v-model="showCodes" size="small" class="code-toggle">
+            {{ t('permissions.showRawCodes') }}
+          </el-checkbox>
+        </div>
+      </div>
+    </div>
+
+    <el-empty v-else :description="t('permissions.pickRoleHint')" :image-size="80" />
 
     <template #footer>
       <div class="footer-actions">
@@ -112,13 +122,9 @@ const rolePermissionMap = ref<Record<string, string[]>>({})
 
 const treeProps = { label: 'label', children: 'children' }
 
-/** 角色下拉选项（角色名 + i18n 角色说明；computed 保证语言切换后即时更新） */
-const roleOptions = computed<{ value: RoleName; label: string }[]>(() =>
-  ROLES.map(role => ({
-    value: role,
-    label: `${role} - ${t(ROLE_DESCRIPTIONS[role])}`
-  }))
-)
+/** 角色标签颜色：ADMIN 红 / OPERATOR 橙 / USER 蓝 / VIEWER 灰（与账号页下拉一致） */
+const roleTagType = (role: string) =>
+  role === 'ADMIN' ? 'danger' : role === 'OPERATOR' ? 'warning' : role === 'VIEWER' ? 'info' : 'primary'
 
 // 权限树数据（模块分组 → 权限码叶子；模块标题按当前语言翻译，叶子显示中文名+权限码）
 const treeData = computed<PermissionTreeNode[]>(() =>
@@ -152,14 +158,27 @@ const applyRoleSelection = (role: RoleName): void => {
   permissionTreeRef.value?.setCheckedKeys(codes)
 }
 
-// 角色切换
-const handleRoleChange = async (role: RoleName): Promise<void> => {
+/** 角色卡点击：选中角色并加载其权限 */
+const selectRole = async (role: RoleName): Promise<void> => {
+  if (selectedRole.value === role) {
+    // 再次点击已选角色 → 收起权限树，回到「看套餐」视角
+    selectedRole.value = '' as RoleName | ''
+    return
+  }
+  selectedRole.value = role
   if (!rolePermissionMap.value[role]) {
     await loadRoles()
   } else {
     applyRoleSelection(role)
   }
 }
+
+/** 角色已勾选权限数（用于角色卡角标） */
+const rolePermissionCount = (role: RoleName): number =>
+  (rolePermissionMap.value[role] || []).length
+
+/** 是否显示原始权限码（默认折叠，只给排查接口鉴权时用） */
+const showCodes = ref(false)
 
 // 收集当前勾选的权限码（仅叶子：全选父节点 + 半选父节点的叶子）
 const collectSelectedCodes = (): string[] => {
@@ -230,14 +249,95 @@ loadRoles()
   margin-bottom: 12px;
 }
 
+/* 角色「套餐」卡片 */
+.role-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.role-card {
+  border: 1px solid var(--ja-border-light);
+  border-radius: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+  background: var(--ja-bg-card);
+}
+
+.role-card:hover {
+  border-color: var(--ja-primary);
+}
+
+.role-card.is-active {
+  border-color: var(--ja-primary);
+  background: var(--el-color-primary-light-9);
+}
+
+.role-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.role-recommend {
+  font-size: 11px;
+  padding: 0 6px;
+  line-height: 16px;
+  border-radius: 3px;
+  color: var(--el-color-success);
+  border: 1px solid var(--el-color-success-light-5);
+  background: var(--el-color-success-light-9);
+}
+
+.role-card-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+}
+
+.role-card-desc {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+  line-height: 1.6;
+}
+
+.permission-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.code-toggle {
+  margin-left: 12px;
+}
+
+/* 权限 tab 视口内填充：骨架撑满 tab 高度，权限树是唯一滚动口（外层不出现滚动条） */
+.page-skeleton {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-skeleton :deep(.page-content) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .tree-wrapper {
-  min-height: 320px;
-  max-height: calc(100vh - 380px);
+  flex: 1;
+  min-height: 240px;
   overflow: auto;
   border: 1px solid var(--ja-border);
   border-radius: 4px;
   padding: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .permission-tree {
@@ -265,10 +365,20 @@ loadRoles()
   margin-top: 8px;
   font-size: 12px;
   color: var(--ja-text-secondary);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* 页脚固定在填充布局底部（页面不滚动，无需 sticky） */
+.page-skeleton :deep(.page-footer) {
+  flex-shrink: 0;
+  margin-top: 0;
 }
 
 .footer-actions {
   display: flex;
+  justify-content: flex-end;
   gap: 12px;
 }
 </style>

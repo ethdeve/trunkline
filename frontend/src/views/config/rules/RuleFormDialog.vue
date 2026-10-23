@@ -145,7 +145,12 @@
           :placeholder="t('rule.form.lbStrategyPlaceholder')"
           style="width: 300px"
         >
-          <el-option v-for="s in LB_STRATEGIES" :key="s" :label="s" :value="s" />
+          <el-option v-for="s in LB_STRATEGIES" :key="s" :value="s">
+            <div class="option-two-line">
+              <span class="option-two-line__main">{{ lbStrategyLabel(s) }}</span>
+              <span class="option-two-line__sub">{{ s }}</span>
+            </div>
+          </el-option>
         </el-select>
 
         <el-select
@@ -286,6 +291,23 @@ const loadingModels = ref(false)
 const LB_STRATEGIES = ['random', 'round-robin', 'least-connections', 'ip-hash', 'consistent-hash']
 const COMMON_HEADERS = ['x-routing', 'x-tenant', 'x-user-id', 'authorization', 'content-type', 'x-api-key']
 const SERVICE_TYPES = ['chat', 'embedding', 'rerank', 'tts', 'stt', 'imgGen', 'imgEdit']
+
+/**
+ * U8-3：负载均衡策略白话化——运营看到的是「按什么方式分流」，
+ * 英文码保留在第二行（灰字）供排障对照，不作为主标签。
+ */
+const LB_STRATEGY_KEYS: Record<string, string> = {
+  'random': 'random',
+  'round-robin': 'roundRobin',
+  'least-connections': 'leastConnections',
+  'ip-hash': 'ipHash',
+  'consistent-hash': 'consistentHash'
+}
+
+const lbStrategyLabel = (code: string) => {
+  const key = LB_STRATEGY_KEYS[code]
+  return key ? t(`loadBalancer.strategyConfig.strategies.${key}`) : code
+}
 
 const loadOptions = async () => {
   try {
@@ -653,5 +675,21 @@ const handleSave = async () => {
   display: flex;
   align-items: center;
   margin-bottom: 8px;
+}
+
+/* U8-3：下拉选项双层呈现——白话主标签 + 灰色英文码 */
+.option-two-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+}
+.option-two-line__main {
+  font-size: 13px;
+}
+.option-two-line__sub {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ja-text-placeholder);
 }
 </style>
