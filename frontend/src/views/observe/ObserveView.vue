@@ -6,6 +6,13 @@ import { useI18n } from 'vue-i18n'
  * - 熔断 tab 内含「监控/历史」2 子 tab（旧台两页合并，定稿判定）
  * - 慢查询 tab 收编 SlowQueryAnalysis（旧台慢调用/慢查询/慢调用列表三合一的成品）
  * - tab 状态写 URL query，刷新/分享不丢上下文
+ * - 性能：只挂载当前激活 tab 的内容（v-if = active），切走即销毁组件释放资源。
+ *   此前仅靠 el-tab-pane 的 lazy（延迟首次渲染），但访问过后 pane 永不卸载——
+ *   调用历史/Token 用量/异常统计等组件的 ECharts 实例、resize 监听、限流页 30s
+ *   轮询定时器全部常驻，遍历一遍 7 个 tab 后页面累积 10+ 图表实例与隐藏 DOM，
+ *   F12 与页面交互明显卡顿。各 tab 组件卸载清理已核实完善（dispose/removeEventListener/
+ *   clearInterval），销毁重建安全；代价是切回 tab 重新拉一次数据（本地后端，开销可接受），
+ *   调用历史的筛选条件经 usePersistedState 持久化，不受重建影响。
  */
 import { ref, watch, provide } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -71,19 +78,19 @@ watch(
     <el-card shadow="never">
       <el-tabs v-model="active">
         <el-tab-pane v-if="visibleTabs.includes('history')" label="调用历史" name="history">
-          <CallHistoryList />
+          <template v-if="active === 'history'"><CallHistoryList /></template>
         </el-tab-pane>
-        <el-tab-pane v-if="visibleTabs.includes('rate')" label="限流" name="rate" lazy>
-          <RateLimiterMonitoring />
+        <el-tab-pane v-if="visibleTabs.includes('rate')" label="限流" name="rate">
+          <template v-if="active === 'rate'"><RateLimiterMonitoring /></template>
         </el-tab-pane>
-        <el-tab-pane v-if="visibleTabs.includes('quota')" label="配额用量" name="quota" lazy>
-          <QuotaUsageMonitoring />
+        <el-tab-pane v-if="visibleTabs.includes('quota')" label="配额用量" name="quota">
+          <template v-if="active === 'quota'"><QuotaUsageMonitoring /></template>
         </el-tab-pane>
-        <el-tab-pane v-if="visibleTabs.includes('tokens')" label="Token 用量" name="tokens" lazy>
-          <TokenUsageStatistics />
+        <el-tab-pane v-if="visibleTabs.includes('tokens')" label="Token 用量" name="tokens">
+          <template v-if="active === 'tokens'"><TokenUsageStatistics /></template>
         </el-tab-pane>
-        <el-tab-pane v-if="visibleTabs.includes('exceptions')" label="异常" name="exceptions" lazy>
-          <el-tabs type="card">
+        <el-tab-pane v-if="visibleTabs.includes('exceptions')" label="异常" name="exceptions">
+          <el-tabs v-if="active === 'exceptions'" type="card">
             <el-tab-pane label="异常列表">
               <ExceptionManagement />
             </el-tab-pane>
@@ -92,8 +99,8 @@ watch(
             </el-tab-pane>
           </el-tabs>
         </el-tab-pane>
-        <el-tab-pane v-if="visibleTabs.includes('circuit')" label="熔断" name="circuit" lazy>
-          <el-tabs type="card">
+        <el-tab-pane v-if="visibleTabs.includes('circuit')" label="熔断" name="circuit">
+          <el-tabs v-if="active === 'circuit'" type="card">
             <el-tab-pane label="熔断监控">
               <CircuitBreakerMonitoring />
             </el-tab-pane>
@@ -102,8 +109,8 @@ watch(
             </el-tab-pane>
           </el-tabs>
         </el-tab-pane>
-        <el-tab-pane v-if="visibleTabs.includes('slow')" label="慢查询" name="slow" lazy>
-          <SlowQueryAnalysis />
+        <el-tab-pane v-if="visibleTabs.includes('slow')" label="慢查询" name="slow">
+          <template v-if="active === 'slow'"><SlowQueryAnalysis /></template>
         </el-tab-pane>
       </el-tabs>
     </el-card>

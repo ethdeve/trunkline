@@ -294,8 +294,11 @@ const getAlgorithmTagType = (algorithm: string) => {
 }
 
 const getAlgorithmLabel = (algorithm: string) => {
-  // 算法名走 i18n 通俗文案（令牌桶/漏桶/滑动窗口/预热），未知值回退原始串
-  const key = `rateLimiter.monitoring.algorithms.${algorithm}`
+  // 算法名走 i18n 通俗文案（令牌桶/漏桶/滑动窗口/预热），未知值回退原始串。
+  // 后端算法值为连字符小写（token-bucket / sliding-window），locale 键为 TOKEN_BUCKET 风格，
+  // 拼键前必须归一化，否则 i18n 找不到键 → 控制台刷 intlify 警告 + UI 裸显原始值
+  const normalized = algorithm.toUpperCase().replace(/-/g, '_')
+  const key = `rateLimiter.monitoring.algorithms.${normalized}`
   const label = t(key)
   return label === key ? algorithm : label
 }
