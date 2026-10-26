@@ -8,6 +8,10 @@ import type { QuotaUsageDetail } from '@/types'
 export interface QuotaLimitsPayload {
   dailyRequestLimit?: number
   dailyTokenLimit?: number
+  hourlyRequestLimit?: number
+  hourlyTokenLimit?: number
+  monthlyRequestLimit?: number
+  monthlyTokenLimit?: number
   rateLimitPerMinute?: number
   quotaAlertThreshold?: number
 }

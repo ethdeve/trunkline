@@ -118,11 +118,32 @@ export const menuGroups: MenuGroup[] = [
     icon: 'setting',
     children: [
       {
-        path: '/settings',
-        title: '系统设置',
+        path: '/settings/accounts',
+        title: '账号与权限',
         permission: 'system:accounts:manage',
-        icon: 'tools',
-        subtitle: '账号 / 权限 / 审计日志 / 配置版本 / 数据持久化'
+        icon: 'user',
+        subtitle: '账号 / 角色权限'
+      },
+      {
+        path: '/settings/model-config',
+        title: '模型配置',
+        permission: 'system:accounts:manage',
+        icon: 'box',
+        subtitle: '供应商模板 / 模型分类 / 模型适配器'
+      },
+      {
+        path: '/settings/audit-versions',
+        title: '审计与版本',
+        permission: 'system:accounts:manage',
+        icon: 'document',
+        subtitle: '审计日志 / 配置版本'
+      },
+      {
+        path: '/settings/monitoring',
+        title: '状态监控',
+        permission: 'system:accounts:manage',
+        icon: 'monitor',
+        subtitle: '状态持久化'
       }
     ]
   }

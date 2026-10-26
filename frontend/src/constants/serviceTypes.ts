@@ -25,6 +25,12 @@ export enum ServiceType {
   STT = 'stt',
   IMG_GEN = 'imgGen',
   IMG_EDIT = 'imgEdit',
+  /**
+   * 视频生成：仅用于识别与显示（发现模型自动分类）。
+   * 网关后端暂无视频路由端点（ModelServiceRegistry 仅 7 类），
+   * 故不加入 COMMON_SERVICE_TYPES 下拉——识别出的视频模型默认不勾选、标记暂不支持。
+   */
+  VIDEO_GEN = 'videoGen',
 }
 
 /**
@@ -39,6 +45,7 @@ export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
   [ServiceType.STT]: 'serviceTypes.stt',
   [ServiceType.IMG_GEN]: 'serviceTypes.imgGen',
   [ServiceType.IMG_EDIT]: 'serviceTypes.imgEdit',
+  [ServiceType.VIDEO_GEN]: 'serviceTypes.videoGen',
 }
 
 /**
@@ -97,4 +104,29 @@ export function getServiceTypeLabel(value: string): string {
   const st = normalizeServiceType(value)
   const key = st ? SERVICE_TYPE_LABELS[st] : undefined
   return key ? gt(key) : value
+}
+
+/**
+ * 根据模型 ID 关键词推断模型分类（发现模型勾选接入时的自动绑定）。
+ *
+ * 匹配顺序即优先级：先匹配专有度高的关键词（imgEdit 先于 imgGen，
+ * 否则 qwen-image-edit 会被 qwen-image 抢先归入图像生成）；
+ * 全部未命中时回退 fallback（默认聊天模型）。
+ */
+export function inferServiceTypeFromModelId(modelId: string, fallback: string = ServiceType.CHAT): string {
+  const id = (modelId || '').toLowerCase()
+  if (!id) return fallback
+  if (/embed/.test(id)) return ServiceType.EMBEDDING
+  if (/rerank|ranker/.test(id)) return ServiceType.RERANK
+  // 语音识别（whisper/asr/sensevoice 等须先于语音合成的 speech 关键词判断）
+  if (/whisper|\basr\b|(^|[-._])stt([-._]|$)|speech-to-text|transcri|sensevoice|paraformer|funasr/.test(id)) return ServiceType.STT
+  // 语音合成
+  if (/\btts\b|(^|[-._])tts([-._]|$)|text-to-speech|speech|cosyvoice|sambert|voice-?clone/.test(id)) return ServiceType.TTS
+  // 视频生成（须先于图像编辑：video-edit 与 image-edit 互斥；关键词保持收窄，防 "video-llama" 类视频理解模型误伤）
+  if (/(^|[-._])(t2v|i2v|r2v|v2v)([-._]|$)|text-to-video|image-to-video|video-edit|video-gen|videogen|sora|kling|vidu|pika|seedance|cogvideo|ltx-video|hunyuan-video/.test(id)) return ServiceType.VIDEO_GEN
+  // 图像编辑（先于图像生成：qwen-image-edit / flux-kontext / seededit）
+  if (/image-edit|imgedit|imageedit|kontext|seededit|edit-image/.test(id)) return ServiceType.IMG_EDIT
+  // 图像生成
+  if (/dall-e|dalle|flux|stable-diffusion|sdxl|sd3|image-generation|imagegen|imggen|midjourney|cogview|wanx|kolors|seedream|ideogram|recraft|image|img/.test(id)) return ServiceType.IMG_GEN
+  return fallback
 }

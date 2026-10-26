@@ -59,6 +59,27 @@
     "operationFailed": "Operation failed",
     "operationFailedDetail": "Operation failed: {error}",
     "cancel": "Cancel",
-    "save": "Save"
+    "save": "Save",
+    "detect": "Check Availability",
+    "detecting": "Checking…",
+    "availability": "Availability",
+    "availabilityUntested": "Not checked",
+    "availabilityReachable": "Available",
+    "availabilityNeedsKey": "Needs key",
+    "availabilityTimeout": "Timeout",
+    "availabilityUnavailable": "Unavailable",
+    "availabilityHint": "Click \"Check Availability\" to PING each provider's default URL and see which APIs are currently reachable",
+    "actionHide": "Remove",
+    "actionRestore": "Restore",
+    "hideConfirm": "Remove the built-in template \"{name}\" from the default list? It can be restored anytime and does not affect adapters already created.",
+    "hideConfirmTitle": "Remove Default Template",
+    "hideSuccess": "Removed default template: {name}",
+    "restoreSuccess": "Restored default template: {name}",
+    "hiddenTitle": "Hidden Default Templates",
+    "hiddenEmpty": "No hidden default templates",
+    "hideUnavailable": "Hide Unavailable",
+    "hideUnavailableConfirm": "About to hide {count} default templates detected as unavailable. Continue?",
+    "hideUnavailableDone": "Hid {count} unavailable templates",
+    "detectDone": "Check done: {total} total, {ok} available, {bad} unavailable"
   }
 }

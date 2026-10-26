@@ -6,6 +6,14 @@
         <el-icon><Plus /></el-icon>
         {{ t('providerTemplate.create') }}
       </el-button>
+      <el-button size="default" :loading="detecting" @click="detectAvailability">
+        <el-icon><Connection /></el-icon>
+        {{ detecting ? t('providerTemplate.detecting') : t('providerTemplate.detect') }}
+      </el-button>
+      <el-button size="default" :disabled="!hasUnavailableBuiltin" @click="hideAllUnavailable">
+        <el-icon><Hide /></el-icon>
+        {{ t('providerTemplate.hideUnavailable') }}
+      </el-button>
       <el-button size="default" @click="fetchTemplates">
         <el-icon><Refresh /></el-icon>
         {{ t('providerTemplate.refresh') }}
@@ -16,6 +24,14 @@
       type="info"
       :closable="false"
       :title="t('providerTemplate.tip')"
+      style="margin-bottom: 12px"
+    />
+
+    <el-alert
+      v-if="detectSummary"
+      type="success"
+      :closable="true"
+      :title="detectSummary"
       style="margin-bottom: 12px"
     />
 
@@ -49,7 +65,21 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column :label="t('providerTemplate.action')" width="140" fixed="right">
+      <el-table-column :label="t('providerTemplate.availability')" width="110" fixed="right">
+        <template #default="{ row }">
+          <span v-if="availabilityOf(row.id).testing">
+            <el-icon class="is-loading"><Loading /></el-icon>
+            {{ t('providerTemplate.detecting') }}
+          </span>
+          <el-tooltip v-else-if="availabilityOf(row.id).message" :content="availabilityOf(row.id).message">
+            <el-tag size="small" :type="availabilityTagType(availabilityOf(row.id).status)">
+              {{ availabilityLabel(availabilityOf(row.id).status) }}
+            </el-tag>
+          </el-tooltip>
+          <span v-else class="text-secondary">{{ t('providerTemplate.availabilityUntested') }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column :label="t('providerTemplate.action')" width="160" fixed="right">
         <template #default="{ row }">
           <template v-if="row.source === 'custom'">
             <el-button v-if="canWrite" type="primary" link size="small" @click="handleEdit(row)">
@@ -59,10 +89,39 @@
               {{ t('providerTemplate.delete') }}
             </el-button>
           </template>
-          <span v-else class="text-secondary">{{ t('providerTemplate.builtinReadonly') }}</span>
+          <template v-else>
+            <el-button v-if="canWrite" type="warning" link size="small" @click="handleHide(row)">
+              {{ t('providerTemplate.actionHide') }}
+            </el-button>
+            <span v-else class="text-secondary">{{ t('providerTemplate.builtinReadonly') }}</span>
+          </template>
         </template>
       </el-table-column>
     </el-table>
+
+    <!-- 已隐藏的默认模板（可逆恢复） -->
+    <el-collapse v-if="hiddenTemplates.length || canWrite" v-model="hiddenCollapse" style="margin-top: 16px">
+      <el-collapse-item :name="'hidden'">
+        <template #title>
+          <span class="hidden-title">
+            {{ t('providerTemplate.hiddenTitle') }}
+            <el-tag size="small" type="info" round>{{ hiddenTemplates.length }}</el-tag>
+          </span>
+        </template>
+        <el-table v-if="hiddenTemplates.length" :data="hiddenTemplates" stripe border style="width: 100%">
+          <el-table-column prop="name" :label="t('providerTemplate.name')" min-width="150" />
+          <el-table-column prop="defaultBaseUrl" :label="t('providerTemplate.baseUrl')" min-width="220" show-overflow-tooltip />
+          <el-table-column :label="t('providerTemplate.action')" width="120">
+            <template #default="{ row }">
+              <el-button v-if="canWrite" type="primary" link size="small" @click="handleRestore(row)">
+                {{ t('providerTemplate.actionRestore') }}
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-empty v-else :description="t('providerTemplate.hiddenEmpty')" :image-size="60" />
+      </el-collapse-item>
+    </el-collapse>
 
     <!-- 新增/编辑弹窗 -->
     <el-dialog
@@ -143,13 +202,18 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Plus, Refresh } from '@element-plus/icons-vue'
+import { Plus, Refresh, Connection, Loading, Hide } from '@element-plus/icons-vue'
 import {
   getAdapterTemplates,
   createAdapterTemplate,
   updateAdapterTemplate,
   deleteAdapterTemplate,
-  type AdapterTemplate
+  hideAdapterTemplate,
+  restoreAdapterTemplate,
+  getHiddenAdapterTemplates,
+  testAdapterConfig,
+  type AdapterTemplate,
+  type AdapterTestResult
 } from '@/api/adapter'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 
@@ -165,6 +229,49 @@ const isEditing = ref(false)
 const editingId = ref('')
 const formRef = ref<FormInstance>()
 const modelsInput = ref('')
+
+// 可用性检测相关
+const detecting = ref(false)
+const availabilityMap = reactive<Record<string, {
+  testing: boolean
+  status?: string
+  message?: string
+}>>({})
+const detectSummary = ref('')
+const hiddenTemplates = ref<AdapterTemplate[]>([])
+const hiddenCollapse = ref<string[]>([])
+
+/** 检测为不可用的内置模板 ID（用于一键隐藏） */
+const hasUnavailableBuiltin = computed(() =>
+  templates.value.some(tpl =>
+    tpl.source === 'builtin' &&
+    availabilityMap[tpl.id] &&
+    !availabilityMap[tpl.id].testing &&
+    isUnavailable(availabilityMap[tpl.id].status)
+  )
+)
+
+const availabilityOf = (id: string) => availabilityMap[id] || { testing: false }
+
+const isUnavailable = (status?: string) =>
+  status === 'TIMEOUT' || status === 'ERROR'
+
+const availabilityTagType = (status?: string) => {
+  if (status === 'CONNECTED') return 'success'
+  if (status === 'AUTH_FAILED') return 'warning'
+  if (isUnavailable(status)) return 'danger'
+  return 'info'
+}
+
+const availabilityLabel = (status?: string) => {
+  switch (status) {
+    case 'CONNECTED': return t('providerTemplate.availabilityReachable')
+    case 'AUTH_FAILED': return t('providerTemplate.availabilityNeedsKey')
+    case 'TIMEOUT': return t('providerTemplate.availabilityTimeout')
+    case 'ERROR': return t('providerTemplate.availabilityUnavailable')
+    default: return t('providerTemplate.availabilityUntested')
+  }
+}
 
 const defaultForm = () => ({
   id: '',
@@ -223,6 +330,107 @@ const fetchTemplates = async () => {
   }
 }
 
+/** 加载已隐藏的内置模板 */
+const loadHidden = async () => {
+  try {
+    const res = await getHiddenAdapterTemplates()
+    if (res.data?.success) {
+      hiddenTemplates.value = res.data.data || []
+    }
+  } catch (e: any) {
+    hiddenTemplates.value = []
+  }
+}
+
+/** 逐个 PING 供应商默认地址，判定 API 是否可达 */
+const detectAvailability = async () => {
+  if (detecting.value) return
+  const targets = templates.value.filter(tpl => tpl.defaultBaseUrl)
+  if (!targets.length) {
+    ElMessage.info(t('providerTemplate.availabilityHint'))
+    return
+  }
+  detecting.value = true
+  detectSummary.value = ''
+  // 重置检测状态
+  targets.forEach(tpl => {
+    availabilityMap[tpl.id] = { testing: true }
+  })
+  try {
+    const results = await Promise.allSettled(
+      targets.map(tpl =>
+        testAdapterConfig({
+          type: tpl.type,
+          baseUrl: tpl.defaultBaseUrl,
+          testType: 'PING',
+          authHeaderName: tpl.auth?.headerName || 'Authorization',
+          authHeaderPrefix: tpl.auth?.headerPrefix || ''
+        }).then(res => ({ id: tpl.id, result: res.data?.data as AdapterTestResult | undefined }))
+          .catch((err: any) => ({ id: tpl.id, error: err?.message || 'ERROR' }))
+      )
+    )
+    let ok = 0
+    let bad = 0
+    results.forEach(r => {
+      if (r.status === 'fulfilled') {
+        const { id, result, error } = r.value as any
+        if (error) {
+          availabilityMap[id] = { testing: false, status: 'ERROR', message: String(error) }
+          bad++
+        } else if (result) {
+          availabilityMap[id] = { testing: false, status: result.status, message: result.message }
+          if (isUnavailable(result.status)) bad++
+          else ok++
+        }
+      }
+    })
+    detectSummary.value = t('providerTemplate.detectDone', {
+      total: targets.length, ok, bad
+    })
+  } finally {
+    detecting.value = false
+  }
+}
+
+/** 一键隐藏检测为不可用的默认模板 */
+const hideAllUnavailable = async () => {
+  const ids = templates.value
+    .filter(tpl =>
+      tpl.source === 'builtin' &&
+      availabilityMap[tpl.id] &&
+      !availabilityMap[tpl.id].testing &&
+      isUnavailable(availabilityMap[tpl.id].status)
+    )
+    .map(tpl => tpl.id)
+  if (!ids.length) {
+    ElMessage.info(t('providerTemplate.availabilityHint'))
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      t('providerTemplate.hideUnavailableConfirm', { count: ids.length }),
+      t('providerTemplate.hideConfirmTitle'),
+      { type: 'warning' }
+    )
+    let count = 0
+    for (const id of ids) {
+      try {
+        await hideAdapterTemplate(id)
+        count++
+      } catch (e: any) {
+        ElMessage.error(t('providerTemplate.operationFailedDetail', { error: e.message || '' }))
+      }
+    }
+    ElMessage.success(t('providerTemplate.hideUnavailableDone', { count }))
+    await fetchTemplates()
+    await loadHidden()
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      ElMessage.error(t('providerTemplate.operationFailedDetail', { error: e.message || '' }))
+    }
+  }
+}
+
 const handleCreate = () => {
   isEditing.value = false
   editingId.value = ''
@@ -247,6 +455,45 @@ const handleEdit = (row: AdapterTemplate) => {
   })
   modelsInput.value = (row.supportedModels || []).join('\n')
   dialogVisible.value = true
+}
+
+/** 移除内置默认模板（隐藏，可逆） */
+const handleHide = async (row: AdapterTemplate) => {
+  try {
+    await ElMessageBox.confirm(
+      t('providerTemplate.hideConfirm', { name: row.name }),
+      t('providerTemplate.hideConfirmTitle'),
+      { type: 'warning' }
+    )
+    const res = await hideAdapterTemplate(row.id)
+    if (res.data?.success) {
+      ElMessage.success(t('providerTemplate.hideSuccess', { name: row.name }))
+      await fetchTemplates()
+      await loadHidden()
+    } else {
+      ElMessage.error(res.data?.message || t('providerTemplate.operationFailed'))
+    }
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      ElMessage.error(t('providerTemplate.operationFailedDetail', { error: e.message || '' }))
+    }
+  }
+}
+
+/** 恢复已隐藏的内置默认模板 */
+const handleRestore = async (row: AdapterTemplate) => {
+  try {
+    const res = await restoreAdapterTemplate(row.id)
+    if (res.data?.success) {
+      ElMessage.success(t('providerTemplate.restoreSuccess', { name: row.name }))
+      await fetchTemplates()
+      await loadHidden()
+    } else {
+      ElMessage.error(res.data?.message || t('providerTemplate.operationFailed'))
+    }
+  } catch (e: any) {
+    ElMessage.error(t('providerTemplate.operationFailedDetail', { error: e.message || '' }))
+  }
 }
 
 const handleDelete = async (row: AdapterTemplate) => {
@@ -313,7 +560,10 @@ const handleSubmit = async () => {
   }
 }
 
-onMounted(fetchTemplates)
+onMounted(() => {
+  fetchTemplates()
+  loadHidden()
+})
 </script>
 
 <style scoped>
@@ -346,5 +596,12 @@ onMounted(fetchTemplates)
   color: var(--ja-text-secondary);
   margin-top: 4px;
   line-height: 1.4;
+}
+
+.hidden-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
 }
 </style>

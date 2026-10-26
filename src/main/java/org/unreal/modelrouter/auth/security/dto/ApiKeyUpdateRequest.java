@@ -77,6 +77,26 @@ public final class ApiKeyUpdateRequest {
     private Long dailyTokenLimit;
 
     /**
+     * 每小时请求上限（0 表示无限制，对齐上游 3.4.0 多窗口配额）
+     */
+    private Long hourlyRequestLimit;
+
+    /**
+     * 每小时 Token 使用上限（0 表示无限制）
+     */
+    private Long hourlyTokenLimit;
+
+    /**
+     * 每月请求上限（0 表示无限制）
+     */
+    private Long monthlyRequestLimit;
+
+    /**
+     * 每月 Token 使用上限（0 表示无限制）
+     */
+    private Long monthlyTokenLimit;
+
+    /**
      * 每分钟请求速率限制（0 表示无限制）
      */
     private Integer rateLimitPerMinute;

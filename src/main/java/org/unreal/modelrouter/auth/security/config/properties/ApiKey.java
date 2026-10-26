@@ -100,6 +100,30 @@ public class ApiKey {
     private long dailyTokenLimit = 0L;
 
     /**
+     * 每小时请求上限（0 表示无限制）。对齐上游 3.4.0 TA3：多窗口配额。
+     */
+    @Builder.Default
+    private long hourlyRequestLimit = 0L;
+
+    /**
+     * 每小时 Token 使用上限（0 表示无限制）
+     */
+    @Builder.Default
+    private long hourlyTokenLimit = 0L;
+
+    /**
+     * 每月请求上限（0 表示无限制）
+     */
+    @Builder.Default
+    private long monthlyRequestLimit = 0L;
+
+    /**
+     * 每月 Token 使用上限（0 表示无限制）
+     */
+    @Builder.Default
+    private long monthlyTokenLimit = 0L;
+
+    /**
      * 每分钟请求速率上限（0 表示无限制）
      * 使用滑动窗口算法实现
      */
@@ -409,6 +433,10 @@ public class ApiKey {
                 .allowedIpAddresses(this.allowedIpAddresses)
                 .dailyRequestLimit(this.dailyRequestLimit)
                 .dailyTokenLimit(this.dailyTokenLimit)
+                .hourlyRequestLimit(this.hourlyRequestLimit)
+                .hourlyTokenLimit(this.hourlyTokenLimit)
+                .monthlyRequestLimit(this.monthlyRequestLimit)
+                .monthlyTokenLimit(this.monthlyTokenLimit)
                 .rateLimitPerMinute(this.rateLimitPerMinute)
                 .quotaAlertThreshold(this.quotaAlertThreshold)
                 .description(this.description)
@@ -443,6 +471,10 @@ public class ApiKey {
                 .allowedIpAddresses(this.allowedIpAddresses)
                 .dailyRequestLimit(this.dailyRequestLimit)
                 .dailyTokenLimit(this.dailyTokenLimit)
+                .hourlyRequestLimit(this.hourlyRequestLimit)
+                .hourlyTokenLimit(this.hourlyTokenLimit)
+                .monthlyRequestLimit(this.monthlyRequestLimit)
+                .monthlyTokenLimit(this.monthlyTokenLimit)
                 .rateLimitPerMinute(this.rateLimitPerMinute)
                 .quotaAlertThreshold(this.quotaAlertThreshold)
                 .description(this.description)

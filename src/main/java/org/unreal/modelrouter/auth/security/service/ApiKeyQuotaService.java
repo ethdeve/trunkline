@@ -100,6 +100,10 @@ public class ApiKeyQuotaService {
             .description(apiKey.getDescription())
             .dailyRequestLimit(apiKey.getDailyRequestLimit())
             .dailyTokenLimit(apiKey.getDailyTokenLimit())
+            .hourlyRequestLimit(apiKey.getHourlyRequestLimit())
+            .hourlyTokenLimit(apiKey.getHourlyTokenLimit())
+            .monthlyRequestLimit(apiKey.getMonthlyRequestLimit())
+            .monthlyTokenLimit(apiKey.getMonthlyTokenLimit())
             .rateLimitPerMinute(apiKey.getRateLimitPerMinute())
             .quotaAlertThreshold(apiKey.getQuotaAlertThreshold())
             .todayRequestCount(todayRequests)
@@ -260,11 +264,22 @@ public class ApiKeyQuotaService {
         if (request.getRateLimitPerMinute() != null && request.getRateLimitPerMinute() < 0) {
             throw new IllegalArgumentException("rateLimitPerMinute 不能为负（0 表示不限制）");
         }
+        validateLimitNonNegative("hourlyRequestLimit", request.getHourlyRequestLimit());
+        validateLimitNonNegative("hourlyTokenLimit", request.getHourlyTokenLimit());
+        validateLimitNonNegative("monthlyRequestLimit", request.getMonthlyRequestLimit());
+        validateLimitNonNegative("monthlyTokenLimit", request.getMonthlyTokenLimit());
         apiKeyService.updateApiKey(keyId, request)
                 .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
                 .block(java.time.Duration.ofSeconds(5));
         return getQuotaUsage(keyId)
                 .orElseThrow(() -> new IllegalArgumentException("API Key 不存在: " + keyId));
+    }
+
+    /** 校验多窗口配额限额字段非负（0 表示不限制）。 */
+    private static void validateLimitNonNegative(final String name, final Long value) {
+        if (value != null && value < 0L) {
+            throw new IllegalArgumentException(name + " 不能为负（0 表示不限制）");
+        }
     }
 
     /**
@@ -390,6 +405,11 @@ public class ApiKeyQuotaService {
         private String description;
         private long dailyRequestLimit;
         private long dailyTokenLimit;
+        /** 每小时请求上限（0=不限，对齐上游 3.4.0 多窗口配额） */
+        private long hourlyRequestLimit;
+        private long hourlyTokenLimit;
+        private long monthlyRequestLimit;
+        private long monthlyTokenLimit;
         private int rateLimitPerMinute;
         private double quotaAlertThreshold;
         private long todayRequestCount;

@@ -6,6 +6,7 @@
     "tts": "Text-to-Speech",
     "stt": "Speech-to-Text",
     "imgGen": "Image Generation",
-    "imgEdit": "Image Editing"
+    "imgEdit": "Image Editing",
+    "videoGen": "Video Generation"
   }
 }

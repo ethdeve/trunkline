@@ -31,6 +31,18 @@ public record QuotaLimitViolation(String metric,
     /** 日 token 限额（{@code ApiKey.dailyTokenLimit}） */
     public static final String METRIC_DAILY_TOKENS = "dailyTokenLimit";
 
+    /** 每小时请求数限额（{@code ApiKey.hourlyRequestLimit}，对齐上游 3.4.0） */
+    public static final String METRIC_HOURLY_REQUESTS = "hourlyRequestLimit";
+
+    /** 每小时 token 限额（{@code ApiKey.hourlyTokenLimit}） */
+    public static final String METRIC_HOURLY_TOKENS = "hourlyTokenLimit";
+
+    /** 每月请求数限额（{@code ApiKey.monthlyRequestLimit}） */
+    public static final String METRIC_MONTHLY_REQUESTS = "monthlyRequestLimit";
+
+    /** 每月 token 限额（{@code ApiKey.monthlyTokenLimit}） */
+    public static final String METRIC_MONTHLY_TOKENS = "monthlyTokenLimit";
+
     /** 每分钟请求限额（{@code ApiKey.rateLimitPerMinute}） */
     public static final String METRIC_RATE_PER_MINUTE = "rateLimitPerMinute";
 

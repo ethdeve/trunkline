@@ -34,7 +34,13 @@ const filteredGroups = computed(() =>
   }))
 )
 
-const activePath = computed(() => '/' + (route.path.split('/')[1] || 'overview'))
+// 菜单高亮：先按完整路径精确匹配菜单项（/settings/* 四个子项共用 /settings 前缀，
+// 首段回退无法区分），无命中再回退首段（子路由如 /strategy/quota 高亮到 /strategy）
+const activePath = computed(() => {
+  const all = filteredGroups.value.flatMap(g => g.children)
+  const exact = all.find(c => c.path === route.path)
+  return exact ? exact.path : '/' + (route.path.split('/')[1] || 'overview')
+})
 const activeGroup = computed(() => filteredGroups.value.find(g => g.children.some(c => c.path === activePath.value)))
 
 const username = computed(() => userStore.userInfo?.username || '')

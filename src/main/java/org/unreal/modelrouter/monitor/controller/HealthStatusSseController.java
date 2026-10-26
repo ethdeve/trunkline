@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.unreal.modelrouter.router.checker.ServiceStateManager;
+import org.unreal.modelrouter.router.model.InstanceKeys;
 import org.unreal.modelrouter.persistence.jpa.entity.ServiceInstanceEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.ServiceConfigRepository;
 import org.unreal.modelrouter.persistence.jpa.repository.ServiceInstanceRepository;
@@ -118,13 +119,10 @@ public class HealthStatusSseController {
                 for (ServiceInstanceEntity entity : allInstances) {
                     String serviceType = serviceTypeByConfigId.get(entity.getServiceConfigId());
                     if (serviceType != null) {
-                        // 使用 instanceId 作为 key 的第二部分
-                        String instanceId = entity.getInstanceId();
-                        if (instanceId == null || instanceId.isEmpty()) {
-                            // 如果没有 instanceId，使用 instanceName 作为后备
-                            instanceId = entity.getInstanceName();
-                        }
-                        String key = serviceType + ":" + instanceId;
+                        // #636: 与运行时健康键同口径——instanceId → baseUrl → instanceName → unknown
+                        String resolved = InstanceKeys.resolveParts(
+                                entity.getInstanceId(), entity.getBaseUrl(), entity.getInstanceName());
+                        String key = serviceType + ":" + resolved;
                         boolean isHealthy = "HEALTHY".equals(entity.getHealthStatus());
                         instanceHealthStatus.put(key, isHealthy);
                     }

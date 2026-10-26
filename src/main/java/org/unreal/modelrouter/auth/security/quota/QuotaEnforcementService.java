@@ -134,13 +134,33 @@ public class QuotaEnforcementService {
             final LocalDateTime now = LocalDateTime.now(clock);
             final List<QuotaWindow> windows = properties.enabledWindows();
             final QuotaDimension dimension = QuotaDimension.ofApiKey(apiKeyId);
+            final long tokens = Math.max(0L, estimatedTokens);
 
-            final Optional<QuotaLimitViolation> dailyViolation =
-                evaluateDaily(apiKey, dimension, windows, now, Math.max(0L, estimatedTokens));
-            if (dailyViolation.isPresent()) {
-                return dailyViolation;
+            // 判定顺序：HOUR → DAY → MONTH → MINUTE（对齐上游 3.4.0 的优先级说明）
+            Optional<QuotaLimitViolation> violation = evaluateWindow(apiKey, dimension, windows,
+                QuotaWindow.HOUR, apiKey.getHourlyRequestLimit(), apiKey.getHourlyTokenLimit(),
+                QuotaLimitViolation.METRIC_HOURLY_REQUESTS, QuotaLimitViolation.METRIC_HOURLY_TOKENS,
+                tokens, now);
+            if (violation.isPresent()) {
+                return violation;
             }
-            return evaluatePerMinute(apiKey, dimension, windows, now);
+            violation = evaluateWindow(apiKey, dimension, windows,
+                QuotaWindow.DAY, apiKey.getDailyRequestLimit(), apiKey.getDailyTokenLimit(),
+                QuotaLimitViolation.METRIC_DAILY_REQUESTS, QuotaLimitViolation.METRIC_DAILY_TOKENS,
+                tokens, now);
+            if (violation.isPresent()) {
+                return violation;
+            }
+            violation = evaluateWindow(apiKey, dimension, windows,
+                QuotaWindow.MONTH, apiKey.getMonthlyRequestLimit(), apiKey.getMonthlyTokenLimit(),
+                QuotaLimitViolation.METRIC_MONTHLY_REQUESTS, QuotaLimitViolation.METRIC_MONTHLY_TOKENS,
+                tokens, now);
+            if (violation.isPresent()) {
+                return violation;
+            }
+            return evaluateWindow(apiKey, dimension, windows,
+                QuotaWindow.MINUTE, apiKey.getRateLimitPerMinute(), 0L,
+                QuotaLimitViolation.METRIC_RATE_PER_MINUTE, null, 0L, now);
         } catch (Exception e) {
             log.warn("配额限额判定异常，按 fail-open 放行: apiKeyId={}, error={}", apiKeyId, e.toString());
             return Optional.empty();
@@ -235,10 +255,7 @@ public class QuotaEnforcementService {
                 // 配置了限额：优先走 CAS 原子预留（本地槽位锁 / Redis Lua），消除 check-then-act
                 if (apiKey != null) {
                     final Optional<QuotaLimitViolation> casViolation = ledgerService.reserveWithLimits(
-                            QuotaRequest.of(dimension, estimatedTokens),
-                            apiKey.getDailyRequestLimit(),
-                            apiKey.getDailyTokenLimit(),
-                            apiKey.getRateLimitPerMinute());
+                            QuotaRequest.of(dimension, estimatedTokens), limitsOf(apiKey));
                     if (casViolation.isPresent()) {
                         log.warn("配额超限，拒绝请求: apiKeyId={}, {}", apiKeyId, casViolation.get().describe());
                         return casViolation;
@@ -282,17 +299,27 @@ public class QuotaEnforcementService {
             final List<QuotaWindow> windows = properties.enabledWindows();
             final QuotaDimension dimension = QuotaDimension.ofApiKey(apiKeyId);
 
-            if (windows.contains(QuotaWindow.DAY)) {
-                final Optional<QuotaUsage> usage = ledgerService.usageStrict(dimension, QuotaWindow.DAY);
+            // 复核顺序与 evaluate 一致：HOUR → DAY → MONTH → MINUTE；
+            // 语义为「已用量（含本笔预留）> 限额」，与预留时的「+1 > 限额」严格大于口径等价
+            for (final QuotaWindow window : new QuotaWindow[] {QuotaWindow.HOUR, QuotaWindow.DAY, QuotaWindow.MONTH}) {
+                if (!windows.contains(window)) {
+                    continue;
+                }
+                final long maxRequests = limitsOf(apiKey).maxRequests(window);
+                final long maxTokens = limitsOf(apiKey).maxTokens(window);
+                if (maxRequests <= 0L && maxTokens <= 0L) {
+                    continue;
+                }
+                final Optional<QuotaUsage> usage = ledgerService.usageStrict(dimension, window);
                 final long requests = usage.map(QuotaUsage::requestCount).orElse(0L);
                 final long tokens = usage.map(QuotaUsage::tokenCount).orElse(0L);
-                if (apiKey.getDailyRequestLimit() > 0 && requests > apiKey.getDailyRequestLimit()) {
-                    return Optional.of(violation(QuotaLimitViolation.METRIC_DAILY_REQUESTS, QuotaWindow.DAY,
-                            apiKey.getDailyRequestLimit(), requests - 1L, now));
+                if (maxRequests > 0L && requests > maxRequests) {
+                    return Optional.of(violation(requestMetricFor(window), window,
+                            maxRequests, requests - 1L, now));
                 }
-                if (apiKey.getDailyTokenLimit() > 0 && tokens > apiKey.getDailyTokenLimit()) {
-                    return Optional.of(violation(QuotaLimitViolation.METRIC_DAILY_TOKENS, QuotaWindow.DAY,
-                            apiKey.getDailyTokenLimit(), tokens, now));
+                if (maxTokens > 0L && tokens > maxTokens) {
+                    return Optional.of(violation(tokenMetricFor(window), window,
+                            maxTokens, tokens, now));
                 }
             }
             if (windows.contains(QuotaWindow.MINUTE) && apiKey.getRateLimitPerMinute() > 0) {
@@ -311,68 +338,90 @@ public class QuotaEnforcementService {
     }
 
     /**
-     * 日限额判定（请求数 + token 数）。
+     * 单个窗口的限额判定（请求数 + token）。
      *
-     * @param apiKey          限额配置
-     * @param dimension       账本维度
-     * @param windows         启用的窗口
-     * @param now             当前时间
-     * @param estimatedTokens 本次估算 token 数
-     * @return 超限结果，未超限或 DAY 窗口未启用时为空
-     * @throws IllegalStateException 账本读不到 DAY 窗口用量（由 {@link #evaluate} 统一按 fail-open 处理）
+     * <p>四个窗口（HOUR / DAY / MONTH / MINUTE）共用这一份逻辑，避免各写一遍后出现口径漂移：
+     * 窗口未启用则跳过（无法度量 ⇒ fail-open）；两项限额都 {@code <= 0} 时不读账本直接放行；
+     * 命中条件为 {@code 已用量 + 本笔 > 限额}（严格大于：恰好用满不算超限）。</p>
+     *
+     * @param apiKey            限额配置
+     * @param dimension         账本维度
+     * @param windows           启用的窗口
+     * @param window            当前判定的窗口
+     * @param maxRequests       该窗口请求数上限（{@code <= 0} 不限）
+     * @param maxTokens         该窗口 token 上限（{@code <= 0} 不限）
+     * @param requestMetricName 请求数超限时的指标名
+     * @param tokenMetricName   token 超限时的指标名（无 token 限额的窗口传 {@code null}）
+     * @param estimatedTokens   本次估算 token 数（MINUTE 窗口传 0）
+     * @param now               当前时间
+     * @return 超限结果，未超限或窗口未启用时为空
+     * @throws IllegalStateException 账本读不到该窗口用量（由 {@link #evaluate} 统一按 fail-open 处理）
      */
-    private Optional<QuotaLimitViolation> evaluateDaily(final ApiKey apiKey,
-                                                        final QuotaDimension dimension,
-                                                        final List<QuotaWindow> windows,
-                                                        final LocalDateTime now,
-                                                        final long estimatedTokens) {
-        if (!windows.contains(QuotaWindow.DAY)) {
-            log.debug("DAY 窗口未启用，跳过日限额判定: apiKeyId={}", apiKey.getKeyId());
+    private Optional<QuotaLimitViolation> evaluateWindow(final ApiKey apiKey,
+                                                         final QuotaDimension dimension,
+                                                         final List<QuotaWindow> windows,
+                                                         final QuotaWindow window,
+                                                         final long maxRequests,
+                                                         final long maxTokens,
+                                                         final String requestMetricName,
+                                                         final String tokenMetricName,
+                                                         final long estimatedTokens,
+                                                         final LocalDateTime now) {
+        if (!windows.contains(window)) {
+            log.debug("{} 窗口未启用，跳过限额判定: apiKeyId={}", window, apiKey.getKeyId());
             return Optional.empty();
         }
-        final Optional<QuotaUsage> usage = ledgerService.usageStrict(dimension, QuotaWindow.DAY);
+        if (maxRequests <= 0L && maxTokens <= 0L) {
+            return Optional.empty();
+        }
+        final Optional<QuotaUsage> usage = ledgerService.usageStrict(dimension, window);
         final long requests = usage.map(QuotaUsage::requestCount).orElse(0L);
         final long tokens = usage.map(QuotaUsage::tokenCount).orElse(0L);
 
-        if (apiKey.getDailyRequestLimit() > 0 && requests + 1L > apiKey.getDailyRequestLimit()) {
-            return Optional.of(violation(QuotaLimitViolation.METRIC_DAILY_REQUESTS, QuotaWindow.DAY,
-                apiKey.getDailyRequestLimit(), requests, now));
+        if (maxRequests > 0L && requests + 1L > maxRequests) {
+            return Optional.of(violation(requestMetricName, window, maxRequests, requests, now));
         }
-        if (apiKey.getDailyTokenLimit() > 0 && tokens + estimatedTokens > apiKey.getDailyTokenLimit()) {
-            return Optional.of(violation(QuotaLimitViolation.METRIC_DAILY_TOKENS, QuotaWindow.DAY,
-                apiKey.getDailyTokenLimit(), tokens, now));
+        if (tokenMetricName != null && maxTokens > 0L && tokens + estimatedTokens > maxTokens) {
+            return Optional.of(violation(tokenMetricName, window, maxTokens, tokens, now));
         }
         return Optional.empty();
     }
 
+    /** 取窗口对应的请求数限额指标名（供预留后复核使用）。 */
+    private static String requestMetricFor(final QuotaWindow window) {
+        return switch (window) {
+            case HOUR -> QuotaLimitViolation.METRIC_HOURLY_REQUESTS;
+            case DAY -> QuotaLimitViolation.METRIC_DAILY_REQUESTS;
+            case MONTH -> QuotaLimitViolation.METRIC_MONTHLY_REQUESTS;
+            case MINUTE -> QuotaLimitViolation.METRIC_RATE_PER_MINUTE;
+        };
+    }
+
+    /** 取窗口对应的 token 限额指标名（MINUTE 窗口无 token 限额，返回请求数指标名兜底，不会命中）。 */
+    private static String tokenMetricFor(final QuotaWindow window) {
+        return switch (window) {
+            case HOUR -> QuotaLimitViolation.METRIC_HOURLY_TOKENS;
+            case DAY -> QuotaLimitViolation.METRIC_DAILY_TOKENS;
+            case MONTH -> QuotaLimitViolation.METRIC_MONTHLY_TOKENS;
+            case MINUTE -> QuotaLimitViolation.METRIC_RATE_PER_MINUTE;
+        };
+    }
+
     /**
-     * 每分钟请求数限额判定。
+     * 从 API Key 配置打包限额集合（供 CAS 预留与判定共用，对齐上游 3.4.0）。
      *
-     * @param apiKey    限额配置
-     * @param dimension 账本维度
-     * @param windows   启用的窗口
-     * @param now       当前时间
-     * @return 超限结果，未超限或 MINUTE 窗口未启用时为空
-     * @throws IllegalStateException 账本读不到 MINUTE 窗口用量（由 {@link #evaluate} 统一按 fail-open 处理）
+     * @param apiKey 限额配置
+     * @return 限额集合（各窗口 {@code <= 0} 表示不限）
      */
-    private Optional<QuotaLimitViolation> evaluatePerMinute(final ApiKey apiKey,
-                                                            final QuotaDimension dimension,
-                                                            final List<QuotaWindow> windows,
-                                                            final LocalDateTime now) {
-        if (!windows.contains(QuotaWindow.MINUTE)) {
-            log.debug("MINUTE 窗口未启用，跳过速率限额判定: apiKeyId={}", apiKey.getKeyId());
-            return Optional.empty();
-        }
-        if (apiKey.getRateLimitPerMinute() <= 0) {
-            return Optional.empty();
-        }
-        final long requests = ledgerService.usageStrict(dimension, QuotaWindow.MINUTE)
-            .map(QuotaUsage::requestCount).orElse(0L);
-        if (requests + 1L > apiKey.getRateLimitPerMinute()) {
-            return Optional.of(violation(QuotaLimitViolation.METRIC_RATE_PER_MINUTE, QuotaWindow.MINUTE,
-                apiKey.getRateLimitPerMinute(), requests, now));
-        }
-        return Optional.empty();
+    private QuotaLimitSet limitsOf(final ApiKey apiKey) {
+        return new QuotaLimitSet(
+                apiKey.getRateLimitPerMinute(),
+                apiKey.getHourlyRequestLimit(),
+                apiKey.getHourlyTokenLimit(),
+                apiKey.getDailyRequestLimit(),
+                apiKey.getDailyTokenLimit(),
+                apiKey.getMonthlyRequestLimit(),
+                apiKey.getMonthlyTokenLimit());
     }
 
     /**

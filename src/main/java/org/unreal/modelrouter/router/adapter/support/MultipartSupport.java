@@ -1,6 +1,7 @@
 package org.unreal.modelrouter.router.adapter.support;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserter;
@@ -79,6 +80,8 @@ public class MultipartSupport {
 
     /**
      * 创建图像编辑请求的 multipart 表单数据
+     * 对齐上游 3.5.3 #637：多图按 OpenAI 约定用 image[] 逐个展开（此前整张 List
+     * 被当作单个 part 值添加，出站表单错误）；mask 是文件 part 直接添加。
      */
     public BodyInserter<?, ?> createMultipartBody(final ImageEditDTO.Request imageEditRequest) {
         MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
@@ -87,7 +90,13 @@ public class MultipartSupport {
             parts.add("model", imageEditRequest.model());
         }
         if (imageEditRequest.image() != null) {
-            parts.add("image", imageEditRequest.image());
+            if (imageEditRequest.image().size() == 1) {
+                parts.add("image", imageEditRequest.image().get(0));
+            } else {
+                for (FilePart image : imageEditRequest.image()) {
+                    parts.add("image[]", image);
+                }
+            }
         }
         if (imageEditRequest.mask() != null) {
             parts.add("mask", imageEditRequest.mask());

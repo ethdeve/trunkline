@@ -118,10 +118,54 @@ const routes: RouteRecordRaw[] = [
         meta: { permissions: ['config:quota:read'], title: '用量配额' }
       },
       {
+        // 旧入口 /settings → 按深度链参数重定向到对应分组路径（menu.ts 已拆 4 个菜单项）
         path: 'settings',
-        name: 'settings',
+        redirect: to => {
+          const tab = (to.query.tab as string) || ''
+          const query = { ...to.query }
+          delete query.tab
+          const pathByTab: Record<string, string> = {
+            // 新分组名
+            access: 'settings/accounts',
+            modelConfig: 'settings/model-config',
+            auditVersions: 'settings/audit-versions',
+            monitoring: 'settings/monitoring',
+            // 旧 tab 名（SettingsView 历史深链）
+            accounts: 'settings/accounts',
+            permissions: 'settings/accounts',
+            providerTemplates: 'settings/model-config',
+            modelCategories: 'settings/model-config',
+            protocolAdapters: 'settings/model-config',
+            audit: 'settings/audit-versions',
+            versions: 'settings/audit-versions',
+            persistence: 'settings/monitoring'
+          }
+          return { path: '/' + (pathByTab[tab] || 'settings/accounts'), query }
+        }
+      },
+      {
+        path: 'settings/accounts',
+        name: 'settings-accounts',
         component: () => import('@/views/settings/SettingsView.vue'),
-        meta: { permissions: ['system:accounts:manage'], title: '系统设置' }
+        meta: { permissions: ['system:accounts:manage'], title: '账号与权限', defaultGroup: 'access' }
+      },
+      {
+        path: 'settings/model-config',
+        name: 'settings-model-config',
+        component: () => import('@/views/settings/SettingsView.vue'),
+        meta: { permissions: ['system:accounts:manage'], title: '模型配置', defaultGroup: 'modelConfig' }
+      },
+      {
+        path: 'settings/audit-versions',
+        name: 'settings-audit-versions',
+        component: () => import('@/views/settings/SettingsView.vue'),
+        meta: { permissions: ['system:accounts:manage'], title: '审计与版本', defaultGroup: 'auditVersions' }
+      },
+      {
+        path: 'settings/monitoring',
+        name: 'settings-monitoring',
+        component: () => import('@/views/settings/SettingsView.vue'),
+        meta: { permissions: ['system:accounts:manage'], title: '状态监控', defaultGroup: 'monitoring' }
       }
     ]
   },

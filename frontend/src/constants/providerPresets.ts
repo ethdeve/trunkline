@@ -78,7 +78,6 @@ const TEMPLATE_SOURCES: TemplateSource[] = [
   { uid: 'baichuan', label: '百川智能', category: 'domestic', baseUrl: 'https://api.baichuan-ai.com/v1', type: 'openai-compatible', models: ['Baichuan4', 'Baichuan3-Turbo'] },
   { uid: 'qwen', label: '通义千问', category: 'domestic', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', type: 'openai-compatible', models: ['qwen-turbo', 'qwen-plus', 'qwen-max', 'text-embedding-v3'] },
   { uid: 'minimax', label: 'MiniMax', category: 'domestic', baseUrl: 'https://api.minimax.chat/v1', type: 'openai-compatible', models: ['abab6.5-chat', 'abab6.5s-chat'] },
-  { uid: 'yi', label: '零一万物 (Yi)', category: 'domestic', baseUrl: 'https://api.lingyiwanwu.com/v1', type: 'openai-compatible', models: ['yi-large', 'yi-medium', 'yi-spark'] },
   { uid: 'stepfun', label: '阶跃星辰', category: 'domestic', baseUrl: 'https://api.stepfun.com/v1', type: 'openai-compatible', models: ['step-1-8k', 'step-1-32k', 'step-1-128k'] },
   { uid: 'siliconflow', label: '硅基流动', category: 'domestic', baseUrl: 'https://api.siliconflow.cn/v1', type: 'openai-compatible', models: ['deepseek-ai/DeepSeek-V3', 'Qwen/Qwen2.5-7B-Instruct'] },
   // ---- 国际 ----

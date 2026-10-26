@@ -334,17 +334,14 @@ public class QuotaLedgerService {
      * 并发突发不会超放；被拒请求不留残量。Redis 命令超时属“结果未知”，该窗口不做冲正
      * （避免误减他人计数导致超放），残量留到窗口过期回收。</p>
      *
-     * @param request          预留请求
-     * @param dayMaxRequests   日请求数限额（0=不限）
-     * @param dayMaxTokens     日 token 限额（0=不限）
-     * @param minuteMaxRequests 每分钟请求数限额（0=不限）
+     * @param request 预留请求
+     * @param limits  限额集合（各窗口请求数 / token 上限，{@code <= 0} 表示该窗口不限制；
+     *                对齐上游 3.4.0：HOUR / DAY / MONTH / MINUTE 四级窗口均参与判定）
      * @return 超限结果；成功预留或账本未启用时为空
      */
     public Optional<QuotaLimitViolation> reserveWithLimits(final QuotaRequest request,
-                                                           final long dayMaxRequests,
-                                                           final long dayMaxTokens,
-                                                           final long minuteMaxRequests) {
-        if (!isEnabled() || request == null) {
+                                                           final QuotaLimitSet limits) {
+        if (!isEnabled() || request == null || limits == null) {
             return Optional.empty();
         }
         try {
@@ -357,8 +354,8 @@ public class QuotaLedgerService {
             final long tokens = Math.max(0L, request.estimatedTokens());
             final List<ReserveCommit> committed = new ArrayList<>();
             for (final QuotaWindow window : windows) {
-                final long maxRequests = maxRequestsFor(window, dayMaxRequests, minuteMaxRequests);
-                final long maxTokens = maxTokensFor(window, dayMaxTokens);
+                final long maxRequests = limits.maxRequests(window);
+                final long maxTokens = limits.maxTokens(window);
                 if (maxRequests <= 0L && maxTokens <= 0L) {
                     // 该窗口无有效限额：普通累加，保证计数连续
                     final QuotaCounterKey key = keyOf(dimension, window, now);
@@ -425,20 +422,6 @@ public class QuotaLedgerService {
         }
     }
 
-    private static long maxRequestsFor(final QuotaWindow window,
-                                       final long dayMaxRequests,
-                                       final long minuteMaxRequests) {
-        // 与 QuotaEnforcementService.evaluate 一致：仅 DAY / MINUTE 参与限额判定
-        return switch (window) {
-            case MINUTE -> minuteMaxRequests;
-            case DAY -> dayMaxRequests;
-            case HOUR, MONTH -> 0L;
-        };
-    }
-
-    private static long maxTokensFor(final QuotaWindow window, final long dayMaxTokens) {
-        return window == QuotaWindow.DAY ? dayMaxTokens : 0L;
-    }
 
     /**
      * 多窗口预留中一笔已提交的累加（issue #120 冲正用）。
@@ -487,15 +470,33 @@ public class QuotaLedgerService {
         final long[] usage = localBackend.totals(key);
         if (maxRequests > 0L) {
             final long used = usage == null ? maxRequests : usage[0];
-            final String metric = window == QuotaWindow.MINUTE
-                    ? QuotaLimitViolation.METRIC_RATE_PER_MINUTE
-                    : QuotaLimitViolation.METRIC_DAILY_REQUESTS;
+            final String metric = requestMetricFor(window);
             return Optional.of(new QuotaLimitViolation(metric, window, maxRequests,
                     Math.max(0L, used), retryAfterSeconds(window, now)));
         }
         final long usedTokens = usage == null ? maxTokens : usage[1];
-        return Optional.of(new QuotaLimitViolation(QuotaLimitViolation.METRIC_DAILY_TOKENS,
+        return Optional.of(new QuotaLimitViolation(tokenMetricFor(window),
                 window, maxTokens, Math.max(0L, usedTokens), retryAfterSeconds(window, now)));
+    }
+
+    /** 取窗口对应的请求数限额指标名（对齐上游 3.4.0 四级窗口）。 */
+    private static String requestMetricFor(final QuotaWindow window) {
+        return switch (window) {
+            case HOUR -> QuotaLimitViolation.METRIC_HOURLY_REQUESTS;
+            case DAY -> QuotaLimitViolation.METRIC_DAILY_REQUESTS;
+            case MONTH -> QuotaLimitViolation.METRIC_MONTHLY_REQUESTS;
+            case MINUTE -> QuotaLimitViolation.METRIC_RATE_PER_MINUTE;
+        };
+    }
+
+    /** 取窗口对应的 token 限额指标名（MINUTE 窗口无 token 限额，返回请求数指标名兜底，不会命中）。 */
+    private static String tokenMetricFor(final QuotaWindow window) {
+        return switch (window) {
+            case HOUR -> QuotaLimitViolation.METRIC_HOURLY_TOKENS;
+            case DAY -> QuotaLimitViolation.METRIC_DAILY_TOKENS;
+            case MONTH -> QuotaLimitViolation.METRIC_MONTHLY_TOKENS;
+            case MINUTE -> QuotaLimitViolation.METRIC_RATE_PER_MINUTE;
+        };
     }
 
     private long retryAfterSeconds(final QuotaWindow window, final LocalDateTime now) {

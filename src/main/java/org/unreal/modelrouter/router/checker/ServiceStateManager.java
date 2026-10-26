@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.unreal.modelrouter.monitor.controller.HealthStatusSseController;
+import org.unreal.modelrouter.router.model.InstanceKeys;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
 
 import java.util.Map;
@@ -52,8 +53,8 @@ public class ServiceStateManager {
      * @return 实例是否健康
      */
     public boolean isInstanceHealthy(final String serviceType, final ModelRouterProperties.ModelInstance instance) {
-        // v2.7.11: 使用 BitSet 查询
-        String instanceKey = serviceType + ":" + instance.getInstanceId();
+        // v2.7.11: 使用 BitSet 查询；#636: 键解析 instance-id → baseUrl → name，防 null 塌缩
+        String instanceKey = InstanceKeys.healthKey(serviceType, instance);
         return instanceHealthBits.isHealthy(instanceKey, true); // 默认健康
     }
 
@@ -107,8 +108,8 @@ public class ServiceStateManager {
             final String serviceType,
             final ModelRouterProperties.ModelInstance instance,
             final boolean isHealthy) {
-        // 使用实例的唯一ID作为键
-        String instanceKey = serviceType + ":" + instance.getInstanceId();
+        // #636: 键解析 instance-id → baseUrl → name，未配置 instance-id 的实例不再共享 ":null" 键
+        String instanceKey = InstanceKeys.healthKey(serviceType, instance);
         Boolean previousStatus = instanceHealthBits.getHealth(instanceKey);
 
         // 只有状态发生变化时才更新

@@ -16,7 +16,9 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.ServerWebInputException;
 import org.unreal.modelrouter.common.dto.ChatDTO;
 import org.unreal.modelrouter.common.dto.EmbeddingDTO;
 import org.unreal.modelrouter.router.adapter.AdapterRegistry;
@@ -155,13 +157,24 @@ class UniversalControllerTest {
     class ImageEditsTests {
 
         @Test
-        @DisplayName("UNIVERSAL-004: 请求体为空抛出异常")
-        void testImageEdits_nullRequest() {
-            // When & Then
-            org.junit.jupiter.api.Assertions.assertThrows(
-                    org.springframework.web.server.ServerWebInputException.class,
-                    () -> controller.imageEdits("Bearer token", null, exchange)
-            );
+        @DisplayName("UNIVERSAL-004: multipart 表单缺少 image part 抛出异常")
+        void testImageEdits_missingImagePart() {
+            // #637: 入口改为 multipart，空表单（无 image part）应抛 ServerWebInputException
+            lenient().when(exchange.getMultipartData())
+                    .thenReturn(Mono.just(new LinkedMultiValueMap<>()));
+            StepVerifier.create(controller.imageEdits("Bearer token", exchange))
+                    .expectError(ServerWebInputException.class)
+                    .verify();
+        }
+
+        @Test
+        @DisplayName("UNIVERSAL-005: multipart 数据不可读时传播错误")
+        void testImageEdits_multipartError() {
+            lenient().when(exchange.getMultipartData())
+                    .thenReturn(Mono.error(new IllegalStateException("bad multipart")));
+            StepVerifier.create(controller.imageEdits("Bearer token", exchange))
+                    .expectError(IllegalStateException.class)
+                    .verify();
         }
     }
 }

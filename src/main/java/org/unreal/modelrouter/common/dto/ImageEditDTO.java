@@ -23,7 +23,7 @@ public final class ImageEditDTO {
             String prompt,
             String background,
             String input_fidelity,
-            String mask,
+            FilePart mask, // v3.3.6→3.5.3 对齐 #637：mask 是上传的文件 part，不是字符串
             String model,
             Integer n,
             Integer output_compression,

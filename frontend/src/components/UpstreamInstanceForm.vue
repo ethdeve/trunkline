@@ -248,15 +248,17 @@
 import { computed, reactive, ref, withDefaults } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { COMMON_SERVICE_TYPES, getServiceTypeLabel } from '@/constants/serviceTypes'
-import { PROVIDER_PRESETS, matchProviderPreset, type ProviderPreset } from '@/constants/providerPresets'
+import { matchProviderPreset, type ProviderPreset } from '@/constants/providerPresets'
+import { useVisibleProviderPresets } from '@/composables/useVisibleProviderPresets'
 import type { ModelProvider } from '@/api/provider'
 import { Plus, Delete, Close } from '@element-plus/icons-vue'
 import type { InstanceConfig } from '@/api/instance'
 
 const { t } = useI18n()
 
-// 上游厂商预设：选厂商自动填 baseUrl/path；models 用于「常用模型」快捷填入（网关按模型名精确路由）
-const INSTANCE_TEMPLATES = PROVIDER_PRESETS
+// 上游厂商预设：选厂商自动填 baseUrl/path；models 用于「常用模型」快捷填入（网关按模型名精确路由）。
+// 预设列表与供应商模板页的「移除（隐藏）」联动：被移除的内置厂商不再出现在下拉中。
+const { visiblePresets: INSTANCE_TEMPLATES } = useVisibleProviderPresets()
 
 const props = withDefaults(defineProps<{
   serviceTypes?: string[]
@@ -358,12 +360,12 @@ const tagsList = ref<TagItem[]>([])
 
 // 当前所选厂商的常用模型快捷列表（点击即可填入模型名称）
 const currentProviderModels = computed<string[]>(() => {
-  const tpl = INSTANCE_TEMPLATES.find(t => t.label === selectedTemplate.value)
+  const tpl = INSTANCE_TEMPLATES.value.find(t => t.label === selectedTemplate.value)
   return tpl?.models || []
 })
 
 function applyTemplate(label: string) {
-  const tpl = INSTANCE_TEMPLATES.find(t => t.label === label)
+  const tpl = INSTANCE_TEMPLATES.value.find(t => t.label === label)
   if (!tpl) return
   form.baseUrl = tpl.baseUrl
   form.path = tpl.path

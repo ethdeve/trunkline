@@ -36,14 +36,14 @@ class AdapterTemplateServiceTest {
     class GetAllTemplatesTests {
 
         @Test
-        @DisplayName("TMPL-001: 获取全部模板数量正确（13个）")
-        void testGetAllTemplates_returns13Templates() {
+        @DisplayName("TMPL-001: 获取全部模板数量正确（12个）")
+        void testGetAllTemplates_returns12Templates() {
             // When
             List<AdapterTemplate> templates = templateService.getAllTemplates();
 
             // Then
             assertNotNull(templates);
-            assertEquals(13, templates.size(), "应返回 13 个预置模板");
+            assertEquals(12, templates.size(), "应返回 12 个预置模板（零一万物 API 已停服，2026-10-26 移除）");
         }
 
         @Test
@@ -105,7 +105,7 @@ class AdapterTemplateServiceTest {
 
             // Then
             assertNotNull(templates);
-            assertEquals(9, templates.size(), "国内供应商模板应有 9 个");
+            assertEquals(8, templates.size(), "国内供应商模板应有 8 个");
             List<String> ids = templates.stream().map(AdapterTemplate::getId).toList();
             assertTrue(ids.contains("deepseek"));
             assertTrue(ids.contains("zhipu"));
@@ -113,7 +113,6 @@ class AdapterTemplateServiceTest {
             assertTrue(ids.contains("baichuan"));
             assertTrue(ids.contains("qwen"));
             assertTrue(ids.contains("minimax"));
-            assertTrue(ids.contains("yi"));
             assertTrue(ids.contains("stepfun"));
             assertTrue(ids.contains("siliconflow"));
         }
@@ -318,7 +317,7 @@ class AdapterTemplateServiceTest {
             assertEquals("custom", created.getSource(), "新增模板应标记为 custom");
             AdapterTemplate loaded = templateService.getTemplateById("my-tpl");
             assertNotNull(loaded, "新增模板应可查询");
-            assertEquals(14, templateService.getAllTemplates().size(), "总数应为 13 内置 + 1 自定义");
+            assertEquals(13, templateService.getAllTemplates().size(), "总数应为 12 内置 + 1 自定义");
         }
 
         @Test

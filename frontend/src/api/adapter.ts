@@ -158,6 +158,19 @@ export const deleteAdapterTemplate = (id: string) => {
   return request.delete<RouterResponse<void>>(`/config/adapter/templates/${id}`)
 }
 
+// 内置模板隐藏（从默认模板列表移除，可逆）/ 恢复 / 已隐藏列表
+export const hideAdapterTemplate = (id: string) => {
+  return request.post<RouterResponse<void>>(`/config/adapter/templates/${id}/hide`)
+}
+
+export const restoreAdapterTemplate = (id: string) => {
+  return request.post<RouterResponse<void>>(`/config/adapter/templates/${id}/restore`)
+}
+
+export const getHiddenAdapterTemplates = () => {
+  return request.get<RouterResponse<AdapterTemplate[]>>('/config/adapter/templates/hidden-list')
+}
+
 export const createAdapterFromTemplate = (templateId: string, data: TemplateCreateRequest) => {
   return request.post<RouterResponse<AdapterDetail>>(`/config/adapter/templates/${templateId}/create`, data)
 }

@@ -83,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
 import { ElMessage } from 'element-plus'
@@ -166,6 +166,10 @@ const selectRole = async (role: RoleName): Promise<void> => {
     return
   }
   selectedRole.value = role
+  // 树由 v-if 渲染：必须先等本轮渲染完成、permissionTreeRef 挂上，才能 setCheckedKeys。
+  // 否则走缓存分支时（进页后台预载已完成）同步调用 applyRoleSelection，
+  // ref 还是 undefined → ?. 静默跳过 → 首次点角色一个都勾不上。
+  await nextTick()
   if (!rolePermissionMap.value[role]) {
     await loadRoles()
   } else {
@@ -332,7 +336,9 @@ loadRoles()
 
 .tree-wrapper {
   flex: 1;
-  min-height: 240px;
+  /* min-height 必须为 0：给固定下限（如 240px）时，小视口下固定行高（页头/角色卡/提示条）
+     + 240px 会超出填充高度，把底部「保存/重置」按钮挤出 overflow:hidden 裁剪区 */
+  min-height: 0;
   overflow: auto;
   border: 1px solid var(--ja-border);
   border-radius: 4px;

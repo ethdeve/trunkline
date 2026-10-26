@@ -8,22 +8,16 @@
 spring:
   config:
     import:
-      # ====== 外部配置文件（最高优先级）======
-      # Docker 部署时挂载到 /app/config/
-      - optional:file:/app/config/application.yml
-      - optional:file:/app/config/auth/jwt.yml
-      - optional:file:/app/config/router/services.yml
-      
       # ====== common 模块配置 ======
       - classpath:config/common/server.yml
       - classpath:config/common/webclient.yml
       - classpath:config/common/logging.yml
       - classpath:config/common/scheduling.yml
       - classpath:config/common/cluster.yml
-      
+
       # ====== config-service 模块配置 ======
       - classpath:config/config-service/core.yml
-      
+
       # ====== router 模块配置 ======
       - classpath:config/router/adapter.yml
       - classpath:config/router/loadbalancer.yml
@@ -33,31 +27,39 @@ spring:
       - classpath:config/router/services.yml
       - classpath:config/router/rules.yml
       - classpath:config/router/pools.yml
-      
+
       # ====== auth 模块配置 ======
       - classpath:config/auth/jwt.yml
       - classpath:config/auth/api-key.yml
       - classpath:config/auth/audit.yml
       - classpath:config/auth/sanitization.yml
-      
+
       # ====== monitor 模块配置 ======
       - classpath:config/base/monitoring-base.yml
       - classpath:config/monitor/slow-query-alerts.yml
       - classpath:config/monitor/error-tracking.yml
       - classpath:config/monitor/persistence-monitoring-base.yml
-      
+
       # ====== tracing 模块配置 ======
       - classpath:config/tracing/tracing-base.yml
-      
+
       # ====== persistence 模块配置 ======
       - classpath:config/persistence/state-persistence-base.yml
-      
+
       # ====== 向后兼容配置（保留原有路径） ======
       - classpath:config/base/server-base.yml
       - classpath:config/base/model-services-base.yml
       - classpath:config/security/security-base.yml
       - classpath:config/security/persistence-base.yml
       - classpath:config/security/audit-base.yml
+
+      # ====== 外部配置文件（#634：必须放在 import 列表末尾） ======
+      # spring.config.import 中后导入的条目优先级更高——此前外部挂载列在最前，
+      # 同名键被 classpath 默认值静默覆盖，挂载配置从未真正生效。
+      # Docker 部署时挂载到 /app/config/
+      - optional:file:/app/config/application.yml
+      - optional:file:/app/config/auth/jwt.yml
+      - optional:file:/app/config/router/services.yml
 
 # ========================================
 # 配置模块说明（v2.8.x）

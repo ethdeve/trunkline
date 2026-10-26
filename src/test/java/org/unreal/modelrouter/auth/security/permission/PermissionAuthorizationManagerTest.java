@@ -157,14 +157,26 @@ class PermissionAuthorizationManagerTest {
     class RuleSemanticsTests {
 
         @Test
-        @DisplayName("call-history 任意方法 -> callhistory:view")
-        void callHistoryAnyMethodRule() {
-            AuthorizationContext context = context(HttpMethod.DELETE, "/api/call-history/123");
-            JwtAuthentication auth = authenticated(
+        @DisplayName("call-history GET -> callhistory:view；写/删不再由 view 授权（#514 收紧）")
+        void callHistoryGetOnlyRule() {
+            // GET 仍由 view 授权
+            AuthorizationContext getContext = context(HttpMethod.GET, "/api/call-history/recent");
+            JwtAuthentication getAuth = authenticated(
                     "user", List.of("USER"), List.of(PermissionCodes.CALLHISTORY_VIEW));
-
-            StepVerifier.create(manager.check(Mono.just(auth), context))
+            StepVerifier.create(manager.check(Mono.just(getAuth), getContext))
                     .expectNextMatches(AuthorizationDecision::isGranted)
+                    .verifyComplete();
+
+            // DELETE 不再命中 view 规则，落入默认拒绝
+            AuthorizationContext deleteContext = context(HttpMethod.DELETE, "/api/call-history/123");
+            StepVerifier.create(manager.check(Mono.just(getAuth), deleteContext))
+                    .expectNextMatches(decision -> !decision.isGranted())
+                    .verifyComplete();
+
+            // POST /record 同理拒绝
+            AuthorizationContext postContext = context(HttpMethod.POST, "/api/call-history/record");
+            StepVerifier.create(manager.check(Mono.just(getAuth), postContext))
+                    .expectNextMatches(decision -> !decision.isGranted())
                     .verifyComplete();
         }
 

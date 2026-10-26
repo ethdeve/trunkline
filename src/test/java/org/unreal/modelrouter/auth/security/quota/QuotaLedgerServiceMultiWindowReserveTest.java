@@ -74,14 +74,14 @@ class QuotaLedgerServiceMultiWindowReserveTest {
         assertEquals(3L, dayRequestsBefore);
 
         // MINUTE 限额=1：第一笔占用后，第二笔 DAY 先提交、MINUTE 被拒
-        assertFalse(service.reserveWithLimits(QuotaRequest.of(DIMENSION, TOKENS), 0L, 0L, 1L).isPresent());
+        assertFalse(service.reserveWithLimits(QuotaRequest.of(DIMENSION, TOKENS), new QuotaLimitSet(1L, 0L, 0L, 0L, 0L, 0L, 0L)).isPresent());
         final long dayRequestsAfterAllow = usageOf(service, QuotaWindow.DAY).requestCount();
         final long dayTokensAfterAllow = usageOf(service, QuotaWindow.DAY).tokenCount();
         assertEquals(dayRequestsBefore + 1L, dayRequestsAfterAllow, "放行的一笔应记入 DAY");
         assertEquals(dayTokensBefore + TOKENS, dayTokensAfterAllow, "放行的一笔应记入 DAY token");
 
         final Optional<QuotaLimitViolation> rejected =
-                service.reserveWithLimits(QuotaRequest.of(DIMENSION, TOKENS), 0L, 0L, 1L);
+                service.reserveWithLimits(QuotaRequest.of(DIMENSION, TOKENS), new QuotaLimitSet(1L, 0L, 0L, 0L, 0L, 0L, 0L));
         assertTrue(rejected.isPresent(), "MINUTE 已满必须拒绝");
         assertEquals(QuotaWindow.MINUTE, rejected.get().window());
 
@@ -102,9 +102,9 @@ class QuotaLedgerServiceMultiWindowReserveTest {
         final QuotaLedgerService service = new QuotaLedgerService(repository.proxy(), properties,
                 fixedClock(), redisBackend, QuotaCounterMetrics.noop());
 
-        assertFalse(service.reserveWithLimits(QuotaRequest.of(DIMENSION, TOKENS), 0L, 0L, 1L).isPresent());
+        assertFalse(service.reserveWithLimits(QuotaRequest.of(DIMENSION, TOKENS), new QuotaLimitSet(1L, 0L, 0L, 0L, 0L, 0L, 0L)).isPresent());
         final Optional<QuotaLimitViolation> rejected =
-                service.reserveWithLimits(QuotaRequest.of(DIMENSION, TOKENS), 0L, 0L, 1L);
+                service.reserveWithLimits(QuotaRequest.of(DIMENSION, TOKENS), new QuotaLimitSet(1L, 0L, 0L, 0L, 0L, 0L, 0L));
         assertTrue(rejected.isPresent(), "MINUTE 已满必须拒绝");
 
         final long[] dayValues = template.values(redisBackend.keyOf(keyOf(QuotaWindow.DAY)));
@@ -124,7 +124,7 @@ class QuotaLedgerServiceMultiWindowReserveTest {
         StepVerifier.create(Flux.range(0, burst)
                         .flatMap(index -> Mono.fromCallable(() ->
                                         service.reserveWithLimits(QuotaRequest.of(DIMENSION, TOKENS),
-                                                0L, 0L, minuteLimit).isEmpty())
+                                                new QuotaLimitSet(minuteLimit, 0L, 0L, 0L, 0L, 0L, 0L)).isEmpty())
                                 .subscribeOn(Schedulers.boundedElastic()), burst)
                         .collectList())
                 .assertNext(results -> {

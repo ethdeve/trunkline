@@ -58,6 +58,27 @@
     "operationFailed": "操作失败",
     "operationFailedDetail": "操作失败: {error}",
     "cancel": "取消",
-    "save": "保存"
+    "save": "保存",
+    "detect": "检测可用性",
+    "detecting": "检测中…",
+    "availability": "可用性",
+    "availabilityUntested": "未检测",
+    "availabilityReachable": "可用",
+    "availabilityNeedsKey": "需密钥",
+    "availabilityTimeout": "超时",
+    "availabilityUnavailable": "不可用",
+    "availabilityHint": "点击「检测可用性」逐个 PING 供应商默认地址，判断其 API 当前是否可达",
+    "actionHide": "移除",
+    "actionRestore": "恢复",
+    "hideConfirm": "确定将内置模板「{name}」从默认模板列表中移除吗？移除后可随时恢复，不影响已创建的适配器。",
+    "hideConfirmTitle": "移除默认模板",
+    "hideSuccess": "已移除默认模板：{name}",
+    "restoreSuccess": "已恢复默认模板：{name}",
+    "hiddenTitle": "已隐藏的默认模板",
+    "hiddenEmpty": "暂无已隐藏的默认模板",
+    "hideUnavailable": "一键隐藏不可用",
+    "hideUnavailableConfirm": "即将隐藏 {count} 个检测为不可用的默认供应商模板，确定继续？",
+    "hideUnavailableDone": "已隐藏 {count} 个不可用模板",
+    "detectDone": "检测完成：{total} 家，可用 {ok} 家，不可用 {bad} 家"
   }
 }

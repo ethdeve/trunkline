@@ -15,6 +15,7 @@ import org.unreal.modelrouter.auth.security.model.SecurityAuditEvent;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.monitor.callhistory.config.CallHistoryProperties;
 import org.unreal.modelrouter.monitor.callhistory.config.RecordLevel;
+import org.unreal.modelrouter.monitor.callhistory.crypto.RecordContentCipher;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -37,6 +38,7 @@ public class CallHistoryConfigController {
 
     private final CallHistoryProperties callHistoryProperties;
     private final SecurityAuditService securityAuditService;
+    private final RecordContentCipher recordContentCipher;
 
     /**
      * 获取调用历史配置
@@ -101,6 +103,16 @@ public class CallHistoryConfigController {
         config.put("responseBodySummaryEnabled", callHistoryProperties.isResponseBodySummaryEnabled());
         config.put("slowCallThresholdMs", callHistoryProperties.getSlowCallThresholdMs());
         config.put("encryptionKeySource", callHistoryProperties.getEncryptionKeySource());
+        // #617: 密钥来源只读观测字段——请求来源 vs 实际生效来源（env 缺失时回退 auto）
+        if (recordContentCipher != null) {
+            config.put("encryptionKeySourceRequested", recordContentCipher.keySourceRequested());
+            config.put("encryptionKeySourceHonored",
+                    callHistoryProperties.getEncryptionKeySource() != null
+                            && callHistoryProperties.getEncryptionKeySource()
+                            .equalsIgnoreCase(recordContentCipher.keySourceEffective()));
+            config.put("encryptionKeySourceEffective", recordContentCipher.keySourceEffective());
+            config.put("environmentKeyPresent", recordContentCipher.environmentKeyPresent());
+        }
         return config;
     }
 

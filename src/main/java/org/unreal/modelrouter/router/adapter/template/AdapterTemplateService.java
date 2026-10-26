@@ -6,8 +6,10 @@ import org.unreal.modelrouter.router.controller.AdapterConfigController.AdapterD
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -28,22 +30,62 @@ public class AdapterTemplateService {
     /** 用户自定义模板（内存缓存，与持久化同步） */
     private final Map<String, AdapterTemplate> customTemplates;
 
+    /** 被用户隐藏的内置模板 ID 集合（内存缓存，与持久化同步） */
+    private final Set<String> hiddenBuiltinIds;
+
     public AdapterTemplateService(final ProviderTemplatePersistenceService persistenceService) {
         this.persistenceService = persistenceService;
         this.templates = new ArrayList<>();
-        this.customTemplates = persistenceService.loadAll();
+        Map<String, AdapterTemplate> loaded = persistenceService.loadAll();
+        this.customTemplates = loaded != null ? loaded : new HashMap<>();
+        Set<String> hidden = persistenceService.loadHiddenIds();
+        this.hiddenBuiltinIds = new LinkedHashSet<>(hidden != null ? hidden : java.util.Collections.emptySet());
         initTemplates();
     }
 
     /**
-     * 获取全部模板（内置 + 自定义，按 sortOrder 排序）
+     * 获取全部模板（内置[排除已隐藏] + 自定义，按 sortOrder 排序）
      */
     public List<AdapterTemplate> getAllTemplates() {
         List<AdapterTemplate> all = new ArrayList<>(templates);
         all.addAll(customTemplates.values());
+        all.removeIf(t -> SOURCE_BUILTIN.equals(t.getSource()) && hiddenBuiltinIds.contains(t.getId()));
         return all.stream()
                 .sorted(Comparator.comparingInt(AdapterTemplate::getSortOrder))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 获取被隐藏的内置模板（供前端「已隐藏」区展示与恢复）
+     */
+    public List<AdapterTemplate> getHiddenTemplates() {
+        return templates.stream()
+                .filter(t -> hiddenBuiltinIds.contains(t.getId()))
+                .sorted(Comparator.comparingInt(AdapterTemplate::getSortOrder))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 隐藏内置模板（从默认模板列表中移除，可逆）
+     */
+    public void hideTemplate(final String id) {
+        boolean isBuiltin = templates.stream()
+                .anyMatch(t -> t.getId().equals(id) && SOURCE_BUILTIN.equals(t.getSource()));
+        if (!isBuiltin) {
+            throw new IllegalArgumentException("模板不存在或为自定义模板，不可隐藏: " + id);
+        }
+        if (hiddenBuiltinIds.add(id)) {
+            persistenceService.saveHiddenIds(hiddenBuiltinIds);
+        }
+    }
+
+    /**
+     * 恢复被隐藏的内置模板
+     */
+    public void restoreTemplate(final String id) {
+        if (hiddenBuiltinIds.remove(id)) {
+            persistenceService.saveHiddenIds(hiddenBuiltinIds);
+        }
     }
 
     /**
@@ -244,16 +286,6 @@ public class AdapterTemplateService {
                 "Authorization", "Bearer ",
                 List.of("abab6.5-chat", "abab6.5s-chat"),
                 60
-        ));
-
-        templates.add(createTemplate(
-                "yi", "零一万物 (Yi)", "零一万物 Yi 系列模型",
-                "domestic", "openai-compatible",
-                "https://api.lingyiwanwu.com/v1",
-                true, false, false, false, false, false, false, true,
-                "Authorization", "Bearer ",
-                List.of("yi-large", "yi-medium", "yi-spark"),
-                70
         ));
 
         templates.add(createTemplate(

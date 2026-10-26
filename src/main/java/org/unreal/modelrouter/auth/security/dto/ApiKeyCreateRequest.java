@@ -86,6 +86,30 @@ public final class ApiKeyCreateRequest {
     private Long dailyTokenLimit = 0L;
 
     /**
+     * 每小时请求上限（0 表示无限制，对齐上游 3.4.0 多窗口配额）
+     */
+    @Builder.Default
+    private Long hourlyRequestLimit = 0L;
+
+    /**
+     * 每小时 Token 使用上限（0 表示无限制）
+     */
+    @Builder.Default
+    private Long hourlyTokenLimit = 0L;
+
+    /**
+     * 每月请求上限（0 表示无限制）
+     */
+    @Builder.Default
+    private Long monthlyRequestLimit = 0L;
+
+    /**
+     * 每月 Token 使用上限（0 表示无限制）
+     */
+    @Builder.Default
+    private Long monthlyTokenLimit = 0L;
+
+    /**
      * 每分钟请求速率限制（可选，0 表示无限制）
      */
     @Builder.Default

@@ -252,6 +252,61 @@ public class AdapterTemplateController {
         }
     }
 
+    /**
+     * 隐藏内置供应商模板（从默认模板列表移除，可逆）
+     */
+    @PostMapping("/{id}/hide")
+    @Operation(summary = "隐藏内置模板", description = "将内置供应商模板从默认列表中移除（不影响自定义模板，可恢复）")
+    public ResponseEntity<RouterResponse<Void>> hideTemplate(
+            @Parameter(description = "模板 ID") @PathVariable final String id) {
+        try {
+            templateService.hideTemplate(id);
+            logger.info("Hidden builtin template '{}'", id);
+            return ResponseEntity.ok(RouterResponse.success(null, "已从默认模板中移除: " + id));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(RouterResponse.error(e.getMessage(), "INVALID_TEMPLATE"));
+        } catch (Exception e) {
+            logger.error("隐藏模板失败: {}", id, e);
+            return ResponseEntity.internalServerError()
+                    .body(RouterResponse.error("隐藏模板失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 恢复被隐藏的内置供应商模板
+     */
+    @PostMapping("/{id}/restore")
+    @Operation(summary = "恢复内置模板", description = "将此前隐藏的内置供应商模板重新加回默认模板列表")
+    public ResponseEntity<RouterResponse<Void>> restoreTemplate(
+            @Parameter(description = "模板 ID") @PathVariable final String id) {
+        try {
+            templateService.restoreTemplate(id);
+            logger.info("Restored builtin template '{}'", id);
+            return ResponseEntity.ok(RouterResponse.success(null, "已恢复默认模板: " + id));
+        } catch (Exception e) {
+            logger.error("恢复模板失败: {}", id, e);
+            return ResponseEntity.internalServerError()
+                    .body(RouterResponse.error("恢复模板失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 获取被隐藏的内置供应商模板列表
+     */
+    @GetMapping("/hidden-list")
+    @Operation(summary = "获取隐藏模板", description = "获取已被用户隐藏的内置供应商模板列表")
+    public ResponseEntity<RouterResponse<List<AdapterTemplate>>> getHiddenTemplates() {
+        try {
+            return ResponseEntity.ok(RouterResponse.success(
+                    templateService.getHiddenTemplates(), "获取隐藏模板成功"));
+        } catch (Exception e) {
+            logger.error("获取隐藏模板失败", e);
+            return ResponseEntity.internalServerError()
+                    .body(RouterResponse.error("获取隐藏模板失败: " + e.getMessage()));
+        }
+    }
+
     private AdapterDefinitionProperties.AdapterDefinition buildDefinitionFromTemplate(
             final AdapterTemplate template, final Map<String, String> overrides) {
         AdapterDefinitionProperties.AdapterDefinition definition =

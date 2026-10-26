@@ -2,12 +2,14 @@ package org.unreal.modelrouter.router.adapter.test;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.unreal.modelrouter.common.util.UrlSecurityValidator;
 import org.unreal.modelrouter.router.adapter.AdapterRegistry;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 import java.net.ConnectException;
 import java.net.UnknownHostException;
@@ -56,6 +58,8 @@ public class AdapterTestService {
                 .uri("/models")
                 .header(authHeaderName != null ? authHeaderName : "Authorization",
                         authHeaderValue != null ? authHeaderValue : "")
+                // 部分 WAF（火山引擎等）会对默认 UA 的非浏览器客户端直接重置连接，声明 UA 降低被拦概率
+                .header(HttpHeaders.USER_AGENT, "JAiRouter/3.3.1 (provider connectivity check)")
                 .retrieve()
                 .toBodilessEntity()
                 .map(response -> {
@@ -72,9 +76,17 @@ public class AdapterTestService {
                         return Mono.just(AdapterTestResult.authFailed(latency,
                                 "认证失败 (" + statusCode + ")，请检查 API Key"));
                     }
-                    return Mono.just(AdapterTestResult.error(
-                            "请求失败 (" + statusCode + "): " + ex.getMessage()));
+                    // 收到任何 HTTP 响应都证明域名与服务可达（404/410/429/5xx 仅代表 /models
+                    // 端点不存在、迁移或限流），按可达处理，避免把活着的供应商误判为不可用
+                    AdapterTestResult reachable = AdapterTestResult.connected(latency,
+                            "服务可达 (HTTP " + statusCode + ")：网络连通，/models 端点返回异常状态");
+                    reachable.setHttpStatusCode(statusCode);
+                    return Mono.just(reachable);
                 })
+                // 网络级瞬时错误（Connection reset 等）重试一次；HTTP 状态类错误与超时不重试
+                .retryWhen(Retry.max(1)
+                        .filter(ex -> !(ex instanceof WebClientResponseException)
+                                && !(ex instanceof TimeoutException)))
                 .onErrorResume(TimeoutException.class, ex ->
                         Mono.just(AdapterTestResult.timeout("连接超时，请检查网络或 Base URL")))
                 .onErrorResume(UnknownHostException.class, ex ->
@@ -117,6 +129,7 @@ public class AdapterTestService {
                 .uri("/chat/completions")
                 .header(authHeaderName != null ? authHeaderName : "Authorization",
                         authHeaderValue != null ? authHeaderValue : "")
+                .header(HttpHeaders.USER_AGENT, "JAiRouter/3.3.1 (provider connectivity check)")
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(String.class)

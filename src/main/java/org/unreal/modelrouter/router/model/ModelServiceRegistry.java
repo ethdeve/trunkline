@@ -602,7 +602,7 @@ public class ModelServiceRegistry {
         if (serviceType != null && serviceStateManager != null) {
             try {
                 final String runtimeStatus = serviceStateManager.getInstanceHealthStatus(
-                        serviceType.name() + ":" + instance.getInstanceId());
+                        InstanceKeys.healthKey(serviceType.name(), instance));
                 if (runtimeStatus != null && !"UNKNOWN".equals(runtimeStatus)) {
                     return runtimeStatus;
                 }

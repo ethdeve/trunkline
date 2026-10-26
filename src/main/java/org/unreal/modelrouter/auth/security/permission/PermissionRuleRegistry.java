@@ -75,7 +75,9 @@ public class PermissionRuleRegistry {
                 PermissionRule.any("/api/security/permissions/**", PermissionCodes.SYSTEM_PERMISSIONS_MANAGE),
 
                 // ===== 调用历史（原硬编码 ADMIN 规则迁移） =====
-                PermissionRule.any("/api/call-history/**", PermissionCodes.CALLHISTORY_VIEW),
+                // #514 收紧：view 曾是 any() 规则（"查看"同时授权 POST /record 与 DELETE /cleanup）。
+                // 现仅 GET 需要该码；写/删不再有任何规则命中，落入默认拒绝（仅 ADMIN）。
+                PermissionRule.get("/api/call-history/**", PermissionCodes.CALLHISTORY_VIEW),
                 PermissionRule.get("/api/config/call-history/**", PermissionCodes.CONFIG_CALLHISTORY_READ),
                 PermissionRule.write("/api/config/call-history/**", PermissionCodes.CONFIG_CALLHISTORY_WRITE),
 

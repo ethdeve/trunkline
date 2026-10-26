@@ -6,6 +6,7 @@
     "tts": "语音合成",
     "stt": "语音识别",
     "imgGen": "图像生成",
-    "imgEdit": "图像编辑"
+    "imgEdit": "图像编辑",
+    "videoGen": "视频生成"
   }
 }

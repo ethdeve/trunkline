@@ -15,6 +15,7 @@ import org.unreal.modelrouter.auth.security.model.SecurityAuditEvent;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.monitor.callhistory.config.CallHistoryProperties;
 import org.unreal.modelrouter.monitor.callhistory.config.RecordLevel;
+import org.unreal.modelrouter.monitor.callhistory.crypto.RecordContentCipher;
 
 import java.util.Map;
 
@@ -38,6 +39,9 @@ class RecordLevelChangeAuditTest {
 
     @Mock
     private SecurityAuditService securityAuditService;
+
+    @Mock
+    private RecordContentCipher recordContentCipher;
 
     @InjectMocks
     private CallHistoryConfigController controller;

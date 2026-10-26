@@ -3,6 +3,7 @@ package org.unreal.modelrouter.monitor.callhistory.crypto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.unreal.modelrouter.auth.security.util.SecretKeyGenerator;
+import org.unreal.modelrouter.monitor.callhistory.config.CallHistoryProperties;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -41,11 +42,25 @@ public class RecordContentCipher {
 
     private final SecretKey secretKey;
 
+    /** 配置请求的密钥来源（对齐上游 3.5.1 #617 的只读观测字段） */
+    private final String requestedKeySource;
+
+    /** 实际生效的密钥来源：env 请求但环境变量缺失时回退 auto */
+    private final String effectiveKeySource;
+
+    /**
+     * Spring 装配构造：按 {@code jairouter.call-history.encryption-key-source} 解析密钥来源。
+     * #617 修复：此前 @Component 只有无参构造，硬编码 auto，配置了 env 也从不生效。
+     */
+    public RecordContentCipher(final CallHistoryProperties properties) {
+        this(properties != null ? properties.getEncryptionKeySource() : "auto", null);
+    }
+
     /**
      * 自动模式构造：生成或加载密钥，持久化到 dataDir
      */
     public RecordContentCipher() {
-        this.secretKey = loadOrCreateKey("auto", null);
+        this("auto", null);
     }
 
     /**
@@ -55,7 +70,38 @@ public class RecordContentCipher {
      * @param dataDir             auto 模式下密钥文件存储目录（null 则使用默认）
      */
     public RecordContentCipher(String encryptionKeySource, Path dataDir) {
+        this.requestedKeySource = encryptionKeySource != null ? encryptionKeySource : "auto";
         this.secretKey = loadOrCreateKey(encryptionKeySource, dataDir);
+        this.effectiveKeySource = loadedFromEnv ? "env" : "auto";
+        if ("env".equalsIgnoreCase(this.requestedKeySource) && !loadedFromEnv) {
+            log.warn("加密密钥源请求为 env 但实际回退到 auto（requested != effective），"
+                    + "涉及环境变量 JAIR_CALL_HISTORY_KEY 的部署请检查该变量是否已设置");
+        }
+    }
+
+    /** 环境变量是否在本次加载中被成功使用 */
+    private boolean loadedFromEnv;
+
+    /**
+     * @return 配置请求的密钥来源（只读观测）
+     */
+    public String keySourceRequested() {
+        return requestedKeySource;
+    }
+
+    /**
+     * @return 实际生效的密钥来源（只读观测）
+     */
+    public String keySourceEffective() {
+        return effectiveKeySource;
+    }
+
+    /**
+     * @return 环境变量 JAIR_CALL_HISTORY_KEY 当前是否可用（只读观测）
+     */
+    public boolean environmentKeyPresent() {
+        final String envKey = System.getenv("JAIR_CALL_HISTORY_KEY");
+        return envKey != null && !envKey.isEmpty();
     }
 
     /**
@@ -65,6 +111,8 @@ public class RecordContentCipher {
      */
     public RecordContentCipher(SecretKey secretKey) {
         this.secretKey = secretKey;
+        this.requestedKeySource = "explicit";
+        this.effectiveKeySource = "explicit";
     }
 
     /**
@@ -145,6 +193,7 @@ public class RecordContentCipher {
                             "环境变量 JAIR_CALL_HISTORY_KEY 解码后长度应为 32 字节，实际: " + keyBytes.length);
                 }
                 log.info("已从环境变量加载调用记录加密密钥");
+                loadedFromEnv = true;
                 return new SecretKeySpec(keyBytes, "AES");
             }
             // env 模式但环境变量未设置，回退到 auto

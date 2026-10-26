@@ -1,15 +1,21 @@
 package org.unreal.modelrouter.auth.security.service;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.ConcurrentHashMap;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 基于滑动窗口的内存速率限制器
  * 为每个 API Key 维护独立的请求计数窗口
+ *
+ * <p>#625（对齐上游 3.5.2）：窗口表从无界 {@code ConcurrentHashMap} 改为有界 Caffeine
+ * 缓存（默认 10,000 条，闲置 2× 窗口时长后过期），防止大量一次性 API Key
+ * 造成内存无上限增长。过期只在 key 闲置时发生，活跃 key 的窗口计数不受影响。</p>
  *
  * @author JAiRouter Team
  * @since v2.7.6
@@ -20,7 +26,14 @@ public class TokenBucketRateLimiter {
 
     private static final long WINDOW_SIZE_MS = 60_000L;
 
-    private final ConcurrentHashMap<String, SlidingWindow> windows = new ConcurrentHashMap<>();
+    /** 有界缓存：最大 10,000 个 key，闲置 2× 窗口时长后过期 */
+    private static final int MAX_WINDOWS = 10_000;
+    private static final Duration EXPIRE_AFTER_ACCESS = Duration.ofMillis(2 * WINDOW_SIZE_MS);
+
+    private final Cache<String, SlidingWindow> windows = Caffeine.newBuilder()
+            .maximumSize(MAX_WINDOWS)
+            .expireAfterAccess(EXPIRE_AFTER_ACCESS)
+            .build();
 
     /**
      * 检查并消耗一个请求配额
@@ -33,7 +46,7 @@ public class TokenBucketRateLimiter {
         if (limitPerMinute <= 0) {
             return true;
         }
-        SlidingWindow window = windows.computeIfAbsent(keyId, k -> new SlidingWindow());
+        SlidingWindow window = windows.get(keyId, k -> new SlidingWindow());
         return window.tryAcquire(limitPerMinute);
     }
 
@@ -44,7 +57,7 @@ public class TokenBucketRateLimiter {
      * @return 当前窗口内的请求数
      */
     public int getCurrentCount(final String keyId) {
-        SlidingWindow window = windows.get(keyId);
+        SlidingWindow window = windows.getIfPresent(keyId);
         if (window == null) {
             return 0;
         }
@@ -57,7 +70,7 @@ public class TokenBucketRateLimiter {
      * @param keyId API Key ID
      */
     public void reset(final String keyId) {
-        windows.remove(keyId);
+        windows.invalidate(keyId);
         log.debug("速率限制窗口已重置: {}", keyId);
     }
 
@@ -65,7 +78,7 @@ public class TokenBucketRateLimiter {
      * 清除所有速率限制窗口
      */
     public void resetAll() {
-        windows.clear();
+        windows.invalidateAll();
         log.info("所有速率限制窗口已重置");
     }
 
@@ -75,7 +88,7 @@ public class TokenBucketRateLimiter {
      * @return 活跃窗口数
      */
     public int getActiveWindowCount() {
-        return windows.size();
+        return (int) windows.estimatedSize();
     }
 
     /**

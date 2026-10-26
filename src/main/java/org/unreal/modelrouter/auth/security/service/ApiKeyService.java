@@ -95,6 +95,10 @@ public class ApiKeyService {
         return Mono.fromCallable(() -> {
             // issue #96：创建路径此前对 quotaAlertThreshold 完全没有校验，现与更新路径统一区间
             QuotaLimits.validateAlertThreshold(req.getQuotaAlertThreshold());
+            validateLimitNonNegative("hourlyRequestLimit", req.getHourlyRequestLimit());
+            validateLimitNonNegative("hourlyTokenLimit", req.getHourlyTokenLimit());
+            validateLimitNonNegative("monthlyRequestLimit", req.getMonthlyRequestLimit());
+            validateLimitNonNegative("monthlyTokenLimit", req.getMonthlyTokenLimit());
             String kid = req.getKeyId() != null && !req.getKeyId().isEmpty()
                     ? req.getKeyId()
                     : "key-" + UUID.randomUUID().toString().substring(0, 8);
@@ -113,6 +117,10 @@ public class ApiKeyService {
                 .allowedIpAddresses(req.getAllowedIpAddresses())
                 .dailyRequestLimit(req.getDailyRequestLimit() != null ? req.getDailyRequestLimit() : 0L)
                 .dailyTokenLimit(req.getDailyTokenLimit() != null ? req.getDailyTokenLimit() : 0L)
+                .hourlyRequestLimit(req.getHourlyRequestLimit() != null ? req.getHourlyRequestLimit() : 0L)
+                .hourlyTokenLimit(req.getHourlyTokenLimit() != null ? req.getHourlyTokenLimit() : 0L)
+                .monthlyRequestLimit(req.getMonthlyRequestLimit() != null ? req.getMonthlyRequestLimit() : 0L)
+                .monthlyTokenLimit(req.getMonthlyTokenLimit() != null ? req.getMonthlyTokenLimit() : 0L)
                 .rateLimitPerMinute(req.getRateLimitPerMinute() != null ? req.getRateLimitPerMinute() : 0)
                 .quotaAlertThreshold(req.getQuotaAlertThreshold() != null ? req.getQuotaAlertThreshold() : 0.8)
                 .usage(UsageStatistics.builder().totalRequests(0L).successfulRequests(0L).failedRequests(0L)
@@ -129,10 +137,26 @@ public class ApiKeyService {
                 .expiresAt(ak.getExpiresAt())
                 .dailyRequestLimit(ak.getDailyRequestLimit())
                 .dailyTokenLimit(ak.getDailyTokenLimit())
+                .hourlyRequestLimit(ak.getHourlyRequestLimit())
+                .hourlyTokenLimit(ak.getHourlyTokenLimit())
+                .monthlyRequestLimit(ak.getMonthlyRequestLimit())
+                .monthlyTokenLimit(ak.getMonthlyTokenLimit())
                 .rateLimitPerMinute(ak.getRateLimitPerMinute())
                 .quotaAlertThreshold(ak.getQuotaAlertThreshold())
                 .warning("密钥值只会显示一次，请妥善保存！").build();
         });
+    }
+
+    /**
+     * 校验多窗口配额限额字段非负（{@code 0} 表示不限制，负数视为非法配置）。
+     *
+     * @param name  字段名（用于错误信息）
+     * @param value 字段值，可为 {@code null}（表示不修改）
+     */
+    private static void validateLimitNonNegative(final String name, final Long value) {
+        if (value != null && value < 0L) {
+            throw new IllegalArgumentException(name + " 不能为负（0 表示不限制）");
+        }
     }
 
     public Mono<ApiKeyVO> updateApiKey(String kid, ApiKeyUpdateRequest req) {
@@ -167,6 +191,14 @@ public class ApiKeyService {
             if (req.getDailyRequestLimit() != null) ak.setDailyRequestLimit(req.getDailyRequestLimit());
             if (req.getRotationPeriodDays() != null) ak.setRotationPeriodDays(req.getRotationPeriodDays());
             if (req.getDailyTokenLimit() != null) ak.setDailyTokenLimit(req.getDailyTokenLimit());
+            validateLimitNonNegative("hourlyRequestLimit", req.getHourlyRequestLimit());
+            if (req.getHourlyRequestLimit() != null) ak.setHourlyRequestLimit(req.getHourlyRequestLimit());
+            validateLimitNonNegative("hourlyTokenLimit", req.getHourlyTokenLimit());
+            if (req.getHourlyTokenLimit() != null) ak.setHourlyTokenLimit(req.getHourlyTokenLimit());
+            validateLimitNonNegative("monthlyRequestLimit", req.getMonthlyRequestLimit());
+            if (req.getMonthlyRequestLimit() != null) ak.setMonthlyRequestLimit(req.getMonthlyRequestLimit());
+            validateLimitNonNegative("monthlyTokenLimit", req.getMonthlyTokenLimit());
+            if (req.getMonthlyTokenLimit() != null) ak.setMonthlyTokenLimit(req.getMonthlyTokenLimit());
             if (req.getRateLimitPerMinute() != null) ak.setRateLimitPerMinute(req.getRateLimitPerMinute());
             if (req.getQuotaAlertThreshold() != null) {
                 // issue #96：更新路径与创建路径统一区间
@@ -431,6 +463,10 @@ public class ApiKeyService {
             .needsRotation(ak.needsRotation()).expiresAt(ak.getExpiresAt())
             .dailyRequestLimit(ak.getDailyRequestLimit())
             .dailyTokenLimit(ak.getDailyTokenLimit())
+            .hourlyRequestLimit(ak.getHourlyRequestLimit())
+            .hourlyTokenLimit(ak.getHourlyTokenLimit())
+            .monthlyRequestLimit(ak.getMonthlyRequestLimit())
+            .monthlyTokenLimit(ak.getMonthlyTokenLimit())
             .rateLimitPerMinute(ak.getRateLimitPerMinute())
             .quotaAlertThreshold(ak.getQuotaAlertThreshold())
             .todayRequestCount(ak.getTodayRequestCount())

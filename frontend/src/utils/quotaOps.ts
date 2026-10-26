@@ -4,6 +4,11 @@
 export interface QuotaLimits {
   dailyRequestLimit: number
   dailyTokenLimit: number
+  /** 每小时请求上限（0 = 不限，对齐上游 3.4.0 多窗口配额） */
+  hourlyRequestLimit: number
+  hourlyTokenLimit: number
+  monthlyRequestLimit: number
+  monthlyTokenLimit: number
   rateLimitPerMinute: number
   quotaAlertThreshold: number
 }
@@ -18,22 +23,22 @@ export const QUOTA_PRESETS: QuotaPreset[] = [
   {
     id: 'unlimited',
     labelKey: 'apiKeys.quotaPresets.unlimited',
-    limits: { dailyRequestLimit: 0, dailyTokenLimit: 0, rateLimitPerMinute: 0, quotaAlertThreshold: 0.8 }
+    limits: { dailyRequestLimit: 0, dailyTokenLimit: 0, hourlyRequestLimit: 0, hourlyTokenLimit: 0, monthlyRequestLimit: 0, monthlyTokenLimit: 0, rateLimitPerMinute: 0, quotaAlertThreshold: 0.8 }
   },
   {
     id: 'dev',
     labelKey: 'apiKeys.quotaPresets.dev',
-    limits: { dailyRequestLimit: 1000, dailyTokenLimit: 100000, rateLimitPerMinute: 60, quotaAlertThreshold: 0.8 }
+    limits: { dailyRequestLimit: 1000, dailyTokenLimit: 100000, hourlyRequestLimit: 100, hourlyTokenLimit: 10000, monthlyRequestLimit: 20000, monthlyTokenLimit: 2000000, rateLimitPerMinute: 60, quotaAlertThreshold: 0.8 }
   },
   {
     id: 'standard',
     labelKey: 'apiKeys.quotaPresets.standard',
-    limits: { dailyRequestLimit: 10000, dailyTokenLimit: 2000000, rateLimitPerMinute: 300, quotaAlertThreshold: 0.8 }
+    limits: { dailyRequestLimit: 10000, dailyTokenLimit: 2000000, hourlyRequestLimit: 1500, hourlyTokenLimit: 300000, monthlyRequestLimit: 200000, monthlyTokenLimit: 40000000, rateLimitPerMinute: 300, quotaAlertThreshold: 0.8 }
   },
   {
     id: 'strict',
     labelKey: 'apiKeys.quotaPresets.strict',
-    limits: { dailyRequestLimit: 200, dailyTokenLimit: 50000, rateLimitPerMinute: 20, quotaAlertThreshold: 0.7 }
+    limits: { dailyRequestLimit: 200, dailyTokenLimit: 50000, hourlyRequestLimit: 30, hourlyTokenLimit: 8000, monthlyRequestLimit: 4000, monthlyTokenLimit: 1000000, rateLimitPerMinute: 20, quotaAlertThreshold: 0.7 }
   }
 ]
 

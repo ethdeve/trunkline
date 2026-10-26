@@ -67,6 +67,10 @@ export interface ApiKeyVO {
   allowedGroups?: string[]        // 可访问的模型分组（pool）白名单（按分组名匹配；空=不限制）
   dailyRequestLimit?: number     // 每日请求限制
   dailyTokenLimit?: number       // 每日 Token 使用上限
+  hourlyRequestLimit?: number   // 每小时请求上限（0=不限）
+  hourlyTokenLimit?: number      // 每小时 Token 上限（0=不限）
+  monthlyRequestLimit?: number   // 每月请求上限（0=不限）
+  monthlyTokenLimit?: number     // 每月 Token 上限（0=不限）
   rateLimitPerMinute?: number    // 每分钟请求速率限制
   quotaAlertThreshold?: number   // 配额告警阈值 (0.0-1.0)
   todayRequestCount?: number     // 今日请求次数
@@ -118,6 +122,10 @@ export interface ApiKeyCreateRequest {
   dailyRequestLimit?: number
   dailyTokenLimit?: number       // 每日 Token 使用上限
   rateLimitPerMinute?: number    // 每分钟请求速率限制
+  hourlyRequestLimit?: number   // 每小时请求上限（0=不限）
+  hourlyTokenLimit?: number      // 每小时 Token 上限（0=不限）
+  monthlyRequestLimit?: number   // 每月请求上限（0=不限）
+  monthlyTokenLimit?: number     // 每月 Token 上限（0=不限）
   quotaAlertThreshold?: number   // 配额告警阈值 (0.0-1.0)
   rotationPeriodDays?: number   // 密钥轮换周期（天数）
 }
@@ -133,6 +141,10 @@ export interface ApiKeyUpdateRequest {
   dailyRequestLimit?: number
   dailyTokenLimit?: number       // 每日 Token 使用上限
   rateLimitPerMinute?: number    // 每分钟请求速率限制
+  hourlyRequestLimit?: number   // 每小时请求上限（0=不限）
+  hourlyTokenLimit?: number      // 每小时 Token 上限（0=不限）
+  monthlyRequestLimit?: number   // 每月请求上限（0=不限）
+  monthlyTokenLimit?: number     // 每月 Token 上限（0=不限）
   quotaAlertThreshold?: number   // 配额告警阈值 (0.0-1.0)
   rotationPeriodDays?: number   // 密钥轮换周期（天数）
 }
@@ -197,6 +209,10 @@ export interface QuotaUsageDetail {
   description: string
   dailyRequestLimit: number
   dailyTokenLimit: number
+  hourlyRequestLimit: number
+  hourlyTokenLimit: number
+  monthlyRequestLimit: number
+  monthlyTokenLimit: number
   rateLimitPerMinute: number
   quotaAlertThreshold: number
   todayRequestCount: number

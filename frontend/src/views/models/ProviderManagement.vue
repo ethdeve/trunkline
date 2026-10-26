@@ -283,9 +283,19 @@
               </el-checkbox>
             </div>
             <el-checkbox-group v-model="selectedModels" class="discover-list">
-              <el-checkbox v-for="m in selectableDiscovered" :key="m" :value="m" :label="m" class="discover-item">
-                <span class="model-id">{{ m }}</span>
-              </el-checkbox>
+              <div v-for="m in selectableDiscovered" :key="m" class="discover-row">
+                <el-checkbox :value="m" :label="m" class="discover-item" :disabled="isUnsupportedType(m)">
+                  <span class="model-id">{{ m }}</span>
+                </el-checkbox>
+                <el-select v-if="isUnsupportedType(m)" :model-value="modelTypes[m]" size="small"
+                  class="discover-type-select" disabled :title="t('provider.videoGenUnsupported')">
+                  <el-option :label="serviceTypeLabel(modelTypes[m])" :value="modelTypes[m]" />
+                </el-select>
+                <el-select v-else v-model="modelTypes[m]" size="small" class="discover-type-select"
+                  :title="t('provider.inferTypeTip')">
+                  <el-option v-for="st in serviceTypeOptions" :key="st" :label="serviceTypeLabel(st)" :value="st" />
+                </el-select>
+              </div>
             </el-checkbox-group>
             <div class="discover-actions">
               <el-form-item :label="t('provider.serviceTypeDefault')" class="service-type-item">
@@ -293,8 +303,7 @@
                   <el-option v-for="st in serviceTypeOptions" :key="st" :label="serviceTypeLabel(st)" :value="st" />
                 </el-select>
                 <div class="form-note">{{ t('provider.serviceTypeDefaultTip') }}</div>
-              </el-form-item>
-              <el-button v-if="canWrite" type="primary" :disabled="selectedModels.length === 0" :loading="batchSaving"
+              </el-form-item>              <el-button v-if="canWrite" type="primary" :disabled="selectedModels.length === 0" :loading="batchSaving"
                 @click="addSelectedModels">
                 {{ t('provider.addSelected', { count: selectedModels.length }) }}
               </el-button>
@@ -311,10 +320,15 @@
             <el-input v-model="singleModelId" :placeholder="t('provider.singleModelIdPlaceholder')" class="single-input" />
             <el-input v-model="singleDisplayName" :placeholder="t('provider.singleDisplayNamePlaceholder')"
               class="single-input" />
-            <el-button v-if="canWrite" type="primary" :loading="singleSaving" :disabled="!singleModelId.trim()"
-              @click="addSingleModel">
+            <el-button v-if="canWrite" type="primary" :loading="singleSaving"
+              :disabled="!singleModelId.trim() || isVideoGenSingle" @click="addSingleModel">
               {{ t('provider.singleAddButton') }}
             </el-button>
+          </div>
+          <div v-if="singleModelId.trim()" class="form-note">
+            {{ isVideoGenSingle
+              ? t('provider.videoGenUnsupported')
+              : t('provider.singleInferNote', { type: serviceTypeLabel(singleInferredType) }) }}
           </div>
         </el-card>
 
@@ -331,11 +345,16 @@
                 <div class="cell-sub">{{ scope.row.name }}</div>
               </template>
             </el-table-column>
-            <el-table-column prop="status" :label="t('provider.columnStatus')" width="100" align="center">
+            <el-table-column prop="status" :label="t('provider.columnStatus')" width="90" align="center">
               <template #default="scope">
                 <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'" size="small">
                   {{ scope.row.status === 'active' ? t('provider.statusActive') : t('provider.statusInactive') }}
                 </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('provider.serviceTypeDefault')" width="96" align="center">
+              <template #default="scope">
+                <el-tag size="small" type="info">{{ serviceTypeLabel(scope.row.serviceType || '') }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column :label="t('provider.columnActions')" width="80" align="center">
@@ -362,7 +381,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { Search, Refresh, Plus, CircleCheck, WarningFilled, Management, ArrowDown, Key, Setting, Delete, Right } from '@element-plus/icons-vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
-import { COMMON_SERVICE_TYPES, getServiceTypeLabel } from '@/constants/serviceTypes'
+import { COMMON_SERVICE_TYPES, ServiceType, getServiceTypeLabel, inferServiceTypeFromModelId } from '@/constants/serviceTypes'
 import { PROVIDER_PRESETS, customTemplateToPreset, extractDomain, type ProviderPreset } from '@/constants/providerPresets'
 import {
   getProviders,
@@ -379,6 +398,7 @@ import {
 } from '@/api/provider'
 import { deleteServiceInstance } from '@/api/instance'
 import { getAdapterList, getAdapterTemplates } from '@/api/adapter'
+import { useVisibleProviderPresets } from '@/composables/useVisibleProviderPresets'
 import { usePermission } from '@/composables/usePermission'
 import { usePersistedState } from '@/composables/usePersistedState'
 
@@ -516,6 +536,9 @@ const presetCategory = ref('')
 
 /** 系统设置「模型供应商模板」的自定义模板（source=custom），实时合并进预设目录 */
 const customPresets = ref<ProviderPreset[]>([])
+/** 模板页「移除」的内置供应商与预设目录联动（useVisibleProviderPresets 统一管理隐藏状态） */
+const { visiblePresets, refreshHidden } = useVisibleProviderPresets()
+
 const loadCustomPresets = async () => {
   try {
     const res = await getAdapterTemplates()
@@ -529,10 +552,10 @@ const loadCustomPresets = async () => {
   }
 }
 
-/** 预设目录列表（内置 13 家 + 自定义模板；「自定义」手工入口固定在抽屉底部区块，不进列表） */
+/** 预设目录列表（内置预设剔除已隐藏 + 自定义模板；「自定义」手工入口固定在抽屉底部区块，不进列表） */
 const filteredPresets = computed<ProviderPreset[]>(() => {
   const q = (presetQuery.value || '').trim().toLowerCase()
-  return [...PROVIDER_PRESETS, ...customPresets.value].filter(p => {
+  return [...visiblePresets.value, ...customPresets.value].filter(p => {
     if (p.category === 'custom') return false
     const matchCategory = !presetCategory.value || p.category === presetCategory.value
     const matchSearch = !q
@@ -551,8 +574,9 @@ const presetAdded = (preset: ProviderPreset): boolean => {
 const openPresetDrawer = () => {
   presetQuery.value = ''
   presetCategory.value = ''
-  // 每次打开都刷新，系统设置里新建的自定义模板即时可见
+  // 每次打开都刷新，系统设置里新建的自定义模板与「移除」的内置厂商即时同步
   loadCustomPresets()
+  refreshHidden()
   presetDrawerVisible.value = true
 }
 
@@ -777,6 +801,19 @@ const singleModelId = ref('')
 const singleDisplayName = ref('')
 const manageServiceType = ref('chat')
 
+/** 发现模型 → 绑定的模型分类（初始值=按模型 ID 自动识别，可手动调整） */
+const modelTypes = ref<Record<string, string>>({})
+
+/** 网关暂不支持接入的分类（识别出来仅做标记：默认不勾选、禁选、禁添加） */
+const UNSUPPORTED_TYPES = new Set<string>([ServiceType.VIDEO_GEN])
+const isUnsupportedType = (m: string) => UNSUPPORTED_TYPES.has(modelTypes.value[m] || '')
+
+/** 单个添加的自动识别分类（识别不出回退默认分类） */
+const singleInferredType = computed(() =>
+  inferServiceTypeFromModelId(singleModelId.value.trim(), manageServiceType.value)
+)
+const isVideoGenSingle = computed(() => singleInferredType.value === ServiceType.VIDEO_GEN)
+
 const manageDrawerTitle = computed(() => t('provider.manageTitle', { name: managingProvider.value?.name || '' }))
 
 /** 已接入的模型名（发现列表里标记/禁用） */
@@ -790,7 +827,9 @@ const someDiscoveredSelected = computed(() =>
 )
 
 function toggleSelectAll(val: boolean) {
-  selectedModels.value = val ? [...selectableDiscovered.value] : []
+  selectedModels.value = val
+    ? selectableDiscovered.value.filter(m => !isUnsupportedType(m))
+    : []
 }
 
 async function openManage(provider: ModelProvider) {
@@ -798,6 +837,7 @@ async function openManage(provider: ModelProvider) {
   manageServiceType.value = provider.serviceType || 'chat'
   discovered.value = []
   selectedModels.value = []
+  modelTypes.value = {}
   singleModelId.value = ''
   singleDisplayName.value = ''
   manageDrawerVisible.value = true
@@ -827,7 +867,14 @@ const runDiscover = async () => {
     if (response.data?.success) {
       const list = response.data.data || []
       discovered.value = list
-      selectedModels.value = list.filter(m => !addedModelNames.value.has(m))
+      // 勾选即自动绑定分类：按模型 ID 关键词识别，识别不出的回退默认分类
+      const types: Record<string, string> = {}
+      for (const m of list) {
+        types[m] = inferServiceTypeFromModelId(m, manageServiceType.value)
+      }
+      modelTypes.value = types
+      // 视频生成等暂不支持接入的模型：识别出来但默认不勾选，防止误接入后调用 404
+      selectedModels.value = list.filter(m => !addedModelNames.value.has(m) && !UNSUPPORTED_TYPES.has(types[m]))
       if (list.length === 0) {
         ElMessage.info(t('provider.discoverEmpty'))
       } else {
@@ -847,20 +894,38 @@ const addSelectedModels = async () => {
   if (!managingProvider.value || selectedModels.value.length === 0) return
   batchSaving.value = true
   try {
-    const response = await batchAddProviderModels(managingProvider.value.id, {
-      serviceType: manageServiceType.value,
-      items: selectedModels.value.map(m => ({ modelId: m }))
-    })
-    if (response.data?.success) {
-      const created = response.data.data?.created ?? 0
-      ElMessage.success(t('provider.batchAddSuccess', { count: created }))
-      selectedModels.value = []
-      await Promise.all([loadManageModels(), fetchProviders()])
-    } else {
-      ElMessage.error(response.data?.message || '添加失败')
+    // 按每个模型各自绑定的分类分组（自动识别 + 手动调整的结果），
+    // 逐分类调用批量接入——后端按请求级 serviceType 把模型落到对应模型分类下。
+    // 兜底再滤一遍暂不支持接入的分类（视频生成等）。
+    const groups = new Map<string, string[]>()
+    for (const m of selectedModels.value) {
+      if (isUnsupportedType(m)) continue
+      const st = modelTypes.value[m] || manageServiceType.value
+      const arr = groups.get(st)
+      if (arr) arr.push(m)
+      else groups.set(st, [m])
     }
-  } catch (error: any) {
-    ElMessage.error(error?.message || '添加失败')
+    let created = 0
+    for (const [st, items] of groups) {
+      try {
+        const response = await batchAddProviderModels(managingProvider.value.id, {
+          serviceType: st,
+          items: items.map(m => ({ modelId: m }))
+        })
+        if (response.data?.success) {
+          created += response.data.data?.created ?? 0
+        } else {
+          ElMessage.error(`${serviceTypeLabel(st)}: ${response.data?.message || '添加失败'}`)
+        }
+      } catch (error: any) {
+        ElMessage.error(`${serviceTypeLabel(st)}: ${error?.message || '添加失败'}`)
+      }
+    }
+    if (created > 0) {
+      ElMessage.success(t('provider.batchAddSuccess', { count: created }))
+    }
+    selectedModels.value = []
+    await Promise.all([loadManageModels(), fetchProviders()])
   } finally {
     batchSaving.value = false
   }
@@ -871,7 +936,7 @@ const addSingleModel = async () => {
   singleSaving.value = true
   try {
     const response = await batchAddProviderModels(managingProvider.value.id, {
-      serviceType: manageServiceType.value,
+      serviceType: singleInferredType.value,
       items: [{
         modelId: singleModelId.value.trim(),
         displayName: singleDisplayName.value.trim() || undefined
@@ -905,7 +970,8 @@ const deleteManageModel = (row: any) => {
     { confirmButtonText: t('provider.confirmAdd'), cancelButtonText: t('provider.cancel'), type: 'warning' }
   ).then(async () => {
     try {
-      const response = await deleteServiceInstance(manageServiceType.value, String(row.id))
+      // 实例可能被自动识别到任意分类，删除须按该行真实分类（DTO 权威派生值），否则 404
+      const response = await deleteServiceInstance(row.serviceType || manageServiceType.value, String(row.id))
       if (response.data?.success) {
         ElMessage.success(t('provider.modelDeleteSuccess'))
         await Promise.all([loadManageModels(), fetchProviders()])
@@ -1324,6 +1390,20 @@ onMounted(() => {
 
 .discover-item {
   margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 每行：模型名 checkbox + 自动识别的分类下拉 */
+.discover-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.discover-type-select {
+  width: 108px;
+  flex-shrink: 0;
 }
 
 .model-id {

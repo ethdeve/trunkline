@@ -278,6 +278,18 @@
           <el-form-item :label="t('apiKeys.quotaForm.dailyTokenLimit')">
             <el-input-number v-model="quotaDrawer.form.dailyTokenLimit" :min="0" :step="1000" style="width: 100%" />
           </el-form-item>
+          <el-form-item :label="t('apiKeys.quotaForm.hourlyRequestLimit')">
+            <el-input-number v-model="quotaDrawer.form.hourlyRequestLimit" :min="0" :step="50" style="width: 100%" />
+          </el-form-item>
+          <el-form-item :label="t('apiKeys.quotaForm.hourlyTokenLimit')">
+            <el-input-number v-model="quotaDrawer.form.hourlyTokenLimit" :min="0" :step="500" style="width: 100%" />
+          </el-form-item>
+          <el-form-item :label="t('apiKeys.quotaForm.monthlyRequestLimit')">
+            <el-input-number v-model="quotaDrawer.form.monthlyRequestLimit" :min="0" :step="1000" style="width: 100%" />
+          </el-form-item>
+          <el-form-item :label="t('apiKeys.quotaForm.monthlyTokenLimit')">
+            <el-input-number v-model="quotaDrawer.form.monthlyTokenLimit" :min="0" :step="10000" style="width: 100%" />
+          </el-form-item>
           <el-form-item :label="t('apiKeys.quotaForm.rateLimitPerMinute')">
             <el-input-number v-model="quotaDrawer.form.rateLimitPerMinute" :min="0" :step="10" style="width: 100%" />
           </el-form-item>
@@ -482,6 +494,19 @@
           <el-form-item :label="t('apiKeys.form.dailyTokenLimit')">
             <el-input-number v-model="form.dailyTokenLimit" :min="0" :step="1000" :placeholder="t('apiKeys.form.zeroMeansUnlimitedPlaceholder')"/>
             <div class="form-hint">{{ t('apiKeys.form.tokenLimitHint') }}</div>
+          </el-form-item>
+          <el-form-item :label="t('apiKeys.form.hourlyRequestLimit')">
+            <el-input-number v-model="form.hourlyRequestLimit" :min="0" :step="50" :placeholder="t('apiKeys.form.zeroMeansUnlimitedPlaceholder')"/>
+            <div class="form-hint">{{ t('apiKeys.form.multiWindowHint') }}</div>
+          </el-form-item>
+          <el-form-item :label="t('apiKeys.form.hourlyTokenLimit')">
+            <el-input-number v-model="form.hourlyTokenLimit" :min="0" :step="500" :placeholder="t('apiKeys.form.zeroMeansUnlimitedPlaceholder')"/>
+          </el-form-item>
+          <el-form-item :label="t('apiKeys.form.monthlyRequestLimit')">
+            <el-input-number v-model="form.monthlyRequestLimit" :min="0" :step="1000" :placeholder="t('apiKeys.form.zeroMeansUnlimitedPlaceholder')"/>
+          </el-form-item>
+          <el-form-item :label="t('apiKeys.form.monthlyTokenLimit')">
+            <el-input-number v-model="form.monthlyTokenLimit" :min="0" :step="10000" :placeholder="t('apiKeys.form.zeroMeansUnlimitedPlaceholder')"/>
           </el-form-item>
           <el-form-item :label="t('apiKeys.form.rateLimitPerMinute')">
             <el-input-number v-model="form.rateLimitPerMinute" :min="0" :step="10" :placeholder="t('apiKeys.form.zeroMeansUnlimitedPlaceholder')"/>
@@ -763,6 +788,10 @@ const quotaDrawer = reactive({
   form: {
     dailyRequestLimit: 0,
     dailyTokenLimit: 0,
+    hourlyRequestLimit: 0,
+    hourlyTokenLimit: 0,
+    monthlyRequestLimit: 0,
+    monthlyTokenLimit: 0,
     rateLimitPerMinute: 0,
     quotaAlertThreshold: 0.8
   }
@@ -776,6 +805,10 @@ const openQuotaDrawer = async (row: any) => {
   quotaDrawer.form = {
     dailyRequestLimit: row.dailyRequestLimit || 0,
     dailyTokenLimit: row.dailyTokenLimit || 0,
+    hourlyRequestLimit: row.hourlyRequestLimit || 0,
+    hourlyTokenLimit: row.hourlyTokenLimit || 0,
+    monthlyRequestLimit: row.monthlyRequestLimit || 0,
+    monthlyTokenLimit: row.monthlyTokenLimit || 0,
     rateLimitPerMinute: row.rateLimitPerMinute || 0,
     quotaAlertThreshold: row.quotaAlertThreshold ?? 0.8
   }
@@ -787,6 +820,10 @@ const openQuotaDrawer = async (row: any) => {
     quotaDrawer.form = {
       dailyRequestLimit: detail.dailyRequestLimit || 0,
       dailyTokenLimit: detail.dailyTokenLimit || 0,
+      hourlyRequestLimit: detail.hourlyRequestLimit || 0,
+      hourlyTokenLimit: detail.hourlyTokenLimit || 0,
+      monthlyRequestLimit: detail.monthlyRequestLimit || 0,
+      monthlyTokenLimit: detail.monthlyTokenLimit || 0,
       rateLimitPerMinute: detail.rateLimitPerMinute || 0,
       quotaAlertThreshold: detail.quotaAlertThreshold ?? 0.8
     }
@@ -887,6 +924,10 @@ const form = ref({
   allowedGroups: [] as string[],
   dailyRequestLimit: 0,
   dailyTokenLimit: 0,
+  hourlyRequestLimit: 0,
+  hourlyTokenLimit: 0,
+  monthlyRequestLimit: 0,
+  monthlyTokenLimit: 0,
   rateLimitPerMinute: 0,
   quotaAlertThreshold: 0.8,
   rotationPeriodDays: 0
@@ -1405,6 +1446,10 @@ const handleCreateApiKey = () => {
     allowedGroups: [],
     dailyRequestLimit: 0,
     dailyTokenLimit: 0,
+    hourlyRequestLimit: 0,
+    hourlyTokenLimit: 0,
+    monthlyRequestLimit: 0,
+    monthlyTokenLimit: 0,
     rateLimitPerMinute: 0,
     quotaAlertThreshold: 0.8,
     rotationPeriodDays: 0
@@ -1436,6 +1481,10 @@ const handleEdit = (row: ApiKeyVO) => {
     allowedGroups: row.allowedGroups || [],
     dailyRequestLimit: row.dailyRequestLimit || 0,
     dailyTokenLimit: row.dailyTokenLimit || 0,
+    hourlyRequestLimit: row.hourlyRequestLimit || 0,
+    hourlyTokenLimit: row.hourlyTokenLimit || 0,
+    monthlyRequestLimit: row.monthlyRequestLimit || 0,
+    monthlyTokenLimit: row.monthlyTokenLimit || 0,
     rateLimitPerMinute: row.rateLimitPerMinute || 0,
     quotaAlertThreshold: row.quotaAlertThreshold ?? 0.8,
     rotationPeriodDays: row.rotationPeriodDays || 0
@@ -1446,6 +1495,10 @@ const handleEdit = (row: ApiKeyVO) => {
     (row.allowedGroups && row.allowedGroups.length > 0) ||
     (row.dailyRequestLimit || 0) > 0 ||
     (row.dailyTokenLimit || 0) > 0 ||
+    (row.hourlyRequestLimit || 0) > 0 ||
+    (row.hourlyTokenLimit || 0) > 0 ||
+    (row.monthlyRequestLimit || 0) > 0 ||
+    (row.monthlyTokenLimit || 0) > 0 ||
     (row.rateLimitPerMinute || 0) > 0 ||
     (row.rotationPeriodDays || 0) > 0
   )
@@ -1585,6 +1638,10 @@ const handleSave = async () => {
         allowedGroups: form.value.allowedGroups,
         dailyRequestLimit: form.value.dailyRequestLimit,
         dailyTokenLimit: form.value.dailyTokenLimit,
+        hourlyRequestLimit: form.value.hourlyRequestLimit,
+        hourlyTokenLimit: form.value.hourlyTokenLimit,
+        monthlyRequestLimit: form.value.monthlyRequestLimit,
+        monthlyTokenLimit: form.value.monthlyTokenLimit,
         rateLimitPerMinute: form.value.rateLimitPerMinute,
         quotaAlertThreshold: form.value.quotaAlertThreshold,
         rotationPeriodDays: form.value.rotationPeriodDays
@@ -1604,6 +1661,10 @@ const handleSave = async () => {
         allowedGroups: form.value.allowedGroups,
         dailyRequestLimit: form.value.dailyRequestLimit,
         dailyTokenLimit: form.value.dailyTokenLimit,
+        hourlyRequestLimit: form.value.hourlyRequestLimit,
+        hourlyTokenLimit: form.value.hourlyTokenLimit,
+        monthlyRequestLimit: form.value.monthlyRequestLimit,
+        monthlyTokenLimit: form.value.monthlyTokenLimit,
         rateLimitPerMinute: form.value.rateLimitPerMinute,
         quotaAlertThreshold: form.value.quotaAlertThreshold,
         rotationPeriodDays: form.value.rotationPeriodDays
@@ -2068,20 +2129,10 @@ const applyRoutePrefill = () => {
 
 .table-wrapper .el-table {
   flex: 1;
-  overflow: auto;
 }
-/* Keys 主表 12 列共 1760px 本质超宽：EP 的 header/body wrapper 默认 overflow:hidden
-   会把超宽列裁掉且表格根的 auto 无溢出可滚（wrapper 内部已裁掉）。
-   放开 wrapper 裁剪，让表格根 auto 生效——仅在列总宽超出容器时出现横向滚动条 */
-.table-wrapper .el-table :deep(.el-table__header-wrapper),
-.table-wrapper .el-table :deep(.el-table__body-wrapper) {
-  overflow: visible;
-}
-/* 抑制 EP 内部 scrollbar 的横向滚动（纵向保留）：根已是横向滚动端口，
-   内部 wrap 若也可横滚会出现双横向滚动条 */
-.table-wrapper .el-table :deep(.el-scrollbar__wrap) {
-  overflow-x: hidden;
-}
+/* 横向滚动统一交给 EP 表格内部 el-scrollbar（原生行为，fixed 列 sticky 才能正确贴边）：
+   此前把表格根改成 overflow:auto 滚动端口，导致 ①根原生条 + EP overlay 条双滚动条、
+   ②fixed 操作列 sticky 失效与过期时间列内容重叠。勿再改回根滚动方案 */
 
 .main-title {
   font-size: 18px;
