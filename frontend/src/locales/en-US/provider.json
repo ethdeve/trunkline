@@ -45,7 +45,8 @@
     "nextStepAction": "Create key",
     "nextStepActionSetKey": "Configure",
     "nextStepActionAddModel": "Add models",
-    "deleteConfirm": "Delete provider \"{name}\"? Its models will be kept and unlinked (calls keep working); you can re-add the provider and link again later.",
+    "deleteConfirm": "Delete provider \"{name}\"? If it still has connected models, delete those models first.",
+    "deleteRemedy": "If deleted by mistake, re-add the provider under \"Models → Provider Access\" and link the models again.",
     "deleteSuccess": "Provider deleted",
     "createSuccess": "Provider added",
     "updateSuccess": "Provider updated",
@@ -115,6 +116,7 @@
     "rotateKeyTip": "The new key is synced to all models of this provider automatically - no need to edit them one by one",
     "configTitle": "Provider Settings - {name}",
     "deleteModelConfirm": "Delete model \"{name}\"?",
+    "deleteModelRemedy": "If deleted by mistake, re-connect the model (upstream URL and key); if a group lost a member, add one back in the group editor.",
     "modelDeleteSuccess": "Model deleted",
     "fromProvider": "From provider"
   }

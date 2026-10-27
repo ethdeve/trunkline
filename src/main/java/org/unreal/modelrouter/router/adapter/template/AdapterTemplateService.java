@@ -1,6 +1,7 @@
 package org.unreal.modelrouter.router.adapter.template;
 
 import org.springframework.stereotype.Service;
+import org.unreal.modelrouter.config.dependency.DependencyCheckService;
 import org.unreal.modelrouter.router.controller.AdapterConfigController.AdapterDefinitionRequest;
 
 import java.util.ArrayList;
@@ -33,8 +34,13 @@ public class AdapterTemplateService {
     /** 被用户隐藏的内置模板 ID 集合（内存缓存，与持久化同步） */
     private final Set<String> hiddenBuiltinIds;
 
-    public AdapterTemplateService(final ProviderTemplatePersistenceService persistenceService) {
+    /** 2026-10-26: 删除前依赖检测（由该模板启用的供应商存在时拒绝删除） */
+    private final DependencyCheckService dependencyCheckService;
+
+    public AdapterTemplateService(final ProviderTemplatePersistenceService persistenceService,
+                                  final DependencyCheckService dependencyCheckService) {
         this.persistenceService = persistenceService;
+        this.dependencyCheckService = dependencyCheckService;
         this.templates = new ArrayList<>();
         Map<String, AdapterTemplate> loaded = persistenceService.loadAll();
         this.customTemplates = loaded != null ? loaded : new HashMap<>();
@@ -142,12 +148,16 @@ public class AdapterTemplateService {
     }
 
     /**
-     * 删除自定义模板（内置模板不可删除）
+     * 删除自定义模板（内置模板不可删除）。
+     *
+     * <p>2026-10-26 新增依赖校验：由该模板启用的模型供应商存在时拒绝删除
+     * （模板与供应商之间靠 {@code providerUid = "tpl-" + 模板id} 弱关联）。</p>
      */
     public void deleteTemplate(final String id) {
         if (!customTemplates.containsKey(id)) {
             throw new IllegalArgumentException("模板不存在或为内置模板，不可删除: " + id);
         }
+        dependencyCheckService.assertDeletable(dependencyCheckService.checkTemplate(id));
         customTemplates.remove(id);
         persistenceService.saveAll(customTemplates);
     }

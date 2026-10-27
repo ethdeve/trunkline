@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class ModelProviderServiceModelsPathTest {
 
     private String resolve(final ModelProviderEntity entity) throws Exception {
-        final ModelProviderService service = new ModelProviderService(null, null, null, null, null);
+        final ModelProviderService service = new ModelProviderService(null, null, null, null, null, null);
         final Method method = ModelProviderService.class
                 .getDeclaredMethod("resolveModelsPath", ModelProviderEntity.class);
         method.setAccessible(true);

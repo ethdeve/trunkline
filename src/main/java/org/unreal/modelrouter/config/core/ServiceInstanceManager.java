@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.unreal.modelrouter.config.core.manager.ConfigVersionManager;
+import org.unreal.modelrouter.config.dependency.DependencyCheckService;
 import org.unreal.modelrouter.common.dto.ServiceInstanceDTO;
 import org.unreal.modelrouter.common.dto.InstanceRateLimitDTO;
 import org.unreal.modelrouter.common.dto.InstanceCircuitBreakerDTO;
@@ -57,6 +58,8 @@ public class ServiceInstanceManager {
     private final org.unreal.modelrouter.router.ratelimit.RateLimitManager rateLimitManager;
     /** 2026-10-22: 迁移前检查实例是否被模型分组（池）引用 */
     private final org.unreal.modelrouter.router.pool.PoolPersistenceService poolPersistenceService;
+    /** 2026-10-26: 删除前依赖检测（模型分组 / 密钥白名单引用检查） */
+    private final DependencyCheckService dependencyCheckService;
 
     public ServiceInstanceManager(
             final ServiceInstanceRepository serviceInstanceRepository,
@@ -70,7 +73,8 @@ public class ServiceInstanceManager {
             final ModelProviderRepository modelProviderRepository,
             @Lazy final org.unreal.modelrouter.router.checker.ServiceStateManager serviceStateManager,
             @Lazy final org.unreal.modelrouter.router.ratelimit.RateLimitManager rateLimitManager,
-            @Lazy final org.unreal.modelrouter.router.pool.PoolPersistenceService poolPersistenceService) {
+            @Lazy final org.unreal.modelrouter.router.pool.PoolPersistenceService poolPersistenceService,
+            @Lazy final DependencyCheckService dependencyCheckService) {
         this.serviceInstanceRepository = serviceInstanceRepository;
         this.rateLimitRepository = rateLimitRepository;
         this.circuitBreakerRepository = circuitBreakerRepository;
@@ -83,6 +87,7 @@ public class ServiceInstanceManager {
         this.serviceStateManager = serviceStateManager;
         this.rateLimitManager = rateLimitManager;
         this.poolPersistenceService = poolPersistenceService;
+        this.dependencyCheckService = dependencyCheckService;
     }
 
     /**
@@ -376,7 +381,10 @@ public class ServiceInstanceManager {
     }
 
     /**
-     * 删除实例
+     * 删除实例：被模型分组引用、或被启用中的密钥白名单关联时拒绝删除。
+     *
+     * <p>2026-10-26 新增依赖校验——本库无数据库外键，删掉实例后分组成员与密钥白名单
+     * 都会指向不存在的对象（路由静默跳过、密钥调用 403），且极难定位。</p>
      */
     @Transactional
     public void deleteInstance(final Long id) {
@@ -384,7 +392,10 @@ public class ServiceInstanceManager {
         ServiceInstanceEntity entity = serviceInstanceRepository.findById(id)
                 .orElse(null);
         String instanceName = entity != null ? entity.getInstanceName() : String.valueOf(id);
-        
+
+        // 删除前依赖校验：分组成员 / 密钥白名单仍引用该实例时拒绝删除
+        dependencyCheckService.assertDeletable(dependencyCheckService.checkInstance(id));
+
         // 同时删除关联的限流器和熔断器配置
         rateLimitRepository.deleteByInstanceId(id);
         circuitBreakerRepository.deleteByInstanceId(id);

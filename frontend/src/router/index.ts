@@ -67,6 +67,13 @@ const routes: RouteRecordRaw[] = [
         meta: { permissions: ['config:instances:read'], title: '模型分组' }
       },
       {
+        // 傻瓜式快速接入向导：选服务商 → 填密钥 → 导入模型 → 自动建分组+测试密钥+复制 curl
+        path: 'quick-start',
+        name: 'quick-start',
+        component: () => import('@/views/tools/QuickStartWizard.vue'),
+        meta: { permissions: ['config:instances:read'], title: '快速接入' }
+      },
+      {
         path: 'protocol-adapters',
         name: 'protocol-adapters',
         component: () => import('@/views/config/AdapterManagement.vue'),

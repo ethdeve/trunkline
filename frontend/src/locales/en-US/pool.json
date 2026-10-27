@@ -47,8 +47,9 @@
       "consistent-hash": "The same user always lands on the same instance, with the least impact when instances are added or removed (weight is ignored)"
     },
     "memberPaneSelected": "Selected members",
-    "memberPaneCandidates": "Available instances",
-    "memberSearchPlaceholder": "Search instance",
+    "memberPaneCandidates": "Available members",
+    "memberSearchPlaceholder": "Search member",
+    "memberProvider": "{provider}",
     "memberEmptyHint": "No member yet - pick one on the right",
     "memberUnselected": "No instance selected",
     "removeMember": "Remove",

@@ -49,6 +49,13 @@ export const menuGroups: MenuGroup[] = [
     icon: 'cpu',
     children: [
       {
+        path: '/quick-start',
+        title: '快速接入',
+        permission: 'config:instances:read',
+        icon: 'magic-stick',
+        subtitle: '四步向导：选服务商 → 填密钥 → 导入模型 → 拿密钥调用'
+      },
+      {
         path: '/models',
         title: '接入模型',
         permission: 'config:instances:read',

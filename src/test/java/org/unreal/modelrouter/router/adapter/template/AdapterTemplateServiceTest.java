@@ -26,7 +26,8 @@ class AdapterTemplateServiceTest {
     @BeforeEach
     void setUp() {
         // 持久化服务 mock 掉：单元测试只验证内存逻辑，不依赖 StoreManager
-        templateService = new AdapterTemplateService(Mockito.mock(ProviderTemplatePersistenceService.class));
+        templateService = new AdapterTemplateService(Mockito.mock(ProviderTemplatePersistenceService.class),
+                Mockito.mock(org.unreal.modelrouter.config.dependency.DependencyCheckService.class));
     }
 
     // ==================== 获取全部模板测试 ====================

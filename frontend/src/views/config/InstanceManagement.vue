@@ -194,7 +194,8 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { SERVICE_TYPE_LABELS, COMMON_SERVICE_TYPES } from '@/constants/serviceTypes'
-import { PROVIDER_PRESETS, matchProviderPreset, extractDomain } from '@/constants/providerPresets'
+import { matchProviderPreset, extractDomain } from '@/constants/providerPresets'
+import { useProviderTemplatePresets } from '@/composables/useProviderTemplatePresets'
 import { ElMessage } from 'element-plus'
 import {
   addServiceInstance,
@@ -229,6 +230,7 @@ import { uid } from '@/utils/uid'
 import { usePermission } from '@/composables/usePermission'
 import { usePersistedState } from '@/composables/usePersistedState'
 import { confirmDanger } from '@/utils/dangerConfirm'
+import { useDependencyGuard } from '@/composables/useDependencyGuard'
 
 const route = useRoute()
 const router = useRouter()
@@ -271,8 +273,10 @@ const fetchProviderOptions = async () => {
 }
 
 // 根据 baseUrl/path 识别上游厂商名称（用于列表普通用户视角展示）
+// 厂商预设统一取自后端「供应商模板」，因此用户自定义模板也能被正确识别
+const { presets: PROVIDER_TEMPLATES } = useProviderTemplatePresets()
 function providerLabelOf(row: ServiceInstance): string {
-  const matched = matchProviderPreset(row.baseUrl || '', row.path || '')
+  const matched = matchProviderPreset(row.baseUrl || '', row.path || '', PROVIDER_TEMPLATES.value)
   if (matched) return matched.label
   const domain = extractDomain(row.baseUrl || '')
   return domain || '自定义'
@@ -707,19 +711,23 @@ async function handleBatchDelete() {
   if (rows.length === 0) return
   const serviceType = activeServiceType.value
 
-  // 汇总受影响的模型分组
-  const affected = new Set<string>()
+  // 逐个预检（静默）：任一实例仍被分组/密钥引用即整批中止
+  const blockedNames: string[] = []
   for (const row of rows) {
-    findPoolsReferencing(row).forEach(p => affected.add(p))
+    const pre = await precheckDeletion('instance', row.id, { silent: true })
+    if (pre.blocked) {
+      blockedNames.push(row.name)
+    }
   }
-  const impact = affected.size > 0
-    ? t('instance.batch.deleteImpactPools', { pools: [...affected].join('、') })
-    : t('instance.batch.deleteImpactNone')
+  if (blockedNames.length > 0) {
+    ElMessage.error(t('dependency.batchBlocked', { names: blockedNames.join('、') }))
+    return
+  }
 
   const confirmed = await confirmDanger({
     title: t('instance.batch.deleteTitle'),
     target: t('instance.batch.deleteTarget', { count: rows.length }),
-    impact,
+    impact: t('instance.batch.deleteImpactNone'),
     remedy: t('instance.batch.deleteRemedy'),
     requireType: String(rows.length),
     confirmText: t('instance.batch.confirmDelete'),
@@ -755,14 +763,17 @@ async function handleBatchDelete() {
   }
 }
 
+/** 删除前依赖预检：被模型分组引用、或被密钥白名单关联时禁止删除 */
+const { precheckDeletion } = useDependencyGuard()
+
 // 删除实例
 const handleDelete = async (row: ServiceInstance) => {
-  // 先算出影响面：哪些模型分组引用了该实例（池成员匹配 instanceId 或实例名）
-  const affectedPools = findPoolsReferencing(row)
+  // 删除前依赖预检：模型分组引用 / 密钥白名单关联 → 不允许删除
+  const pre = await precheckDeletion('instance', row.id)
+  if (pre.blocked) return
 
-  const impact = affectedPools.length > 0
-    ? t('instance.deleteImpactPools', { pools: affectedPools.join('、') })
-    : t('instance.deleteImpactNone')
+  // 影响面：无引用时说明删除不会破坏现有分组与密钥
+  const impact = t('instance.deleteImpactNone')
 
   // U10-3：统一危险操作确认模板（影响面 + 补救方式 + 输入名称确认）
   const confirmed = await confirmDanger({

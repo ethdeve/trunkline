@@ -201,6 +201,8 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
+import { useDependencyGuard } from '@/composables/useDependencyGuard'
+import { confirmDanger } from '@/utils/dangerConfirm'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Plus, Refresh, Connection, Loading, Hide } from '@element-plus/icons-vue'
 import {
@@ -496,13 +498,22 @@ const handleRestore = async (row: AdapterTemplate) => {
   }
 }
 
+/** 删除前依赖预检：其下仍有已接入模型时禁止删除（须先删除这些模型） */
+const { precheckDeletion } = useDependencyGuard()
+
 const handleDelete = async (row: AdapterTemplate) => {
+  // 删除前依赖预检：由该模板启用的模型供应商存在时禁止删除
+  const pre = await precheckDeletion('template', row.id)
+  if (pre.blocked) return
+  const confirmed = await confirmDanger({
+    title: t('providerTemplate.deleteConfirmTitle'),
+    target: row.name,
+    impact: t('dependency.noDependency'),
+    remedy: t('providerTemplate.deleteRemedy'),
+    requireType: row.name
+  })
+  if (!confirmed) return
   try {
-    await ElMessageBox.confirm(
-      t('providerTemplate.deleteConfirm', { name: row.name }),
-      t('providerTemplate.deleteConfirmTitle'),
-      { type: 'warning' }
-    )
     const res = await deleteAdapterTemplate(row.id)
     if (res.data?.success) {
       ElMessage.success(t('providerTemplate.deleteSuccess'))

@@ -76,7 +76,8 @@ class PoolConfigControllerTest {
         persistenceService = new InMemoryPoolPersistence();
         poolSelector = new PoolSelector(mock(ServiceStateManager.class), mock(CircuitBreakerManager.class));
         controller = new PoolConfigController(
-                poolProperties, persistenceService, poolSelector, new ServiceTypeResolver(), mockRegistry());
+                poolProperties, persistenceService, poolSelector, new ServiceTypeResolver(), mockRegistry(),
+                mock(org.unreal.modelrouter.config.dependency.DependencyCheckService.class));
     }
 
     /**
@@ -248,7 +249,8 @@ class PoolConfigControllerTest {
         void testYamlMerge_distinctNames() {
             poolProperties.setPools(List.of(validPool("yaml-pool")));
             controller = new PoolConfigController(
-                    poolProperties, persistenceService, poolSelector, new ServiceTypeResolver(), mockRegistry());
+                    poolProperties, persistenceService, poolSelector, new ServiceTypeResolver(), mockRegistry(),
+                mock(org.unreal.modelrouter.config.dependency.DependencyCheckService.class));
             controller.createPool(validPool("auto-model"));
 
             List<PoolDefinition> pools = controller.getAllPools().getBody().getData();

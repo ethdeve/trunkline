@@ -51,6 +51,7 @@
     "fetchFailed": "Failed to load templates: {error}",
     "deleteConfirm": "Delete template \"{name}\"? It will disappear from both the preset catalog and the adapter wizard.",
     "deleteConfirmTitle": "Confirm Delete",
+    "deleteRemedy": "If deleted by mistake, recreate a template with the same name under \"Model Config → Provider Templates\".",
     "deleteSuccess": "Template deleted",
     "deleteFailed": "Delete failed",
     "deleteFailedDetail": "Delete failed: {error}",

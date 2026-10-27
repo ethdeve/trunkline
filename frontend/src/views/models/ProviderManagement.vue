@@ -377,12 +377,12 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { Search, Refresh, Plus, CircleCheck, WarningFilled, Management, ArrowDown, Key, Setting, Delete, Right } from '@element-plus/icons-vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import { COMMON_SERVICE_TYPES, ServiceType, getServiceTypeLabel, inferServiceTypeFromModelId } from '@/constants/serviceTypes'
-import { PROVIDER_PRESETS, customTemplateToPreset, extractDomain, type ProviderPreset } from '@/constants/providerPresets'
+import { extractDomain, type ProviderPreset } from '@/constants/providerPresets'
 import {
   getProviders,
   createProvider,
@@ -397,8 +397,10 @@ import {
   type ModelProviderRequest
 } from '@/api/provider'
 import { deleteServiceInstance } from '@/api/instance'
-import { getAdapterList, getAdapterTemplates } from '@/api/adapter'
-import { useVisibleProviderPresets } from '@/composables/useVisibleProviderPresets'
+import { getAdapterList } from '@/api/adapter'
+import { useProviderTemplatePresets } from '@/composables/useProviderTemplatePresets'
+import { useDependencyGuard } from '@/composables/useDependencyGuard'
+import { confirmDanger } from '@/utils/dangerConfirm'
 import { usePermission } from '@/composables/usePermission'
 import { usePersistedState } from '@/composables/usePersistedState'
 
@@ -534,28 +536,16 @@ const presetQuery = ref('')
 /** 分类筛选：'' 全部 / domestic 国内 / international 国际 / local 本地 */
 const presetCategory = ref('')
 
-/** 系统设置「模型供应商模板」的自定义模板（source=custom），实时合并进预设目录 */
-const customPresets = ref<ProviderPreset[]>([])
-/** 模板页「移除」的内置供应商与预设目录联动（useVisibleProviderPresets 统一管理隐藏状态） */
-const { visiblePresets, refreshHidden } = useVisibleProviderPresets()
+/**
+ * 预设目录：统一取自后端「供应商模板」（内置已剔除被隐藏项 + 用户自定义模板），
+ * 与「系统设置 → 模型配置 → 供应商模板」页同源同份。
+ */
+const { presets: providerPresets, reload: reloadPresets } = useProviderTemplatePresets()
 
-const loadCustomPresets = async () => {
-  try {
-    const res = await getAdapterTemplates()
-    if (res.data?.success) {
-      customPresets.value = (res.data.data || [])
-        .filter(t => t.source === 'custom')
-        .map(customTemplateToPreset)
-    }
-  } catch {
-    /* 模板接口不可用时静默降级为仅内置预设 */
-  }
-}
-
-/** 预设目录列表（内置预设剔除已隐藏 + 自定义模板；「自定义」手工入口固定在抽屉底部区块，不进列表） */
+/** 预设目录列表（按分类与关键词过滤；「自定义」手工入口固定在抽屉底部区块，不进列表） */
 const filteredPresets = computed<ProviderPreset[]>(() => {
   const q = (presetQuery.value || '').trim().toLowerCase()
-  return [...visiblePresets.value, ...customPresets.value].filter(p => {
+  return providerPresets.value.filter(p => {
     if (p.category === 'custom') return false
     const matchCategory = !presetCategory.value || p.category === presetCategory.value
     const matchSearch = !q
@@ -575,8 +565,7 @@ const openPresetDrawer = () => {
   presetQuery.value = ''
   presetCategory.value = ''
   // 每次打开都刷新，系统设置里新建的自定义模板与「移除」的内置厂商即时同步
-  loadCustomPresets()
-  refreshHidden()
+  reloadPresets()
   presetDrawerVisible.value = true
 }
 
@@ -732,24 +721,31 @@ const toggleStatus = async (provider: ModelProvider) => {
   }
 }
 
-const handleDelete = (provider: ModelProvider) => {
-  ElMessageBox.confirm(
-    t('provider.deleteConfirm', { name: provider.name }),
-    t('provider.actions.delete'),
-    { confirmButtonText: t('provider.confirmAdd'), cancelButtonText: t('provider.cancel'), type: 'warning' }
-  ).then(async () => {
-    try {
-      const response = await deleteProvider(provider.id)
-      if (response.data?.success) {
-        ElMessage.success(t('provider.deleteSuccess'))
-        fetchProviders()
-      } else {
-        ElMessage.error(response.data?.message || '删除失败')
-      }
-    } catch (error: any) {
-      ElMessage.error(error?.message || '删除失败')
+/** 删除前依赖预检：其下仍有已接入模型时禁止删除（须先删除这些模型） */
+const { precheckDeletion } = useDependencyGuard()
+
+const handleDelete = async (provider: ModelProvider) => {
+  const pre = await precheckDeletion('provider', provider.id)
+  if (pre.blocked) return
+  const confirmed = await confirmDanger({
+    title: t('provider.actions.delete'),
+    target: provider.name,
+    impact: t('dependency.noDependency'),
+    remedy: t('provider.deleteRemedy'),
+    requireType: provider.name
+  })
+  if (!confirmed) return
+  try {
+    const response = await deleteProvider(provider.id)
+    if (response.data?.success) {
+      ElMessage.success(t('provider.deleteSuccess'))
+      fetchProviders()
+    } else {
+      ElMessage.error(response.data?.message || '删除失败')
     }
-  }).catch(() => {})
+  } catch (error: any) {
+    ElMessage.error(error?.message || '删除失败')
+  }
 }
 
 const rotateDialogVisible = ref(false)
@@ -962,32 +958,37 @@ const addSingleModel = async () => {
   }
 }
 
-const deleteManageModel = (row: any) => {
+const deleteManageModel = async (row: any) => {
   if (!managingProvider.value) return
-  ElMessageBox.confirm(
-    t('provider.deleteModelConfirm', { name: row.name }),
-    t('provider.actions.delete'),
-    { confirmButtonText: t('provider.confirmAdd'), cancelButtonText: t('provider.cancel'), type: 'warning' }
-  ).then(async () => {
-    try {
-      // 实例可能被自动识别到任意分类，删除须按该行真实分类（DTO 权威派生值），否则 404
-      const response = await deleteServiceInstance(row.serviceType || manageServiceType.value, String(row.id))
-      if (response.data?.success) {
-        ElMessage.success(t('provider.modelDeleteSuccess'))
-        await Promise.all([loadManageModels(), fetchProviders()])
-      } else {
-        ElMessage.error(response.data?.message || '删除失败')
-      }
-    } catch (error: any) {
-      ElMessage.error(error?.message || '删除失败')
+  // 删除前依赖预检：被模型分组引用、或被密钥白名单关联时禁止删除
+  const pre = await precheckDeletion('instance', row.id)
+  if (pre.blocked) return
+  const confirmed = await confirmDanger({
+    title: t('provider.actions.delete'),
+    target: row.name,
+    impact: t('dependency.noDependency'),
+    remedy: t('provider.deleteModelRemedy'),
+    requireType: row.name
+  })
+  if (!confirmed) return
+  try {
+    // 实例可能被自动识别到任意分类，删除须按该行真实分类（DTO 权威派生值），否则 404
+    const response = await deleteServiceInstance(row.serviceType || manageServiceType.value, String(row.id))
+    if (response.data?.success) {
+      ElMessage.success(t('provider.modelDeleteSuccess'))
+      await Promise.all([loadManageModels(), fetchProviders()])
+    } else {
+      ElMessage.error(response.data?.message || '删除失败')
     }
-  }).catch(() => {})
+  } catch (error: any) {
+    ElMessage.error(error?.message || '删除失败')
+  }
 }
 
 onMounted(() => {
   fetchProviders()
   fetchAdapters()
-  loadCustomPresets()
+  reloadPresets()
 })
 </script>
 

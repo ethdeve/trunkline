@@ -47,8 +47,9 @@
       "consistent-hash": "同一用户始终落到同一个实例，实例增删时影响最小（忽略权重设置）"
     },
     "memberPaneSelected": "已选成员",
-    "memberPaneCandidates": "可选实例",
-    "memberSearchPlaceholder": "搜索实例名",
+    "memberPaneCandidates": "可选成员",
+    "memberSearchPlaceholder": "搜索成员名",
+    "memberProvider": "{provider}",
     "memberEmptyHint": "还没有成员，从右侧选一个加入",
     "memberUnselected": "未选择实例",
     "removeMember": "移除",

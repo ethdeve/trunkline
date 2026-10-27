@@ -3,6 +3,7 @@ package org.unreal.modelrouter.router.adapter.template;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.unreal.modelrouter.persistence.store.StoreManager;
 
 import java.util.ArrayList;
@@ -73,7 +74,8 @@ class AdapterTemplateHideRestoreTest {
 
     private AdapterTemplateService newService() {
         return new AdapterTemplateService(
-                new ProviderTemplatePersistenceService(new InMemoryStoreManager(backing), objectMapper));
+                new ProviderTemplatePersistenceService(new InMemoryStoreManager(backing), objectMapper),
+                Mockito.mock(org.unreal.modelrouter.config.dependency.DependencyCheckService.class));
     }
 
     @Test

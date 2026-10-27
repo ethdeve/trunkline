@@ -249,7 +249,7 @@ import { computed, reactive, ref, withDefaults } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { COMMON_SERVICE_TYPES, getServiceTypeLabel } from '@/constants/serviceTypes'
 import { matchProviderPreset, type ProviderPreset } from '@/constants/providerPresets'
-import { useVisibleProviderPresets } from '@/composables/useVisibleProviderPresets'
+import { useProviderTemplatePresets } from '@/composables/useProviderTemplatePresets'
 import type { ModelProvider } from '@/api/provider'
 import { Plus, Delete, Close } from '@element-plus/icons-vue'
 import type { InstanceConfig } from '@/api/instance'
@@ -257,8 +257,9 @@ import type { InstanceConfig } from '@/api/instance'
 const { t } = useI18n()
 
 // 上游厂商预设：选厂商自动填 baseUrl/path；models 用于「常用模型」快捷填入（网关按模型名精确路由）。
-// 预设列表与供应商模板页的「移除（隐藏）」联动：被移除的内置厂商不再出现在下拉中。
-const { visiblePresets: INSTANCE_TEMPLATES } = useVisibleProviderPresets()
+// 预设列表统一取自后端「供应商模板」（内置已剔除被隐藏项 + 用户自定义模板），与供应商模板页、向导一致。
+const { presets: PROVIDER_TEMPLATES } = useProviderTemplatePresets()
+const INSTANCE_TEMPLATES = computed(() => PROVIDER_TEMPLATES.value.filter(p => p.category !== 'custom'))
 
 const props = withDefaults(defineProps<{
   serviceTypes?: string[]
@@ -477,7 +478,7 @@ function loadInstance(data: any) {
   }
   syncTagsList()
   // 根据已保存的 baseUrl/path 反推上游厂商，让编辑时「上游厂商」下拉也正确回显
-  const matched = matchProviderPreset(form.baseUrl, form.path)
+  const matched = matchProviderPreset(form.baseUrl, form.path, PROVIDER_TEMPLATES.value)
   selectedTemplate.value = matched ? matched.label : ''
   // 备注名默认值：供应商名称>>模型名称（已有备注不覆盖；未关联供应商时回退到匹配的预设厂商名）
   // 供应商名若带「（自定义）」等来源后缀，展示时剥掉，只留主名

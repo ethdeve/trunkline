@@ -16,6 +16,8 @@ export interface InstanceConfig {
   tags?: Record<string, string>  // v2.9.7: 实例标签(键值对)
   /** v2.11.0: 关联的模型供应商 ID（0 = 解除关联；不传 = 不改变关联） */
   providerId?: number
+  /** v2.11.0: 关联的模型供应商名称（后端随 providerId 一起带出，展示用） */
+  providerName?: string
   /**
    * 模型分类（服务类型）：chat / embedding / rerank / tts / stt / imgGen / imgEdit。
    * - 创建时：决定新实例挂到哪个 service_config（服务配置）下

@@ -139,6 +139,13 @@
                     <span class="member-name" :class="{ 'is-missing': !m.instanceId }" :title="m.instanceId || t('pool.memberUnselected')">
                       {{ m.instanceId || t('pool.memberUnselected') }}
                     </span>
+                    <el-tag
+                      v-if="m.instanceId && nameToProvider.get(m.instanceId)"
+                      size="small"
+                      type="info"
+                      effect="plain"
+                      class="member-provider"
+                    >{{ t('pool.memberProvider', { provider: nameToProvider.get(m.instanceId) }) }}</el-tag>
                   </div>
                   <div class="member-row-actions">
                     <span class="member-weight-label">{{ t('pool.weight') }}</span>
@@ -208,9 +215,18 @@
                     :value="o.value"
                     :disabled="o.disabled"
                     class="candidate-item"
-                    :title="o.label"
+                    :title="o.providerName ? o.label + '（' + o.providerName + '）' : o.label"
                   >
-                    {{ o.label }}
+                    <span class="candidate-text">
+                      <span class="candidate-name">{{ o.label }}</span>
+                      <el-tag
+                        v-if="o.providerName"
+                        size="small"
+                        type="info"
+                        effect="plain"
+                        class="candidate-provider"
+                      >{{ t('pool.memberProvider', { provider: o.providerName }) }}</el-tag>
+                    </span>
                   </el-checkbox>
                 </el-checkbox-group>
                 <div v-if="!instancesLoading && candidateOptions.length === 0" class="member-empty">
@@ -253,6 +269,7 @@ import {
 } from '@/api/pools'
 import { getServiceInstances, type InstanceConfig } from '@/api/instance'
 import { confirmDanger } from '@/utils/dangerConfirm'
+import { useDependencyGuard } from '@/composables/useDependencyGuard'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import { usePermission } from '@/composables/usePermission'
 
@@ -336,8 +353,17 @@ const loadInstances = async (serviceType: string) => {
 const instanceOptions = computed(() =>
   instances.value
     .filter((i) => Boolean(i.name))
-    .map((i) => ({ value: i.name as string, label: i.name as string }))
+    .map((i) => ({ value: i.name as string, label: i.name as string, providerName: i.providerName }))
 )
+
+/** 实例名 → 供应商名称 映射（已选成员只存实例名，需用此表反查其所属厂商） */
+const nameToProvider = computed(() => {
+  const map = new Map<string, string>()
+  for (const i of instances.value) {
+    if (i.name && i.providerName) map.set(i.name, i.providerName)
+  }
+  return map
+})
 
 /** 当前分组所属的模型分类（本地化），用于提示成员候选的分类范围 */
 const currentServiceTypeLabel = computed(() => serviceTypeLabel(form.serviceType))
@@ -347,11 +373,11 @@ const selectedInstanceNames = computed(() =>
   new Set(form.members.map(m => m.instanceId).filter(Boolean) as string[])
 )
 
-/** 候选实例（带搜索；已加入的置灰并标注） */
+/** 候选实例（带搜索；已加入的置灰并标注）。搜索同时匹配模型名与所属厂商，便于按厂商筛选 */
 const candidateOptions = computed(() => {
   const kw = (candidateKeyword.value || '').trim().toLowerCase()
   return instanceOptions.value
-    .filter(o => !kw || o.label.toLowerCase().includes(kw))
+    .filter(o => !kw || o.label.toLowerCase().includes(kw) || (o.providerName || '').toLowerCase().includes(kw))
     .map(o => ({
       ...o,
       disabled: selectedInstanceNames.value.has(o.value)
@@ -513,7 +539,13 @@ const handleToggle = async (row: PoolDefinition, val: boolean) => {
   }
 }
 
+/** 删除前依赖预检：密钥白名单引用该分组时禁止删除 */
+const { precheckDeletion } = useDependencyGuard()
+
 const handleDelete = async (row: PoolDefinition) => {
+  // 删除前依赖预检：密钥白名单仍引用该分组时禁止删除（否则密钥调用将 403/404）
+  const pre = await precheckDeletion('pool', row.poolName)
+  if (pre.blocked) return
   // U10-3：统一危险操作确认模板（影响面 + 补救方式 + 输入名称确认）
   const confirmed = await confirmDanger({
     title: t('pool.deleteDialog.title'),
@@ -653,7 +685,33 @@ onMounted(() => { fetchPools() })
 .member-row-name {
   display: flex;
   align-items: center;
+  gap: 6px;
   min-width: 0;
+}
+
+/* 已选成员所属厂商标签：不收缩，始终完整显示 */
+.member-provider {
+  flex-shrink: 0;
+}
+
+/* 候选列表：模型名 + 厂商标签 横向排列，模型名可截断 */
+.candidate-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.candidate-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.candidate-provider {
+  flex-shrink: 0;
 }
 
 .member-name {

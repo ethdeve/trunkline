@@ -73,12 +73,12 @@ public class ModelProviderController {
     }
 
     /**
-     * 删除供应商（解绑其下实例，实例保留）
+     * 删除供应商（其下仍有已接入模型时返回 409，须先删除这些模型）
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<RouterResponse<Void>> delete(@PathVariable final Long id) {
         providerService.delete(id);
-        return ResponseEntity.ok(RouterResponse.success(null, "供应商已删除（其下模型已保留并解除关联）"));
+        return ResponseEntity.ok(RouterResponse.success(null, "供应商已删除"));
     }
 
     /**

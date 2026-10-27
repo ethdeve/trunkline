@@ -45,7 +45,8 @@
     "nextStepAction": "去创建密钥",
     "nextStepActionSetKey": "去配置",
     "nextStepActionAddModel": "去添加模型",
-    "deleteConfirm": "确定要删除供应商「{name}」吗？其下已接入的模型会保留并解除关联（不影响调用），可重新添加供应商后再关联。",
+    "deleteConfirm": "确定要删除供应商「{name}」吗？其下若还有已接入模型，需先删除这些模型。",
+    "deleteRemedy": "删错了可在「接入模型 → 供应商接入」中重新添加该供应商，再把模型关联回去。",
     "deleteSuccess": "供应商已删除",
     "createSuccess": "供应商已添加",
     "updateSuccess": "供应商已更新",
@@ -115,6 +116,7 @@
     "rotateKeyTip": "更换后会自动同步到该供应商下所有模型的请求头，无需逐个修改",
     "configTitle": "供应商配置 - {name}",
     "deleteModelConfirm": "确定要删除模型「{name}」吗？",
+    "deleteModelRemedy": "删错了重新接入该模型（上游地址与 Key）即可；若分组缺成员，进分组编辑补一个即可。",
     "modelDeleteSuccess": "模型已删除",
     "fromProvider": "来自供应商"
   }

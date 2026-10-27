@@ -70,6 +70,8 @@ class ServiceInstanceManagerMigrationTest {
     private org.unreal.modelrouter.router.ratelimit.RateLimitManager rateLimitManager;
     @Mock
     private org.unreal.modelrouter.router.pool.PoolPersistenceService poolPersistenceService;
+    @Mock
+    private org.unreal.modelrouter.config.dependency.DependencyCheckService dependencyCheckService;
 
     private ServiceInstanceManager manager;
 
@@ -79,7 +81,7 @@ class ServiceInstanceManagerMigrationTest {
                 serviceInstanceRepository, rateLimitRepository, circuitBreakerRepository,
                 serviceConfigRepository, configurationService, configVersionManager,
                 modelServiceRegistry, circuitBreakerManager, modelProviderRepository,
-                serviceStateManager, rateLimitManager, poolPersistenceService);
+                serviceStateManager, rateLimitManager, poolPersistenceService, dependencyCheckService);
 
         when(serviceInstanceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 

@@ -9,6 +9,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import org.unreal.modelrouter.common.dto.ModelProviderDTO;
 import org.unreal.modelrouter.common.dto.ServiceInstanceDTO;
 import org.unreal.modelrouter.config.core.ServiceInstanceManager;
+import org.unreal.modelrouter.config.dependency.DependencyCheckService;
 import org.unreal.modelrouter.config.core.helper.SsrfGuard;
 import org.unreal.modelrouter.config.dto.CreateModelProviderRequest;
 import org.unreal.modelrouter.config.dto.CreateServiceInstanceRequest;
@@ -48,18 +49,22 @@ public class ModelProviderService {
     private final ServiceInstanceRepository serviceInstanceRepository;
     private final ServiceInstanceManager serviceInstanceManager;
     private final WebClientCacheManager webClientCacheManager;
+    /** 2026-10-26: 删除前依赖检测（其下已接入模型存在时拒绝删除） */
+    private final DependencyCheckService dependencyCheckService;
 
     public ModelProviderService(
             final ModelProviderRepository providerRepository,
             final ServiceConfigRepository serviceConfigRepository,
             final ServiceInstanceRepository serviceInstanceRepository,
             final ServiceInstanceManager serviceInstanceManager,
-            final WebClientCacheManager webClientCacheManager) {
+            final WebClientCacheManager webClientCacheManager,
+            final DependencyCheckService dependencyCheckService) {
         this.providerRepository = providerRepository;
         this.serviceConfigRepository = serviceConfigRepository;
         this.serviceInstanceRepository = serviceInstanceRepository;
         this.serviceInstanceManager = serviceInstanceManager;
         this.webClientCacheManager = webClientCacheManager;
+        this.dependencyCheckService = dependencyCheckService;
     }
 
     // ==================== 查询 ====================
@@ -190,12 +195,17 @@ public class ModelProviderService {
     }
 
     /**
-     * 删除供应商：先解绑其下实例（实例保留、行为不变），再删供应商行。
+     * 删除供应商：其下仍有已接入模型时拒绝删除（须先删除这些模型）。
+     *
+     * <p>2026-10-26 起由「静默解绑实例」改为「拒绝删除」——本库无数据库外键约束，
+     * 解绑后实例仍保留旧的供应商语义却已无供应商可依，形成悬空引用，
+     * 表现为「模型在库里但路由不到」。</p>
      */
     @Transactional
     public void delete(final Long id) {
         providerRepository.findById(id)
                 .orElseThrow(() -> new ApiException("PROVIDER_NOT_FOUND", "供应商不存在: " + id));
+        dependencyCheckService.assertDeletable(dependencyCheckService.checkProvider(id));
         final int unlinked = serviceInstanceManager.unlinkProvider(id);
         providerRepository.deleteById(id);
         log.info("Deleted model provider: {} (unlinked {} instances)", id, unlinked);

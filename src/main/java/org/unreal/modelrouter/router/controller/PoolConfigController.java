@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.config.core.helper.ServiceTypeResolver;
+import org.unreal.modelrouter.config.dependency.DependencyCheckService;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
 import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 import org.unreal.modelrouter.router.pool.PoolDefinitionProperties;
@@ -50,6 +51,8 @@ public class PoolConfigController {
     private final PoolSelector poolSelector;
     private final ServiceTypeResolver serviceTypeResolver;
     private final ModelServiceRegistry modelServiceRegistry;
+    /** 2026-10-26: 删除前依赖检测（密钥白名单引用该分组时拒绝删除） */
+    private final DependencyCheckService dependencyCheckService;
 
     // 当前生效资源池(YAML 默认 + 持久化用户池,按 poolName 唯一)
     private final CopyOnWriteArrayList<PoolDefinition> activePools = new CopyOnWriteArrayList<>();
@@ -58,12 +61,14 @@ public class PoolConfigController {
                                 final PoolPersistenceService persistenceService,
                                 final PoolSelector poolSelector,
                                 final ServiceTypeResolver serviceTypeResolver,
-                                final ModelServiceRegistry modelServiceRegistry) {
+                                final ModelServiceRegistry modelServiceRegistry,
+                                final DependencyCheckService dependencyCheckService) {
         this.poolProperties = poolProperties;
         this.persistenceService = persistenceService;
         this.poolSelector = poolSelector;
         this.serviceTypeResolver = serviceTypeResolver;
         this.modelServiceRegistry = modelServiceRegistry;
+        this.dependencyCheckService = dependencyCheckService;
         reloadActivePools();
     }
 
@@ -151,6 +156,8 @@ public class PoolConfigController {
     @Operation(summary = "删除资源池", description = "按池名删除资源池并热生效")
     public ResponseEntity<RouterResponse<Void>> deletePool(@PathVariable final String poolName) {
         findPool(poolName);
+        // 删除前依赖校验：密钥白名单仍引用该分组时拒绝删除（否则密钥调用将 403/404）
+        dependencyCheckService.assertDeletable(dependencyCheckService.checkPool(poolName));
         persistenceService.remove(poolName);
         reloadActivePools();
         return ResponseEntity.ok(RouterResponse.success(null));

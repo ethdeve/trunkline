@@ -35,6 +35,38 @@ function inferPath(baseUrl: string): string {
 }
 
 /**
+ * 后端「供应商模板」→ 预设目录项（通用，兼容 builtin / custom 两种来源）。
+ *
+ * 这是「系统设置 → 模型配置 → 供应商模板」与「接入模型 / 快速接入向导」之间
+ * 的统一转换入口，保证两处展示的服务商集合来自同一份数据源。
+ *
+ * uid 规则（与既有约定一致，不可随意更改——它同时是 providerUid 幂等标识）：
+ * - builtin：直接用模板 id（后端内置 id 即 deepseek/zhipu/moonshot/... ，与本地硬编码 uid 同名）
+ * - custom ：加 `tpl-` 前缀做幂等标识，避免与 builtin id 冲突
+ */
+export function templateToPreset(t: {
+  id: string
+  name: string
+  category: string
+  type: string
+  defaultBaseUrl: string
+  supportedModels?: string[]
+  source?: string
+}): ProviderPreset {
+  return {
+    uid: t.source === 'custom' ? 'tpl-' + t.id : t.id,
+    label: t.name,
+    category: (['domestic', 'international', 'local'].includes(t.category)
+      ? t.category
+      : 'custom') as ProviderPresetCategory,
+    baseUrl: t.defaultBaseUrl,
+    path: inferPath(t.defaultBaseUrl),
+    adapter: ADAPTER_BY_TYPE[t.type] || 'normal',
+    models: t.supportedModels ? [...t.supportedModels] : []
+  }
+}
+
+/**
  * 系统设置「模型供应商模板」的自定义模板（source=custom）→ 预设目录项。
  * 接入模型预设目录 = 内置 13 家 + 后端自定义模板实时合并；uid 以 tpl- 前缀幂等。
  */
@@ -46,17 +78,7 @@ export function customTemplateToPreset(t: {
   defaultBaseUrl: string
   supportedModels?: string[]
 }): ProviderPreset {
-  return {
-    uid: 'tpl-' + t.id,
-    label: t.name,
-    category: (['domestic', 'international', 'local'].includes(t.category)
-      ? t.category
-      : 'custom') as ProviderPresetCategory,
-    baseUrl: t.defaultBaseUrl,
-    path: inferPath(t.defaultBaseUrl),
-    adapter: ADAPTER_BY_TYPE[t.type] || 'normal',
-    models: t.supportedModels ? [...t.supportedModels] : []
-  }
+  return templateToPreset({ ...t, source: 'custom' })
 }
 
 interface TemplateSource {
@@ -111,10 +133,17 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
 ]
 
 /**
- * 根据 baseUrl 与 path 反推厂商预设
+ * 根据 baseUrl 与 path 反推厂商预设。
+ *
+ * `presets` 传入后端模板集合时可识别用户自定义模板；不传则退回本地内置预设。
  */
-export function matchProviderPreset(baseUrl: string, path: string): ProviderPreset | undefined {
-  return PROVIDER_PRESETS.find(p => p.baseUrl === baseUrl && p.path === path)
+export function matchProviderPreset(
+  baseUrl: string,
+  path: string,
+  presets?: ProviderPreset[]
+): ProviderPreset | undefined {
+  const list = presets && presets.length ? presets : PROVIDER_PRESETS
+  return list.find(p => p.baseUrl === baseUrl && p.path === path)
 }
 
 /**

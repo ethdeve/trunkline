@@ -425,8 +425,16 @@
             <el-select v-model="form.allowedModels" multiple filterable clearable
                        :disabled="whitelistDisabled"
                        :placeholder="t('apiKeys.form.allowedModelsPlaceholder')" style="width: 100%;">
-              <el-option v-for="m in modelSelectOptions" :key="m.value" :label="m.value" :value="m.value">
-                <span>{{ m.value }}</span>
+              <el-option
+                v-for="m in modelSelectOptions"
+                :key="m.value"
+                :label="m.providerName ? m.value + '（' + m.providerName + '）' : m.value"
+                :value="m.value"
+              >
+                <span class="select-option-name">{{ m.value }}</span>
+                <el-tag v-if="m.providerName" size="small" type="info" effect="plain" class="option-tag">
+                  {{ m.providerName }}
+                </el-tag>
                 <el-tag v-if="m.mismatched" size="small" type="warning" class="option-tag">
                   {{ t('apiKeys.form.mismatchedTag') }}
                 </el-tag>
@@ -940,6 +948,8 @@ const groupOptions = ref<string[]>([])
 const groupServiceTypeMap = ref<Record<string, string>>({})
 // 模型（实例）名 → 模型分类（后端 DTO 的 serviceType 为权威派生值）
 const modelServiceTypeMap = ref<Record<string, string>>({})
+// 模型（实例）名 → 所属供应商名称（后端实例 DTO 随 providerId 一起带出，用于白名单下拉标注厂商）
+const modelProviderMap = ref<Record<string, string>>({})
 
 // 密钥权限可选项：值与后端 ServiceTypeConstants 枚举规范值一致
 // （chat/embedding/rerank/tts/stt/imgGen/imgEdit），标签复用统一的模型分类文案
@@ -953,6 +963,7 @@ const loadModelAndGroupOptions = async () => {
   try {
     const nameSet = new Set<string>()
     const typeMap: Record<string, string> = {}
+    const providerMap: Record<string, string> = {}
     await Promise.all(COMMON_SERVICE_TYPES.map(async (st: string) => {
       try {
         const res = await getServiceInstances(st)
@@ -962,11 +973,14 @@ const loadModelAndGroupOptions = async () => {
           // DTO 的 serviceType 是后端权威派生值；缺失时回退到本次查询的分类
           const resolved = normalizeServiceType(i.serviceType || '') ?? normalizeServiceType(st)
           if (resolved) typeMap[i.name] = resolved
+          // 厂商名称：后端已随实例带出，缺失则不标注
+          if (i.providerName) providerMap[i.name] = i.providerName
         })
       } catch { /* 单个服务类型加载失败不影响其它 */ }
     }))
     modelOptions.value = [...nameSet].sort()
     modelServiceTypeMap.value = typeMap
+    modelProviderMap.value = providerMap
   } catch { /* ignore */ }
   try {
     const pres = await getPoolList()
@@ -1119,29 +1133,30 @@ const whitelistDisabled = computed(() => form.value.permissions.length === 0)
 const buildSelectOptions = (
   reachable: string[],
   selected: string[],
-  typeMap: Record<string, string>
+  typeMap: Record<string, string>,
+  providerMap: Record<string, string>
 ) => {
   const seen = new Set<string>()
-  const options: Array<{ value: string; mismatched: boolean }> = []
+  const options: Array<{ value: string; mismatched: boolean; providerName?: string }> = []
   reachable.forEach((name) => {
     seen.add(name)
-    options.push({ value: name, mismatched: false })
+    options.push({ value: name, mismatched: false, providerName: providerMap[name] })
   })
   // 已选但不在候选集中的项：可能是存量跨分类数据，必须保留可见
   selected.forEach((name) => {
     if (seen.has(name)) return
     seen.add(name)
     const st = typeMap[name]
-    options.push({ value: name, mismatched: !!st && !grantedServiceTypes.value.has(st) })
+    options.push({ value: name, mismatched: !!st && !grantedServiceTypes.value.has(st), providerName: providerMap[name] })
   })
   return options
 }
 
 const modelSelectOptions = computed(() =>
-  buildSelectOptions(reachableModelOptions.value, form.value.allowedModels, modelServiceTypeMap.value)
+  buildSelectOptions(reachableModelOptions.value, form.value.allowedModels, modelServiceTypeMap.value, modelProviderMap.value)
 )
 const groupSelectOptions = computed(() =>
-  buildSelectOptions(reachableGroupOptions.value, form.value.allowedGroups, groupServiceTypeMap.value)
+  buildSelectOptions(reachableGroupOptions.value, form.value.allowedGroups, groupServiceTypeMap.value, {})
 )
 
 // 密钥ID验证规则（computed：语言切换后校验文案即时更新）
@@ -2227,6 +2242,11 @@ const applyRoutePrefill = () => {
 .option-tag {
   margin-left: 8px;
   vertical-align: middle;
+}
+
+/* 白名单下拉里的模型名（与厂商标签并排） */
+.select-option-name {
+  margin-right: 4px;
 }
 
 .form-alert {

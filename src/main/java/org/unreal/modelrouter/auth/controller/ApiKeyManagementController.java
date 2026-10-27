@@ -171,6 +171,10 @@ public class ApiKeyManagementController {
                 .then(Mono.just(RouterResponse.<Void>success(null, "删除API密钥成功")))
                 .onErrorResume(e -> {
                     log.error("删除API密钥失败: {}", keyId, e);
+                    // 保留业务异常自身的错误码与状态码（如 409 依赖冲突），不要一律吞成 404
+                    if (e instanceof ApiException apiException) {
+                        return Mono.error(apiException);
+                    }
                     return Mono.error(ApiException.of("NOT_FOUND", "API密钥不存在"));
                 });
     }

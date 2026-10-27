@@ -50,6 +50,7 @@
     "fetchFailed": "获取模板列表失败: {error}",
     "deleteConfirm": "确定要删除模板「{name}」吗？删除后预设目录与适配器向导将不再展示该供应商。",
     "deleteConfirmTitle": "确认删除",
+    "deleteRemedy": "删错了可在「模型配置 → 供应商模板」中重新创建同名模板。",
     "deleteSuccess": "模板删除成功",
     "deleteFailed": "删除失败",
     "deleteFailedDetail": "删除失败: {error}",
