@@ -28,6 +28,7 @@ import org.unreal.modelrouter.router.pool.model.PoolDefinition;
 import org.unreal.modelrouter.router.pool.model.PoolMember;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -143,10 +144,60 @@ public class PoolConfigController {
                                                                      @RequestBody final PoolDefinition pool) {
         PoolDefinition existing = findPool(poolName);
         validatePool(pool);
+        // v3.5 治理收口 —— 强制实例先入组：移除成员后若某实例在其它分组已无归属，
+        // 该实例将变成「游离实例」（无对外入口，等同死配置）→ 阻断变更。
+        assertNoOrphanedInstances(existing, pool);
         pool.setPoolName(existing.getPoolName());
         persistenceService.save(pool);
         reloadActivePools();
         return ResponseEntity.ok(RouterResponse.success(pool));
+    }
+
+    /**
+     * 断言分组成员变更不会产生游离实例。
+     *
+     * <p>游离实例 = 不属于任何启用分组的实例。v3.5 治理收口后，实例只有作为分组成员
+     * 才可被调用（对外入口是分组 / 虚拟模型名），游离实例等同死配置。</p>
+     *
+     * @param existing 分组当前定义
+     * @param updated  分组更新后的定义
+     */
+    private void assertNoOrphanedInstances(final PoolDefinition existing, final PoolDefinition updated) {
+        if (dependencyCheckService == null) {
+            return;
+        }
+        final Set<String> oldKeys = memberKeys(existing);
+        final Set<String> newKeys = memberKeys(updated);
+        if (oldKeys.isEmpty()) {
+            return;
+        }
+        final Set<String> removed = new LinkedHashSet<>(oldKeys);
+        removed.removeAll(newKeys);
+        if (removed.isEmpty()) {
+            return;
+        }
+        final List<String> orphans = dependencyCheckService.findOrphanedInstances(
+                existing.getPoolName(), removed);
+        if (!orphans.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "以下已接入模型移除后不再属于任何模型分组，将无法对外提供调用："
+                            + String.join("、", orphans)
+                            + "。请先将其加入其它模型分组，或先删除该已接入模型。");
+        }
+    }
+
+    /** 提取分组成员标识集合（UUID / 实例名 / 数字主键） */
+    private Set<String> memberKeys(final PoolDefinition pool) {
+        final Set<String> keys = new LinkedHashSet<>();
+        if (pool == null || pool.getMembers() == null) {
+            return keys;
+        }
+        for (final PoolMember member : pool.getMembers()) {
+            if (member != null && member.getInstanceId() != null && !member.getInstanceId().isBlank()) {
+                keys.add(member.getInstanceId());
+            }
+        }
+        return keys;
     }
 
     /**
@@ -157,10 +208,19 @@ public class PoolConfigController {
     public ResponseEntity<RouterResponse<Void>> deletePool(@PathVariable final String poolName) {
         findPool(poolName);
         // 删除前依赖校验：密钥白名单仍引用该分组时拒绝删除（否则密钥调用将 403/404）
-        dependencyCheckService.assertDeletable(dependencyCheckService.checkPool(poolName));
+        // v3.5：成员实例将变成「游离实例」只提示不阻断——否则「删实例被成员关系阻断、
+        // 删分组被游离阻断」会形成死锁，管理员无法清理配置。
+        final org.unreal.modelrouter.config.dependency.DependencyReport report =
+                dependencyCheckService.checkPool(poolName);
+        dependencyCheckService.assertDeletable(report);
         persistenceService.remove(poolName);
         reloadActivePools();
-        return ResponseEntity.ok(RouterResponse.success(null));
+        // report 可为 null（未装配依赖校验的极简上下文）：与 assertDeletable 的容错口径保持一致
+        final java.util.List<String> warnings = report != null ? report.getWarnings() : null;
+        final String message = warnings == null || warnings.isEmpty()
+                ? "删除资源池成功"
+                : "删除资源池成功，但请注意：" + String.join("；", warnings);
+        return ResponseEntity.ok(RouterResponse.success(null, message));
     }
 
     private PoolDefinition findPool(final String poolName) {

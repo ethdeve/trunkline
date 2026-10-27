@@ -128,4 +128,63 @@ class ModelCatalogServiceTest {
         assertTrue(models.stream().anyMatch(m -> "model1".equals(m.get("id"))));
         assertTrue(models.stream().noneMatch(m -> "model-off".equals(m.get("id"))));
     }
+
+    // ------------------------------------------------------------------
+    // v3.5 单线治理：对外模型目录只列「可调用」的模型分组
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("可调用清单只列模型分组，不列实例名（实例已不可对外调用）")
+    void listCallableModels_shouldOnlyContainGroups() {
+        when(registry.getAvailableModels(ModelServiceRegistry.ServiceType.chat))
+                .thenReturn(Set.of("m-chat-1", "m-chat-2"));
+        final PoolDefinition enabled = new PoolDefinition();
+        enabled.setPoolName("chat-pool");
+        enabled.setServiceType("chat");
+        when(poolSelector.getAllPools()).thenReturn(List.of(enabled));
+
+        final List<Map<String, Object>> models = catalogService.listCallableModels();
+
+        assertTrue(models.stream().noneMatch(m -> "m-chat-1".equals(m.get("id"))),
+                "实例名不得出现在对外可调用清单中");
+        assertTrue(models.stream().noneMatch(m -> "m-chat-2".equals(m.get("id"))),
+                "实例名不得出现在对外可调用清单中");
+        assertTrue(models.stream().anyMatch(m -> "chat-pool".equals(m.get("id"))),
+                "分组名必须出现在可调用清单中");
+    }
+
+    @Test
+    @DisplayName("auto-model 系统分组在有实例的分类下恒为可调用")
+    void listCallableModels_shouldIncludeAutoModel() {
+        when(registry.getAvailableModels(ModelServiceRegistry.ServiceType.chat))
+                .thenReturn(Set.of("m-chat-1"));
+        when(registry.getAvailableModels(ModelServiceRegistry.ServiceType.embedding))
+                .thenReturn(Set.of());
+        when(poolSelector.getAllPools()).thenReturn(List.of());
+
+        final List<Map<String, Object>> models = catalogService.listCallableModels();
+
+        assertEquals(1, models.size());
+        assertEquals(PoolSelector.AUTO_MODEL, models.get(0).get("id"));
+        assertEquals("chat", models.get(0).get("service_type"));
+    }
+
+    @Test
+    @DisplayName("OpenAI 可调用清单结构：object=list + data 为分组数组")
+    void listCallableModelsAsOpenAiList_shouldReturnOpenAiShape() {
+        when(registry.getAvailableModels(ModelServiceRegistry.ServiceType.chat))
+                .thenReturn(Set.of("m-chat-1"));
+        final PoolDefinition enabled = new PoolDefinition();
+        enabled.setPoolName("chat-pool");
+        enabled.setServiceType("chat");
+        when(poolSelector.getAllPools()).thenReturn(List.of(enabled));
+
+        final Map<String, Object> response = catalogService.listCallableModelsAsOpenAiList();
+
+        assertEquals("list", response.get("object"));
+        @SuppressWarnings("unchecked")
+        final List<Map<String, Object>> data = (List<Map<String, Object>>) response.get("data");
+        assertTrue(data.stream().anyMatch(m -> "chat-pool".equals(m.get("id"))));
+        assertTrue(data.stream().noneMatch(m -> "m-chat-1".equals(m.get("id"))));
+    }
 }

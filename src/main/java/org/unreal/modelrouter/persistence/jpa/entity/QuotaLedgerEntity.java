@@ -20,16 +20,16 @@ import java.time.LocalDateTime;
  * 配额账本实体（v3.1 PR-1）。
  *
  * <p>一行 = 一个维度在指定窗口内的一份用量快照。维度列（tenant_id / api_key_id / user_id /
- * service_type / model）声明为 NOT NULL，缺省维度写入空串哨兵值（见
+ * service_type / model / group_id）声明为 NOT NULL，缺省维度写入空串哨兵值（见
  * {@code org.unreal.modelrouter.auth.security.quota.QuotaDimension#SENTINEL}）。</p>
  *
- * <p>唯一约束覆盖「五个维度列 + 窗口类型 + 窗口起点」共七列，保证同一维度在同一窗口内只有一行，
+ * <p>唯一约束覆盖「六个维度列 + 窗口类型 + 窗口起点」共八列，保证同一维度在同一窗口内只有一行，
  * 累加落库（{@code UPDATE ... SET request_count = request_count + :delta}）才不会重复计数。</p>
  *
  * <p>该表由 Hibernate {@code ddl-auto} 自动创建（与 {@link ApiCallHistoryEntity} 一致），
  * 无需额外登记（建表由迁移脚本负责）。</p>
  *
- * <p>列长度取舍：五个维度列合计 625 字符，可使七列唯一索引在 utf8mb4 下不超过
+ * <p>列长度取舍：六个维度列合计 880 字符，可使八列唯一索引在 utf8mb4 下不超过
  * PostgreSQL btree 的 2704 字节上限（H2 无此限制，但保留跨库可移植性）。</p>
  *
  * @author JAiRouter Team
@@ -43,10 +43,12 @@ import java.time.LocalDateTime;
 @Table(name = "quota_ledger",
     uniqueConstraints = @UniqueConstraint(
         name = "uk_quota_ledger_dimension_window",
-        columnNames = {"tenant_id", "api_key_id", "user_id", "service_type", "model",
+        columnNames = {"tenant_id", "api_key_id", "user_id", "service_type", "model", "group_id",
             "window_type", "window_start"}),
     indexes = {
         @Index(name = "idx_quota_ledger_api_key", columnList = "api_key_id"),
+        @Index(name = "idx_quota_ledger_group", columnList = "group_id"),
+        @Index(name = "idx_quota_ledger_model", columnList = "model"),
         @Index(name = "idx_quota_ledger_window", columnList = "window_type, window_start")
     })
 public class QuotaLedgerEntity {
@@ -92,6 +94,13 @@ public class QuotaLedgerEntity {
     @Column(name = "model", nullable = false, length = 255)
     @Builder.Default
     private String model = "";
+
+    /**
+     * 分组（模型分组 / 池）名称（缺省为空串哨兵值）
+     */
+    @Column(name = "group_id", nullable = false, length = 255)
+    @Builder.Default
+    private String groupId = "";
 
     /**
      * 窗口类型（MINUTE / HOUR / DAY / MONTH）
@@ -147,6 +156,9 @@ public class QuotaLedgerEntity {
         }
         if (model == null) {
             model = "";
+        }
+        if (groupId == null) {
+            groupId = "";
         }
     }
 }

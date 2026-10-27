@@ -61,9 +61,9 @@ public class ServiceTypeCatalogAdapter implements ServiceTypeCatalogApi {
     /**
      * {@inheritDoc}
      *
-     * <p>实例名与分组名都会登记到同一张映射里：运行时
-     * {@code hasModelPermission} 判定的是 {@code allowedModels ∪ allowedGroups}
-     * （两个名单是并集语义），且池路由优先于实例过滤，所以同一个名字既要考虑
+     * <p>实例名与分组名都会登记到同一张映射里：v3.5 治理收口后
+     * {@code hasModelPermission} 只判定 {@code allowedGroups}（唯一模型级授权维度），
+     * 且池路由优先于实例过滤，所以同一个名字既要考虑
      * 「作为实例名」的归属，也要考虑「作为分组名」的归属。</p>
      *
      * <p>分类值统一归一化到 {@link ServiceTypeConstants.ServiceType} 的规范值

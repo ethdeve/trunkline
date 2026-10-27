@@ -77,7 +77,6 @@ public class CustomReactiveAuthenticationManager implements ReactiveAuthenticati
                             apiKeyInfo.getKeyId(),
                             apiKey,
                             apiKeyInfo.getPermissions(),
-                            apiKeyInfo.getAllowedModels(),
                             apiKeyInfo.getAllowedGroups()
                     );
                     authenticated.setAuthenticated(true);

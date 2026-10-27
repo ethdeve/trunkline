@@ -93,7 +93,9 @@
         "LB_STRATEGY": "How traffic is split across instances",
         "RATE_LIMIT": "Rate limit per rule (capacity/rate required)",
         "TARGET_TAGS": "Select instances by tags (AND)"
-      }
+      },
+      "groupNamePlaceholder": "Select or enter a model group name",
+      "targetModelPlaceholder": "Select or enter the target model (instance)"
     },
     "rateLimit": {
       "capacityLabel": "Rate Limit Capacity",

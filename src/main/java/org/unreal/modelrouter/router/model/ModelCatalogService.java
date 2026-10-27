@@ -8,6 +8,7 @@ import org.unreal.modelrouter.router.pool.model.PoolDefinition;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -15,11 +16,17 @@ import java.util.Set;
 /**
  * 模型目录服务（v3.1）.
  *
- * <p>汇总所有服务类型的可用模型，供两个入口面共用：
+ * <p>汇总所有服务类型的可用模型，供两个入口面使用：
  * <ul>
- *   <li>控制台面 {@code GET /api/models}：返回 {@code RouterResponse} 包裹体；</li>
- *   <li>OpenAI 原生面 {@code GET /v1/models}：返回原生 {@code {object:"list", data:[...]}}。</li>
+ *   <li>控制台面 {@code GET /api/models}：返回 {@code RouterResponse} 包裹体，
+ *       内容为<b>全量清单</b>（实例 + 分组），供管理端查看接入情况；</li>
+ *   <li>OpenAI 原生面 {@code GET /v1/models}：返回原生 {@code {object:"list", data:[...]}}，
+ *       内容为<b>可调用清单</b>（只有模型分组），与 v3.5 单线治理口径一致。</li>
  * </ul>
+ *
+ * <p>两个入口面的清单口径按 v3.5 治理收口做了区分：实例名已不可对外调用
+ * （路由层关闭实例直调、白名单层只认分组），因此对外的模型目录不应再列实例名，
+ * 否则 OpenAI 兼容客户端按目录发起调用必然 403/404。</p>
  *
  * <p>抽取自原 {@code ModelInfoController} 的内联逻辑，字段集合保持完全一致，避免两处漂移。</p>
  *
@@ -91,6 +98,73 @@ public class ModelCatalogService {
         }
 
         return allModels;
+    }
+
+    /**
+     * 列出全部可调用模型（v3.5 单线治理：<b>只有模型分组（虚拟模型名）可被调用</b>）。
+     *
+     * <p>实例名在 v3.5 之后<b>不再是对外可调用的模型名</b>——路由层已关闭实例直调
+     * （未命中任何分组即 404），密钥白名单也只配分组（直调实例会被白名单层 403）。
+     * 因此 OpenAI 兼容的模型目录（{@code GET /v1/models}）只列分组，
+     * 否则客户端按目录里的实例名发起调用必然失败，属于对外契约与治理口径不一致。</p>
+     *
+     * <p>包含：</p>
+     * <ul>
+     *   <li>已启用的模型分组（{@code poolName}）；</li>
+     *   <li>{@code auto-model} 系统分组——该分类下存在实例时恒为可调用（虚拟分组，
+     *       表示「该分类全部健康实例」），无需显式配置。</li>
+     * </ul>
+     *
+     * @return 模型信息列表（id / object / created / owned_by / service_type / adapter）
+     */
+    public List<Map<String, Object>> listCallableModels() {
+        final List<Map<String, Object>> models = new ArrayList<>();
+        final Set<String> listed = new LinkedHashSet<>();
+
+        for (final ModelServiceRegistry.ServiceType serviceType : ModelServiceRegistry.ServiceType.values()) {
+            final Set<String> availableModels = registry.getAvailableModels(serviceType);
+            if (availableModels == null || availableModels.isEmpty()) {
+                continue;
+            }
+            // auto-model 系统分组：该分类下有实例即可调用（不受是否配置了同名池影响）
+            if (listed.add(PoolSelector.AUTO_MODEL)) {
+                models.add(buildModelEntry(PoolSelector.AUTO_MODEL, serviceType.name()));
+            }
+        }
+
+        for (final PoolDefinition pool : poolSelector.getAllPools()) {
+            if (!pool.isEnabled() || pool.getPoolName() == null || pool.getPoolName().isBlank()) {
+                continue;
+            }
+            listed.add(pool.getPoolName());
+            models.add(buildModelEntry(pool.getPoolName(), pool.getServiceType()));
+        }
+
+        return models;
+    }
+
+    /**
+     * 以 OpenAI 列表结构返回全部<b>可调用</b>模型（模型分组）。
+     *
+     * @return {@code {object:"list", data:[{...}]}}，可直接作为 {@code GET /v1/models} 响应体
+     */
+    public Map<String, Object> listCallableModelsAsOpenAiList() {
+        final Map<String, Object> response = new LinkedHashMap<>();
+        response.put("object", "list");
+        response.put("data", listCallableModels());
+        return response;
+    }
+
+    /** 构造一条 OpenAI 风格的模型条目 */
+    private Map<String, Object> buildModelEntry(final String modelName, final String serviceType) {
+        final Map<String, Object> modelInfo = new LinkedHashMap<>();
+        modelInfo.put("id", modelName);
+        modelInfo.put("object", "model");
+        modelInfo.put("created", System.currentTimeMillis() / 1000);
+        modelInfo.put("owned_by", "model-router");
+        modelInfo.put("service_type", serviceType);
+        modelInfo.put("adapter", resolveAdapterNameByString(serviceType));
+        return modelInfo;
     }
 
     /**

@@ -57,10 +57,18 @@ public class PoolSelector {
 
     /**
      * 判断模型名是否为已配置的启用池名(供处理器决定是否改写下游请求/响应的 model 字段)
+     *
+     * <p><b>v3.5 治理收口：</b>{@link #AUTO_MODEL} 是<b>系统分组</b>（虚拟模型名）——
+     * 它表示「该服务分类下的全部健康实例」，不依赖任何显式池配置。
+     * 因此它必须恒被识别为分组名，才能进入分组路由分支并纳入分组白名单管控。</p>
      */
     public boolean isPoolName(final String modelName) {
         if (modelName == null) {
             return false;
+        }
+        if (AUTO_MODEL.equals(modelName)) {
+            // 系统分组：恒真
+            return true;
         }
         for (PoolDefinition pool : pools) {
             if (pool.isEnabled() && pool.getPoolName() != null && pool.getPoolName().equals(modelName)) {
@@ -68,6 +76,19 @@ public class PoolSelector {
             }
         }
         return false;
+    }
+
+    /**
+     * 判断模型名是否为系统分组（{@link #AUTO_MODEL}）。
+     *
+     * <p>系统分组代表「该分类全部健康实例」，其成员是动态的（随实例增删变化），
+     * 不依赖显式池配置。</p>
+     *
+     * @param modelName 模型名
+     * @return 是系统分组返回 {@code true}
+     */
+    public boolean isSystemGroup(final String modelName) {
+        return AUTO_MODEL.equals(modelName);
     }
 
     /**

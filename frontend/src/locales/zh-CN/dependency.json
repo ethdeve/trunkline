@@ -1,0 +1,16 @@
+{
+  "dependency": {
+    "blockedTitle": "「{name}」仍被引用，无法删除",
+    "blockedHint": "请先处理上述引用（删除引用方，或把引用对象从白名单/分组中移除）后再删除。",
+    "acknowledge": "知道了",
+    "noDependency": "当前没有被其他对象引用，可安全删除",
+    "batchBlocked": "以下模型仍被引用，已中止批量删除：{names}",
+    "types": {
+      "provider": "模型供应商",
+      "instance": "已接入模型",
+      "pool": "模型分组",
+      "apiKey": "密钥",
+      "other": "其他引用"
+    }
+  }
+}

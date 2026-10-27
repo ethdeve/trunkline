@@ -243,9 +243,51 @@ public final class LocalCounterBackend implements QuotaCounterBackend {
         if (apiKeyId == null || apiKeyId.isEmpty()) {
             return 0;
         }
+        return resetLocalMatching(key -> apiKeyId.equals(key.dimension().apiKeyId()));
+    }
+
+    /**
+     * 删除某个分组（模型分组 / 池）的全部本地槽位。
+     *
+     * @param groupId 分组（池）名称
+     * @return 删除的槽位数
+     */
+    public int resetLocalByGroupId(final String groupId) {
+        if (groupId == null || groupId.isEmpty()) {
+            return 0;
+        }
+        return resetLocalMatching(key -> groupId.equals(key.dimension().groupId()));
+    }
+
+    /**
+     * 删除某个模型（已接入模型 / 实例）的全部本地槽位。
+     *
+     * @param model 模型（实例）名称
+     * @return 删除的槽位数
+     */
+    public int resetLocalByModel(final String model) {
+        if (model == null || model.isEmpty()) {
+            return 0;
+        }
+        return resetLocalMatching(key -> model.equals(key.dimension().model()));
+    }
+
+    /**
+     * 按匹配器删除本地槽位（通用）。
+     *
+     * <p>命名带 {@code Matching} 后缀，避免与 {@link #resetLocal(String)} 形成重载歧义
+     * （{@code resetLocal(null)} 会因两个引用类型重载而无法编译）。</p>
+     *
+     * @param matcher 槽位匹配断言
+     * @return 删除的槽位数
+     */
+    public int resetLocalMatching(final java.util.function.Predicate<QuotaCounterKey> matcher) {
+        if (matcher == null) {
+            return 0;
+        }
         final List<QuotaCounterKey> keys = new ArrayList<>();
         for (final QuotaCounterKey key : slots.keySet()) {
-            if (apiKeyId.equals(key.dimension().apiKeyId())) {
+            if (matcher.test(key)) {
                 keys.add(key);
             }
         }

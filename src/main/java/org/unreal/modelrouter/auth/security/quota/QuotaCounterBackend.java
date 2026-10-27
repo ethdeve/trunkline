@@ -98,6 +98,26 @@ public interface QuotaCounterBackend {
     Mono<Long> reset(String apiKeyId);
 
     /**
+     * 删除某个分组（模型分组 / 池）的全部计数（分组配额重置）。
+     *
+     * @param groupId 分组（池）名称
+     * @return 删除的桶数量
+     */
+    default Mono<Long> resetByGroup(final String groupId) {
+        return Mono.just(0L);
+    }
+
+    /**
+     * 删除某个模型（已接入模型 / 实例）的全部计数（模型配额重置）。
+     *
+     * @param model 模型（实例）名称
+     * @return 删除的桶数量
+     */
+    default Mono<Long> resetByModel(final String model) {
+        return Mono.just(0L);
+    }
+
+    /**
      * 删除指定窗口内窗口起点早于 {@code cutoff} 的计数（保留期清理）。
      *
      * @param window 窗口类型

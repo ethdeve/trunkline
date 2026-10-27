@@ -57,11 +57,11 @@ class RedisCounterBackendTest {
     // ==================== key 结构 ====================
 
     @Test
-    @DisplayName("key 结构：{prefix}:{tenant}:{apiKey}:{user}:{service}:{model}:{WINDOW}:{windowStart}")
+    @DisplayName("key 结构：{prefix}:{tenant}:{apiKey}:{user}:{service}:{model}:{group}:{WINDOW}:{windowStart}")
     void keyOf_shouldBuildNamespacedKey() {
         final QuotaCounterKey key = new QuotaCounterKey(DIMENSION, QuotaWindow.DAY, QuotaWindow.DAY.windowStart(NOW));
 
-        assertEquals("jairouter:quota:tenant-1:key-1:user-1:chat:gpt-4:DAY:20260314000000", backend.keyOf(key));
+        assertEquals("jairouter:quota:tenant-1:key-1:user-1:chat:gpt-4:_:DAY:20260314000000", backend.keyOf(key));
     }
 
     @Test
@@ -70,7 +70,7 @@ class RedisCounterBackendTest {
         final QuotaCounterKey key = new QuotaCounterKey(QuotaDimension.ofApiKey("key:1"),
             QuotaWindow.MINUTE, QuotaWindow.MINUTE.windowStart(NOW));
 
-        assertEquals("jairouter:quota:_:key_1:_:_:_:MINUTE:20260314134500", backend.keyOf(key));
+        assertEquals("jairouter:quota:_:key_1:_:_:_:_:MINUTE:20260314134500", backend.keyOf(key));
     }
 
     @Test
@@ -79,11 +79,20 @@ class RedisCounterBackendTest {
         properties.getDistributed().setKeyPrefix("custom:quota");
         final QuotaCounterKey key = new QuotaCounterKey(DIMENSION, QuotaWindow.HOUR, QuotaWindow.HOUR.windowStart(NOW));
 
-        assertEquals("custom:quota:tenant-1:key-1:user-1:chat:gpt-4:HOUR:20260314130000", backend.keyOf(key));
+        assertEquals("custom:quota:tenant-1:key-1:user-1:chat:gpt-4:_:HOUR:20260314130000", backend.keyOf(key));
 
         properties.getDistributed().setKeyPrefix("");
         assertEquals(QuotaProperties.DEFAULT_DISTRIBUTED_KEY_PREFIX, properties.distributedKeyPrefix());
         assertTrue(backend.keyOf(key).startsWith("jairouter:quota:"));
+    }
+
+    @Test
+    @DisplayName("key 结构：分组维度写入第 6 段（v3.4 新增）")
+    void keyOf_shouldCarryGroupSegment() {
+        final QuotaCounterKey key = new QuotaCounterKey(QuotaDimension.ofGroup("group-a"),
+            QuotaWindow.DAY, QuotaWindow.DAY.windowStart(NOW));
+
+        assertEquals("jairouter:quota:_:_:_:_:_:group-a:DAY:20260314000000", backend.keyOf(key));
     }
 
     // ==================== Lua 调用形态与累加 ====================
@@ -100,7 +109,7 @@ class RedisCounterBackendTest {
         final FakeReactiveRedisTemplate.Invocation invocation = template.lastInvocation();
         assertNotNull(invocation);
         assertEquals(RedisCounterBackend.INCREMENT_SCRIPT, invocation.script());
-        assertEquals(List.of("jairouter:quota:tenant-1:key-1:user-1:chat:gpt-4:MINUTE:20260314134500"),
+        assertEquals(List.of("jairouter:quota:tenant-1:key-1:user-1:chat:gpt-4:_:MINUTE:20260314134500"),
             invocation.keys());
         // ARGV = [请求增量, token 增量, TTL 秒数]（MINUTE 窗口 × 1d 保留期 = 86400s）
         assertEquals(List.of("1", "120", "86400"), invocation.args());
@@ -246,9 +255,43 @@ class RedisCounterBackendTest {
     }
 
     @Test
+    @DisplayName("resetByGroup：只删除分组段匹配的桶（v3.4 分组维度，8 段 key）")
+    void resetByGroup_shouldDeleteOnlyMatchingGroupBuckets() {
+        final LocalDateTime dayStart = QuotaWindow.DAY.windowStart(NOW);
+        final String groupBucket = backend.keyOf(new QuotaCounterKey(
+            QuotaDimension.ofGroup("group-a"), QuotaWindow.DAY, dayStart));
+        final String otherGroupBucket = backend.keyOf(new QuotaCounterKey(
+            QuotaDimension.ofGroup("group-b"), QuotaWindow.DAY, dayStart));
+        template.seed(groupBucket, 3L, 30L, 1000L);
+        template.seed(otherGroupBucket, 1L, 10L, 1000L);
+
+        assertEquals(1L, backend.resetByGroup("group-a").block(WAIT));
+
+        assertNull(template.values(groupBucket));
+        assertNotNull(template.values(otherGroupBucket), "其它分组的桶不得被误删");
+        assertEquals(0L, backend.resetByGroup("").block(WAIT));
+    }
+
+    @Test
+    @DisplayName("resetByModel：只删除模型段匹配的桶（7/8 段 key 均识别）")
+    void resetByModel_shouldDeleteOnlyMatchingModelBuckets() {
+        final LocalDateTime dayStart = QuotaWindow.DAY.windowStart(NOW);
+        final String modelBucket = backend.keyOf(new QuotaCounterKey(
+            new QuotaDimension("t1", "k1", "u1", "chat", "gpt-4"), QuotaWindow.DAY, dayStart));
+        final String otherModelBucket = backend.keyOf(new QuotaCounterKey(
+            new QuotaDimension("t1", "k1", "u1", "chat", "gpt-3"), QuotaWindow.DAY, dayStart));
+        template.seed(modelBucket, 3L, 30L, 1000L);
+        template.seed(otherModelBucket, 1L, 10L, 1000L);
+
+        assertEquals(1L, backend.resetByModel("gpt-4").block(WAIT));
+
+        assertNull(template.values(modelBucket));
+        assertNotNull(template.values(otherModelBucket), "其它模型的桶不得被误删");
+    }
+
+    @Test
     @DisplayName("deleteExpired：只删除指定窗口且窗口起点早于截止时间的桶")
-    void deleteExpired_shouldDeleteOnlyExpiredBuckets() {
-        final QuotaCounterKey expiredDay = new QuotaCounterKey(DIMENSION, QuotaWindow.DAY,
+    void deleteExpired_shouldDeleteOnlyExpiredBuckets() {        final QuotaCounterKey expiredDay = new QuotaCounterKey(DIMENSION, QuotaWindow.DAY,
             QuotaWindow.DAY.windowStart(NOW.minusDays(40)));
         final QuotaCounterKey freshDay = new QuotaCounterKey(DIMENSION, QuotaWindow.DAY,
             QuotaWindow.DAY.windowStart(NOW));

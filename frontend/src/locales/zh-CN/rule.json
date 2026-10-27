@@ -93,7 +93,9 @@
         "LB_STRATEGY": "用哪种方式在多个实例之间分流",
         "RATE_LIMIT": "按规则限流(容量/速率必填)",
         "TARGET_TAGS": "按标签圈选实例(AND)"
-      }
+      },
+      "groupNamePlaceholder": "选择或输入模型分组名",
+      "targetModelPlaceholder": "选择或输入目标模型(已接入模型)"
     },
     "rateLimit": {
       "capacityLabel": "限流容量",

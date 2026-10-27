@@ -98,6 +98,37 @@ public class ServiceStateManager {
     }
 
     /**
+     * 失效指定服务类型的健康状态缓存，使其回落到默认值（健康）。
+     *
+     * <p><b>为什么需要它：</b>服务级健康状态是一个<b>粗粒度快照</b>——它只由
+     * {@code ServerChecker.checkServiceInstances} 写入，而该方法<b>仅为「有实例」的分类
+     * 建立检查任务</b>。因此当实例被新增/删除/改址后：</p>
+     * <ul>
+     *   <li>分类下实例被删光 → 该分类不再进入检查循环 → 缓存里的 {@code false} <b>永久残留</b>；</li>
+     *   <li>分类下新增实例 → 缓存仍停留在上一轮探活结论 → 长达一个探活周期（30s）内
+     *       该分类被判为不可用。</li>
+     * </ul>
+     * <p>配置变更是<b>管理员的显式意图</b>（换地址、上新实例），不应被上一轮的
+     * 探活结论否决。调用方在实例增删改后调用本方法清掉陈旧快照，
+     * 让下一次探活重新给出结论。</p>
+     *
+     * <p>注意：清掉服务级快照<b>不会</b>削弱可用性保护——真正的可用性判定在
+     * <b>实例级</b>（{@code instanceHealthBits}）与路由层（{@code filterHealthyInstances}）：
+     * 真正不健康的实例仍会被过滤掉，候选为空时路由层会抛出带逐成员明细的 503。</p>
+     *
+     * @param serviceType 服务类型（分类名）
+     * @since 2026-10-27
+     */
+    public void resetServiceHealthStatus(final String serviceType) {
+        if (serviceType == null || serviceType.isBlank()) {
+            return;
+        }
+        if (serviceHealthStatus.remove(serviceType) != null) {
+            log.info("已失效服务健康状态快照（配置变更后需重新探活）: {}", serviceType);
+        }
+    }
+
+    /**
      * 更新实例健康状态
      *
      * @param serviceType 服务类型
@@ -133,6 +164,65 @@ public class ServiceStateManager {
         } else {
             log.debug("实例健康状态未发生变化: {}", instanceKey);
         }
+    }
+
+    /**
+     * 重置指定实例的健康判定，使其回落到「未检查」（默认健康）。
+     *
+     * <p><b>为什么需要它：</b>实例健康位（{@link HealthStateBitSet}）的键是
+     * {@code serviceType:instanceId}——instanceId 是 UUID，<b>改上游地址不会改变键</b>。
+     * 于是「把实例从故障地址改到可用地址」之后，旧地址探活得到的 {@code false} 会
+     * 一直挂在该实例上，直到下一轮探活（最长 30s）才被覆盖。期间该实例被路由层
+     * {@code filterHealthyInstances} 直接过滤掉，表现为「改完地址还是 503」。</p>
+     *
+     * <p>调用方在实例地址变更后调用本方法，让旧地址的探活结论立即失效、
+     * 下一轮探活重新给出结论。</p>
+     *
+     * @param serviceType 服务类型（分类名）
+     * @param instance    实例
+     * @since 2026-10-27
+     */
+    public void resetInstanceHealthStatus(final String serviceType,
+                                          final ModelRouterProperties.ModelInstance instance) {
+        if (serviceType == null || serviceType.isBlank() || instance == null) {
+            return;
+        }
+        // 键口径必须与探活写入侧一致（InstanceKeys.healthKey），
+        // 否则重置的是另一个键，旧结论清不掉。
+        clearHealthByKey(InstanceKeys.healthKey(serviceType, instance));
+    }
+
+    /**
+     * 按「分类 + 实例ID」重置实例的健康判定，使其回落到「未检查」（默认健康）。
+     *
+     * <p><b>与 {@link #resetInstanceHealthStatus(String, ModelRouterProperties.ModelInstance)} 的区别：</b>
+     * 本方法直接用 {@code serviceType + ":" + instanceId} 构造键，<b>不依赖运行时实例对象</b>。
+     * 配置层（{@code ServiceInstanceManager}）手里只有 JPA 实体，没有运行时
+     * {@code ModelInstance}，因此需要这条按 ID 的入口。</p>
+     *
+     * <p><b>键口径说明：</b>健康位的键是 {@code serviceType:instanceId}，
+     * 其中 {@code serviceType} 取<b>分类枚举名</b>（{@code chat / imgGen / imgEdit} …）。
+     * {@code service_config.service_type} 落库值与该枚举名一致，因此直接传入即可；
+     * 若后续出现别名形态，需先归一化再调用，否则清的是另一个键。</p>
+     *
+     * @param serviceType 服务类型（分类枚举名）
+     * @param instanceId  实例唯一 ID（UUID）
+     * @since 2026-10-27
+     */
+    public void resetInstanceHealthStatusById(final String serviceType, final String instanceId) {
+        if (serviceType == null || serviceType.isBlank() || instanceId == null || instanceId.isBlank()) {
+            return;
+        }
+        clearHealthByKey(serviceType + ":" + instanceId);
+    }
+
+    /**
+     * 按健康键清理「健康 / 已知」标志位（保留位索引，避免位槽泄漏）。
+     */
+    private void clearHealthByKey(final String instanceKey) {
+        instanceHealthBits.clearHealth(instanceKey);
+        instanceHealthStatus.remove(instanceKey);
+        log.info("已重置实例健康状态（配置变更后需重新探活）: {}", instanceKey);
     }
 
     /**

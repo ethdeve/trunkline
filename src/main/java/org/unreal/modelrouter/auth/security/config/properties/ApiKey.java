@@ -148,15 +148,13 @@ public class ApiKey {
     private List<String> permissions;
 
     /**
-     * 可访问的模型/实例白名单（按路由时的 model 参数值，即实例名或模型分组名进行匹配）。
-     * 为空（null 或空集合）表示允许该服务类型下所有模型（兼容老 Key）；
-     * 非空时仅放行名单内的模型或分组。
-     */
-    private List<String> allowedModels;
-
-    /**
      * 可访问的模型分组（资源池 / pool）白名单（按分组名匹配）。
-     * 与 allowedModels 一并参与模型级鉴权；为空表示不额外限制分组。
+     *
+     * <p><b>v3.5 治理收口：</b>对外调用的唯一入口是模型分组（虚拟模型名），
+     * 因此本白名单是<b>唯一的模型级授权维度</b>——原先并存的 {@code allowedModels}
+     * （已接入模型 / 实例名白名单）已移除，实例不再能绕过所属分组被直接调用。</p>
+     *
+     * <p>为空（null 或空集合）表示允许该服务类型下所有分组（兼容老 Key）。</p>
      */
     private List<String> allowedGroups;
 
@@ -273,25 +271,17 @@ public class ApiKey {
     }
 
     /**
-     * 检查指定模型/分组名是否在白名单内。
-     * 白名单为空（null 或空集合）视为放行该服务类型下所有模型（兼容老 Key）。
+     * 检查指定模型分组名是否在白名单内。
+     * 白名单为空（null 或空集合）视为放行该服务类型下所有分组（兼容老 Key）。
      *
-     * @param modelName 调用方请求中的 model 参数（实例名或分组名）
+     * @param modelName 调用方请求中的 model 参数（v3.5 起必为模型分组名）
      * @return 是否允许调用
      */
     public boolean isModelAllowed(final String modelName) {
-        boolean hasModels = allowedModels != null && !allowedModels.isEmpty();
-        boolean hasGroups = allowedGroups != null && !allowedGroups.isEmpty();
-        if (!hasModels && !hasGroups) {
+        if (allowedGroups == null || allowedGroups.isEmpty()) {
             return true;
         }
-        if (allowedModels != null && allowedModels.contains(modelName)) {
-            return true;
-        }
-        if (allowedGroups != null && allowedGroups.contains(modelName)) {
-            return true;
-        }
-        return false;
+        return allowedGroups.contains(modelName);
     }
 
     /**
@@ -441,7 +431,6 @@ public class ApiKey {
                 .quotaAlertThreshold(this.quotaAlertThreshold)
                 .description(this.description)
                 .permissions(this.permissions)
-                .allowedModels(this.allowedModels)
                 .allowedGroups(this.allowedGroups)
                 .expiresAt(this.expiresAt)
                 .createdAt(this.createdAt)
@@ -479,7 +468,6 @@ public class ApiKey {
                 .quotaAlertThreshold(this.quotaAlertThreshold)
                 .description(this.description)
                 .permissions(this.permissions)
-                .allowedModels(this.allowedModels)
                 .allowedGroups(this.allowedGroups)
                 .expiresAt(this.expiresAt)
                 .createdAt(this.createdAt)

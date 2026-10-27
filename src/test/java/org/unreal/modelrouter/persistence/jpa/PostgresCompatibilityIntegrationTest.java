@@ -336,11 +336,11 @@ class PostgresCompatibilityIntegrationTest {
         entityManager.clear();
 
         int updated = quotaLedgerRepository.accumulate(
-                "t1", "k1", "u1", "chat", "m1", "DAY", windowStart,
+                "t1", "k1", "u1", "chat", "m1", "", "DAY", windowStart,
                 5L, 500L, LocalDateTime.now());
         assertEquals(1, updated, "应命中 1 行");
         updated = quotaLedgerRepository.accumulate(
-                "t1", "k1", "u1", "chat", "m1", "DAY", windowStart,
+                "t1", "k1", "u1", "chat", "m1", "", "DAY", windowStart,
                 3L, 300L, LocalDateTime.now());
         assertEquals(1, updated, "第二次也应命中 1 行");
 
@@ -351,7 +351,7 @@ class PostgresCompatibilityIntegrationTest {
 
         // 不存在的维度应返回 0（即「账本行不存在」，调用方需插入）
         int none = quotaLedgerRepository.accumulate(
-                "t-nope", "k-nope", "u-nope", "chat", "m1", "DAY", windowStart,
+                "t-nope", "k-nope", "u-nope", "chat", "m1", "", "DAY", windowStart,
                 1L, 1L, LocalDateTime.now());
         assertEquals(0, none, "不存在的维度应返回 0");
     }

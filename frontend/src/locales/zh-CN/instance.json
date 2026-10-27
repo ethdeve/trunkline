@@ -139,6 +139,8 @@
     "serviceTypeInPool": "该模型已被模型分组「{pools}」引用，无法修改分类。请先从这些分组中移除它。",
     "serviceTypeNotFound": "目标模型分类「{type}」不存在，请先在系统设置中创建。",
     "serviceTypeLabel": "模型分类",
-    "serviceTypeSelectTip": "不确定选哪个？先在上游控制台确认该模型的调用方式（对话 / 向量 / 重排序 / 语音 / 图像）。"
+    "serviceTypeSelectTip": "不确定选哪个？先在上游控制台确认该模型的调用方式（对话 / 向量 / 重排序 / 语音 / 图像）。",
+    "ungrouped": "未入组",
+    "ungroupedTip": "该实例尚未加入任何模型分组，单线治理下没有对外调用入口（实例直调已关闭）。请先把它加入分组。"
   }
 }

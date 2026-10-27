@@ -1,0 +1,16 @@
+{
+  "dependency": {
+    "blockedTitle": "\"{name}\" is still referenced and cannot be deleted",
+    "blockedHint": "Please resolve the references above (delete the referencing object, or remove the reference from the allowlist/group) before deleting.",
+    "acknowledge": "Got it",
+    "noDependency": "No other object references it; it is safe to delete",
+    "batchBlocked": "The following models are still referenced, batch deletion aborted: {names}",
+    "types": {
+      "provider": "Model provider",
+      "instance": "Connected model",
+      "pool": "Model group",
+      "apiKey": "API key",
+      "other": "Other reference"
+    }
+  }
+}

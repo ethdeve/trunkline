@@ -157,7 +157,12 @@ public class ServiceInstanceManager {
 
         ServiceInstanceEntity saved = serviceInstanceRepository.save(entity);
         log.info("Created service instance: {} for config: {}", saved.getId(), serviceConfigId);
-        
+
+        // v3.5 治理收口:新增实例后,同类下上一轮探活结论(可能全是 false)不再适用于新实例 ——
+        // 服务级健康快照只由 ServerChecker 每 30s 刷新,期间该分类会被整体判为不可用。
+        // 管理员「新增实例」是显式意图,不应被上一轮结论否决。
+        resetInstanceHealthStateAfterChange(entity);
+
         // 保存版本
         saveVersion("添加服务实例: " + request.getName());
         
@@ -224,12 +229,19 @@ public class ServiceInstanceManager {
         ServiceInstanceEntity saved = serviceInstanceRepository.save(entity);
         log.info("Updated service instance: {}", id);
 
+        // v3.5 治理收口:实例地址/路径变更后,上一轮的探活结论已不适用 ——
+        // 实例健康位的键是 serviceType:instanceId(UPDATE 不改 instanceId),所以旧地址
+        // 探活得到的 false 会一直挂在该实例上,直到下一轮探活(最长 30s)才被覆盖。
+        // 期间该实例被路由层 filterHealthyInstances 直接过滤掉,表现为「改完地址还是 503」。
+        // 这里主动重置该实例的健康判定(回落为「未检查」),让下一轮探活重新给出结论。
+        resetInstanceHealthStateAfterChange(entity);
+
         // 重置该实例的熔断器状态
         // 使用 entity.getInstanceId()（UUID）而不是数据库 ID
         String circuitBreakerKey = saved.getInstanceId() != null ? saved.getInstanceId() : String.valueOf(id);
         String instanceUrl = saved.getBaseUrl() + saved.getPath();
         circuitBreakerManager.resetCircuitBreaker(circuitBreakerKey, instanceUrl);
-        log.info("Reset circuit breaker for updated instance: dbId={}, instanceId={}, url={}", 
+        log.info("Reset circuit breaker for updated instance: dbId={}, instanceId={}, url={}",
                 id, circuitBreakerKey, instanceUrl);
 
         // 保存版本
@@ -237,7 +249,6 @@ public class ServiceInstanceManager {
 
         return convertToDTO(saved);
     }
-
     /**
      * 跨服务类型（模型分类）迁移。
      * <p>实例表没有 service_type 列——服务类型由 {@code service_config_id} 决定，
@@ -401,9 +412,59 @@ public class ServiceInstanceManager {
         circuitBreakerRepository.deleteByInstanceId(id);
         serviceInstanceRepository.deleteById(id);
         log.info("Deleted service instance: {}", id);
-        
+
+        // v3.5 治理收口:删除实例后清理它的健康位与同类快照 ——
+        // ① 实例健康位:被删实例的健康记录会一直留在位图里,占用位槽且永不复用;
+        // ② 服务级快照:若该实例是同类最后一个,ServerChecker 不再为该类建检查任务,
+        //    上一轮的 false 会永久残留,导致该分类后续新增实例时仍被判不可用。
+        resetInstanceHealthStateAfterChange(entity);
+
         // 保存版本
         saveVersion("删除服务实例: " + instanceName);
+    }
+
+    /**
+     * 实例增删改后重置该实例的健康判定，并失效同类的服务级健康快照。
+     *
+     * <p><b>为什么需要它：</b>健康状态有两层，都由 {@code ServerChecker} 每 30s 刷新：</p>
+     * <ul>
+     *   <li><b>实例级</b>（{@code instanceHealthBits}）：键是 {@code serviceType:instanceId}。
+     *       instanceId 是 UUID，<b>改上游地址不会改变键</b>，于是旧地址探活得到的
+     *       {@code false} 会一直挂在该实例上，直到下一轮探活才被覆盖。期间该实例被
+     *       路由层 {@code filterHealthyInstances} 直接过滤掉 → 「改完地址还是 503」。</li>
+     *   <li><b>服务级</b>（{@code serviceHealthStatus}）：只对「有实例」的分类建检查任务，
+     *       所以分类下实例被删光后，缓存里的 {@code false} 会<b>永久残留</b>；
+     *       分类下新增实例时，缓存也停留在上一轮结论 → 最长 30s 内整个分类被判不可用。</li>
+     * </ul>
+     *
+     * <p><b>为什么不削弱可用性保护：</b>清掉的只是<b>陈旧快照</b>，不是判定本身。
+     * 真正的可用性判定在路由层——实例级健康位 + 状态 + 熔断三重过滤，
+     * 候选为空时路由层会抛出带逐成员明细的 503。</p>
+     *
+     * @param entity 变更后的实例实体；为 {@code null} 时只做分类级快照失效
+     * @since 2026-10-27
+     */
+    private void resetInstanceHealthStateAfterChange(final ServiceInstanceEntity entity) {
+        if (entity == null) {
+            return;
+        }
+        // 服务级：失效该实例所属分类的快照（分类名从 service_config 反查）。
+        // service_config.service_type 落库值与 ModelServiceRegistry.ServiceType 枚举名一致
+        // （chat / embedding / rerank / tts / stt / imgGen / imgEdit），
+        // 与探活写入侧的健康键前缀口径相同，可直接用于构造键。
+        final String serviceType = serviceConfigRepository.findById(entity.getServiceConfigId())
+                .map(ServiceConfigEntity::getServiceType)
+                .orElse(null);
+        if (serviceType == null || serviceType.isBlank()) {
+            log.debug("跳过健康状态重置：无法反查实例 {} 的模型分类", entity.getId());
+            return;
+        }
+        // 实例级：清掉「健康 / 已知」标志位但保留位索引（位槽不回收，避免频繁增删耗尽位槽）
+        final String instanceId = entity.getInstanceId();
+        if (instanceId != null && !instanceId.isBlank()) {
+            serviceStateManager.resetInstanceHealthStatusById(serviceType, instanceId);
+        }
+        serviceStateManager.resetServiceHealthStatus(serviceType);
     }
 
     // ==================== v2.11.0 供应商级联操作 ====================

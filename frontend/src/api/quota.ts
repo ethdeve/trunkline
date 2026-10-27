@@ -66,16 +66,35 @@ export interface QuotaStatus {
   counterMetrics?: CounterMetrics
 }
 
+/**
+ * 配额用量维度（对应后端 QuotaDimension 六维）。
+ *
+ * v3.5 治理收口：新增 groupId（模型分组 / 池名，治理主键）。
+ * 单线治理下账本明细行同时带 groupId（分组桶，model 为空）与 model（成员桶，实例名）。
+ */
 export interface QuotaUsageDimensions {
   tenantId: string
   apiKeyId: string
   userId: string
   serviceType: string
   model: string
+  groupId: string
 }
+
+/**
+ * 用量行类型。
+ *
+ * - GROUP：分组聚合行（该分组的总用量，与分组级限额判定口径一致）
+ * - MEMBER：组内明细行（按实例拆分的用量分布）
+ * - KEY：API Key 维度行（密钥总闸）
+ *
+ * GROUP 与 MEMBER 是互斥的两套口径，不可相加（相加会让分组用量翻倍）。
+ */
+export type QuotaUsageScope = 'GROUP' | 'MEMBER' | 'KEY'
 
 export interface QuotaUsageItem {
   dimensions: QuotaUsageDimensions
+  scope?: QuotaUsageScope | string
   window: string
   windowStart: string
   requestCount: number
@@ -88,6 +107,8 @@ export interface QuotaUsageQuery {
   userId?: string
   serviceType?: string
   model?: string
+  /** 模型分组（池）名；指定后后端返回「分组含组内明细」 */
+  groupId?: string
   window?: string
 }
 
@@ -129,8 +150,11 @@ export const getQuotaStatus = async (): Promise<QuotaStatus | null> => {
 
 /**
  * 查询配额多维用量
- * GET /api/monitoring/quota/usage?tenantId=&apiKeyId=&... → RouterResponse<QuotaUsageItem[]>
+ * GET /api/monitoring/quota/usage?tenantId=&groupId=&... → RouterResponse<QuotaUsageItem[]>
  * 配额未启用时返回 data=[] 且 message="配额账本未启用"（HTTP 200，非错误）。
+ *
+ * 指定 groupId 时，后端返回「分组含组内明细」：分组聚合行（scope=GROUP）
+ * + 组内成员明细行（scope=MEMBER），二者口径互斥、不可相加。
  */
 export const getQuotaUsage = async (query: QuotaUsageQuery): Promise<QuotaUsageItem[]> => {
   try {
@@ -140,6 +164,7 @@ export const getQuotaUsage = async (query: QuotaUsageQuery): Promise<QuotaUsageI
     if (query.userId) params.userId = query.userId
     if (query.serviceType) params.serviceType = query.serviceType
     if (query.model) params.model = query.model
+    if (query.groupId) params.groupId = query.groupId
     if (query.window) params.window = query.window
 
     const response = await request.get<RouterResponse<QuotaUsageItem[]>>(

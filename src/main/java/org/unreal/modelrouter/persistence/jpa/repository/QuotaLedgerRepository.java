@@ -31,26 +31,46 @@ import java.util.Optional;
 public interface QuotaLedgerRepository extends JpaRepository<QuotaLedgerEntity, Long> {
 
     /**
-     * 按「五维 + 窗口类型 + 窗口起点」精确查询账本行（七列唯一键）。
+     * 按「六维 + 窗口类型 + 窗口起点」精确查询账本行（八列唯一键）。
      *
      * @param tenantId    租户 ID
      * @param apiKeyId    API Key ID
      * @param userId      用户 ID
      * @param serviceType 服务类型
      * @param model       模型名称
+     * @param groupId     分组（池）名称
      * @param windowType  窗口类型
      * @param windowStart 窗口起点
      * @return 命中的账本行，不存在时返回 {@link Optional#empty()}
      */
     @Transactional(readOnly = true)
-    Optional<QuotaLedgerEntity> findByTenantIdAndApiKeyIdAndUserIdAndServiceTypeAndModelAndWindowTypeAndWindowStart(
+    Optional<QuotaLedgerEntity> findByTenantIdAndApiKeyIdAndUserIdAndServiceTypeAndModelAndGroupIdAndWindowTypeAndWindowStart(
             String tenantId,
             String apiKeyId,
             String userId,
             String serviceType,
             String model,
+            String groupId,
             String windowType,
             LocalDateTime windowStart);
+
+    /**
+     * 查询某个分组（模型分组 / 池）的全部账本行（所有维度与所有窗口）。
+     *
+     * @param groupId 分组（池）名称
+     * @return 账本行列表，无数据时返回空列表
+     */
+    @Transactional(readOnly = true)
+    List<QuotaLedgerEntity> findByGroupId(String groupId);
+
+    /**
+     * 查询某个模型（已接入模型 / 实例）的全部账本行（所有维度与所有窗口）。
+     *
+     * @param model 模型（实例）名称
+     * @return 账本行列表，无数据时返回空列表
+     */
+    @Transactional(readOnly = true)
+    List<QuotaLedgerEntity> findByModel(String model);
 
     /**
      * 查询某个 API Key 的全部账本行（所有维度与所有窗口）。
@@ -81,13 +101,14 @@ public interface QuotaLedgerRepository extends JpaRepository<QuotaLedgerEntity, 
     @Query("UPDATE QuotaLedgerEntity q SET q.requestCount = q.requestCount + :requests, "
            + "q.tokenCount = q.tokenCount + :tokens, q.updatedAt = :updatedAt "
            + "WHERE q.tenantId = :tenantId AND q.apiKeyId = :apiKeyId AND q.userId = :userId "
-           + "AND q.serviceType = :serviceType AND q.model = :model AND q.windowType = :windowType "
-           + "AND q.windowStart = :windowStart")
+           + "AND q.serviceType = :serviceType AND q.model = :model AND q.groupId = :groupId "
+           + "AND q.windowType = :windowType AND q.windowStart = :windowStart")
     int accumulate(@Param("tenantId") String tenantId,
                    @Param("apiKeyId") String apiKeyId,
                    @Param("userId") String userId,
                    @Param("serviceType") String serviceType,
                    @Param("model") String model,
+                   @Param("groupId") String groupId,
                    @Param("windowType") String windowType,
                    @Param("windowStart") LocalDateTime windowStart,
                    @Param("requests") long requests,
@@ -104,6 +125,28 @@ public interface QuotaLedgerRepository extends JpaRepository<QuotaLedgerEntity, 
     @Transactional
     @Query("DELETE FROM QuotaLedgerEntity q WHERE q.apiKeyId = :apiKeyId")
     int deleteByApiKeyId(@Param("apiKeyId") String apiKeyId);
+
+    /**
+     * 删除某个分组（模型分组 / 池）的全部账本行（分组配额重置）。
+     *
+     * @param groupId 分组（池）名称
+     * @return 删除行数
+     */
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM QuotaLedgerEntity q WHERE q.groupId = :groupId")
+    int deleteByGroupId(@Param("groupId") String groupId);
+
+    /**
+     * 删除某个模型（已接入模型 / 实例）的全部账本行（模型配额重置）。
+     *
+     * @param model 模型（实例）名称
+     * @return 删除行数
+     */
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM QuotaLedgerEntity q WHERE q.model = :model")
+    int deleteByModel(@Param("model") String model);
 
     /**
      * 删除指定窗口类型中早于截止时间的账本行（保留期清理）。

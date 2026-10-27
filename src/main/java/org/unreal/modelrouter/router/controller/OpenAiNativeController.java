@@ -78,13 +78,17 @@ public class OpenAiNativeController {
     /**
      * 模型列表接口（OpenAI 原生格式，v3.1 PR-4a）.
      *
+     * <p><b>v3.5 单线治理：</b>只列<b>可调用</b>的模型——即模型分组（虚拟模型名）。
+     * 实例名已不可对外调用（路由层关闭实例直调、密钥白名单只认分组），
+     * 若仍列在目录里，OpenAI 兼容客户端按目录发起调用必然 403/404。</p>
+     *
      * @return {@code {object:"list", data:[{id, object:"model", created, owned_by, service_type, adapter}]}}
      */
     @GetMapping("/models")
     public Mono<ResponseEntity<Map<String, Object>>> models() {
         return Mono.just(ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(modelCatalogService.listAllModelsAsOpenAiList()));
+                .body(modelCatalogService.listCallableModelsAsOpenAiList()));
     }
 
     /**

@@ -51,6 +51,13 @@
     "requestCountUnit": "req",
     "tokenCountUnit": "tokens",
     "confirm": "Confirm",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "groupIdLabel": "Model Group",
+    "groupIdPlaceholder": "Filter by group (group + member detail)",
+    "groupIdColumn": "Model Group",
+    "scopeColumn": "Scope",
+    "scopeGroup": "Group Total",
+    "scopeMember": "Member Detail",
+    "scopeKey": "API Key"
   }
 }

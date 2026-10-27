@@ -202,7 +202,13 @@ class ServiceInstanceManagerMigrationTest {
 
         assertEquals(CHAT_CONFIG_ID, entity.getServiceConfigId());
         assertEquals("chat", dto.getServiceType());
-        org.mockito.Mockito.verifyNoInteractions(serviceStateManager);
+        // 断言收窄为「不触发迁移专属的级联清理」：
+        // 2026-10-27 起，实例更新会统一重置该实例的健康判定（配置变更后需重新探活），
+        // 这与分类迁移无关，不能算作迁移副作用。
+        org.mockito.Mockito.verify(serviceStateManager, org.mockito.Mockito.never())
+                .removeInstanceHealthStatus(anyString(), anyString());
+        org.mockito.Mockito.verify(rateLimitManager, org.mockito.Mockito.never())
+                .removeInstanceRateLimiterById(any(), anyString());
     }
 
     @Test
@@ -218,7 +224,11 @@ class ServiceInstanceManagerMigrationTest {
 
         assertEquals(CHAT_CONFIG_ID, entity.getServiceConfigId());
         assertEquals("chat", dto.getServiceType());
-        org.mockito.Mockito.verifyNoInteractions(serviceStateManager);
+        // 同上：不触发迁移专属的级联清理（健康判定重置与迁移无关）
+        org.mockito.Mockito.verify(serviceStateManager, org.mockito.Mockito.never())
+                .removeInstanceHealthStatus(anyString(), anyString());
+        org.mockito.Mockito.verify(rateLimitManager, org.mockito.Mockito.never())
+                .removeInstanceRateLimiterById(any(), anyString());
     }
 
     @Test
@@ -231,7 +241,10 @@ class ServiceInstanceManagerMigrationTest {
 
         assertNotNull(dto.getServiceType());
         assertEquals("chat", dto.getServiceType());
-        org.mockito.Mockito.verify(serviceConfigRepository).findById(anyLong());
+        // atLeastOnce：2026-10-27 起实例更新会额外反查一次 service_config 拿到分类名，
+        // 用于重置该实例的健康判定（与 DTO 反查是两处独立调用）。
+        org.mockito.Mockito.verify(serviceConfigRepository, org.mockito.Mockito.atLeastOnce())
+                .findById(anyLong());
     }
 
     @Test

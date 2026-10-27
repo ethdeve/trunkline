@@ -58,9 +58,10 @@ class OpenAiNativeControllerTest {
     @Test
     @DisplayName("/v1/models 返回原生 OpenAI 列表（无 RouterResponse 包裹）")
     void models_shouldReturnNativeOpenAiList() {
-        when(modelCatalogService.listAllModelsAsOpenAiList()).thenReturn(Map.of(
+        // v3.5 单线治理：对外模型目录只列「可调用」的模型分组，不再列实例名
+        when(modelCatalogService.listCallableModelsAsOpenAiList()).thenReturn(Map.of(
                 "object", "list",
-                "data", List.of(Map.of("id", "deepseek-chat", "object", "model"))));
+                "data", List.of(Map.of("id", "chat-pool", "object", "model"))));
 
         final ResponseEntity<Map<String, Object>> response = controller.models().block();
 

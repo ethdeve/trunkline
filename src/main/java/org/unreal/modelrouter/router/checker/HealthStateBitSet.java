@@ -105,6 +105,34 @@ public final class HealthStateBitSet {
     }
 
     /**
+     * 重置实例的健康判定，但保留其位索引。
+     *
+     * <p>与 {@link #removeInstance(String)} 的区别：后者会把 {@code instanceIndexMap}
+     * 里的索引一并删除，被删的位槽<b>永远不会被回收复用</b>——频繁增删实例会不断消耗
+     * 位槽，直到触顶 {@code MAX_INSTANCES} 后新实例的健康状态再也记不下
+     * （被静默当作健康）。</p>
+     *
+     * <p>本方法只清掉「健康 / 已知」两个标志位、保留索引：重置后
+     * {@link #getHealth(String)} 返回 {@code null}（未检查过），
+     * {@link #isHealthy(String, boolean)} 回落到调用方给定的默认值。
+     * 用于「实例配置变了（如换了上游地址），旧的探活结论已不适用」的场景。</p>
+     *
+     * @param instanceKey 实例键
+     * @since 2026-10-27
+     */
+    public void clearHealth(final String instanceKey) {
+        Integer index = instanceIndexMap.get(instanceKey);
+        if (index == null) {
+            return;
+        }
+        synchronized (this) {
+            healthBits.clear(index);
+            knownBits.clear(index);
+        }
+        LOGGER.debug("Cleared health state (index kept): {}", instanceKey);
+    }
+
+    /**
      * 获取健康实例数量
      */
     public int getHealthyCount() {

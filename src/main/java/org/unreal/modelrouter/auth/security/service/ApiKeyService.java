@@ -107,10 +107,10 @@ public class ApiKeyService {
             String kh = ApiKeyHashUtil.hashApiKey(kv);
             List<String> validatedPermissions = validatePermissions(req.getPermissions());
             // 白名单与权限分类一致性校验（防止配出「永远调不通」的密钥）
-            apiKeyWhitelistValidator.validate(validatedPermissions, req.getAllowedModels(), req.getAllowedGroups());
+            apiKeyWhitelistValidator.validate(validatedPermissions, req.getAllowedGroups());
             ApiKey ak = ApiKey.builder().keyId(kid).keyHash(kh).keyPrefix("sk-").description(req.getDescription())
                 .permissions(validatedPermissions)
-                .allowedModels(req.getAllowedModels()).allowedGroups(req.getAllowedGroups())
+                .allowedGroups(req.getAllowedGroups())
                 .enabled(req.getEnabled() != null ? req.getEnabled() : true)
                 .expiresAt(req.getExpiresAt()).createdAt(LocalDateTime.now()).createdBy(by).creatorIpAddress(ip)
                 .rotationPeriodDays(req.getRotationPeriodDays() != null ? req.getRotationPeriodDays() : 0)
@@ -132,7 +132,7 @@ public class ApiKeyService {
             return ApiKeyCreationVO.builder().keyId(kid).keyValue(kv).description(ak.getDescription())
                 .createdBy(by)
                 .permissions(ak.getPermissions())
-                .allowedModels(ak.getAllowedModels()).allowedGroups(ak.getAllowedGroups())
+                .allowedGroups(ak.getAllowedGroups())
                 .enabled(ak.isEnabled()).createdAt(ak.getCreatedAt())
                 .expiresAt(ak.getExpiresAt())
                 .dailyRequestLimit(ak.getDailyRequestLimit())
@@ -170,22 +170,17 @@ public class ApiKeyService {
             // 只拦截「本次改动新引入的」不一致项 —— 存量数据里已有的不一致
             // （历史遗留）不阻塞其它字段的编辑，避免存量密钥变成不可编辑的死数据。
             final List<String> oldPermissions = ak.getPermissions();
-            final List<String> oldModels = ak.getAllowedModels();
             final List<String> oldGroups = ak.getAllowedGroups();
             final List<String> newPermissions = req.getPermissions() != null
                     ? validatePermissions(req.getPermissions()) : oldPermissions;
-            final List<String> newModels = req.getAllowedModels() != null
-                    ? req.getAllowedModels() : oldModels;
             final List<String> newGroups = req.getAllowedGroups() != null
                     ? req.getAllowedGroups() : oldGroups;
-            validateWhitelistDelta(oldPermissions, oldModels, oldGroups,
-                    newPermissions, newModels, newGroups);
+            validateWhitelistDelta(oldPermissions, oldGroups, newPermissions, newGroups);
 
             if (req.getDescription() != null) ak.setDescription(req.getDescription());
             if (req.getEnabled() != null) ak.setEnabled(req.getEnabled());
             if (req.getExpiresAt() != null) ak.setExpiresAt(req.getExpiresAt());
             if (req.getPermissions() != null) ak.setPermissions(newPermissions);
-            if (req.getAllowedModels() != null) ak.setAllowedModels(newModels);
             if (req.getAllowedGroups() != null) ak.setAllowedGroups(newGroups);
             if (req.getAllowedIpAddresses() != null) ak.setAllowedIpAddresses(req.getAllowedIpAddresses());
             if (req.getDailyRequestLimit() != null) ak.setDailyRequestLimit(req.getDailyRequestLimit());
@@ -455,7 +450,7 @@ public class ApiKeyService {
     private ApiKeyVO convertToVO(ApiKey ak) {
         ApiKeyVO vo = ApiKeyVO.builder().keyId(ak.getKeyId()).description(ak.getDescription())
             .permissions(normalizeStoredPermissions(ak.getPermissions()))
-            .allowedModels(ak.getAllowedModels()).allowedGroups(ak.getAllowedGroups())
+            .allowedGroups(ak.getAllowedGroups())
             .allowedIpAddresses(ak.getAllowedIpAddresses())
             .enabled(ak.isEnabled()).expired(ak.isExpired())
             .createdAt(ak.getCreatedAt()).createdBy(ak.getCreatedBy()).creatorIpAddress(ak.getCreatorIpAddress())
@@ -504,15 +499,13 @@ public class ApiKeyService {
      * @param newGroups      变更后分组白名单
      */
     private void validateWhitelistDelta(final List<String> oldPermissions,
-                                        final List<String> oldModels,
                                         final List<String> oldGroups,
                                         final List<String> newPermissions,
-                                        final List<String> newModels,
                                         final List<String> newGroups) {
         final Map<String, Set<String>> oldInvalid =
-                apiKeyWhitelistValidator.findInvalidByCategory(oldPermissions, oldModels, oldGroups);
+                apiKeyWhitelistValidator.findInvalidByCategory(oldPermissions, oldGroups);
         final Map<String, Set<String>> newInvalid =
-                apiKeyWhitelistValidator.findInvalidByCategory(newPermissions, newModels, newGroups);
+                apiKeyWhitelistValidator.findInvalidByCategory(newPermissions, newGroups);
         if (newInvalid.isEmpty()) {
             return;
         }

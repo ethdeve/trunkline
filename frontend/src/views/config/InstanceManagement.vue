@@ -67,6 +67,12 @@
                     <template #default="scope">
                       <div class="cell-title">{{ scope.row.tags?.alias || scope.row.name }}</div>
                       <div class="cell-sub">{{ t('instance.modelPrefix') }}{{ scope.row.name }}</div>
+                      <!-- v3.5 治理收口：强制实例必须先入组，未入组实例没有对外入口 -->
+                      <el-tooltip v-if="isUngrouped(scope.row)" :content="t('instance.ungroupedTip')" placement="top">
+                        <el-tag type="danger" size="small" effect="plain" class="ungrouped-tag">
+                          {{ t('instance.ungrouped') }}
+                        </el-tag>
+                      </el-tooltip>
                     </template>
                   </el-table-column>
 
@@ -833,6 +839,21 @@ const findPoolsReferencing = (row: ServiceInstance): string[] => {
   }
 }
 
+/**
+ * 该实例是否「未入组」（不属于任何模型分组）。
+ *
+ * <p>v3.5 治理收口：强制实例必须先入组才有对外入口（实例直调已关闭），
+ * 未入组的实例在列表上显式标出，避免用户以为「配好就能直接调」。</p>
+ *
+ * <p>判定复用删除依赖检查的同一口径（池成员按 instanceId 匹配），
+ * 保证「页面显示未入组」与「后端判定无对外入口」结论一致。</p>
+ */
+const isUngrouped = (row: ServiceInstance): boolean => {
+  // 分组列表未加载完成时不误报（此时无法判定）
+  if (!poolCache.value.length) return false
+  return findPoolsReferencing(row).length === 0
+}
+
 // 关闭对话框
 const handleDialogClose = () => {
   dialogVisible.value = false
@@ -1258,6 +1279,12 @@ onMounted(() => {
   font-size: 12px;
   color: var(--ja-text-secondary);
   margin-top: 2px;
+}
+
+/* v3.5 治理收口：未入组实例标记（无对外调用入口） */
+.ungrouped-tag {
+  margin-top: 4px;
+  font-weight: 400;
 }
 
 .form-tip {

@@ -3,6 +3,8 @@ package org.unreal.modelrouter.auth.security.quota;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -12,6 +14,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * 两处相距较远，因此凭据随请求传递——沿用仓库既有做法（{@code API_KEY_ID_ATTRIBUTE}、
  * {@code CACHE_KEY_ATTRIBUTE}）存放在 {@link ServerHttpRequest#getAttributes()} 中，
  * 由处理器在结算点取回。凭据本身持有账本引用，因此处理器无需额外注入协作方。</p>
+ *
+ * <p><b>多维度</b>（v3.4 配额多维度改造）：一笔请求可能同时占用 Key（总闸）/ 分组 / 模型
+ * 三个独立预算，凭据持有多个维度，结算时对每个维度分别冲正。</p>
  *
  * <p><b>恰一次语义</b>：成功结算与失败回滚都可能被多条路径触发（成功回调、错误回调、取消回调），
  * 凭据用 {@link AtomicBoolean} 保证只有第一次调用生效，避免重复冲正。账本未启用时不会创建凭据，
@@ -29,13 +34,25 @@ public final class QuotaReservation {
     public static final String ATTRIBUTE = "JAIR_QUOTA_RESERVATION";
 
     private final QuotaLedgerService ledgerService;
-    private final QuotaDimension dimension;
+    private final List<QuotaDimension> dimensions;
     private final long estimatedTokens;
     private final AtomicBoolean settled = new AtomicBoolean(false);
     private final AtomicBoolean failed = new AtomicBoolean(false);
 
     /**
-     * 构造预留凭据。
+     * 追加的维度（v3.5 治理收口：选实例后才确定的「实例」维度）。
+     *
+     * <p>预留发生在实例选择之前，此时只知道分组（虚拟模型名），不知道最终落到哪个实例。
+     * 选实例完成后由处理器把实例维度追加进来，使账本明细行同时带
+     * {@code group_id}（治理主键）与 {@code model}（观测明细）。</p>
+     *
+     * <p>用独立列表而非直接改 {@code dimensions}，因为 {@code dimensions} 在构造时
+     * 已被 {@code List.copyOf} 冻结。</p>
+     */
+    private final List<QuotaDimension> appendedDimensions = new ArrayList<>();
+
+    /**
+     * 构造预留凭据（单维度兼容）。
      *
      * @param ledgerService   账本服务
      * @param dimension       账本维度
@@ -44,8 +61,22 @@ public final class QuotaReservation {
     public QuotaReservation(final QuotaLedgerService ledgerService,
                             final QuotaDimension dimension,
                             final long estimatedTokens) {
+        this(ledgerService, List.of(dimension), estimatedTokens);
+    }
+
+    /**
+     * 构造预留凭据（多维度）。
+     *
+     * @param ledgerService   账本服务
+     * @param dimensions      账本维度列表（Key / 分组 / 模型）
+     * @param estimatedTokens 预留时使用的估算 token 数
+     */
+    public QuotaReservation(final QuotaLedgerService ledgerService,
+                            final List<QuotaDimension> dimensions,
+                            final long estimatedTokens) {
         this.ledgerService = ledgerService;
-        this.dimension = dimension;
+        this.dimensions = dimensions == null || dimensions.isEmpty()
+            ? List.of(QuotaDimension.empty()) : List.copyOf(dimensions);
         this.estimatedTokens = Math.max(0L, estimatedTokens);
     }
 
@@ -120,12 +151,52 @@ public final class QuotaReservation {
     }
 
     /**
-     * 账本维度。
+     * 账本维度列表（含预留时确定与后续追加的维度）。
      *
-     * @return 维度
+     * @return 维度列表
+     */
+    public List<QuotaDimension> dimensions() {
+        if (appendedDimensions.isEmpty()) {
+            return dimensions;
+        }
+        final List<QuotaDimension> merged = new ArrayList<>(dimensions);
+        merged.addAll(appendedDimensions);
+        return merged;
+    }
+
+    /**
+     * 追加一个在选实例后才确定的维度（实例维度）。
+     *
+     * <p>追加时<b>立即按「不限额」方式记账</b>（与 {@code reserve} 的无限额分支一致），
+     * 使组内模型维度的用量从此刻起连续；结算时该维度同样参与冲正。</p>
+     *
+     * <p>已结算的凭据不再接受追加（结算已发生，追加会导致计数与冲正不配对）。</p>
+     *
+     * @param dimension 待追加的维度（{@code null} 时忽略）
+     */
+    public void appendDimension(final QuotaDimension dimension) {
+        if (dimension == null || settled.get()) {
+            return;
+        }
+        if (appendedDimensions.contains(dimension)) {
+            return;
+        }
+        try {
+            ledgerService.reserve(QuotaRequest.of(dimension, estimatedTokens));
+            appendedDimensions.add(dimension);
+        } catch (Exception e) {
+            log.warn("配额明细维度追加失败（忽略，不影响主链路）: scope={}, error={}",
+                    dimension, e.toString());
+        }
+    }
+
+    /**
+     * 账本维度（兼容旧调用，取列表首元素）。
+     *
+     * @return 首个维度
      */
     public QuotaDimension dimension() {
-        return dimension;
+        return dimensions.get(0);
     }
 
     /**
@@ -154,15 +225,23 @@ public final class QuotaReservation {
      */
     private void settle(final long actualTokens, final boolean isFailed) {
         if (!settled.compareAndSet(false, true)) {
-            log.debug("配额结算重复调用（忽略）: apiKeyId={}", dimension.apiKeyId());
+            log.debug("配额结算重复调用（忽略）: apiKeyId={}", dimension().apiKeyId());
             return;
         }
         failed.set(isFailed);
+        // 结算需覆盖「预留时维度 + 追加维度」（追加维度在选实例后才确定）
+        final List<QuotaDimension> allDimensions = dimensions();
+        final List<QuotaSettlement> settlements = new ArrayList<>(allDimensions.size());
+        for (final QuotaDimension dim : allDimensions) {
+            settlements.add(new QuotaSettlement(dim, estimatedTokens, actualTokens, isFailed));
+        }
         try {
-            ledgerService.settle(new QuotaSettlement(dimension, estimatedTokens, actualTokens, isFailed));
+            for (final QuotaSettlement settlement : settlements) {
+                ledgerService.settle(settlement);
+            }
         } catch (Exception e) {
             log.warn("配额结算异常（忽略，不影响请求结果）: apiKeyId={}, failed={}, error={}",
-                dimension.apiKeyId(), isFailed, e.toString());
+                dimension().apiKeyId(), isFailed, e.toString());
         }
     }
 }

@@ -277,7 +277,7 @@ class QuotaMonitoringControllerTest {
                 new AtomicReference<>();
         final CountDownLatch invoked = new CountDownLatch(1);
         Schedulers.parallel().schedule(() -> {
-            pending.set(controller.getUsage("t1", "no-slot", "u1", "chat", "gpt-4", "DAY"));
+            pending.set(controller.getUsage("t1", "no-slot", "u1", "chat", "gpt-4", "", "DAY"));
             invoked.countDown();
         });
         assertTrue(invoked.await(5, TimeUnit.SECONDS), "非阻塞线程上的调用必须立即返回（不得同步阻塞）");
@@ -312,7 +312,7 @@ class QuotaMonitoringControllerTest {
                 new AtomicReference<>();
         final CountDownLatch invoked = new CountDownLatch(1);
         Schedulers.parallel().schedule(() -> {
-            pending.set(distributedController.getUsage(null, "redis-key", null, null, null, null));
+            pending.set(distributedController.getUsage(null, "redis-key", null, null, null, null, null));
             invoked.countDown();
         });
         assertTrue(invoked.await(5, TimeUnit.SECONDS));
@@ -345,6 +345,79 @@ class QuotaMonitoringControllerTest {
         assertTrue(resp.getBody().getData().isEmpty());
     }
 
+    // ==================== v3.5 治理收口：分组含组内明细 ====================
+
+    @Test
+    @DisplayName("GET /api/monitoring/quota/usage - 指定 groupId：返回分组聚合行 + 组内明细行")
+    void usageWithGroupIdReturnsAggregateAndMembers() {
+        final LocalDateTime dayStart = QuotaWindow.DAY.windowStart(NOW);
+
+        // 分组桶行（预留期写入）：3 次请求
+        ledgerService.reserve(QuotaRequest.of(QuotaDimension.ofGroup("pool-a"), 300));
+        // 成员桶行（选实例后补记）：i-1 2 次 / i-2 1 次
+        ledgerService.reserve(QuotaRequest.of(QuotaDimension.ofGroupAndModel("pool-a", "i-1"), 200));
+        ledgerService.reserve(QuotaRequest.of(QuotaDimension.ofGroupAndModel("pool-a", "i-2"), 100));
+        assertNotNull(dayStart);
+
+        final ResponseEntity<RouterResponse<List<Map<String, Object>>>> resp =
+                controller.getUsage(null, null, null, null, null, "pool-a", "DAY")
+                        .block(Duration.ofSeconds(5));
+
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        final List<Map<String, Object>> data = resp.getBody().getData();
+
+        final List<Map<String, Object>> aggregates = data.stream()
+                .filter(row -> "GROUP".equals(row.get("scope"))).toList();
+        final List<Map<String, Object>> members = data.stream()
+                .filter(row -> "MEMBER".equals(row.get("scope"))).toList();
+
+        assertEquals(1, aggregates.size(), "分组聚合行应有 1 行");
+        assertEquals(1L, ((Number) aggregates.get(0).get("requestCount")).longValue(),
+                "分组聚合请求数必须等于分组桶行的值（1），不得因成员桶而翻倍为 3");
+        assertEquals(2, members.size(), "组内明细应有 2 行（i-1 / i-2）");
+        for (final Map<String, Object> row : members) {
+            assertNotNull(row.get("dimensions"));
+            @SuppressWarnings("unchecked")
+            final Map<String, String> dims = (Map<String, String>) row.get("dimensions");
+            assertFalse(dims.get("model").isEmpty(), "成员行的 model 必须非空（实例名）");
+            assertEquals("pool-a", dims.get("groupId"));
+        }
+    }
+
+    @Test
+    @DisplayName("GET /api/monitoring/quota/usage - 指定 groupId + model：只返回该实例明细行")
+    void usageWithGroupIdAndModelReturnsMemberOnly() {
+        ledgerService.reserve(QuotaRequest.of(QuotaDimension.ofGroup("pool-a"), 300));
+        ledgerService.reserve(QuotaRequest.of(QuotaDimension.ofGroupAndModel("pool-a", "i-1"), 200));
+        ledgerService.reserve(QuotaRequest.of(QuotaDimension.ofGroupAndModel("pool-a", "i-2"), 100));
+
+        final ResponseEntity<RouterResponse<List<Map<String, Object>>>> resp =
+                controller.getUsage(null, null, null, null, "i-1", "pool-a", "DAY")
+                        .block(Duration.ofSeconds(5));
+
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        final List<Map<String, Object>> data = resp.getBody().getData();
+        assertEquals(1, data.size(), "指定模型时只应返回该实例的明细行");
+        assertEquals("MEMBER", data.get(0).get("scope"));
+        @SuppressWarnings("unchecked")
+        final Map<String, String> dims = (Map<String, String>) data.get(0).get("dimensions");
+        assertEquals("i-1", dims.get("model"));
+    }
+
+    @Test
+    @DisplayName("GET /api/monitoring/quota/usage - 非分组维度返回 scope=KEY")
+    void usageWithoutGroupReturnsKeyScope() {
+        ledgerService.reserve(QuotaRequest.of(QuotaDimension.ofApiKey("key-s"), 10));
+
+        final ResponseEntity<RouterResponse<List<Map<String, Object>>>> resp =
+                requestUsage(null, "key-s", null, null, null, "DAY");
+
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        final List<Map<String, Object>> data = resp.getBody().getData();
+        assertEquals(1, data.size());
+        assertEquals("KEY", data.get(0).get("scope"));
+    }
+
     // ==================== 辅助 ====================
 
     /**
@@ -361,7 +434,7 @@ class QuotaMonitoringControllerTest {
     private ResponseEntity<RouterResponse<List<Map<String, Object>>>> requestUsage(
             final String tenantId, final String apiKeyId, final String userId,
             final String serviceType, final String model, final String window) {
-        return controller.getUsage(tenantId, apiKeyId, userId, serviceType, model, window)
+        return controller.getUsage(tenantId, apiKeyId, userId, serviceType, model, "", window)
                 .block(Duration.ofSeconds(5));
     }
 
@@ -421,6 +494,15 @@ class QuotaMonitoringControllerTest {
                 return proxy == args[0];
             }
             if ("findByApiKeyId".equals(name)) {
+                return new ArrayList<>();
+            }
+            if ("findByGroupId".equals(name)) {
+                return new ArrayList<>();
+            }
+            if ("findByModel".equals(name)) {
+                return new ArrayList<>();
+            }
+            if ("findAll".equals(name)) {
                 return new ArrayList<>();
             }
             if ("count".equals(name) || "countAll".equals(name)) {

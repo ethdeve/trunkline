@@ -28,6 +28,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li>名字在目录中查不到 → 无法判定，放行（不误伤存量/外部模型名）</li>
  * </ol>
  *
+ * <p><b>v3.5 治理收口</b>：密钥白名单只剩<b>分组白名单</b>一维（模型维度已移除，
+ * 单线治理下「可调用的模型」= 分组的成员），因此校验器签名由三参数
+ * （permissions / allowedModels / allowedGroups）收敛为两参数
+ * （permissions / allowedGroups）。</p>
+ *
  * <p>本测试不依赖 Mockito，直接构造真实对象与手写的 catalog 桩，
  * 避免沙箱环境 self-attach 限制。</p>
  */
@@ -87,19 +92,19 @@ class ApiKeyWhitelistValidatorTest {
                 new StubCatalog().put("chat-pool", "chat").put("tts-pool", "tts"));
 
         final IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> validator.validate(List.of("chat"), List.of(), List.of("tts-pool")));
+                () -> validator.validate(List.of("chat"), List.of("tts-pool")));
         assertTrue(ex.getMessage().contains("tts-pool"), "报错应指出具体分组: " + ex.getMessage());
         assertTrue(ex.getMessage().contains("tts"), "报错应指出所属分类: " + ex.getMessage());
     }
 
     @Test
-    @DisplayName("白名单模型分类不被权限覆盖 → 拒绝")
-    void rejectsModelOutsideGrantedCategory() {
+    @DisplayName("白名单分组分类不被权限覆盖 → 拒绝（多分组时任一不一致即拒绝）")
+    void rejectsWhenAnyGroupOutsideGrantedCategory() {
         final ApiKeyWhitelistValidator validator = validator(
-                new StubCatalog().put("glm-5.1", "chat").put("bge-reranker", "rerank"));
+                new StubCatalog().put("chat-pool", "chat").put("tts-pool", "tts"));
 
         assertThrows(IllegalArgumentException.class,
-                () -> validator.validate(List.of("chat"), List.of("bge-reranker"), List.of()));
+                () -> validator.validate(List.of("chat"), List.of("chat-pool", "tts-pool")));
     }
 
     @Test
@@ -108,7 +113,7 @@ class ApiKeyWhitelistValidatorTest {
         final ApiKeyWhitelistValidator validator = validator(
                 new StubCatalog().put("chat-pool", "chat").put("glm-5.1", "chat"));
 
-        assertDoesNotThrow(() -> validator.validate(List.of("chat"), List.of("glm-5.1"), List.of("chat-pool")));
+        assertDoesNotThrow(() -> validator.validate(List.of("chat"), List.of("chat-pool")));
     }
 
     @Test
@@ -118,7 +123,7 @@ class ApiKeyWhitelistValidatorTest {
                 new StubCatalog().put("chat-pool", "chat").put("tts-pool", "tts"));
 
         assertDoesNotThrow(() -> validator.validate(List.of("chat", "tts"),
-                List.of(), List.of("chat-pool", "tts-pool")));
+                List.of("chat-pool", "tts-pool")));
     }
 
     @Test
@@ -128,7 +133,7 @@ class ApiKeyWhitelistValidatorTest {
                 new StubCatalog().put("chat-pool", "chat"));
 
         assertDoesNotThrow(() -> validator.validate(List.of("chat"),
-                List.of("deleted-instance"), List.of("external-model")));
+                List.of("deleted-instance", "external-model")));
     }
 
     @Test
@@ -137,8 +142,8 @@ class ApiKeyWhitelistValidatorTest {
         final ApiKeyWhitelistValidator validator = validator(
                 new StubCatalog().put("tts-pool", "tts"));
 
-        assertDoesNotThrow(() -> validator.validate(List.of(), List.of(), List.of("tts-pool")));
-        assertDoesNotThrow(() -> validator.validate(null, List.of(), List.of("tts-pool")));
+        assertDoesNotThrow(() -> validator.validate(List.of(), List.of("tts-pool")));
+        assertDoesNotThrow(() -> validator.validate(null, List.of("tts-pool")));
     }
 
     @Test
@@ -147,8 +152,8 @@ class ApiKeyWhitelistValidatorTest {
         final ApiKeyWhitelistValidator validator = validator(
                 new StubCatalog().put("tts-pool", "tts"));
 
-        assertDoesNotThrow(() -> validator.validate(List.of("admin"), List.of(), List.of("tts-pool")));
-        assertDoesNotThrow(() -> validator.validate(List.of("ADMIN"), List.of(), List.of("tts-pool")));
+        assertDoesNotThrow(() -> validator.validate(List.of("admin"), List.of("tts-pool")));
+        assertDoesNotThrow(() -> validator.validate(List.of("ADMIN"), List.of("tts-pool")));
     }
 
     @Test
@@ -157,7 +162,7 @@ class ApiKeyWhitelistValidatorTest {
         final ApiKeyWhitelistValidator validator = validator(
                 new StubCatalog().put("shared-name", "chat", "tts"));
 
-        assertDoesNotThrow(() -> validator.validate(List.of("chat"), List.of("shared-name"), List.of()));
+        assertDoesNotThrow(() -> validator.validate(List.of("chat"), List.of("shared-name")));
     }
 
     @Test
@@ -166,9 +171,9 @@ class ApiKeyWhitelistValidatorTest {
         final ApiKeyWhitelistValidator validator = validator(
                 new StubCatalog().put("image-model", "imgGen"));
 
-        assertDoesNotThrow(() -> validator.validate(List.of("IMGGEN"), List.of("image-model"), List.of()));
+        assertDoesNotThrow(() -> validator.validate(List.of("IMGGEN"), List.of("image-model")));
         assertThrows(IllegalArgumentException.class,
-                () -> validator.validate(List.of("chat"), List.of("image-model"), List.of()));
+                () -> validator.validate(List.of("chat"), List.of("image-model")));
     }
 
     @Test
@@ -178,7 +183,7 @@ class ApiKeyWhitelistValidatorTest {
                 new StubCatalog().put("tts-pool", "tts").put("stt-pool", "stt"));
 
         final Map<String, Set<String>> invalid = validator.findInvalidByCategory(
-                List.of("chat"), List.of(), List.of("tts-pool", "stt-pool"));
+                List.of("chat"), List.of("tts-pool", "stt-pool"));
 
         assertEquals(2, invalid.size());
         assertTrue(invalid.containsKey("tts"));
@@ -192,7 +197,7 @@ class ApiKeyWhitelistValidatorTest {
     void allowsWhenCatalogAbsent() {
         final ApiKeyWhitelistValidator validator = validator(null);
 
-        assertDoesNotThrow(() -> validator.validate(List.of("chat"), List.of(), List.of("tts-pool")));
-        assertTrue(validator.findInvalidByCategory(List.of("chat"), List.of(), List.of("tts-pool")).isEmpty());
+        assertDoesNotThrow(() -> validator.validate(List.of("chat"), List.of("tts-pool")));
+        assertTrue(validator.findInvalidByCategory(List.of("chat"), List.of("tts-pool")).isEmpty());
     }
 }

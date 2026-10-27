@@ -56,8 +56,8 @@ public final class RedisCounterBackend implements QuotaCounterBackend {
     /** SCAN 单批数量 */
     private static final int SCAN_BATCH = 256;
 
-    /** key 段数量：tenant / apiKey / user / service / model / WINDOW / windowStart */
-    private static final int KEY_SEGMENTS = 7;
+    /** key 段数量：tenant / apiKey / user / service / model / group / WINDOW / windowStart */
+    private static final int KEY_SEGMENTS = 8;
 
     /** 空维度片段占位符 */
     private static final String EMPTY_SEGMENT = "_";
@@ -213,6 +213,37 @@ public final class RedisCounterBackend implements QuotaCounterBackend {
     }
 
     @Override
+    public Mono<Long> resetByGroup(final String groupId) {
+        if (groupId == null || groupId.isEmpty()) {
+            return Mono.just(0L);
+        }
+        final String groupSegment = sanitize(groupId);
+        final String pattern = properties.distributedKeyPrefix() + ":*:*:*:*:" + groupSegment + ":*:*";
+        return deleteMatching(pattern, key -> {
+            final String[] segments = segmentsOf(key);
+            // 分组仅存在于 8 段新格式 key（段 5）；旧 7 段 key 无分组概念，跳过
+            return segments != null && segments.length == KEY_SEGMENTS && groupSegment.equals(segments[5]);
+        });
+    }
+
+    @Override
+    public Mono<Long> resetByModel(final String model) {
+        if (model == null || model.isEmpty()) {
+            return Mono.just(0L);
+        }
+        final String modelSegment = sanitize(model);
+        // model 在 7 段（旧）与 8 段（新，含分组）格式中均位于段 4，因此用
+        // 「4 段通配 + 模型段 + 1 段通配」的单一模式即可覆盖两种格式。
+        // 不可用「7 段模式 + 8 段模式」两套扫描：末段通配会跨冒号匹配，
+        // 同一 key 会被两套模式各命中一次，删除计数翻倍。
+        final String pattern = properties.distributedKeyPrefix() + ":*:*:*:*:" + modelSegment + ":*";
+        return deleteMatching(pattern, key -> {
+            final String[] segments = segmentsOf(key);
+            return segments != null && modelSegment.equals(segments[4]);
+        });
+    }
+
+    @Override
     public Mono<Long> deleteExpired(final QuotaWindow window, final LocalDateTime cutoff) {
         if (window == null || cutoff == null) {
             return Mono.just(0L);
@@ -220,10 +251,16 @@ public final class RedisCounterBackend implements QuotaCounterBackend {
         final String pattern = properties.distributedKeyPrefix() + ":*:" + window.name() + ":*";
         return deleteMatching(pattern, key -> {
             final String[] segments = segmentsOf(key);
-            if (segments == null || !window.name().equals(segments[5])) {
+            if (segments == null) {
                 return false;
             }
-            final LocalDateTime windowStart = parseWindowStart(segments[6]);
+            // 7 段（旧）: WINDOW=段5 / windowStart=段6；8 段（新，含分组）: WINDOW=段6 / windowStart=段7
+            final int windowIdx = segments.length == KEY_SEGMENTS ? 6 : 5;
+            final int startIdx = segments.length == KEY_SEGMENTS ? 7 : 6;
+            if (!window.name().equals(segments[windowIdx])) {
+                return false;
+            }
+            final LocalDateTime windowStart = parseWindowStart(segments[startIdx]);
             return windowStart != null && windowStart.isBefore(cutoff);
         });
     }
@@ -232,7 +269,8 @@ public final class RedisCounterBackend implements QuotaCounterBackend {
      * 构造某个计数键对应的 Redis key。
      *
      * @param key 计数键
-     * @return Redis key，形如 {@code {prefix}:{tenant}:{apiKey}:{user}:{service}:{model}:{WINDOW}:{windowStart}}
+     * @return Redis key，形如
+     *         {@code {prefix}:{tenant}:{apiKey}:{user}:{service}:{model}:{group}:{WINDOW}:{windowStart}}
      */
     public String keyOf(final QuotaCounterKey key) {
         final QuotaDimension dimension = key.dimension();
@@ -242,6 +280,7 @@ public final class RedisCounterBackend implements QuotaCounterBackend {
             + ':' + sanitize(dimension.userId())
             + ':' + sanitize(dimension.serviceType())
             + ':' + sanitize(dimension.model())
+            + ':' + sanitize(dimension.groupId())
             + ':' + key.window().name()
             + ':' + key.windowStart().format(WINDOW_START_FORMAT);
     }
@@ -278,10 +317,13 @@ public final class RedisCounterBackend implements QuotaCounterBackend {
     }
 
     /**
-     * 拆分 key 为固定段数（{@code tenant/apiKey/user/service/model/WINDOW/windowStart}）。
+     * 拆分 key 为固定段数（{@code tenant/apiKey/user/service/model/group/WINDOW/windowStart}）。
+     *
+     * <p>兼容迁移前的 7 段旧格式 key（无分组段）：分组维度在迁移后才引入，旧 key 不含
+     * {@code group} 段，按 7 段解析（段 5=WINDOW、段 6=windowStart）。新格式为 8 段。</p>
      *
      * @param key Redis key
-     * @return 段数组；前缀不匹配或段数不符时返回 {@code null}
+     * @return 段数组；前缀不匹配或段数不符（既非 7 也非 8）时返回 {@code null}
      */
     private String[] segmentsOf(final String key) {
         final String prefix = properties.distributedKeyPrefix() + ':';
@@ -289,7 +331,7 @@ public final class RedisCounterBackend implements QuotaCounterBackend {
             return null;
         }
         final String[] segments = key.substring(prefix.length()).split(":", -1);
-        return segments.length == KEY_SEGMENTS ? segments : null;
+        return (segments.length == KEY_SEGMENTS || segments.length == KEY_SEGMENTS - 1) ? segments : null;
     }
 
     /**

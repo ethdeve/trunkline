@@ -56,9 +56,9 @@
           allow-create
           default-first-option
           :loading="loadingModels"
-          :placeholder="t('rule.form.modelNamePlaceholder')"
+          :placeholder="t('rule.form.groupNamePlaceholder')"
         >
-          <el-option v-for="m in modelNames" :key="m" :label="m" :value="m" />
+          <el-option v-for="m in groupNames" :key="m" :label="m" :value="m" />
         </el-select>
 
         <el-input
@@ -156,14 +156,14 @@
         <el-select
           v-else
           v-model="form.actionTarget"
-          :placeholder="t('rule.form.modelNamePlaceholder')"
+          :placeholder="t('rule.form.targetModelPlaceholder')"
           filterable
           allow-create
           default-first-option
           :loading="loadingModels"
           style="width: 300px"
         >
-          <el-option v-for="m in modelNames" :key="m" :label="m" :value="m" />
+          <el-option v-for="m in instanceNames" :key="m" :label="m" :value="m" />
         </el-select>
 
         <span class="form-tip">
@@ -263,7 +263,7 @@ import {
 } from '@/api/rules'
 import { getAdapterList, type AdapterInfo } from '@/api/adapter'
 import { getServiceInstances, type InstanceConfig } from '@/api/instance'
-import { getModelsByServiceType } from '@/api/models'
+import { getPoolList, type PoolDefinition } from '@/api/pools'
 
 const props = defineProps<{
   rule: RuleDefinition | null
@@ -284,7 +284,12 @@ const isEdit = computed(() => !!props.rule?.id)
 
 // ==================== 下拉数据源 ====================
 const adapterOptions = ref<AdapterInfo[]>([])
-const modelNames = ref<string[]>([])
+/**
+ * v3.5 单线治理：对外调用的唯一入口是模型分组（虚拟模型名），
+ * 规则的 MODEL_NAME 条件匹配的正是请求里的模型名 → 候选必须是分组名。
+ * 实例名仍用于 TARGET_MODEL / TARGET_INSTANCE 两个动作目标。
+ */
+const groupNames = ref<string[]>([])
 const instanceNames = ref<string[]>([])
 const loadingModels = ref(false)
 
@@ -311,10 +316,10 @@ const lbStrategyLabel = (code: string) => {
 
 const loadOptions = async () => {
   try {
-    const [adapterRes, instanceRes, modelRes] = await Promise.allSettled([
+    const [adapterRes, instanceRes, poolRes] = await Promise.allSettled([
       getAdapterList(),
       getServiceInstances('chat'),
-      getModelsByServiceType('chat')
+      getPoolList()
     ])
     if (adapterRes.status === 'fulfilled' && adapterRes.value.data?.data) {
       adapterOptions.value = adapterRes.value.data.data
@@ -324,21 +329,33 @@ const loadOptions = async () => {
         .map((i: InstanceConfig) => i.name || i.instanceId)
         .filter((n): n is string => Boolean(n))
     }
-    if (modelRes.status === 'fulfilled' && Array.isArray(modelRes.value)) {
-      modelNames.value = modelRes.value
+    if (poolRes.status === 'fulfilled' && poolRes.value.data?.data) {
+      groupNames.value = poolRes.value.data.data
+        .map((p: PoolDefinition) => p.poolName)
+        .filter((n): n is string => Boolean(n))
     }
   } catch (e) {
     // 下拉加载失败不阻塞表单(保留手动输入兜底)
   }
 }
 
+/**
+ * 按模型分类刷新「模型分组」候选（MODEL_NAME 条件的候选源）。
+ *
+ * <p>v3.5 单线治理：请求里的 model 必须是模型分组（虚拟模型名），
+ * 因此条件候选来自模型分组列表，而不是已接入模型（实例）列表——
+ * 否则管理员按提示选了实例名，规则永远不命中。</p>
+ */
 const loadModelsForService = async (serviceType: string) => {
   loadingModels.value = true
   try {
-    const models = await getModelsByServiceType(serviceType)
-    if (Array.isArray(models)) {
-      modelNames.value = models
-    }
+    const res = await getPoolList()
+    const pools = res.data?.data || []
+    groupNames.value = pools
+      .filter((p: PoolDefinition) =>
+        !serviceType || !p.serviceType || p.serviceType.toLowerCase() === serviceType.toLowerCase())
+      .map((p: PoolDefinition) => p.poolName)
+      .filter((n): n is string => Boolean(n))
   } catch (e) {
     // 失败保留现有选项
   } finally {

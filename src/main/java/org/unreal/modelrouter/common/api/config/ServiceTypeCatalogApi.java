@@ -7,7 +7,7 @@ import java.util.Set;
 /**
  * 模型分类目录接口 —— 查询「模型名 / 分组名」归属于哪些模型分类。
  *
- * <p><b>为什么需要它：</b>密钥的模型白名单（allowedModels）与分组白名单（allowedGroups）
+ * <p><b>为什么需要它：</b>密钥的分组白名单（allowedGroups）
  * 存的是<b>名字</b>，而密钥权限（permissions）存的是<b>模型分类</b>。要在配置期判断
  * 「白名单里的名字是否落在该密钥被授权的分类内」，必须先把名字解析成分类。
  * 而名字的权威归属分散在两处：
@@ -27,10 +27,10 @@ public interface ServiceTypeCatalogApi {
     /**
      * 解析给定名字可能所属的模型分类集合。
      *
-     * <p><b>语义与运行时对齐：</b>运行时 {@code ServiceRequestHandler#hasModelPermission}
-     * 判定的是 {@code allowedModels.contains(modelName) || allowedGroups.contains(modelName)}
-     * —— 两个白名单是<b>并集</b>关系，且池路由优先于实例过滤。因此同一个名字既可能是
-     * 实例名也可能是分组名，本方法返回两者的<b>分类并集</b>。</p>
+     * <p><b>v3.5 治理收口：</b>对外调用的唯一入口是模型分组（虚拟模型名），
+     * 密钥白名单只存分组名。本方法仍同时解析实例名与分组名（分类归属的唯一权威
+     * 是「名字所在的 service_config / 池定义」），以便配置期诊断类工具复用；
+     * 但白名单校验只会传入分组名。</p>
      *
      * <p>同名实例在库内<b>不唯一</b>（可分属不同 service_config），故返回集合而非单值。</p>
      *

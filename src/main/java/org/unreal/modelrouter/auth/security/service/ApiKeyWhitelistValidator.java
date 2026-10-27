@@ -18,7 +18,7 @@ import java.util.TreeSet;
  * 密钥白名单与权限分类的一致性校验器。
  *
  * <p><b>要解决的问题：</b>密钥的「可调用模型分类」（permissions）与
- * 「可访问模型/分组」（allowedModels / allowedGroups）是两个独立维度，
+ * 「可访问模型分组」（allowedGroups）是两个独立维度，
  * 历史上两者之间没有任何校验，导致三种「看起来配好了、实际调不通」的组合：</p>
  * <table border="1">
  *   <caption>不一致组合的实际后果</caption>
@@ -31,6 +31,10 @@ import java.util.TreeSet;
  * <p><b>校验规则：</b>白名单里的每个名字，其所属模型分类必须落在该密钥被授权的
  * 分类集合内。名字的分类归属由 {@link ServiceTypeCatalogApi} 提供
  * （实现位于 config 侧，auth 不反向依赖它）。</p>
+ *
+ * <p><b>v3.5 治理收口：</b>对外调用的唯一入口是模型分组（虚拟模型名），
+ * 原先并存的 {@code allowedModels}（已接入模型 / 实例名白名单）已移除，
+ * 因此本类只校验分组名到分类的映射。</p>
  *
  * <p><b>可达性判定：</b>运行时请求先按 URL 端点确定分类 C（C 必须 ∈ permissions），
  * 再在该分类的实例/池目录里按名字解析。所以一个名字「可达」的充要条件是
@@ -67,12 +71,10 @@ public class ApiKeyWhitelistValidator {
      * 找出「分类不被权限覆盖」的白名单项，按模型分类归组。
      *
      * @param permissions   权限（模型分类）列表
-     * @param allowedModels 可访问模型（实例名）列表
      * @param allowedGroups 可访问模型分组（池名）列表
      * @return 分类 → 该分类下不一致的名字集合；无不一致时返回空 Map
      */
     public Map<String, Set<String>> findInvalidByCategory(final List<String> permissions,
-                                                          final List<String> allowedModels,
                                                           final List<String> allowedGroups) {
         final Map<String, Set<String>> empty = new LinkedHashMap<>();
         if (permissions == null || permissions.isEmpty()) {
@@ -96,7 +98,6 @@ public class ApiKeyWhitelistValidator {
         }
 
         final Set<String> names = new LinkedHashSet<>();
-        addAll(names, allowedModels);
         addAll(names, allowedGroups);
         if (names.isEmpty()) {
             return empty;
@@ -147,15 +148,13 @@ public class ApiKeyWhitelistValidator {
      * 校验白名单与权限分类的一致性，不一致则抛出异常。
      *
      * @param permissions   已归一化的权限（模型分类）列表
-     * @param allowedModels 可访问模型（实例名）列表
      * @param allowedGroups 可访问模型分组（池名）列表
      * @throws ApiKeyWhitelistMismatchException 当存在分类不被权限覆盖的白名单项时抛出
      *         （由控制器映射为 400 INVALID_REQUEST）
      */
     public void validate(final List<String> permissions,
-                          final List<String> allowedModels,
                           final List<String> allowedGroups) {
-        final Map<String, Set<String>> invalid = findInvalidByCategory(permissions, allowedModels, allowedGroups);
+        final Map<String, Set<String>> invalid = findInvalidByCategory(permissions, allowedGroups);
         if (invalid.isEmpty()) {
             return;
         }

@@ -420,32 +420,7 @@
             <el-input v-model="form.keyId" :disabled="isEdit" maxlength="64" :placeholder="t('apiKeys.form.keyIdPlaceholder')"
                       show-word-limit/>
           </el-form-item>
-          <!-- 闸门②：白名单限定分类内可调用的具体模型/分组，留空 = 该分类下全部放行 -->
-          <el-form-item :label="t('apiKeys.form.allowedModelsGate')">
-            <el-select v-model="form.allowedModels" multiple filterable clearable
-                       :disabled="whitelistDisabled"
-                       :placeholder="t('apiKeys.form.allowedModelsPlaceholder')" style="width: 100%;">
-              <el-option
-                v-for="m in modelSelectOptions"
-                :key="m.value"
-                :label="m.providerName ? m.value + '（' + m.providerName + '）' : m.value"
-                :value="m.value"
-              >
-                <span class="select-option-name">{{ m.value }}</span>
-                <el-tag v-if="m.providerName" size="small" type="info" effect="plain" class="option-tag">
-                  {{ m.providerName }}
-                </el-tag>
-                <el-tag v-if="m.mismatched" size="small" type="warning" class="option-tag">
-                  {{ t('apiKeys.form.mismatchedTag') }}
-                </el-tag>
-              </el-option>
-            </el-select>
-            <div class="form-hint">{{ t('apiKeys.form.allowedModelsHint') }}</div>
-            <div class="form-hint">{{ t('apiKeys.form.allowedModelsScopeHint') }}</div>
-            <div v-if="whitelistDisabled" class="form-hint form-hint-warning">
-              {{ t('apiKeys.form.whitelistDisabledHint') }}
-            </div>
-          </el-form-item>
+          <!-- 闸门②：白名单限定可调用的模型分组（虚拟模型名），留空 = 该分类下全部放行 -->
           <el-form-item :label="t('apiKeys.form.allowedGroupsGate')">
             <el-select v-model="form.allowedGroups" multiple filterable clearable
                        :disabled="whitelistDisabled"
@@ -928,7 +903,6 @@ const form = ref({
   enabled: true,
   permissions: [] as string[],
   allowedIpAddresses: [] as string[],
-  allowedModels: [] as string[],
   allowedGroups: [] as string[],
   dailyRequestLimit: 0,
   dailyTokenLimit: 0,
@@ -941,15 +915,10 @@ const form = ref({
   rotationPeriodDays: 0
 })
 
-// 模型/分组白名单可选数据源
-const modelOptions = ref<string[]>([])
+// 分组白名单可选数据源（v3.5 治理收口：白名单只存模型分组名 / 虚拟模型名）
 const groupOptions = ref<string[]>([])
 // 分组名 → 模型分类（用于密钥权限与分组分类的一致性校验）
 const groupServiceTypeMap = ref<Record<string, string>>({})
-// 模型（实例）名 → 模型分类（后端 DTO 的 serviceType 为权威派生值）
-const modelServiceTypeMap = ref<Record<string, string>>({})
-// 模型（实例）名 → 所属供应商名称（后端实例 DTO 随 providerId 一起带出，用于白名单下拉标注厂商）
-const modelProviderMap = ref<Record<string, string>>({})
 
 // 密钥权限可选项：值与后端 ServiceTypeConstants 枚举规范值一致
 // （chat/embedding/rerank/tts/stt/imgGen/imgEdit），标签复用统一的模型分类文案
@@ -958,40 +927,27 @@ const PERMISSION_OPTIONS = ALL_SERVICE_TYPES.map(st => ({
   label: getServiceTypeLabel(st)
 }))
 
-// 加载可选模型（实例名）与模型分组（pool 名），供密钥白名单多选使用
+// 加载可选模型分组（pool 名），供密钥白名单多选使用
+// v3.5 治理收口：对外调用的唯一入口是模型分组（虚拟模型名），
+// 因此白名单只列分组；auto-model 是系统分组（该分类全部健康实例），需显式授权。
 const loadModelAndGroupOptions = async () => {
   try {
-    const nameSet = new Set<string>()
-    const typeMap: Record<string, string> = {}
-    const providerMap: Record<string, string> = {}
-    await Promise.all(COMMON_SERVICE_TYPES.map(async (st: string) => {
-      try {
-        const res = await getServiceInstances(st)
-        ;(res.data?.data || []).forEach((i: any) => {
-          if (!i || !i.name) return
-          nameSet.add(i.name)
-          // DTO 的 serviceType 是后端权威派生值；缺失时回退到本次查询的分类
-          const resolved = normalizeServiceType(i.serviceType || '') ?? normalizeServiceType(st)
-          if (resolved) typeMap[i.name] = resolved
-          // 厂商名称：后端已随实例带出，缺失则不标注
-          if (i.providerName) providerMap[i.name] = i.providerName
-        })
-      } catch { /* 单个服务类型加载失败不影响其它 */ }
-    }))
-    modelOptions.value = [...nameSet].sort()
-    modelServiceTypeMap.value = typeMap
-    modelProviderMap.value = providerMap
-  } catch { /* ignore */ }
-  try {
     const pres = await getPoolList()
-    const pools = (pres.data?.data || []) as Array<{ poolName?: string; serviceType?: string }>
-    groupOptions.value = pools.map((p) => p.poolName).filter(Boolean).sort() as string[]
+    const pools = (pres.data?.data || []) as Array<{ poolName?: string; serviceType?: string; enabled?: boolean }>
+    const names = pools
+      .filter((p) => p.enabled !== false)
+      .map((p) => p.poolName)
+      .filter(Boolean) as string[]
+    // 系统分组 auto-model：与后端 PoolSelector.AUTO_MODEL 对齐
+    if (!names.includes('auto-model')) names.push('auto-model')
+    groupOptions.value = names.sort()
     // 记录 分组名 → 模型分类，用于校验密钥权限与所选分组是否一致
     const map: Record<string, string> = {}
     pools.forEach((p) => {
       const st = normalizeServiceType(p.serviceType || '')
       if (p.poolName && st) map[p.poolName] = st
     })
+    // 系统分组覆盖该分类全部健康实例，分类随调用端点而定 → 不做固定映射
     groupServiceTypeMap.value = map
   } catch { /* ignore */ }
 }
@@ -1021,10 +977,6 @@ const isReachable = (name: string, typeMap: Record<string, string>): boolean => 
 }
 
 // 可选模型下拉：仅展示当前权限分类下的实例
-const reachableModelOptions = computed(() =>
-  modelOptions.value.filter((m) => isReachable(m, modelServiceTypeMap.value))
-)
-
 // 可选分组下拉：仅展示当前权限分类下的分组
 const reachableGroupOptions = computed(() =>
   groupOptions.value.filter((g) => isReachable(g, groupServiceTypeMap.value))
@@ -1033,10 +985,6 @@ const reachableGroupOptions = computed(() =>
 // 分类一致性提示：已选模型/分组所属的分类若未被密钥权限覆盖，则调用会被网关拒绝
 const permissionMismatchHint = computed(() => {
   const required = new Set<string>()
-  form.value.allowedModels.forEach((m) => {
-    const st = modelServiceTypeMap.value[m]
-    if (st) required.add(st)
-  })
   form.value.allowedGroups.forEach((g) => {
     const st = groupServiceTypeMap.value[g]
     if (st) required.add(st)
@@ -1050,12 +998,6 @@ const permissionMismatchHint = computed(() => {
 })
 
 // 存量数据里「分类不被权限覆盖」的已选项（不静默丢弃，只提示用户清理）
-const mismatchedModelItems = computed(() =>
-  form.value.allowedModels.filter((m) => {
-    const st = modelServiceTypeMap.value[m]
-    return st ? !grantedServiceTypes.value.has(st) : false
-  })
-)
 const mismatchedGroupItems = computed(() =>
   form.value.allowedGroups.filter((g) => {
     const st = groupServiceTypeMap.value[g]
@@ -1072,7 +1014,6 @@ const mismatchedGroupItems = computed(() =>
  */
 const computeInvalidByCategory = (
   permissions: string[],
-  models: string[],
   groups: string[]
 ): Record<string, string[]> => {
   const granted = new Set<string>()
@@ -1092,7 +1033,6 @@ const computeInvalidByCategory = (
       if (!result[st].includes(name)) result[st].push(name)
     })
   }
-  collect(models, modelServiceTypeMap.value)
   collect(groups, groupServiceTypeMap.value)
   return result
 }
@@ -1100,7 +1040,6 @@ const computeInvalidByCategory = (
 // 打开弹窗时的原始快照（用于区分「存量不一致」与「本次新引入的不一致」）
 const originalWhitelistSnapshot = ref<{
   permissions: string[]
-  allowedModels: string[]
   allowedGroups: string[]
 } | null>(null)
 
@@ -1114,9 +1053,9 @@ const newlyIntroducedMismatch = computed(() => {
   const snapshot = originalWhitelistSnapshot.value
   if (!snapshot) return {} as Record<string, string[]>
   const oldInvalid = computeInvalidByCategory(
-    snapshot.permissions, snapshot.allowedModels, snapshot.allowedGroups)
+    snapshot.permissions, snapshot.allowedGroups)
   const newInvalid = computeInvalidByCategory(
-    form.value.permissions, form.value.allowedModels, form.value.allowedGroups)
+    form.value.permissions, form.value.allowedGroups)
   const introduced: Record<string, string[]> = {}
   Object.entries(newInvalid).forEach(([category, items]) => {
     const previouslyBad = new Set(oldInvalid[category] || [])
@@ -1133,30 +1072,26 @@ const whitelistDisabled = computed(() => form.value.permissions.length === 0)
 const buildSelectOptions = (
   reachable: string[],
   selected: string[],
-  typeMap: Record<string, string>,
-  providerMap: Record<string, string>
+  typeMap: Record<string, string>
 ) => {
   const seen = new Set<string>()
-  const options: Array<{ value: string; mismatched: boolean; providerName?: string }> = []
+  const options: Array<{ value: string; mismatched: boolean }> = []
   reachable.forEach((name) => {
     seen.add(name)
-    options.push({ value: name, mismatched: false, providerName: providerMap[name] })
+    options.push({ value: name, mismatched: false })
   })
   // 已选但不在候选集中的项：可能是存量跨分类数据，必须保留可见
   selected.forEach((name) => {
     if (seen.has(name)) return
     seen.add(name)
     const st = typeMap[name]
-    options.push({ value: name, mismatched: !!st && !grantedServiceTypes.value.has(st), providerName: providerMap[name] })
+    options.push({ value: name, mismatched: !!st && !grantedServiceTypes.value.has(st) })
   })
   return options
 }
 
-const modelSelectOptions = computed(() =>
-  buildSelectOptions(reachableModelOptions.value, form.value.allowedModels, modelServiceTypeMap.value, modelProviderMap.value)
-)
 const groupSelectOptions = computed(() =>
-  buildSelectOptions(reachableGroupOptions.value, form.value.allowedGroups, groupServiceTypeMap.value, {})
+  buildSelectOptions(reachableGroupOptions.value, form.value.allowedGroups, groupServiceTypeMap.value)
 )
 
 // 密钥ID验证规则（computed：语言切换后校验文案即时更新）
@@ -1457,7 +1392,6 @@ const handleCreateApiKey = () => {
     // P2-5: 新建密钥默认勾选 chat(用户可取消)——permissions 留空时网关调用全部 403,是最高频踩坑点
     permissions: ['chat'],
     allowedIpAddresses: [],
-    allowedModels: [],
     allowedGroups: [],
     dailyRequestLimit: 0,
     dailyTokenLimit: 0,
@@ -1473,7 +1407,6 @@ const handleCreateApiKey = () => {
   showAdvanced.value = false
   originalWhitelistSnapshot.value = {
     permissions: [...form.value.permissions],
-    allowedModels: [],
     allowedGroups: []
   }
   loadModelAndGroupOptions()
@@ -1492,7 +1425,6 @@ const handleEdit = (row: ApiKeyVO) => {
     permissions: normalizePermissionList(row.permissions),
     // 关键修复：从列表 VO 回填现有 IP 白名单，不再硬置空（VO 此前漏出该字段，导致编辑保存即清空）
     allowedIpAddresses: row.allowedIpAddresses || [],
-    allowedModels: row.allowedModels || [],
     allowedGroups: row.allowedGroups || [],
     dailyRequestLimit: row.dailyRequestLimit || 0,
     dailyTokenLimit: row.dailyTokenLimit || 0,
@@ -1506,7 +1438,6 @@ const handleEdit = (row: ApiKeyVO) => {
   }
   // 编辑时若已设置任一高级字段，自动展开高级模式（有效期有 90 天默认值，不作为展开条件）
   showAdvanced.value = Boolean(
-    (row.allowedModels && row.allowedModels.length > 0) ||
     (row.allowedGroups && row.allowedGroups.length > 0) ||
     (row.dailyRequestLimit || 0) > 0 ||
     (row.dailyTokenLimit || 0) > 0 ||
@@ -1520,7 +1451,6 @@ const handleEdit = (row: ApiKeyVO) => {
   // 记录打开时的原始值：用于区分「存量不一致」与「本次新引入的不一致」
   originalWhitelistSnapshot.value = {
     permissions: [...form.value.permissions],
-    allowedModels: [...form.value.allowedModels],
     allowedGroups: [...form.value.allowedGroups]
   }
   loadModelAndGroupOptions()
@@ -1649,7 +1579,6 @@ const handleSave = async () => {
         enabled: form.value.enabled,
         permissions: form.value.permissions,
         allowedIpAddresses: form.value.allowedIpAddresses,
-        allowedModels: form.value.allowedModels,
         allowedGroups: form.value.allowedGroups,
         dailyRequestLimit: form.value.dailyRequestLimit,
         dailyTokenLimit: form.value.dailyTokenLimit,
@@ -1672,7 +1601,6 @@ const handleSave = async () => {
         enabled: form.value.enabled,
         permissions: form.value.permissions,
         allowedIpAddresses: form.value.allowedIpAddresses,
-        allowedModels: form.value.allowedModels,
         allowedGroups: form.value.allowedGroups,
         dailyRequestLimit: form.value.dailyRequestLimit,
         dailyTokenLimit: form.value.dailyTokenLimit,
@@ -1959,7 +1887,7 @@ const handleStatusChange = async (row: ApiKeyVO) => {
 // 挂载时加载
 onMounted(() => {
   fetchApiKeys()
-  // 跨页引导：从「接入模型」页跳转过来时，直接打开创建弹窗并预填允许模型
+  // 跨页引导：从「接入模型」页跳转过来时，直接打开创建弹窗并预填允许分组
   applyRoutePrefill()
 })
 
@@ -1967,20 +1895,20 @@ onMounted(() => {
  * 处理路由 query 预填（引导直链）。
  * 支持：
  *   /keys?action=create            → 打开创建弹窗
- *   /keys?action=create&model=xxx  → 打开创建弹窗并预填「允许模型」
+ *   /keys?action=create&group=xxx  → 打开创建弹窗并预填「允许分组」
  */
 const applyRoutePrefill = () => {
   const action = route.query.action
   if (action !== 'create') return
-  const model = typeof route.query.model === 'string' ? route.query.model : ''
+  const group = typeof route.query.group === 'string' ? route.query.group : ''
   handleCreateApiKey()
-  if (model) {
-    form.value.allowedModels = Array.from(new Set([...(form.value.allowedModels || []), model]))
+  if (group) {
+    form.value.allowedGroups = Array.from(new Set([...(form.value.allowedGroups || []), group]))
   }
   // 用 replace 清掉 query，避免刷新后重复弹窗
   const q = { ...route.query }
   delete q.action
-  delete q.model
+  delete q.group
   router.replace({ path: route.path, query: q })
 }
 </script>

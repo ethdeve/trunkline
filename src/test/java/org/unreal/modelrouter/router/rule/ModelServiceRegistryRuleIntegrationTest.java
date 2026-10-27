@@ -87,6 +87,16 @@ class ModelServiceRegistryRuleIntegrationTest {
         cacheField.setAccessible(true);
         cacheField.set(registry, new java.util.concurrent.ConcurrentHashMap<>(Map.of("chat", runtimeConfig)));
 
+        // v3.5 治理收口:对外调用的唯一入口是「模型分组」(虚拟模型名),
+        // 实例不允许被直接调用(否则绕过所属分组的授权与配额)。
+        // 因此注入一个分组 chat-pool(成员 inst-gpt / inst-claude),
+        // 后续用例的请求模型名统一改为分组名。
+        org.unreal.modelrouter.router.pool.PoolSelector poolSelector =
+                new org.unreal.modelrouter.router.pool.PoolSelector(serviceStateManager, circuitBreakerManager);
+        poolSelector.reloadPools(java.util.List.of(group("chat-pool", "chat",
+                groupMember("inst-gpt", 1), groupMember("inst-claude", 1))));
+        registry.setPoolSelector(poolSelector);
+
         ruleEngine = new RuleEngineService();
         registry.setRuleEngine(ruleEngine);
     }
@@ -98,6 +108,30 @@ class ModelServiceRegistryRuleIntegrationTest {
         i.setBaseUrl(baseUrl);
         i.setStatus("active");
         return i;
+    }
+
+    /** 构造一个模型分组(虚拟模型名)定义 */
+    private org.unreal.modelrouter.router.pool.model.PoolDefinition group(final String poolName,
+                                                                         final String serviceType,
+                                                                         final org.unreal.modelrouter.router.pool.model.PoolMember... members) {
+        org.unreal.modelrouter.router.pool.model.PoolDefinition p =
+                new org.unreal.modelrouter.router.pool.model.PoolDefinition();
+        p.setPoolName(poolName);
+        p.setName(poolName);
+        p.setServiceType(serviceType);
+        p.setStrategy("weighted-random");
+        p.setMembers(java.util.List.of(members));
+        return p;
+    }
+
+    /** 构造一个分组成员 */
+    private org.unreal.modelrouter.router.pool.model.PoolMember groupMember(final String instanceId,
+                                                                            final int weight) {
+        org.unreal.modelrouter.router.pool.model.PoolMember m =
+                new org.unreal.modelrouter.router.pool.model.PoolMember();
+        m.setInstanceId(instanceId);
+        m.setWeight(weight);
+        return m;
     }
 
     private RuleDefinition rule(final String id, final int priority,
@@ -133,7 +167,7 @@ class ModelServiceRegistryRuleIntegrationTest {
             registry.setRuleEngine(null);
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1");
 
             assertNotNull(selected);
             assertEquals("inst-gpt", selected.getInstanceId());
@@ -145,7 +179,7 @@ class ModelServiceRegistryRuleIntegrationTest {
             ruleEngine.reloadRules(List.of());
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1");
 
             assertNotNull(selected);
             assertEquals("inst-gpt", selected.getInstanceId());
@@ -160,7 +194,7 @@ class ModelServiceRegistryRuleIntegrationTest {
             ruleEngine.reloadRules(List.of(r));
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1");
 
             assertNotNull(selected);
             assertEquals("inst-gpt", selected.getInstanceId());
@@ -178,7 +212,7 @@ class ModelServiceRegistryRuleIntegrationTest {
 
             // 3 参方法(headers=null)→ HEADER 条件不可达 → 原逻辑
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1");
 
             assertNotNull(selected);
             assertEquals("inst-gpt", selected.getInstanceId());
@@ -195,12 +229,12 @@ class ModelServiceRegistryRuleIntegrationTest {
         @DisplayName("INTEG-005: 规则重写 modelName 后按新模型名过滤实例")
         void testTargetModel_rewritesModelName() {
             RuleDefinition r = rule("r1", 10,
-                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "chat-pool"),
                     new RuleDefinition.Action(RuleDefinition.ActionType.TARGET_MODEL, "claude-3"));
             ruleEngine.reloadRules(List.of(r));
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1");
 
             assertNotNull(selected);
             assertEquals("inst-claude", selected.getInstanceId(),
@@ -218,12 +252,12 @@ class ModelServiceRegistryRuleIntegrationTest {
         @DisplayName("INTEG-006: 规则锁定目标实例")
         void testTargetInstance_locksInstance() {
             RuleDefinition r = rule("r1", 10,
-                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "chat-pool"),
                     new RuleDefinition.Action(RuleDefinition.ActionType.TARGET_INSTANCE, "inst-claude"));
             ruleEngine.reloadRules(List.of(r));
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1");
 
             assertNotNull(selected);
             assertEquals("inst-claude", selected.getInstanceId(),
@@ -234,12 +268,12 @@ class ModelServiceRegistryRuleIntegrationTest {
         @DisplayName("INTEG-007: 目标实例不存在抛 404")
         void testTargetInstance_missing_throws404() {
             RuleDefinition r = rule("r1", 10,
-                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "chat-pool"),
                     new RuleDefinition.Action(RuleDefinition.ActionType.TARGET_INSTANCE, "nonexistent"));
             ruleEngine.reloadRules(List.of(r));
 
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                    () -> registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1"));
+                    () -> registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1"));
             assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
         }
     }
@@ -261,12 +295,12 @@ class ModelServiceRegistryRuleIntegrationTest {
             when(loadBalancerManager.getLoadBalancerByStrategy("round-robin")).thenReturn(ruleLb);
 
             RuleDefinition r = rule("r1", 10,
-                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "chat-pool"),
                     new RuleDefinition.Action(RuleDefinition.ActionType.LB_STRATEGY, "round-robin"));
             ruleEngine.reloadRules(List.of(r));
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1");
 
             assertNotNull(selected);
             verify(loadBalancerManager).getLoadBalancerByStrategy("round-robin");
@@ -278,12 +312,12 @@ class ModelServiceRegistryRuleIntegrationTest {
             when(loadBalancerManager.getLoadBalancerByStrategy("unknown")).thenReturn(null);
 
             RuleDefinition r = rule("r1", 10,
-                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "chat-pool"),
                     new RuleDefinition.Action(RuleDefinition.ActionType.LB_STRATEGY, "unknown"));
             ruleEngine.reloadRules(List.of(r));
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1");
 
             assertNotNull(selected, "未知策略应降级为默认 LB");
         }
@@ -299,12 +333,12 @@ class ModelServiceRegistryRuleIntegrationTest {
         @DisplayName("INTEG-010: 规则指定适配器时 resolveRuleAdapterName 返回该名")
         void testResolveRuleAdapterName_hit() {
             RuleDefinition r = rule("r1", 10,
-                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "chat-pool"),
                     new RuleDefinition.Action(RuleDefinition.ActionType.TARGET_ADAPTER, "openai-compat"));
             ruleEngine.reloadRules(List.of(r));
 
             String adapterName = registry.resolveRuleAdapterName(
-                    ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1", null);
+                    ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1", null);
 
             assertEquals("openai-compat", adapterName);
         }
@@ -313,12 +347,12 @@ class ModelServiceRegistryRuleIntegrationTest {
         @DisplayName("INTEG-011: 无匹配规则时 resolveRuleAdapterName 返回 null")
         void testResolveRuleAdapterName_noMatch_returnsNull() {
             RuleDefinition r = rule("r1", 10,
-                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "chat-pool"),
                     new RuleDefinition.Action(RuleDefinition.ActionType.TARGET_ADAPTER, "openai-compat"));
             ruleEngine.reloadRules(List.of(r));
 
             assertNull(registry.resolveRuleAdapterName(
-                    ModelServiceRegistry.ServiceType.chat, "claude-3", "1.1.1.1", null));
+                    ModelServiceRegistry.ServiceType.chat, "other-pool", "1.1.1.1", null));
         }
 
         @Test
@@ -327,19 +361,19 @@ class ModelServiceRegistryRuleIntegrationTest {
             registry.setRuleEngine(null);
 
             assertNull(registry.resolveRuleAdapterName(
-                    ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1", null));
+                    ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1", null));
         }
 
         @Test
         @DisplayName("INTEG-013: TARGET_ADAPTER 规则不影响 selectInstance 实例选择")
         void testTargetAdapter_doesNotAffectInstanceSelection() {
             RuleDefinition r = rule("r1", 10,
-                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "chat-pool"),
                     new RuleDefinition.Action(RuleDefinition.ActionType.TARGET_ADAPTER, "openai-compat"));
             ruleEngine.reloadRules(List.of(r));
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1");
 
             assertNotNull(selected);
             assertEquals("inst-gpt", selected.getInstanceId(), "适配器切换不应改变实例选择");
@@ -358,7 +392,7 @@ class ModelServiceRegistryRuleIntegrationTest {
             when(rateLimitManager.tryAcquire(any())).thenReturn(true);
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1");
 
             assertNotNull(selected);
             assertEquals("inst-gpt", selected.getInstanceId());
@@ -370,7 +404,7 @@ class ModelServiceRegistryRuleIntegrationTest {
             when(rateLimitManager.tryAcquire(any())).thenReturn(false);
 
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                    () -> registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1"));
+                    () -> registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1"));
 
             assertEquals(HttpStatus.TOO_MANY_REQUESTS, ex.getStatusCode());
         }
@@ -384,7 +418,7 @@ class ModelServiceRegistryRuleIntegrationTest {
 
         private RuleDefinition rateLimitRule(final String id) {
             RuleDefinition r = rule(id, 10,
-                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "chat-pool"),
                     new RuleDefinition.Action(RuleDefinition.ActionType.RATE_LIMIT, null));
             r.getAction().setCapacity(100L);
             r.getAction().setRate(10L);
@@ -399,7 +433,7 @@ class ModelServiceRegistryRuleIntegrationTest {
             ruleEngine.reloadRules(List.of(rateLimitRule("rl-rule")));
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1");
 
             assertNotNull(selected);
             assertEquals("inst-gpt", selected.getInstanceId());
@@ -412,7 +446,7 @@ class ModelServiceRegistryRuleIntegrationTest {
             ruleEngine.reloadRules(List.of(rateLimitRule("rl-rule")));
 
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                    () -> registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1"));
+                    () -> registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1"));
 
             assertEquals(HttpStatus.TOO_MANY_REQUESTS, ex.getStatusCode());
         }
@@ -493,16 +527,17 @@ class ModelServiceRegistryRuleIntegrationTest {
         }
 
         @Test
-        @DisplayName("INTEG-021: 普通模型名不受池影响")
-        void testNormalModel_unaffected() {
+        @DisplayName("INTEG-021: 实例名直调被拒(v3.5 单线治理关闭实例直调)")
+        void testDirectInstanceAccess_rejected() {
             poolSelector.reloadPools(java.util.List.of(pool("auto-model", "chat",
                     member("inst-gpt", 9), member("inst-claude", 1))));
 
-            ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+            ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                    () -> registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1"));
 
-            assertNotNull(selected);
-            assertEquals("inst-gpt", selected.getInstanceId(), "普通模型名仍走模型名过滤");
+            assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
+            assertTrue(ex.getReason().contains("is not a model group"),
+                    "实例直调应被拒绝并提示必须指向模型分组, 实际: " + ex.getReason());
         }
     }
 }

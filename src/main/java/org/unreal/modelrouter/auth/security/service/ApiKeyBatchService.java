@@ -368,8 +368,7 @@ public class ApiKeyBatchService {
         // 2026-10-24：白名单与权限分类一致性校验（导入路径同样要拦）。
         // 校验失败 → 该条导入失败（不阻断整批），错误原因回传给前端展示。
         try {
-            whitelistValidator.validate(normalizedPermissions,
-                    item.getAllowedModels(), item.getAllowedGroups());
+            whitelistValidator.validate(normalizedPermissions, item.getAllowedGroups());
         } catch (IllegalArgumentException e) {
             return ApiKeyImportResult.failure(keyId, e.getMessage());
         }
@@ -383,8 +382,7 @@ public class ApiKeyBatchService {
                 .description(item.getDescription())
                 .permissions(normalizedPermissions)
                 // 2026-10-24 修复：此前导入路径丢弃了白名单字段（DTO 有、实体没设），
-                // 导致「导出→导入」后模型/分组白名单静默丢失
-                .allowedModels(item.getAllowedModels())
+                // 导致「导出→导入」后分组白名单静默丢失
                 .allowedGroups(item.getAllowedGroups())
                 .enabled(item.getEnabled() != null ? item.getEnabled() : true)
                 .expiresAt(expiresAt)
@@ -467,8 +465,7 @@ public class ApiKeyBatchService {
                 .description(apiKey.getDescription())
                 .permissions(apiKey.getPermissions())
                 // 2026-10-24 修复：此前导出漏掉白名单字段（DTO 有、builder 没设），
-                // 导致「导出→导入」往返后模型/分组白名单丢失
-                .allowedModels(apiKey.getAllowedModels())
+                // 导致「导出→导入」往返后分组白名单丢失
                 .allowedGroups(apiKey.getAllowedGroups())
                 .enabled(apiKey.isEnabled())
                 .createdAt(apiKey.getCreatedAt())

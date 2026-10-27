@@ -35,6 +35,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import org.unreal.modelrouter.auth.security.model.ApiKeyAuthentication;
 import org.unreal.modelrouter.auth.security.model.JwtAuthentication;
+import org.unreal.modelrouter.auth.security.quota.QuotaDimension;
 import org.unreal.modelrouter.auth.security.quota.QuotaEnforcementService;
 import org.unreal.modelrouter.auth.security.quota.QuotaLimitViolation;
 import org.unreal.modelrouter.auth.security.quota.QuotaReservation;
@@ -58,6 +59,7 @@ import org.unreal.modelrouter.router.loadbalancer.SelectedInstanceHolder;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
 import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 import org.unreal.modelrouter.router.model.ModelServiceRegistry.ServiceType;
+import org.unreal.modelrouter.router.pool.PoolSelector;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -188,6 +190,15 @@ public class ServiceRequestHandler {
      */
     @Autowired(required = false)
     private QuotaEnforcementService quotaEnforcementService;
+
+    /**
+     * v3.5 治理收口：资源池选择器（可选注入）。
+     *
+     * <p>用于识别系统分组（{@code auto-model}）——它的成员是动态的（该分类全部健康实例），
+     * 没有可查的固定池名。未注入时系统分组退化为「按普通分组处理」，不影响主链路。</p>
+     */
+    @Autowired(required = false)
+    private PoolSelector poolSelector;
 
     /**
      * v3.1 PR-4c: 全局 ObjectMapper（可选注入）。
@@ -417,7 +428,7 @@ public class ServiceRequestHandler {
 
             // v3.1 PR-2: 配额限额判定 + 预留 — selectInstance 之前（缓存命中已先行短路）
             Optional<QuotaLimitViolation> quotaViolation =
-                    reserveQuota(exchange, httpRequest, callerId);
+                    reserveQuota(exchange, httpRequest, callerId, serviceType, modelName);
             if (quotaViolation.isPresent()) {
                 return rejectByQuota(exchange, quotaViolation.get());
             }
@@ -434,6 +445,16 @@ public class ServiceRequestHandler {
             } finally {
                 // v2.9.0: 请求实例选择完成后清理亲和性上下文
                 AffinityContextHolder.clear();
+            }
+
+            // v3.5 治理收口:选实例后补记「实例」维度 ——
+            // 预留阶段只知道分组(虚拟模型名),实例是选完才知道的。
+            // 此处把「分组 + 实例」维度追加进预留凭据,账本明细行同时带
+            // group_id(治理主键)与 model(观测明细),GROUP BY group_id 即得分组聚合。
+            try {
+                appendInstanceQuotaDimension(httpRequest, serviceType, modelName, selectedInstance);
+            } catch (Exception e) {
+                logger.debug("补记配额实例维度失败（忽略，不影响请求）: {}", e.toString());
             }
 
             // P3-11: 路由决策调试头(仅响应头,不影响 body;调试用,未来可能扩展)
@@ -548,15 +569,22 @@ public class ServiceRequestHandler {
         long startTime = System.currentTimeMillis();
         String method = httpRequest.getMethod().name();
 
-        // 检查服务健康状态
-        if (!serviceStateManager.isServiceHealthy(serviceName)) {
-            long duration = System.currentTimeMillis() - startTime;
-            recordRequestMetrics(serviceName, method, duration, "503", 0, 0);
-            return Mono.error(new ResponseStatusException(
-                HttpStatus.SERVICE_UNAVAILABLE,
-                serviceName + " service is currently unavailable"
-            ));
-        }
+        // v3.5 治理收口：此处原有的「服务级健康闸门」已移除。
+        //
+        // 原实现的问题（三层叠加）：
+        //   ① 位置错乱 —— 闸门在 selectInstance **之后**执行，只能否决一次已经成功路由的请求；
+        //   ② 粒度错配 —— 闸门以「分类」为一刀切，而路由层已按**实例级**健康位
+        //      （ServiceStateManager.instanceHealthBits）过滤过候选，粒度更细也更准；
+        //   ③ 数据陈旧 —— serviceHealthStatus 仅由 ServerChecker 每 30s 刷新，
+        //      且只对「有实例」的分类刷新；实例新增后最长 30s 内仍是上一轮的 false，
+        //      导致「配置完立刻调用」被 503 否决。
+        //
+        // 移除后可用性判定完全下沉到路由层（ModelServiceRegistry.selectInstance）：
+        //   · 池内全部成员不健康 → 抛 PoolUnavailableException（503 + Retry-After +
+        //     逐成员 status/health/circuitBreaker 明细）；
+        //   · 分类下无实例 → 404 No instances configured for service type；
+        //   · 全部正常 → 正常路由。
+        // 三种情形的 HTTP 语义与原实现一致，且错误信息更可定位。
 
         // 执行请求
         return executeRequest(adapter, authorization, httpRequest,
@@ -687,7 +715,9 @@ public class ServiceRequestHandler {
      */
     private Optional<QuotaLimitViolation> reserveQuota(final ServerWebExchange exchange,
                                                        final ServerHttpRequest httpRequest,
-                                                       final String callerId) {
+                                                       final String callerId,
+                                                       final ServiceType serviceType,
+                                                       final String modelName) {
         if (quotaEnforcementService == null) {
             return Optional.empty();
         }
@@ -703,7 +733,75 @@ public class ServiceRequestHandler {
             return quotaEnforcementService.checkEstimatedTokenQuota(callerId, requestDto);
         }
         long estimatedTokens = QuotaTokenEstimator.estimate(requestDto);
-        return quotaEnforcementService.tryReserve(httpRequest, callerId, estimatedTokens);
+        // v3.5 治理收口：账本明细「分组 + 实例并存」——
+        //   groupId = 请求命中的模型分组（虚拟模型名，治理主键）
+        //   model   = 实际落到的已接入模型（实例名，观测明细）
+        //
+        // 注意：预留发生在 selectInstance 之前，此时尚不知道最终落到哪个实例，
+        // 因此这里先按「请求的虚拟模型名」写入<b>分组桶</b>行（groupId=分组名, model 为空），
+        // 「实例」维度在选完实例后由处理器<b>补记为独立的成员桶行</b>（groupId=分组名, model=实例名）。
+        // 两行并列存在、八列唯一键不同：分组聚合只统计分组桶行，组内明细只统计成员桶行，
+        // 两个口径互斥、不可相加（相加会让分组用量翻倍）。
+        String groupId = "";
+        if (registry != null && modelName != null && !modelName.isEmpty()) {
+            final String poolName = registry.resolvePoolName(serviceType, modelName);
+            if (poolName != null && !poolName.isEmpty()) {
+                groupId = poolName;
+            } else if (poolSelector != null && poolSelector.isSystemGroup(modelName)) {
+                // auto-model 系统分组：其成员动态（该分类全部健康实例），无固定池名可查
+                groupId = modelName;
+            }
+        }
+        return quotaEnforcementService.tryReserve(httpRequest, callerId, groupId, "", estimatedTokens);
+    }
+
+    /**
+     * v3.5 治理收口：选实例后把「分组 + 实例」维度补记进配额账本。
+     *
+     * <p>预留阶段（{@code selectInstance} 之前）只知道请求命中的分组（虚拟模型名），
+     * 实际落到哪个实例要选完才知道。此处补记<b>成员桶行</b>（{@code group_id} = 分组名、
+     * {@code model} = 实例名），与预留期写入的<b>分组桶行</b>（{@code group_id} = 分组名、
+     * {@code model} 为空）并列存在——分组聚合只取分组桶行，组内下钻只取成员桶行，
+     * 两者互斥不可相加。</p>
+     *
+     * <p>该维度只做记账、不做限额判定（分组级限额已在预留阶段判定过），
+     * 因此不会因为实例维度超限而拒绝请求。</p>
+     *
+     * @param httpRequest      请求（承载预留凭据）
+     * @param serviceType      服务类型
+     * @param modelName        请求中的虚拟模型名（分组名）
+     * @param selectedInstance 选中的实例
+     */
+    private void appendInstanceQuotaDimension(final ServerHttpRequest httpRequest,
+                                              final ServiceType serviceType,
+                                              final String modelName,
+                                              final ModelRouterProperties.ModelInstance selectedInstance) {
+        if (quotaEnforcementService == null || !quotaEnforcementService.isEnabled()) {
+            return;
+        }
+        final QuotaReservation reservation = QuotaReservation.from(httpRequest);
+        if (reservation == null || selectedInstance == null) {
+            return;
+        }
+        final String instanceName = selectedInstance.getName();
+        if (instanceName == null || instanceName.isEmpty()) {
+            return;
+        }
+        // 解析分组名（治理主键）：显式池优先，其次系统分组
+        String groupId = "";
+        if (registry != null && modelName != null && !modelName.isEmpty()) {
+            final String poolName = registry.resolvePoolName(serviceType, modelName);
+            if (poolName != null && !poolName.isEmpty()) {
+                groupId = poolName;
+            } else if (poolSelector != null && poolSelector.isSystemGroup(modelName)) {
+                groupId = modelName;
+            }
+        }
+        if (groupId.isEmpty()) {
+            // 未命中任何分组：不是分组路由（规则锁定实例等内部路径），不补记维度
+            return;
+        }
+        reservation.appendDimension(QuotaDimension.ofGroupAndModel(groupId, instanceName));
     }
 
     /**
@@ -966,25 +1064,22 @@ public class ServiceRequestHandler {
     }
 
     /**
-     * 检查调用主体是否可访问指定模型/分组（API Key 模型级白名单）。
-     * 白名单为空（null 或空集合）表示放行该服务类型下所有模型（兼容老 Key）。
+     * 检查调用主体是否可访问指定模型分组（API Key 分组级白名单）。
+     * 白名单为空（null 或空集合）表示放行该服务类型下所有分组（兼容老 Key）。
+     *
+     * <p><b>v3.5 治理收口：</b>模型名与分组名合并为单一语义——请求的 {@code model} 参数
+     * 必须是模型分组（虚拟模型名），实例名不再有独立授权通道，因此这里只查分组白名单。</p>
      *
      * @param auth      已认证的 API Key 主体
-     * @param modelName 调用方请求中的 model 参数（实例名或分组名）
+     * @param modelName 调用方请求中的 model 参数（模型分组名）
      * @return 是否具有权限
      */
     private boolean hasModelPermission(final ApiKeyAuthentication auth, final String modelName) {
-        List<String> allowedModels = auth.getAllowedModels();
-        List<String> allowedGroups = auth.getAllowedGroups();
-        boolean hasModels = allowedModels != null && !allowedModels.isEmpty();
-        boolean hasGroups = allowedGroups != null && !allowedGroups.isEmpty();
-        if (!hasModels && !hasGroups) {
+        final List<String> allowedGroups = auth.getAllowedGroups();
+        if (allowedGroups == null || allowedGroups.isEmpty()) {
             return true;
         }
-        if (allowedModels != null && allowedModels.contains(modelName)) {
-            return true;
-        }
-        return allowedGroups != null && allowedGroups.contains(modelName);
+        return allowedGroups.contains(modelName);
     }
 
     /**

@@ -51,6 +51,13 @@
     "requestCountUnit": "次",
     "tokenCountUnit": "tokens",
     "confirm": "确认",
-    "cancel": "取消"
+    "cancel": "取消",
+    "groupIdLabel": "模型分组",
+    "groupIdPlaceholder": "按分组筛选（分组含组内明细）",
+    "groupIdColumn": "模型分组",
+    "scopeColumn": "口径",
+    "scopeGroup": "分组汇总",
+    "scopeMember": "组内明细",
+    "scopeKey": "密钥维度"
   }
 }

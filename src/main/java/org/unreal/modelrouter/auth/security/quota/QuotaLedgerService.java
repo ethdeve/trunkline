@@ -775,6 +775,265 @@ public class QuotaLedgerService {
     }
 
     /**
+     * 按指定维度重置账本（本地槽位 + 数据库快照 + 分布式计数），用于分组 / 模型 / Key 维度的配额重置。
+     *
+     * <p>分组与模型维度互斥（一次请求只走其一），因此按非空维度选择重置目标；三者皆空时视为无操作。</p>
+     *
+     * <p>命名带 {@code ByDimension} 后缀，避免与 {@link #reset(String)} 形成重载歧义
+     * （{@code reset(null)} 会因两个引用类型重载而无法编译）。</p>
+     *
+     * @param scope 维度（按其非空前缀维度重置），{@code null} 或账本未启用时不做任何处理
+     * @return 清理条数（本地槽位 + 数据库行 + 分布式计数桶）
+     */
+    public int resetByDimension(final QuotaDimension scope) {
+        if (!isEnabled() || scope == null) {
+            return 0;
+        }
+        if (scope.groupId() != null && !scope.groupId().isEmpty()) {
+            return resetByGroupId(scope.groupId());
+        }
+        if (scope.model() != null && !scope.model().isEmpty()) {
+            return resetByModel(scope.model());
+        }
+        if (scope.apiKeyId() != null && !scope.apiKeyId().isEmpty()) {
+            return reset(scope.apiKeyId());
+        }
+        return 0;
+    }
+
+    /**
+     * 重置某个分组（模型分组 / 池）的全部账本。
+     *
+     * @param groupId 分组（池）名称
+     * @return 清理条数
+     */
+    private int resetByGroupId(final String groupId) {
+        int cleared = localBackend.resetLocalByGroupId(groupId);
+        try {
+            cleared += repository.deleteByGroupId(groupId);
+        } catch (Exception e) {
+            log.warn("配额账本 reset(分组) 删除数据库快照失败（本地槽位已清空）: groupId={}, error={}", groupId, e.toString());
+        }
+        if (distributed) {
+            try {
+                cleared += (int) nullToZero(executeRedis(() -> distributedBackend.resetByGroup(groupId)));
+            } catch (Exception e) {
+                final String reason = classify(e);
+                metrics.recordDegradation(reason);
+                markDegraded(reason);
+                log.warn("配额账本 reset(分组) 删除分布式计数失败（本地槽位与快照已清空）: groupId={}, reason={}, error={}",
+                    groupId, reason, e.toString());
+            }
+        }
+        log.info("配额账本已重置(分组): groupId={}, 清理条数={}, backend={}", groupId, cleared, backendName());
+        return cleared;
+    }
+
+    /**
+     * 重置某个模型（已接入模型 / 实例）的全部账本。
+     *
+     * @param model 模型（实例）名称
+     * @return 清理条数
+     */
+    private int resetByModel(final String model) {
+        int cleared = localBackend.resetLocalByModel(model);
+        try {
+            cleared += repository.deleteByModel(model);
+        } catch (Exception e) {
+            log.warn("配额账本 reset(模型) 删除数据库快照失败（本地槽位已清空）: model={}, error={}", model, e.toString());
+        }
+        if (distributed) {
+            try {
+                cleared += (int) nullToZero(executeRedis(() -> distributedBackend.resetByModel(model)));
+            } catch (Exception e) {
+                final String reason = classify(e);
+                metrics.recordDegradation(reason);
+                markDegraded(reason);
+                log.warn("配额账本 reset(模型) 删除分布式计数失败（本地槽位与快照已清空）: model={}, reason={}, error={}",
+                    model, reason, e.toString());
+            }
+        }
+        log.info("配额账本已重置(模型): model={}, 清理条数={}, backend={}", model, cleared, backendName());
+        return cleared;
+    }
+
+    /**
+     * 按指定维度查询用量（管理台 / 审计视图）。
+     *
+     * <p><b>分组维度的通配口径</b>（v3.5 治理收口）：{@code scope} 指定了 {@code groupId} 而未指定
+     * {@code model} 时，<b>只匹配分组桶行</b>（{@code model} 为空的那一行），不匹配组内成员明细行
+     * （{@code model} = 实例名）。这样「按分组聚合」得到的就是该分组的真实用量，不会与成员明细
+     * 重复计数。需要组内明细时请改用 {@link #usageByGroupMembers(String)}。</p>
+     *
+     * <p>内存态优先：与本地槽位同键的数据库快照会被跳过，避免同一窗口重复计数。
+     * 数据库读取失败时降级为“仅返回内存态”并记录日志，不抛出异常。</p>
+     *
+     * @param scope 维度（按其非空前缀维度过滤），{@code null} 或账本未启用时返回空列表
+     * @return 用量列表
+     */
+    public List<QuotaUsage> usageByDimension(final QuotaDimension scope) {
+        if (!isEnabled() || scope == null) {
+            return List.of();
+        }
+        return usageByScope(scope, dimension -> matchesScope(dimension, scope));
+    }
+
+    /**
+     * 查询某分组的<b>聚合</b>用量（只统计分组桶行：{@code groupId} 匹配且 {@code model} 为空）。
+     *
+     * <p><b>口径定义</b>（v3.5 治理收口）：一次请求会写入两族账本行——预留期写<b>分组桶</b>
+     * （{@code group_id = 分组名, model = ""}），选实例后补记<b>成员桶</b>
+     * （{@code group_id = 分组名, model = 实例名}）。两者是<b>两行</b>而非同一行，各自独立累加。
+     * 因此：</p>
+     * <ul>
+     *   <li><b>分组聚合</b> = 只取分组桶行（{@link #usageByGroupAggregate(String)}）；</li>
+     *   <li><b>组内明细</b> = 只取成员桶行（{@link #usageByGroupMembers(String)}）。</li>
+     * </ul>
+     * <p>两个口径<b>互斥、不可相加</b>：分组桶已经包含了该分组内所有请求，成员桶只是同一批请求
+     * 按实例下钻后的分布。把两者混在一起求和会让分组用量<b>翻倍</b>。</p>
+     *
+     * <p>本口径与限额判定链路一致：分组级限额读的就是分组桶行（精确 key），
+     * 因此页面展示的“分组用量”与“是否触发限额”始终对得上。</p>
+     *
+     * @param groupId 分组（模型分组 / 池）名称，{@code null} 或空串时返回空列表
+     * @return 用量列表（按窗口类型、窗口起点降序排序）
+     */
+    public List<QuotaUsage> usageByGroupAggregate(final String groupId) {
+        if (!isEnabled() || groupId == null || groupId.isEmpty()) {
+            return List.of();
+        }
+        return usageByScope(QuotaDimension.ofGroup(groupId),
+            dimension -> groupId.equals(dimension.groupId()) && dimension.model().isEmpty());
+    }
+
+    /**
+     * 查询某分组的<b>组内明细</b>用量（只统计成员桶行：{@code groupId} 匹配且 {@code model} 非空）。
+     *
+     * <p>与 {@link #usageByGroupAggregate(String)} <b>互斥</b>：本方法给出该分组内按实例拆分的
+     * 用量分布（观测明细），聚合方法给出该分组的总量（治理口径）。两者不可相加，
+     * 否则同一批请求会被计两次。</p>
+     *
+     * @param groupId 分组（模型分组 / 池）名称，{@code null} 或空串时返回空列表
+     * @return 用量列表（按窗口类型、窗口起点降序排序）
+     */
+    public List<QuotaUsage> usageByGroupMembers(final String groupId) {
+        if (!isEnabled() || groupId == null || groupId.isEmpty()) {
+            return List.of();
+        }
+        return usageByScope(QuotaDimension.ofGroup(groupId),
+            dimension -> groupId.equals(dimension.groupId()) && !dimension.model().isEmpty());
+    }
+
+    /**
+     * 按过滤器查询用量（{@link #usageByDimension(String)} / {@link #usageByGroupAggregate(String)} /
+     * {@link #usageByGroupMembers(String)} 的公共实现）。
+     *
+     * <p>内存态与数据库快照走<b>同一个过滤器</b>，保证两侧口径一致（否则同一行在内存里被过滤掉、
+     * 却从数据库侧漏进来，聚合结果会随部署形态漂移）。</p>
+     *
+     * @param scope   查询维度（决定数据库侧的取数范围）
+     * @param filter  维度过滤器
+     * @return 用量列表（按窗口类型、窗口起点降序排序）
+     */
+    private List<QuotaUsage> usageByScope(final QuotaDimension scope,
+                                          final java.util.function.Predicate<QuotaDimension> filter) {
+        final List<QuotaUsage> result = new ArrayList<>();
+        final Set<QuotaCounterKey> inMemoryKeys = new LinkedHashSet<>();
+        for (final QuotaCounterKey key : localBackend.keys()) {
+            if (!filter.test(key.dimension())) {
+                continue;
+            }
+            final long[] totals = localBackend.totals(key);
+            if (totals == null) {
+                continue;
+            }
+            inMemoryKeys.add(key);
+            result.add(toUsage(key, totals));
+        }
+        try {
+            final List<QuotaLedgerEntity> rows = loadRows(scope);
+            for (final QuotaLedgerEntity row : rows) {
+                if (row.getWindowStart() == null) {
+                    continue;
+                }
+                final Optional<QuotaWindow> window = QuotaWindow.parse(row.getWindowType());
+                if (window.isEmpty()) {
+                    continue;
+                }
+                final QuotaCounterKey key = new QuotaCounterKey(dimensionOf(row), window.get(), row.getWindowStart());
+                if (inMemoryKeys.contains(key)) {
+                    continue;
+                }
+                if (!filter.test(key.dimension())) {
+                    continue;
+                }
+                result.add(toUsage(key, row));
+            }
+        } catch (Exception e) {
+            log.warn("配额账本 usageByDimension 读库失败，降级为仅返回内存态: scope={}, error={}", scope, e.toString());
+        }
+        result.sort((left, right) -> {
+            final int byWindow = Integer.compare(left.window().ordinal(), right.window().ordinal());
+            if (byWindow != 0) {
+                return byWindow;
+            }
+            return right.windowStart().compareTo(left.windowStart());
+        });
+        return result;
+    }
+
+    /**
+     * 按查询维度选择数据库侧的取数范围。
+     *
+     * <p>维度优先级：分组 &gt; 模型 &gt; API Key；三者都为空时取全表（管理台“全量视图”）。</p>
+     *
+     * @param scope 查询维度
+     * @return 账本行列表
+     */
+    private List<QuotaLedgerEntity> loadRows(final QuotaDimension scope) {
+        if (scope.groupId() != null && !scope.groupId().isEmpty()) {
+            return repository.findByGroupId(scope.groupId());
+        }
+        if (scope.model() != null && !scope.model().isEmpty()) {
+            return repository.findByModel(scope.model());
+        }
+        if (scope.apiKeyId() != null && !scope.apiKeyId().isEmpty()) {
+            return repository.findByApiKeyId(scope.apiKeyId());
+        }
+        return repository.findAll();
+    }
+
+    /**
+     * 判断账本维度是否匹配指定的查询维度。
+     *
+     * <p><b>分组维度的特殊处理</b>（v3.5 治理收口）：一次请求会写入两族账本行——预留期的
+     * <b>分组桶</b>（{@code group_id = 分组名, model = ""}）与选实例后补记的<b>成员桶</b>
+     * （{@code group_id = 分组名, model = 实例名}）。因此当查询只指定 {@code groupId} 而未指定
+     * {@code model} 时，只匹配<b>分组桶行</b>：否则成员明细会被一并计入，使分组聚合翻倍。
+     * 需要组内明细时，调用方应显式指定 {@code model} 或改用
+     * {@link #usageByGroupMembers(String)}。</p>
+     *
+     * <p>其余维度仍按“空值即通配”的前缀语义匹配。</p>
+     *
+     * @param dimension 账本维度
+     * @param scope     查询维度（非空字段参与匹配）
+     * @return 全部非空字段均相等时返回 {@code true}
+     */
+    private static boolean matchesScope(final QuotaDimension dimension, final QuotaDimension scope) {
+        if (!scope.apiKeyId().isEmpty() && !scope.apiKeyId().equals(dimension.apiKeyId())) {
+            return false;
+        }
+        if (!scope.groupId().isEmpty() && !scope.groupId().equals(dimension.groupId())) {
+            return false;
+        }
+        if (!scope.model().isEmpty()) {
+            return scope.model().equals(dimension.model());
+        }
+        // 指定了分组但未指定模型：只命中分组桶行（model 为空），排除组内成员明细行
+        return scope.groupId().isEmpty() || dimension.model().isEmpty();
+    }
+
+    /**
      * 按各级保留期清理过期账本行与计数（默认 minute=1d / hour=2d / day=35d / month=13mo）。
      *
      * <p>同时清理已过期且增量已全部落库（且无待补写 Redis 增量）的本地计数槽位，避免计数无限
@@ -871,9 +1130,9 @@ public class QuotaLedgerService {
      */
     private Optional<QuotaUsage> usageFromDatabase(final QuotaCounterKey key) {
         final QuotaDimension dimension = key.dimension();
-        return repository.findByTenantIdAndApiKeyIdAndUserIdAndServiceTypeAndModelAndWindowTypeAndWindowStart(
+        return repository.findByTenantIdAndApiKeyIdAndUserIdAndServiceTypeAndModelAndGroupIdAndWindowTypeAndWindowStart(
                 dimension.tenantId(), dimension.apiKeyId(), dimension.userId(), dimension.serviceType(),
-                dimension.model(), key.window().name(), key.windowStart())
+                dimension.model(), dimension.groupId(), key.window().name(), key.windowStart())
             .map(row -> toUsage(key, row));
     }
 
@@ -987,9 +1246,9 @@ public class QuotaLedgerService {
     private long[] loadBaseline(final QuotaCounterKey key) {
         final QuotaDimension dimension = key.dimension();
         final Optional<QuotaLedgerEntity> row =
-            repository.findByTenantIdAndApiKeyIdAndUserIdAndServiceTypeAndModelAndWindowTypeAndWindowStart(
+            repository.findByTenantIdAndApiKeyIdAndUserIdAndServiceTypeAndModelAndGroupIdAndWindowTypeAndWindowStart(
                 dimension.tenantId(), dimension.apiKeyId(), dimension.userId(), dimension.serviceType(),
-                dimension.model(), key.window().name(), key.windowStart());
+                dimension.model(), dimension.groupId(), key.window().name(), key.windowStart());
         final long baselineRequests = row.isPresent() ? nullToZero(row.get().getRequestCount()) : 0L;
         final long baselineTokens = row.isPresent() ? nullToZero(row.get().getTokenCount()) : 0L;
         return new long[]{baselineRequests, baselineTokens};
@@ -1011,7 +1270,8 @@ public class QuotaLedgerService {
         try {
             final int updated = repository.accumulate(
                 dimension.tenantId(), dimension.apiKeyId(), dimension.userId(), dimension.serviceType(),
-                dimension.model(), key.window().name(), key.windowStart(), snapshot[2], snapshot[3], now);
+                dimension.model(), dimension.groupId(), key.window().name(), key.windowStart(),
+                snapshot[2], snapshot[3], now);
             final boolean persisted = updated > 0 || insertRow(key, snapshot[0], snapshot[1], now);
             if (!persisted) {
                 return false;
@@ -1046,6 +1306,7 @@ public class QuotaLedgerService {
                 .userId(dimension.userId())
                 .serviceType(dimension.serviceType())
                 .model(dimension.model())
+                .groupId(dimension.groupId())
                 .windowType(key.window().name())
                 .windowStart(key.windowStart())
                 .requestCount(requests)
@@ -1197,7 +1458,7 @@ public class QuotaLedgerService {
      */
     private static QuotaDimension dimensionOf(final QuotaLedgerEntity row) {
         return new QuotaDimension(row.getTenantId(), row.getApiKeyId(), row.getUserId(),
-            row.getServiceType(), row.getModel());
+            row.getServiceType(), row.getModel(), row.getGroupId());
     }
 
     /**

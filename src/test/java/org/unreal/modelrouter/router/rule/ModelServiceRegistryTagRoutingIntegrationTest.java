@@ -93,6 +93,16 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
         cacheField.setAccessible(true);
         cacheField.set(registry, new java.util.concurrent.ConcurrentHashMap<>(Map.of("chat", runtimeConfig)));
 
+        // v3.5 治理收口:对外调用的唯一入口是「模型分组」(虚拟模型名),
+        // 实例不允许被直接调用(否则绕过所属分组的授权与配额)。
+        // 因此注入一个分组 chat-pool(成员 inst-gpt / inst-claude),
+        // 后续用例的请求模型名统一改为分组名。
+        org.unreal.modelrouter.router.pool.PoolSelector poolSelector =
+                new org.unreal.modelrouter.router.pool.PoolSelector(serviceStateManager, circuitBreakerManager);
+        poolSelector.reloadPools(java.util.List.of(group("chat-pool", "chat",
+                groupMember("inst-gpt", 1), groupMember("inst-claude", 1))));
+        registry.setPoolSelector(poolSelector);
+
         ruleEngine = new RuleEngineService();
         registry.setRuleEngine(ruleEngine);
     }
@@ -106,6 +116,30 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
         i.setStatus("active");
         i.setTags(tags);
         return i;
+    }
+
+    /** 构造一个模型分组(虚拟模型名)定义 */
+    private org.unreal.modelrouter.router.pool.model.PoolDefinition group(final String poolName,
+                                                                         final String serviceType,
+                                                                         final org.unreal.modelrouter.router.pool.model.PoolMember... members) {
+        org.unreal.modelrouter.router.pool.model.PoolDefinition p =
+                new org.unreal.modelrouter.router.pool.model.PoolDefinition();
+        p.setPoolName(poolName);
+        p.setName(poolName);
+        p.setServiceType(serviceType);
+        p.setStrategy("weighted-random");
+        p.setMembers(java.util.List.of(members));
+        return p;
+    }
+
+    /** 构造一个分组成员 */
+    private org.unreal.modelrouter.router.pool.model.PoolMember groupMember(final String instanceId,
+                                                                            final int weight) {
+        org.unreal.modelrouter.router.pool.model.PoolMember m =
+                new org.unreal.modelrouter.router.pool.model.PoolMember();
+        m.setInstanceId(instanceId);
+        m.setWeight(weight);
+        return m;
     }
 
     private RuleDefinition rule(final String id, final int priority,
@@ -138,13 +172,13 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
         @DisplayName("TAG-INTEG-001: 规则 TARGET_TAGS 按标签圈选实例")
         void testRuleTargetTags_filtersInstances() {
             RuleDefinition r = rule("r-tags", 10,
-                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "chat-pool"),
                     new RuleDefinition.Action(RuleDefinition.ActionType.TARGET_TAGS, null));
             r.getAction().setTags(Map.of("gpu_type", "a100"));
             ruleEngine.reloadRules(List.of(r));
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1");
 
             assertNotNull(selected);
             assertEquals("inst-gpt", selected.getInstanceId(), "TARGET_TAGS 应圈选 gpu_type=a100 的实例");
@@ -154,13 +188,13 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
         @DisplayName("TAG-INTEG-002: 规则 TARGET_TAGS 多键 AND 圈选")
         void testRuleTargetTags_multiKeyAnd() {
             RuleDefinition r = rule("r-tags", 10,
-                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "chat-pool"),
                     new RuleDefinition.Action(RuleDefinition.ActionType.TARGET_TAGS, null));
             r.getAction().setTags(Map.of("gpu_type", "a100", "region", "cn-north"));
             ruleEngine.reloadRules(List.of(r));
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1");
 
             assertNotNull(selected);
             assertEquals("inst-gpt", selected.getInstanceId(),
@@ -171,13 +205,13 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
         @DisplayName("TAG-INTEG-003: 规则 TARGET_TAGS 无匹配实例抛 404")
         void testRuleTargetTags_noMatch_throws404() {
             RuleDefinition r = rule("r-tags", 10,
-                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "chat-pool"),
                     new RuleDefinition.Action(RuleDefinition.ActionType.TARGET_TAGS, null));
             r.getAction().setTags(Map.of("gpu_type", "h100"));
             ruleEngine.reloadRules(List.of(r));
 
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                    () -> registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1"));
+                    () -> registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1"));
 
             assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
         }
@@ -195,7 +229,7 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
             Map<String, String> headers = Map.of("X-JAiRouter-Tags", "gpu_type=a100");
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1", headers);
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1", headers);
 
             assertNotNull(selected);
             assertEquals("inst-gpt", selected.getInstanceId(), "header 应圈选 gpu_type=a100 的实例");
@@ -207,7 +241,7 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
             Map<String, String> headers = Map.of("X-JAiRouter-Tags", "gpu_type=a100, region=cn-north ,,");
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1", headers);
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1", headers);
 
             assertNotNull(selected);
             assertEquals("inst-gpt", selected.getInstanceId(), "多标签 AND + 容忍空格/空项");
@@ -219,7 +253,7 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
             Map<String, String> headers = Map.of("X-JAiRouter-Tags", "region=eu-central");
 
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                    () -> registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1", headers));
+                    () -> registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1", headers));
 
             assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
         }
@@ -230,7 +264,7 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
             Map<String, String> headers = Map.of("X-JAiRouter-Tags", "   ");
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1", headers);
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1", headers);
 
             assertNotNull(selected);
             assertEquals("inst-gpt", selected.getInstanceId(), "空 header 应走原逻辑");
@@ -247,12 +281,12 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
         @DisplayName("TAG-INTEG-008: 规则非 TARGET_TAGS 且无 header 时走原逻辑")
         void testNoTags_originalBehavior() {
             RuleDefinition r = rule("r1", 10,
-                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "chat-pool"),
                     new RuleDefinition.Action(RuleDefinition.ActionType.TARGET_MODEL, "claude-3"));
             ruleEngine.reloadRules(List.of(r));
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1");
 
             assertNotNull(selected);
             assertEquals("inst-claude", selected.getInstanceId(),
@@ -341,7 +375,7 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
         @DisplayName("TAG-INTEG-009: 规则 TARGET_TAGS 优先于请求 header")
         void testRuleTags_priorityOverHeader() {
             RuleDefinition r = rule("r-tags", 10,
-                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "chat-pool"),
                     new RuleDefinition.Action(RuleDefinition.ActionType.TARGET_TAGS, null));
             r.getAction().setTags(Map.of("region", "cn-north"));
             ruleEngine.reloadRules(List.of(r));
@@ -350,7 +384,7 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
             Map<String, String> headers = Map.of("X-JAiRouter-Tags", "region=us-west");
 
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1", headers);
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1", headers);
 
             assertNotNull(selected);
             assertEquals("inst-gpt", selected.getInstanceId(), "规则 TARGET_TAGS 应优先于 header");
@@ -360,13 +394,13 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
         @DisplayName("TAG-INTEG-010: TARGET_INSTANCE 动作不产生 tags 要求(单一动作互斥)")
         void testTargetInstance_noTagsFromRule() {
             RuleDefinition r = rule("r-lock", 10,
-                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "chat-pool"),
                     new RuleDefinition.Action(RuleDefinition.ActionType.TARGET_INSTANCE, "inst-claude"));
             ruleEngine.reloadRules(List.of(r));
 
             // 无 header;TARGET_INSTANCE 动作下 decision.getTargetTags() 为 null → 无 tags 过滤
             ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1");
+                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1");
 
             assertNotNull(selected);
             assertEquals("inst-claude", selected.getInstanceId(),

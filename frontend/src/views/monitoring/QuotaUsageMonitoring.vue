@@ -105,6 +105,22 @@
             style="width: 160px"
           />
         </el-form-item>
+        <el-form-item :label="t('quotaMonitoring.groupIdLabel')">
+          <el-select
+            v-model="query.groupId"
+            :placeholder="t('quotaMonitoring.groupIdPlaceholder')"
+            clearable
+            filterable
+            style="width: 180px"
+          >
+            <el-option
+              v-for="pool in poolOptions"
+              :key="pool.poolName"
+              :label="pool.poolName"
+              :value="pool.poolName"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item :label="t('quotaMonitoring.modelLabel')">
           <el-input
             v-model="query.model"
@@ -167,7 +183,23 @@
               {{ getServiceTypeDisplay(row.dimensions?.serviceType) }}
             </template>
           </el-table-column>
-          <el-table-column prop="dimensions.model" :label="t('quotaMonitoring.modelColumn')" min-width="140" show-overflow-tooltip />
+          <el-table-column prop="dimensions.groupId" :label="t('quotaMonitoring.groupIdColumn')" min-width="140" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span>{{ row.dimensions?.groupId || '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="dimensions.model" :label="t('quotaMonitoring.modelColumn')" min-width="140" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span>{{ row.dimensions?.model || '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column :label="t('quotaMonitoring.scopeColumn')" width="120" align="center">
+            <template #default="{ row }">
+              <el-tag :type="scopeTagType(row.scope)" size="small" effect="plain">
+                {{ scopeLabel(row.scope) }}
+              </el-tag>
+            </template>
+          </el-table-column>
           <el-table-column prop="window" :label="t('quotaMonitoring.windowColumn')" width="100" align="center" />
           <el-table-column prop="windowStart" :label="t('quotaMonitoring.windowStartColumn')" min-width="170" />
           <el-table-column prop="requestCount" :label="t('quotaMonitoring.requestCountColumn')" width="110" align="right">
@@ -182,12 +214,12 @@
           </el-table-column>
           <el-table-column :label="t('quotaMonitoring.limitRequestColumn')" width="120" align="right">
             <template #default="{ row }">
-              {{ formatLimit(limitMap.get(row.dimensions?.apiKeyId)?.dailyRequestLimit) }}
+              {{ formatLimit(limitsOf(row)?.dailyRequestLimit) }}
             </template>
           </el-table-column>
           <el-table-column :label="t('quotaMonitoring.limitTokenColumn')" width="120" align="right">
             <template #default="{ row }">
-              {{ formatLimit(limitMap.get(row.dimensions?.apiKeyId)?.dailyTokenLimit) }}
+              {{ formatLimit(limitsOf(row)?.dailyTokenLimit) }}
             </template>
           </el-table-column>
           <el-table-column :label="t('quotaMonitoring.progressColumn')" min-width="140">
@@ -221,7 +253,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   Refresh,
@@ -245,6 +277,7 @@ import {
   type QuotaUsageQuery,
 } from '@/api/quota'
 import { getQuotaOverview } from '@/api/apiKey'
+import { getPoolList, type PoolDefinition } from '@/api/pools'
 import type { QuotaUsageDetail } from '@/types'
 import { getServiceTypeLabel, normalizeServiceType } from '@/constants/serviceTypes'
 
@@ -264,6 +297,23 @@ const errorOccurred = ref(false)
 const status = ref<QuotaStatus | null>(null)
 const usageList = ref<QuotaUsageItem[]>([])
 const limitMap = ref(new Map<string, QuotaUsageDetail>())
+const poolList = ref<PoolDefinition[]>([])
+
+/** 分组（池）下拉选项 */
+const poolOptions = computed(() => poolList.value.filter(p => p.poolName))
+
+/** 行类型标签：分组聚合 / 组内明细 / 密钥维度 */
+const scopeLabel = (scope?: string) => {
+  if (scope === 'GROUP') return t('quotaMonitoring.scopeGroup')
+  if (scope === 'MEMBER') return t('quotaMonitoring.scopeMember')
+  return t('quotaMonitoring.scopeKey')
+}
+
+const scopeTagType = (scope?: string) => {
+  if (scope === 'GROUP') return 'primary'
+  if (scope === 'MEMBER') return 'success'
+  return 'info'
+}
 
 const goApiKeyLimits = () => {
   router.push('/security/api-keys')
@@ -274,10 +324,43 @@ const formatLimit = (value?: number | null) => {
   return Number(value).toLocaleString()
 }
 
-const usagePercent = (row: QuotaUsageItem) => {
+/** 页面内使用的限额视图（只取对照所需的三个字段） */
+interface UsageLimits {
+  dailyRequestLimit: number
+  dailyTokenLimit: number
+  rateLimitPerMinute: number
+}
+
+/**
+ * 取该行的限额（分组行取分组限额，其余取 API Key 限额）。
+ *
+ * 分组行与成员行的限额口径不同：分组限额由 PoolDefinition 承载，
+ * 密钥限额由 ApiKey 承载——两者不可混用。
+ */
+const limitsOf = (row: QuotaUsageItem): UsageLimits | undefined => {
+  const groupId = row.dimensions?.groupId
+  if (groupId) {
+    const pool = poolList.value.find(p => p.poolName === groupId)
+    if (!pool) return undefined
+    return {
+      dailyRequestLimit: pool.dailyRequestLimit ?? 0,
+      dailyTokenLimit: pool.dailyTokenLimit ?? 0,
+      rateLimitPerMinute: pool.rateLimitPerMinute ?? 0,
+    }
+  }
   const keyId = row.dimensions?.apiKeyId
-  if (!keyId) return 0
+  if (!keyId) return undefined
   const limits = limitMap.value.get(keyId)
+  if (!limits) return undefined
+  return {
+    dailyRequestLimit: limits.dailyRequestLimit ?? 0,
+    dailyTokenLimit: limits.dailyTokenLimit ?? 0,
+    rateLimitPerMinute: limits.rateLimitPerMinute ?? 0,
+  }
+}
+
+const usagePercent = (row: QuotaUsageItem) => {
+  const limits = limitsOf(row)
   if (!limits) return 0
   if (row.window === 'DAY') {
     const reqLimit = limits.dailyRequestLimit || 0
@@ -300,6 +383,16 @@ const loadLimits = async () => {
   }
 }
 
+/** 加载分组（池）列表：既是分组筛选项，也是分组限额的来源 */
+const loadPools = async () => {
+  try {
+    const response = await getPoolList()
+    poolList.value = response.data.data || []
+  } catch {
+    poolList.value = []
+  }
+}
+
 const windowOptions = ['MINUTE', 'HOUR', 'DAY', 'MONTH']
 
 const query = reactive<QuotaUsageQuery>({
@@ -308,6 +401,7 @@ const query = reactive<QuotaUsageQuery>({
   userId: '',
   serviceType: '',
   model: '',
+  groupId: '',
   window: '',
 })
 
@@ -317,6 +411,7 @@ const resetQuery = () => {
   query.userId = ''
   query.serviceType = ''
   query.model = ''
+  query.groupId = ''
   query.window = ''
 }
 
@@ -344,7 +439,7 @@ const loadUsage = async () => {
 const loadAll = async () => {
   loading.value = true
   try {
-    await Promise.all([loadStatus(), loadUsage(), loadLimits()])
+    await Promise.all([loadStatus(), loadUsage(), loadLimits(), loadPools()])
   } finally {
     loading.value = false
   }

@@ -38,6 +38,15 @@ import java.util.Optional;
 @Tag(name = "配额监控", description = "配额账本运行状态与用量查询（只读）")
 public class QuotaMonitoringController {
 
+    /** 行类型：分组聚合（分组总用量，只统计分组桶行） */
+    public static final String SCOPE_GROUP = "GROUP";
+
+    /** 行类型：组内明细（按实例拆分的用量分布） */
+    public static final String SCOPE_MEMBER = "MEMBER";
+
+    /** 行类型：密钥维度（API Key 总闸用量） */
+    public static final String SCOPE_KEY = "KEY";
+
     private final QuotaLedgerService ledgerService;
     private final QuotaProperties quotaProperties;
     private final QuotaCounterMetrics metrics;
@@ -108,9 +117,19 @@ public class QuotaMonitoringController {
     /**
      * 查询配额用量.
      *
-     * <p>支持按维度筛选（tenantId / apiKeyId / userId / serviceType / model）与窗口类型。
+     * <p>支持按维度筛选（tenantId / apiKeyId / userId / serviceType / model / groupId）与窗口类型。
      * 缺省维度使用空串哨兵语义（{@code QuotaDimension.SENTINEL}）。
      * 无参数时返回空维度 + 全部已启用窗口的聚合（按 API Key 聚合视图，即空维度哨兵值）。</p>
+     *
+     * <p><b>分组视图（v3.5 治理收口）</b>：指定 {@code groupId} 时返回<b>分组含组内明细</b>——</p>
+     * <ul>
+     *   <li>未指定 {@code model}：同时返回该分组的<b>聚合行</b>（{@code scope=GROUP}，
+     *       即该分组的总用量，只统计分组桶行）与<b>组内明细行</b>（{@code scope=MEMBER}，
+     *       按实例拆分）；</li>
+     *   <li>指定 {@code model}：只返回该实例的明细行（{@code scope=MEMBER}）。</li>
+     * </ul>
+     * <p>聚合行与明细行是<b>两套互斥口径</b>：一次请求写入预留期的分组桶行与选实例后的成员桶行，
+     * 二者不可相加（相加会让分组用量翻倍）。响应中的 {@code scope} 字段标识行类型。</p>
      *
      * <p>本端点严格只读，不会触发任何写入或结算操作。</p>
      *
@@ -124,22 +143,25 @@ public class QuotaMonitoringController {
      * @param userId      用户 ID（可选，缺省为空串）
      * @param serviceType 服务类型（可选，缺省为空串）
      * @param model       模型名称（可选，缺省为空串）
+     * @param groupId     分组（模型分组 / 池）名称（可选，缺省为空串）
      * @param window      窗口类型（可选，如 MINUTE / HOUR / DAY / MONTH；缺省返回所有已启用窗口）
      * @return 用量列表
      */
     @GetMapping("/usage")
     @Operation(summary = "查询配额用量",
             description = "按维度与窗口筛选配额用量（只读），"
-                    + "返回 dimensions/window/windowStart/requestCount/tokenCount")
+                    + "返回 dimensions/window/windowStart/requestCount/tokenCount/scope；"
+                    + "指定 groupId 时返回「分组含组内明细」")
     public Mono<ResponseEntity<RouterResponse<List<Map<String, Object>>>>> getUsage(
             @RequestParam(required = false) final String tenantId,
             @RequestParam(required = false) final String apiKeyId,
             @RequestParam(required = false) final String userId,
             @RequestParam(required = false) final String serviceType,
             @RequestParam(required = false) final String model,
+            @RequestParam(required = false) final String groupId,
             @RequestParam(required = false) final String window) {
         return Mono.fromCallable(() ->
-                        doGetUsage(tenantId, apiKeyId, userId, serviceType, model, window))
+                        doGetUsage(tenantId, apiKeyId, userId, serviceType, model, groupId, window))
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
@@ -151,6 +173,7 @@ public class QuotaMonitoringController {
      * @param userId      用户 ID
      * @param serviceType 服务类型
      * @param model       模型名称
+     * @param groupId     分组（模型分组 / 池）名称
      * @param window      窗口类型
      * @return 用量响应
      */
@@ -160,13 +183,11 @@ public class QuotaMonitoringController {
             final String userId,
             final String serviceType,
             final String model,
+            final String groupId,
             final String window) {
         if (!ledgerService.isEnabled()) {
             return ResponseEntity.ok(RouterResponse.success(List.of(), "配额账本未启用"));
         }
-
-        final QuotaDimension dimension = new QuotaDimension(
-                tenantId, apiKeyId, userId, serviceType, model);
 
         final List<QuotaWindow> targetWindows;
         if (window != null && !window.isBlank()) {
@@ -183,12 +204,57 @@ public class QuotaMonitoringController {
         }
 
         final List<Map<String, Object>> results = new ArrayList<>();
+
+        // 分组视图：返回「分组含组内明细」，聚合行与明细行口径互斥
+        if (groupId != null && !groupId.isBlank()) {
+            if (model != null && !model.isBlank()) {
+                // 指定模型：只返回该实例的组内明细行
+                for (final QuotaUsage usage : ledgerService.usageByGroupMembers(groupId)) {
+                    if (targetWindows.contains(usage.window()) && model.equals(usage.dimension().model())) {
+                        results.add(usageToMap(usage, SCOPE_MEMBER));
+                    }
+                }
+            } else {
+                // 未指定模型：聚合行（分组总用量）+ 组内明细行（按实例拆分）
+                for (final QuotaUsage usage : ledgerService.usageByGroupAggregate(groupId)) {
+                    if (targetWindows.contains(usage.window())) {
+                        results.add(usageToMap(usage, SCOPE_GROUP));
+                    }
+                }
+                for (final QuotaUsage usage : ledgerService.usageByGroupMembers(groupId)) {
+                    if (targetWindows.contains(usage.window())) {
+                        results.add(usageToMap(usage, SCOPE_MEMBER));
+                    }
+                }
+            }
+            return ResponseEntity.ok(RouterResponse.success(results));
+        }
+
+        // 非分组视图：精确维度查数（与既有语义一致）
+        final QuotaDimension dimension = new QuotaDimension(
+                tenantId, apiKeyId, userId, serviceType, model, groupId);
         for (final QuotaWindow w : targetWindows) {
             final Optional<QuotaUsage> usage = ledgerService.usage(dimension, w);
-            usage.ifPresent(u -> results.add(usageToMap(u)));
+            usage.ifPresent(u -> results.add(usageToMap(u, scopeOf(u.dimension()))));
         }
 
         return ResponseEntity.ok(RouterResponse.success(results));
+    }
+
+    /**
+     * 由维度推断行类型（{@code scope}）.
+     *
+     * @param dimension 账本维度
+     * @return 行类型标记
+     */
+    private static String scopeOf(final QuotaDimension dimension) {
+        if (dimension == null) {
+            return SCOPE_KEY;
+        }
+        if (!dimension.groupId().isEmpty()) {
+            return dimension.model().isEmpty() ? SCOPE_GROUP : SCOPE_MEMBER;
+        }
+        return SCOPE_KEY;
     }
 
     /**
@@ -220,9 +286,10 @@ public class QuotaMonitoringController {
      * 用量记录转 Map.
      *
      * @param usage 用量
+     * @param scope 行类型标记（{@code GROUP} 分组聚合 / {@code MEMBER} 组内明细 / {@code KEY} 密钥维度）
      * @return map
      */
-    private static Map<String, Object> usageToMap(final QuotaUsage usage) {
+    private static Map<String, Object> usageToMap(final QuotaUsage usage, final String scope) {
         final Map<String, Object> map = new LinkedHashMap<>();
         final Map<String, String> dimensions = new LinkedHashMap<>();
         dimensions.put("tenantId", usage.dimension().tenantId());
@@ -230,7 +297,9 @@ public class QuotaMonitoringController {
         dimensions.put("userId", usage.dimension().userId());
         dimensions.put("serviceType", usage.dimension().serviceType());
         dimensions.put("model", usage.dimension().model());
+        dimensions.put("groupId", usage.dimension().groupId());
         map.put("dimensions", dimensions);
+        map.put("scope", scope);
         map.put("window", usage.window().name());
         map.put("windowStart", usage.windowStart().toString());
         map.put("requestCount", usage.requestCount());

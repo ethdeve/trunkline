@@ -546,11 +546,18 @@ const handleDelete = async (row: PoolDefinition) => {
   // 删除前依赖预检：密钥白名单仍引用该分组时禁止删除（否则密钥调用将 403/404）
   const pre = await precheckDeletion('pool', row.poolName)
   if (pre.blocked) return
+  // v3.5 单线治理：删除分组后，其独占成员实例会变成「游离实例」（无对外入口）。
+  // 这里只提示不阻断（否则「删实例被成员关系阻断、删分组被游离阻断」会形成死锁），
+  // 提示写进「影响范围」，让管理员知道哪些模型还需要后续清理。
+  const warnText = (pre.report?.warnings || []).join('；')
+  const impact = warnText
+    ? `${t('pool.deleteDialog.impact')}（${warnText}）`
+    : t('pool.deleteDialog.impact')
   // U10-3：统一危险操作确认模板（影响面 + 补救方式 + 输入名称确认）
   const confirmed = await confirmDanger({
     title: t('pool.deleteDialog.title'),
     target: row.poolName,
-    impact: t('pool.deleteDialog.impact'),
+    impact,
     remedy: t('pool.deleteDialog.remedy'),
     requireType: row.poolName,
     confirmText: t('pool.deleteDialog.confirm'),

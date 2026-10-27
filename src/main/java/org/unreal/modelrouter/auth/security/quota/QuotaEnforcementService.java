@@ -2,6 +2,7 @@ package org.unreal.modelrouter.auth.security.quota;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Service;
 import org.unreal.modelrouter.auth.security.config.properties.ApiKey;
@@ -10,6 +11,7 @@ import org.unreal.modelrouter.auth.security.service.ApiKeyService;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,6 +63,16 @@ public class QuotaEnforcementService {
     private final QuotaProperties properties;
     private final ApiKeyService apiKeyService;
     private final Clock clock;
+
+    /** 分组（模型分组 / 池）维度限额解析器（未装配时为 {@code null}，该维度按无限制放行） */
+    @Autowired(required = false)
+    @Qualifier("group")
+    private QuotaLimitResolver groupLimitResolver;
+
+    /** 模型（已接入模型 / 实例）维度限额解析器（未装配时为 {@code null}，该维度按无限制放行） */
+    @Autowired(required = false)
+    @Qualifier("model")
+    private QuotaLimitResolver modelLimitResolver;
 
     /**
      * 单进程内按 API Key 串行化「判定 + 预留」，消除 check-then-act 双花窗口。
@@ -230,18 +242,43 @@ public class QuotaEnforcementService {
     }
 
     /**
-     * 判定并在放行时完成预留（判定 + 记账 + 挂载结算凭据）。
+     * 判定并在放行时完成预留（仅 API Key 维度，兼容既有调用点）。
      *
-     * <p>返回空表示“放行且已完成预留”（或账本未启用 / 判定异常降级放行）；返回超限结果表示
-     * 调用方应拒绝本次请求（429），本方法此时不记账。</p>
+     * <p>等价于 {@link #tryReserve(ServerHttpRequest, String, String, String, long)} 且分组 / 模型
+     * 维度均为空——即只受 Key 总闸约束。</p>
      *
      * @param request         请求（用于挂载结算凭据），可为 {@code null}
-     * @param apiKeyId        API Key ID
+     * @param apiKeyId        API Key ID（总闸）
      * @param estimatedTokens 本次请求估算 token 数
      * @return 超限结果；放行时为 {@link Optional#empty()}
      */
     public Optional<QuotaLimitViolation> tryReserve(final ServerHttpRequest request,
                                                     final String apiKeyId,
+                                                    final long estimatedTokens) {
+        return tryReserve(request, apiKeyId, "", "", estimatedTokens);
+    }
+
+    /**
+     * 判定并在放行时完成预留（多维度判定 + 记账 + 挂载结算凭据）。
+     *
+     * <p>三维度（Key 总闸 / 分组 / 模型）各自独立预算，任一维度超限即返回 429，并回滚本请求已在
+     * 其它维度成功预留的增量（照搬既有“多窗口回滚”思路，按维度逐条冲正）。Key 维度恒生效；
+     * 分组与模型维度互斥（一次请求只走其一），对应解析器未装配时该维度按无限制放行。</p>
+     *
+     * <p>返回空表示“放行且已完成预留”（或账本未启用 / 判定异常降级放行）；返回超限结果表示
+     * 调用方应拒绝本次请求（429），本方法此时不记账。</p>
+     *
+     * @param request         请求（用于挂载结算凭据），可为 {@code null}
+     * @param apiKeyId        API Key ID（总闸）
+     * @param groupId         分组（模型分组 / 池）名称，无则传空串
+     * @param model           模型（已接入模型 / 实例）名称，无则传空串
+     * @param estimatedTokens 本次请求估算 token 数
+     * @return 超限结果；放行时为 {@link Optional#empty()}
+     */
+    public Optional<QuotaLimitViolation> tryReserve(final ServerHttpRequest request,
+                                                    final String apiKeyId,
+                                                    final String groupId,
+                                                    final String model,
                                                     final long estimatedTokens) {
         if (!isEnabled() || apiKeyId == null || apiKeyId.isEmpty()) {
             return Optional.empty();
@@ -249,35 +286,99 @@ public class QuotaEnforcementService {
         final Object lock = reserveLocks.computeIfAbsent(apiKeyId, key -> new Object());
         synchronized (lock) {
             try {
-                final QuotaDimension dimension = QuotaDimension.ofApiKey(apiKeyId);
-                final ApiKey apiKey = resolveApiKey(apiKeyId);
+                final long tokens = Math.max(0L, estimatedTokens);
+                // 组装三维度与各自限额：Key 恒生效；分组 / 模型按需（互斥）
+                final List<QuotaDimension> dimensions = new ArrayList<>();
+                final List<QuotaLimitSet> limits = new ArrayList<>();
+                dimensions.add(QuotaDimension.ofApiKey(apiKeyId));
+                limits.add(limitsOf(resolveApiKey(apiKeyId)));
+                if (groupId != null && !groupId.isEmpty()) {
+                    dimensions.add(QuotaDimension.ofGroup(groupId));
+                    limits.add(resolveGroupLimit(groupId));
+                }
+                if (model != null && !model.isEmpty()) {
+                    dimensions.add(QuotaDimension.ofModel(model));
+                    limits.add(resolveModelLimit(model));
+                }
 
-                // 配置了限额：优先走 CAS 原子预留（本地槽位锁 / Redis Lua），消除 check-then-act
-                if (apiKey != null) {
-                    final Optional<QuotaLimitViolation> casViolation = ledgerService.reserveWithLimits(
-                            QuotaRequest.of(dimension, estimatedTokens), limitsOf(apiKey));
-                    if (casViolation.isPresent()) {
-                        log.warn("配额超限，拒绝请求: apiKeyId={}, {}", apiKeyId, casViolation.get().describe());
-                        return casViolation;
+                // 逐维度预留；超限则回滚已成功维度（避免少扣 / 多扣）
+                final List<QuotaDimension> committed = new ArrayList<>();
+                for (int i = 0; i < dimensions.size(); i++) {
+                    final QuotaDimension dim = dimensions.get(i);
+                    final QuotaLimitSet limit = limits.get(i);
+                    if (limit == null || limit.equals(QuotaLimitSet.UNLIMITED)) {
+                        // 该维度无有效限额：仅记账（不判定），保证计数连续
+                        ledgerService.reserve(QuotaRequest.of(dim, tokens));
+                        committed.add(dim);
+                        continue;
                     }
-                    QuotaReservation.attach(request,
-                            new QuotaReservation(ledgerService, dimension, Math.max(0L, estimatedTokens)));
-                    return Optional.empty();
+                    final Optional<QuotaLimitViolation> violation = ledgerService.reserveWithLimits(
+                            QuotaRequest.of(dim, tokens), limit);
+                    if (violation.isPresent()) {
+                        rollbackDimensions(committed, tokens);
+                        log.warn("配额超限，拒绝请求: apiKeyId={}, scope={}, {}", apiKeyId, dim, violation.get().describe());
+                        return violation;
+                    }
+                    committed.add(dim);
                 }
-
-                // 无 Key 配置：沿用普通预留（不限额）
-                final Optional<QuotaLimitViolation> violation = evaluate(apiKeyId, estimatedTokens);
-                if (violation.isPresent()) {
-                    log.warn("配额超限，拒绝请求: apiKeyId={}, {}", apiKeyId, violation.get().describe());
-                    return violation;
-                }
-                ledgerService.reserve(QuotaRequest.of(dimension, estimatedTokens));
-                QuotaReservation.attach(request, new QuotaReservation(ledgerService, dimension, estimatedTokens));
+                QuotaReservation.attach(request, new QuotaReservation(ledgerService, dimensions, tokens));
                 return Optional.empty();
             } catch (Exception e) {
                 log.warn("配额预留异常，按 fail-open 放行: apiKeyId={}, error={}", apiKeyId, e.toString());
                 return Optional.empty();
             }
+        }
+    }
+
+    /**
+     * 回滚已成功预留的多个维度（按维度逐条冲正，失败只告警）。
+     *
+     * @param committed 已成功预留的维度列表
+     * @param tokens    预留的估算 token 数
+     */
+    private void rollbackDimensions(final List<QuotaDimension> committed, final long tokens) {
+        for (final QuotaDimension dim : committed) {
+            try {
+                ledgerService.settle(new QuotaSettlement(dim, tokens, tokens, true));
+            } catch (Exception e) {
+                log.warn("配额多维度预留回滚失败（残量留待窗口过期回收）: scope={}, error={}", dim, e.toString());
+            }
+        }
+    }
+
+    /**
+     * 解析分组（模型分组 / 池）维度的限额集合。
+     *
+     * @param groupId 分组（池）名称
+     * @return 限额集合；解析器缺失或解析异常时返回 {@code null}（按无限制放行）
+     */
+    private QuotaLimitSet resolveGroupLimit(final String groupId) {
+        if (groupLimitResolver == null) {
+            return null;
+        }
+        try {
+            return groupLimitResolver.resolve(groupId).orElse(null);
+        } catch (Exception e) {
+            log.warn("解析分组配额限额失败，按无限制放行: groupId={}, error={}", groupId, e.toString());
+            return null;
+        }
+    }
+
+    /**
+     * 解析模型（已接入模型 / 实例）维度的限额集合。
+     *
+     * @param model 模型（实例）名称
+     * @return 限额集合；解析器缺失或解析异常时返回 {@code null}（按无限制放行）
+     */
+    private QuotaLimitSet resolveModelLimit(final String model) {
+        if (modelLimitResolver == null) {
+            return null;
+        }
+        try {
+            return modelLimitResolver.resolve(model).orElse(null);
+        } catch (Exception e) {
+            log.warn("解析模型配额限额失败，按无限制放行: model={}, error={}", model, e.toString());
+            return null;
         }
     }
 
@@ -410,10 +511,16 @@ public class QuotaEnforcementService {
     /**
      * 从 API Key 配置打包限额集合（供 CAS 预留与判定共用，对齐上游 3.4.0）。
      *
-     * @param apiKey 限额配置
+     * <p>配置缺失（{@code apiKey == null}）时返回 {@link QuotaLimitSet#UNLIMITED}：
+     * Key 维度仍然只记账、不判定，其余维度（分组 / 模型）的限额照常生效。</p>
+     *
+     * @param apiKey 限额配置，可为 {@code null}
      * @return 限额集合（各窗口 {@code <= 0} 表示不限）
      */
     private QuotaLimitSet limitsOf(final ApiKey apiKey) {
+        if (apiKey == null) {
+            return QuotaLimitSet.UNLIMITED;
+        }
         return new QuotaLimitSet(
                 apiKey.getRateLimitPerMinute(),
                 apiKey.getHourlyRequestLimit(),

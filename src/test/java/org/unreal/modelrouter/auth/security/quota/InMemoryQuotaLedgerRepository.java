@@ -18,9 +18,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * 测试用内存账本仓库（v3.1 PR-1 测试夹具）。
  *
- * <p>这是手写的真实实现而不是 Mockito mock：内部用 {@link LinkedHashMap} 模拟七列唯一键的
- * 账本表，并实现 {@code accumulate} 的原子累加语义、{@code save} 的唯一约束语义、
- * 过期删除与按 Key 删除语义。通过 {@link #setFailing(boolean)} 可注入“数据库不可用”
+ * <p>这是手写的真实实现而不是 Mockito mock：内部用 {@link LinkedHashMap} 模拟八列唯一键的
+ * 账本表（v3.4 起唯一键由七列扩为八列，新增 {@code group_id} 分组维度），并实现
+ * {@code accumulate} 的原子累加语义、{@code save} 的唯一约束语义、
+ * 过期删除与按 Key / 分组 / 模型删除语义。通过 {@link #setFailing(boolean)} 可注入"数据库不可用"
  * 故障以验证 fail-open 行为。</p>
  *
  * <p>使用方法：{@code QuotaLedgerRepository repo = fake.proxy();}（动态代理实现接口，
@@ -28,9 +29,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class InMemoryQuotaLedgerRepository implements InvocationHandler {
 
-    /** 七列精确查询方法名（与 {@link QuotaLedgerRepository} 保持一致） */
+    /** 八列精确查询方法名（与 {@link QuotaLedgerRepository} 保持一致） */
     private static final String FIND_BY_DIMENSION =
-        "findByTenantIdAndApiKeyIdAndUserIdAndServiceTypeAndModelAndWindowTypeAndWindowStart";
+        "findByTenantIdAndApiKeyIdAndUserIdAndServiceTypeAndModelAndGroupIdAndWindowTypeAndWindowStart";
 
     private final Map<String, QuotaLedgerEntity> rows = new LinkedHashMap<>();
     private final AtomicInteger invocations = new AtomicInteger();
@@ -95,7 +96,21 @@ public final class InMemoryQuotaLedgerRepository implements InvocationHandler {
      * @return 命中的行，不存在时返回 {@code null}
      */
     public QuotaLedgerEntity row(final String apiKeyId, final String windowType, final LocalDateTime windowStart) {
-        return rows.get(key("", apiKeyId, "", "", "", windowType, windowStart));
+        return rows.get(key("", apiKeyId, "", "", "", "", windowType, windowStart));
+    }
+
+    /**
+     * 读取某分组的某窗口行（v3.4 分组维度）。
+     *
+     * @param groupId     分组（池）名称
+     * @param windowType  窗口类型
+     * @param windowStart 窗口起点
+     * @return 命中的行，不存在时返回 {@code null}
+     */
+    public QuotaLedgerEntity groupRow(final String groupId,
+                                      final String windowType,
+                                      final LocalDateTime windowStart) {
+        return rows.get(key("", "", "", "", "", groupId, windowType, windowStart));
     }
 
     /**
@@ -112,13 +127,39 @@ public final class InMemoryQuotaLedgerRepository implements InvocationHandler {
                      final LocalDateTime windowStart,
                      final long requests,
                      final long tokens) {
+        seedWithGroup("", apiKeyId, "", "", "", windowType, windowStart, requests, tokens);
+    }
+
+    /**
+     * 直接写入一行（模拟历史快照，可指定分组维度）。
+     *
+     * @param groupId     分组（池）名称，空串表示无分组
+     * @param apiKeyId    API Key ID
+     * @param userId      用户 ID
+     * @param serviceType 服务类型
+     * @param model       模型名称
+     * @param windowType  窗口类型
+     * @param windowStart 窗口起点
+     * @param requests    请求数
+     * @param tokens      token 数
+     */
+    public void seedWithGroup(final String groupId,
+                              final String apiKeyId,
+                              final String userId,
+                              final String serviceType,
+                              final String model,
+                              final String windowType,
+                              final LocalDateTime windowStart,
+                              final long requests,
+                              final long tokens) {
         final QuotaLedgerEntity entity = QuotaLedgerEntity.builder()
             .id(nextId++)
             .tenantId("")
             .apiKeyId(apiKeyId)
-            .userId("")
-            .serviceType("")
-            .model("")
+            .userId(userId)
+            .serviceType(serviceType)
+            .model(model)
+            .groupId(groupId)
             .windowType(windowType)
             .windowStart(windowStart)
             .requestCount(requests)
@@ -147,13 +188,24 @@ public final class InMemoryQuotaLedgerRepository implements InvocationHandler {
         switch (name) {
             case FIND_BY_DIMENSION:
                 return Optional.ofNullable(rows.get(key((String) args[0], (String) args[1], (String) args[2],
-                    (String) args[3], (String) args[4], (String) args[5], (LocalDateTime) args[6])));
+                    (String) args[3], (String) args[4], (String) args[5], (String) args[6],
+                    (LocalDateTime) args[7])));
             case "findByApiKeyId":
                 return findByApiKeyId((String) args[0]);
+            case "findByGroupId":
+                return findByGroupId((String) args[0]);
+            case "findByModel":
+                return findByModel((String) args[0]);
+            case "findAll":
+                return new ArrayList<>(rows.values());
             case "accumulate":
                 return accumulate(args);
             case "deleteByApiKeyId":
                 return deleteByApiKeyId((String) args[0]);
+            case "deleteByGroupId":
+                return deleteByGroupId((String) args[0]);
+            case "deleteByModel":
+                return deleteByModel((String) args[0]);
             case "deleteExpired":
                 return deleteExpired((String) args[0], (LocalDateTime) args[1]);
             case "save":
@@ -176,17 +228,38 @@ public final class InMemoryQuotaLedgerRepository implements InvocationHandler {
         return result;
     }
 
+    private List<QuotaLedgerEntity> findByGroupId(final String groupId) {
+        final List<QuotaLedgerEntity> result = new ArrayList<>();
+        for (final QuotaLedgerEntity entity : rows.values()) {
+            if (groupId.equals(entity.getGroupId())) {
+                result.add(entity);
+            }
+        }
+        return result;
+    }
+
+    private List<QuotaLedgerEntity> findByModel(final String model) {
+        final List<QuotaLedgerEntity> result = new ArrayList<>();
+        for (final QuotaLedgerEntity entity : rows.values()) {
+            if (model.equals(entity.getModel())) {
+                result.add(entity);
+            }
+        }
+        return result;
+    }
+
     private int accumulate(final Object[] args) {
         final QuotaLedgerEntity entity = rows.get(key((String) args[0], (String) args[1], (String) args[2],
-            (String) args[3], (String) args[4], (String) args[5], (LocalDateTime) args[6]));
+            (String) args[3], (String) args[4], (String) args[5], (String) args[6],
+            (LocalDateTime) args[7]));
         if (entity == null) {
             return 0;
         }
-        final long requests = (Long) args[7];
-        final long tokens = (Long) args[8];
+        final long requests = (Long) args[8];
+        final long tokens = (Long) args[9];
         entity.setRequestCount(nullToZero(entity.getRequestCount()) + requests);
         entity.setTokenCount(nullToZero(entity.getTokenCount()) + tokens);
-        entity.setUpdatedAt((LocalDateTime) args[9]);
+        entity.setUpdatedAt((LocalDateTime) args[10]);
         return 1;
     }
 
@@ -194,6 +267,28 @@ public final class InMemoryQuotaLedgerRepository implements InvocationHandler {
         final List<String> keys = new ArrayList<>();
         for (final Map.Entry<String, QuotaLedgerEntity> entry : rows.entrySet()) {
             if (apiKeyId.equals(entry.getValue().getApiKeyId())) {
+                keys.add(entry.getKey());
+            }
+        }
+        keys.forEach(rows::remove);
+        return keys.size();
+    }
+
+    private int deleteByGroupId(final String groupId) {
+        final List<String> keys = new ArrayList<>();
+        for (final Map.Entry<String, QuotaLedgerEntity> entry : rows.entrySet()) {
+            if (groupId.equals(entry.getValue().getGroupId())) {
+                keys.add(entry.getKey());
+            }
+        }
+        keys.forEach(rows::remove);
+        return keys.size();
+    }
+
+    private int deleteByModel(final String model) {
+        final List<String> keys = new ArrayList<>();
+        for (final Map.Entry<String, QuotaLedgerEntity> entry : rows.entrySet()) {
+            if (model.equals(entry.getValue().getModel())) {
                 keys.add(entry.getKey());
             }
         }
@@ -227,15 +322,15 @@ public final class InMemoryQuotaLedgerRepository implements InvocationHandler {
 
     private static String key(final QuotaLedgerEntity entity) {
         return key(entity.getTenantId(), entity.getApiKeyId(), entity.getUserId(), entity.getServiceType(),
-            entity.getModel(), entity.getWindowType(), entity.getWindowStart());
+            entity.getModel(), entity.getGroupId(), entity.getWindowType(), entity.getWindowStart());
     }
 
     private static String key(final String tenantId, final String apiKeyId, final String userId,
-                              final String serviceType, final String model, final String windowType,
-                              final LocalDateTime windowStart) {
+                              final String serviceType, final String model, final String groupId,
+                              final String windowType, final LocalDateTime windowStart) {
         return String.join("|", String.valueOf(tenantId), String.valueOf(apiKeyId), String.valueOf(userId),
-            String.valueOf(serviceType), String.valueOf(model), String.valueOf(windowType),
-            String.valueOf(windowStart));
+            String.valueOf(serviceType), String.valueOf(model), String.valueOf(groupId),
+            String.valueOf(windowType), String.valueOf(windowStart));
     }
 
     private static long nullToZero(final Long value) {

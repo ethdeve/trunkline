@@ -23,7 +23,6 @@ public final class ApiKeyAuthentication implements Authentication {
     private final Collection<? extends GrantedAuthority> authorities;
     private boolean authenticated = false;
     private Object details;
-    private final List<String> allowedModels;
     private final List<String> allowedGroups;
 
     /**
@@ -33,25 +32,26 @@ public final class ApiKeyAuthentication implements Authentication {
         this.principal = null;
         this.credentials = apiKey;
         this.authorities = List.of();
-        this.allowedModels = null;
         this.allowedGroups = null;
-    }
-    
-    /**
-     * 构造函数 - 用于已认证的请求（不携带模型/分组白名单，兼容旧调用方）
-     */
-    public ApiKeyAuthentication(final String keyId, final String apiKey, final List<String> permissions) {
-        this(keyId, apiKey, permissions, null, null);
     }
 
     /**
-     * 构造函数 - 用于已认证的请求（携带模型/分组白名单）
+     * 构造函数 - 用于已认证的请求（不携带分组白名单，兼容旧调用方）
+     */
+    public ApiKeyAuthentication(final String keyId, final String apiKey, final List<String> permissions) {
+        this(keyId, apiKey, permissions, null);
+    }
+
+    /**
+     * 构造函数 - 用于已认证的请求（携带模型分组白名单）
      *
-     * @param allowedModels  可访问的模型/实例名白名单（null 表示不限制）
+     * <p><b>v3.5 治理收口：</b>原先并存的 {@code allowedModels}（已接入模型 / 实例名白名单）
+     * 已移除——对外调用的唯一入口是模型分组（虚拟模型名），实例不再能被直接调用。</p>
+     *
      * @param allowedGroups  可访问的模型分组名白名单（null 表示不限制）
      */
     public ApiKeyAuthentication(final String keyId, final String apiKey, final List<String> permissions,
-                               final List<String> allowedModels, final List<String> allowedGroups) {
+                               final List<String> allowedGroups) {
         this.principal = keyId;
         this.credentials = apiKey;
         this.authorities = permissions != null
@@ -59,7 +59,6 @@ public final class ApiKeyAuthentication implements Authentication {
                     .map(permission -> new SimpleGrantedAuthority("ROLE_" + permission.toUpperCase()))
                     .collect(Collectors.toList())
                 : List.of();
-        this.allowedModels = allowedModels;
         this.allowedGroups = allowedGroups;
     }
     

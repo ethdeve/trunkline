@@ -16,6 +16,22 @@ export interface PoolDefinition {
   strategy: string
   description?: string
   members: PoolMember[]
+  /** 每分钟请求速率上限（0 = 不限） */
+  rateLimitPerMinute?: number
+  /** 每小时请求上限（0 = 不限） */
+  hourlyRequestLimit?: number
+  /** 每小时 Token 上限（0 = 不限） */
+  hourlyTokenLimit?: number
+  /** 每日请求上限（0 = 不限） */
+  dailyRequestLimit?: number
+  /** 每日 Token 上限（0 = 不限） */
+  dailyTokenLimit?: number
+  /** 每月请求上限（0 = 不限） */
+  monthlyRequestLimit?: number
+  /** 每月 Token 上限（0 = 不限） */
+  monthlyTokenLimit?: number
+  /** 配额告警阈值（0.0-1.0） */
+  quotaAlertThreshold?: number
 }
 
 export const getPoolList = () => {

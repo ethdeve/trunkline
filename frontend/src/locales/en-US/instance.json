@@ -139,6 +139,8 @@
     "serviceTypeInPool": "This model is referenced by model group(s) \"{pools}\" and cannot change category. Remove it from those groups first.",
     "serviceTypeNotFound": "Target category \"{type}\" does not exist. Create it under System Settings first.",
     "serviceTypeLabel": "Model Category",
-    "serviceTypeSelectTip": "Not sure? Check your upstream console for how this model is invoked (chat / embedding / rerank / speech / image)."
+    "serviceTypeSelectTip": "Not sure? Check your upstream console for how this model is invoked (chat / embedding / rerank / speech / image).",
+    "ungrouped": "Not in group",
+    "ungroupedTip": "This instance is not a member of any model group. Under single-line governance it has no inbound route (direct instance calls are disabled). Add it to a group first."
   }
 }

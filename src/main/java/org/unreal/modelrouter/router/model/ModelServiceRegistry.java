@@ -326,7 +326,12 @@ public class ModelServiceRegistry {
         }
 
         // v2.8.9: 资源池路由 — effectiveModelName 命中池名 → 池成员候选 + 池策略;
-        // 未命中时 auto-model 回退为该服务全部健康实例,其余走原模型名过滤
+        // v3.5 治理收口:未命中池时**不再**走「按实例名过滤」旁路——
+        //   对外调用的唯一入口是模型分组(虚拟模型名),实例不允许被直接调用,
+        //   否则会绕过所属分组的授权与配额。
+        //   仅两条例外仍然放行(均为内部行为,客户端无法直接触达):
+        //     ① 规则引擎把模型名重写为某个实例名(TARGET_MODEL)或锁定实例(TARGET_INSTANCE);
+        //     ② auto-model 系统分组 —— 显式的「全分类健康实例」虚拟分组。
         // N-1: 池候选 = 池成员 ∩ candidates(candidates 已按请求标签过滤),
         // 池路由同样受 X-JAiRouter-Tags 约束(此前用全量实例解析导致标签被忽略)
         List<ModelRouterProperties.ModelInstance> availableInstances;
@@ -339,13 +344,36 @@ public class ModelServiceRegistry {
             if (loadBalancer == null) {
                 loadBalancer = loadBalancerManager.getLoadBalancer(null);
             }
+            // v2.8.5: 规则指定 LB 策略时覆盖（池策略之上，管理员配置优先）。
+            // v3.5 治理收口后请求几乎全部走池分支，若此处不覆盖，
+            // 规则的 LB_STRATEGY 动作将退化为「永不生效」——池分支原本就没有这段逻辑，
+            // 收口前只有非池路径能触发，属于单线治理放大的历史缺口。
+            if (ruleDecision != null && ruleDecision.getLbStrategy() != null) {
+                LoadBalancer ruleLoadBalancer =
+                        loadBalancerManager.getLoadBalancerByStrategy(ruleDecision.getLbStrategy());
+                if (ruleLoadBalancer != null) {
+                    loadBalancer = ruleLoadBalancer;
+                }
+            }
         } else {
-            if (PoolSelector.AUTO_MODEL.equals(effectiveModelName) && poolSelector != null) {
-                availableInstances = poolSelector.autoFallbackCandidates(
-                        runtimeConfig.getInstances(), serviceType);
-            } else {
+            final boolean ruleResolvedToInstance = ruleDecision != null
+                    && (ruleDecision.getTargetInstanceId() != null || ruleDecision.getTargetModelName() != null);
+            if (ruleResolvedToInstance) {
+                // ① 规则引擎显式指定了实例(管理员配置,非客户端可控)
                 availableInstances = selectInstanceOptimizer.filterAvailableInstances(
-                        candidates, effectiveModelName, serviceType);
+                    candidates, effectiveModelName, serviceType);
+            } else if (PoolSelector.AUTO_MODEL.equals(effectiveModelName) && poolSelector != null) {
+                // ② auto-model 系统分组:该服务分类下全部健康实例
+                availableInstances = poolSelector.autoFallbackCandidates(
+                    runtimeConfig.getInstances(), serviceType);
+            } else {
+                // v3.5 治理收口:model 未命中任何分组 → 拒绝。
+                // 报错带上「可用分组」提示,避免客户端只知道 404 不知怎么改。
+                throw new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Model '" + effectiveModelName + "' is not a model group. "
+                                + "Requests must target a model group (pool); "
+                                + "direct model access is not allowed.");
             }
             loadBalancer = loadBalancerManager.getLoadBalancer(serviceType);
             if (loadBalancer == null) {

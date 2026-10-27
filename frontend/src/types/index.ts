@@ -63,7 +63,6 @@ export interface ApiKeyVO {
   failedRequests: number
   remainingDays?: number      // -1 表示已过期，null 表示永不过期
   allowedIpAddresses?: string[]  // IP 白名单
-  allowedModels?: string[]        // 可访问的模型/实例白名单（按 model 参数值匹配；空=不限制）
   allowedGroups?: string[]        // 可访问的模型分组（pool）白名单（按分组名匹配；空=不限制）
   dailyRequestLimit?: number     // 每日请求限制
   dailyTokenLimit?: number       // 每日 Token 使用上限
@@ -87,7 +86,6 @@ export interface ApiKeyCreationVO {
   description: string
   createdBy?: string  // 创建者用户名
   permissions: string[]
-  allowedModels?: string[]        // 可访问的模型/实例白名单（按 model 参数值匹配；空=不限制）
   allowedGroups?: string[]        // 可访问的模型分组（pool）白名单（按分组名匹配；空=不限制）
   enabled: boolean
   createdAt: string
@@ -117,7 +115,6 @@ export interface ApiKeyCreateRequest {
   enabled?: boolean
   expiresAt?: string
   allowedIpAddresses?: string[]
-  allowedModels?: string[]        // 可访问的模型/实例白名单（按 model 参数值匹配；空=不限制）
   allowedGroups?: string[]        // 可访问的模型分组（pool）白名单（按分组名匹配；空=不限制）
   dailyRequestLimit?: number
   dailyTokenLimit?: number       // 每日 Token 使用上限
@@ -136,7 +133,6 @@ export interface ApiKeyUpdateRequest {
   enabled?: boolean
   expiresAt?: string
   allowedIpAddresses?: string[]
-  allowedModels?: string[]        // 可访问的模型/实例白名单（按 model 参数值匹配；空=不限制）
   allowedGroups?: string[]        // 可访问的模型分组（pool）白名单（按分组名匹配；空=不限制）
   dailyRequestLimit?: number
   dailyTokenLimit?: number       // 每日 Token 使用上限
@@ -165,7 +161,6 @@ export interface ApiKeyExportedKey {
   createdBy?: string
   expiresAt?: string
   allowedIpAddresses?: string[]
-  allowedModels?: string[]        // 可访问的模型/实例白名单（按 model 参数值匹配；空=不限制）
   allowedGroups?: string[]        // 可访问的模型分组（pool）白名单（按分组名匹配；空=不限制）
   dailyRequestLimit?: number
   rotationPeriodDays?: number
@@ -184,7 +179,6 @@ export interface ApiKeyImportItem {
   enabled?: boolean
   expiresAt?: string
   allowedIpAddresses?: string[]
-  allowedModels?: string[]        // 可访问的模型/实例白名单（按 model 参数值匹配；空=不限制）
   allowedGroups?: string[]        // 可访问的模型分组（pool）白名单（按分组名匹配；空=不限制）
   dailyRequestLimit?: number
   rotationPeriodDays?: number
