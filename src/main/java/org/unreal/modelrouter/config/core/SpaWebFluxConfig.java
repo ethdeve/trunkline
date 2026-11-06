@@ -48,6 +48,10 @@ public class SpaWebFluxConfig {
                 .GET("/favicon.ico", request ->
                     ServerResponse.noContent().build()
                 )
+                // 根路径引导到 /admin/（前端构建 base 统一为 /admin/，纯 jar 部署直接访问根不再 401）
+                .GET("/", request ->
+                    ServerResponse.temporaryRedirect(java.net.URI.create("/admin/")).build()
+                )
                 .GET("/admin", request ->
                     ServerResponse.ok()
                         .contentType(MediaType.TEXT_HTML)

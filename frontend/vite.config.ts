@@ -10,7 +10,7 @@ import {ElementPlusResolver} from 'unplugin-vue-components/resolvers'
 const env = loadEnv('development', process.cwd(), '')
 const API_TARGET = env.VITE_API_URL || 'http://127.0.0.1:8080'
 
-export default defineConfig({
+export default defineConfig(({command}) => ({
   plugins: [
     vue(),
     AutoImport({
@@ -25,8 +25,11 @@ export default defineConfig({
       dts: 'components.d.ts'
     }),
   ],
-  // 新台不挂在 /admin/ 子路径下（旧台继续占用），根路径即语义
-  base: '/',
+  // base 与后端部署形态统一：纯 jar 部署时控制台静态资源挂在 /admin/**（classpath static/admin/，
+  // SPA 回退与认证豁免均按 /admin 登记），构建产物必须以 /admin/ 为根，否则 index.html 引用的
+  // /assets/* 会 401（历史遗留：新台曾计划挂根路径，现已统一到 /admin）。
+  // 开发模式（vite dev / command='serve'）仍走根路径，3100 端口行为不变。
+  base: command === 'build' ? '/admin/' : '/',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
@@ -70,4 +73,4 @@ export default defineConfig({
     __VUE_OPTIONS_API__: true,
     __VUE_PROD_DEVTOOLS__: false
   }
-})
+})))

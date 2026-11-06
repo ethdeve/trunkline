@@ -322,7 +322,8 @@ function applyMenuPermissions(routeList: RouteRecordRaw[], parentPath = ''): voi
 applyMenuPermissions(routes as RouteRecordRaw[])
 
 const router = createRouter({
-  history: createWebHistory(),
+  // BASE_URL 由 vite base 注入：dev 为 '/'，jar 构建为 '/admin/'，与部署路径保持一致
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })
 

@@ -133,6 +133,9 @@ public class SecurityConfiguration {
         }
 
         authorizeExchangeSpec
+                // 根路径精确放行：仅用于 302 引导到 /admin/（SpaWebFluxConfig）。
+                // 必须精确匹配 "/" 而非 "/**" —— 否则所有路径都绕过认证。
+                .pathMatchers("/").permitAll()
                 // Web管理界面静态资源允许匿名访问（前端会处理认证）
                 .pathMatchers("/admin/**").permitAll()
                 // 内置帮助文档静态资源（docs md 配图/附件，由前端 <img>/<a> 直接加载，

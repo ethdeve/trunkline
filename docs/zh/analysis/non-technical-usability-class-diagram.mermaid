@@ -1,0 +1,321 @@
+%% Trunkline 非技术用户可理解性勘察 · 关键类与接口关系
+%% 与 docs/zh/analysis/non-technical-usability-code-audit.md 配套
+%% 只标注与「一致性缺陷」直接相关的字段与关系
+
+classDiagram
+    direction LR
+
+    class MenuItem {
+        +string path
+        +string title
+        +string permission
+        +LogicalRole[] roles
+        +string subtitle
+    }
+    class MenuGroup {
+        +string index
+        +string title
+        +MenuItem[] children
+    }
+    class UserStore {
+        +computed LogicalRole[] logicalRoles
+        +computed boolean isAdmin
+        +hasPermission(code) boolean
+        +hasLogicalRoleOneOf(roles) boolean
+    }
+
+    class EmployeeTerms {
+        +EMPLOYEE_TERMS: Record
+        +STAFF_ONLY_TERMS: string[]
+        +employeeTerm(key, named) string
+        +isStaff() boolean
+        +roleTerm(staffText, key, named) string
+    }
+    class Glossary {
+        +GLOSSARY: Record
+    }
+    class EffectScope {
+        +effectMessage(base, scope) string
+        +revokeMessage(base) string
+    }
+
+    class PoolDefinition {
+        +String poolName
+        +String name
+        +String serviceType
+        +boolean enabled
+        +String strategy = "weighted-random"$
+        +List~PoolMember~ members
+        +int rateLimitPerMinute
+        +long hourlyRequestLimit
+        +long dailyTokenLimit
+        +long monthlyTokenLimit
+        +double quotaAlertThreshold
+        +toQuotaLimitSet() QuotaLimitSet
+    }
+    class PoolMember {
+        +String instanceId
+        +int weight
+    }
+    class PoolSelector {
+        -List~PoolDefinition~ pools
+        +reloadPools(merged) void
+        +isPoolName(modelName) boolean
+        +findPool(serviceType, modelName) PoolDefinition
+        +resolveCandidates(pool, instances) List
+    }
+    class PoolConfigController {
+        +getAllPools() ResponseEntity
+        +createPool(pool) ResponseEntity
+        +updatePool(poolName, pool) ResponseEntity
+        +deletePool(poolName) ResponseEntity
+        -reloadActivePools() void
+    }
+    class PoolQuotaController {
+        +getPoolQuotaUsage(poolName) Mono
+        +resetPoolQuota(poolName) Mono
+    }
+    class PoolQuotaLimitResolver {
+        +resolve(scopeId) Optional
+    }
+
+    class ModelServiceRegistry {
+        +selectInstance(...) ModelInstance
+        +resolvePoolName(serviceType, modelName) String
+        +resolveRoutingStrategy(serviceType, modelName) String
+    }
+    class LoadBalancerManager {
+        +getLoadBalancer(serviceType) LoadBalancer
+        +getLoadBalancerByStrategy(strategy) LoadBalancer
+        +reinitializeLoadBalancer(serviceType, config) void
+    }
+    class LoadBalancerManagementController {
+        +getGlobalConfig() ResponseEntity
+        +getServiceConfig(serviceType) ResponseEntity
+        +updateServiceConfig(serviceType, request) ResponseEntity
+        +getSupportedStrategies() ResponseEntity
+    }
+    class ServiceConfigManager {
+        +updateServiceConfig(serviceType, request) void
+        -updateDatabaseEntity(serviceType, request) void
+    }
+    class ComponentFactory {
+        +createLoadBalancer(config) LoadBalancer
+    }
+
+    class ApiKey {
+        +String keyId
+        +long rateLimitPerMinute
+        +long dailyRequestLimit
+        +long dailyTokenLimit
+        +long monthlyRequestLimit
+        +long monthlyTokenLimit
+        +isDailyTokenLimitExceeded() boolean
+        +isDailyLimitExceeded() boolean
+    }
+    class ApiKeyValidator {
+        +validateFully(keyValue, cache, ip) FullValidationResult
+        +validateDailyLimit(apiKey) ValidationResult
+        +validateTokenLimit(apiKey) ValidationResult
+        +validateRateLimit(apiKey) ValidationResult
+    }
+    class QuotaEnforcementService {
+        +isEnabled() boolean
+        +evaluate(apiKeyId, tokens) Optional
+        +tryReserve(request, apiKeyId, groupId, model, tokens) Optional
+        +checkEstimatedTokenQuota(apiKeyId, dto) Optional
+        +resolveModelLimit(model) QuotaLimitSet
+    }
+    class QuotaLedgerService {
+        +isEnabled() boolean
+        +usage(dimension, window) Optional
+        +usageStrict(dimension, window) Optional
+        +reserveWithLimits(request, limits) Optional
+    }
+    class QuotaProperties {
+        +boolean enabled = false$
+        +boolean failOpen = true$
+        +List~QuotaWindow~ windows
+    }
+    class ModelPriceService {
+        +catalog() List
+        +upsert(modelName, request) ModelPriceDTO
+        +resolveQuotaLimit(modelName) QuotaLimitSet
+    }
+    class ModelPriceQuotaLimitResolver {
+        +resolve(scopeId) Optional
+    }
+    class ModelPriceEntity {
+        +String modelName
+        +BigDecimal priceInput
+        +BigDecimal priceOutput
+        +boolean enabled
+    }
+    class BillingService {
+        +getMyBills(userId, year, month) MyBillsVO
+        +getMyRecentUsage(userId, days) MyRecentUsageVO
+        -buildDailyBills(userId, year, month, priceIndex) List
+    }
+    class TokenUsageEntity {
+        +String modelName
+        +String virtualModel
+        +String instanceName
+        +String apiKeyId$
+        +String userId$
+        +String clientIp$
+        +String instanceUrl$
+        +String errorMessage$
+    }
+    class TokenUsageRepository {
+        +aggregateByUserMonthModel(userId, year, month) List
+    }
+    class ModelPriceRepository {
+        +findAllByEnabledTrue() List
+    }
+
+    %% ===== 第二轮复检新增：权限防线 =====
+    class PermissionAuthorizationManager {
+        +check(auth, context) Mono
+        -resolvePolicy(unmatchedRaw, failClosedRaw) RbacUnmatchedPolicy
+    }
+    class PermissionRuleRegistry {
+        +findRule(method, path) Optional
+        +getRules() List
+    }
+    class RbacExemptEndpoints {
+        +isExempt(method, path) boolean
+        +exemptions() List
+    }
+    class RbacUnmatchedPolicy {
+        <<enumeration>>
+        AUTHENTICATED
+        DENY_WRITES
+        DENY_ALL$
+    }
+    class RolePermissionSeeder {
+        +DEFAULT_ROLE_TEMPLATES: Map
+        -userCodes() List
+        -operatorCodes() List
+        -viewerCodes() List
+    }
+    class PermissionCodes {
+        <<constants>>
+        CONFIG_POOLS_READ = "config:pools:read"
+        MONITORING_TOKENUSAGE_READ = "monitoring:tokenusage:read"
+        SECURITY_APIKEYS_MANAGE = "security:apikeys:manage"
+        SECURITY_APIKEYS_SELF = "security:apikeys:self"
+        SYSTEM_ACCOUNTS_MANAGE = "system:accounts:manage"
+    }
+    class TokenUsageController {
+        +getTokenUsageStatistics(start, end) ResponseEntity
+        +getRecentUsage(limit) ResponseEntity
+        -crossPrincipalWriteError(auth, claimedKeyId) String
+    }
+    class BillingController {
+        +getMyBills(...) ResponseEntity
+        +getTeamBills(...) ResponseEntity
+    }
+    class ApiKeyManagementController {
+        +listAllKeys() ResponseEntity
+        +listMyKeys() ResponseEntity
+    }
+
+    %% ===== 第二轮复检新增：双接入实现 =====
+    class ProviderConsoleView {
+        <<A 套 · 菜单入口 /providers>>
+        +2 tabs : 接入厂商 + 价格与额度
+        +使用 getProviderCatalog() 脱敏
+    }
+    class ModelsView {
+        <<B 套 · 无菜单入口 /models>>
+        +3 tabs : 供应商接入 + 已接入模型 + 价格与额度
+        +使用 getProviders() 含内部细节
+    }
+    class PricingQuotaPanel {
+        <<A 套价格表 · 真实读写>>
+        +getPriceCatalog() / upsertModelPrice()
+        +含熔断列 + 限流列
+    }
+    class ModelPricing {
+        <<B 套价格表 · 纯 mock>>
+        +rows: PriceRow[] 硬编码 7 条$
+        +save() 仅关闭弹窗 不落库$
+    }
+
+    %% ===== 第二轮复检新增：错误提示分层 =====
+    class RequestInterceptor {
+        +responseInterceptor(error) reject
+        -提升后端 message 到 error.message
+        -保存 serverErrorCode
+    }
+    class ErrorMessages {
+        <<新增建议>>
+        +MESSAGES: Record~errorCode, 文案~
+    }
+    class PlaygroundErrorHandler {
+        +handle(error) 已有分层实现
+    }
+
+    %% 关系
+    MenuGroup "1" o-- "*" MenuItem
+    UserStore ..> MenuItem : logicalRoles 决定可见性
+    MenuItem ..> EmployeeTerms : 术语来源
+    EmployeeTerms ..> Glossary : 运维侧补充解释
+    EffectScope ..> MenuItem : 副本生效提示
+
+    PoolConfigController "1" --> "*" PoolDefinition : CRUD 落库
+    PoolConfigController "1" --> "1" PoolSelector : reloadActivePools
+    PoolDefinition "1" *-- "*" PoolMember
+    PoolSelector "1" o-- "*" PoolDefinition
+    PoolQuotaLimitResolver ..> PoolSelector : 解析分组限额
+    PoolQuotaLimitResolver ..> QuotaEnforcementService : @Qualifier("group")
+
+    ModelServiceRegistry "1" --> "1" PoolSelector : findPool
+    ModelServiceRegistry "1" --> "1" LoadBalancerManager : getLoadBalancerByStrategy(pool.strategy)
+    LoadBalancerManagementController "1" --> "1" LoadBalancerManager : reinitializeLoadBalancer (仅内存)
+    LoadBalancerManagementController ..> ServiceConfigManager : 未调用 → 不落库
+    ServiceConfigManager ..> ModelPriceEntity : entity.setLoadBalanceType
+    LoadBalancerManager "1" --> "1" ComponentFactory : createLoadBalancer
+    ComponentFactory ..> PoolDefinition : 不读 hashAlgorithm/virtualNodes
+
+    ApiKeyValidator "1" --> "1" ApiKey : 校验每日与每分钟
+    QuotaEnforcementService "1" --> "1" ApiKey : limitsOf(读月度)
+    QuotaEnforcementService "1" --> "1" QuotaLedgerService : reserveWithLimits
+    QuotaLedgerService "1" --> "1" QuotaProperties : enabled=false 默认
+    ModelPriceQuotaLimitResolver ..> QuotaEnforcementService : @Qualifier("model")
+    ModelPriceService "1" --> "1" ModelPriceRepository : findAllByEnabledTrue
+    ModelPriceService ..> ModelPriceEntity
+
+    BillingService "1" --> "1" TokenUsageRepository : 聚合
+    BillingService "1" --> "1" ModelPriceRepository : 按 instanceName 查价
+    TokenUsageRepository ..> TokenUsageEntity : COALESCE(instanceName, modelName)
+
+    %% ===== 权限防线关系 =====
+    PermissionAuthorizationManager "1" --> "1" PermissionRuleRegistry : findRule 首条命中
+    PermissionAuthorizationManager "1" --> "1" RbacExemptEndpoints : isExempt
+    PermissionAuthorizationManager "1" --> "1" RbacUnmatchedPolicy : 姿态判定
+    RbacUnmatchedPolicy ..> PermissionAuthorizationManager : 默认 DENY_ALL
+    PermissionRuleRegistry ..> PermissionCodes : 引用权限码
+    RolePermissionSeeder ..> PermissionCodes : 角色模板授予权限码
+    RolePermissionSeeder "1" --> "1" PermissionRuleRegistry : 增量收敛取规则所需码
+
+    TokenUsageController "1" --> "*" TokenUsageEntity : 返回 JPA 实体全字段
+    TokenUsageController ..> PermissionRuleRegistry : GET /api/token-usage/** → monitoring:tokenusage:read
+    RolePermissionSeeder ..> TokenUsageController : USER 持有该码 → 员工可直读$
+    TokenUsageController ..> ApiKeyManagementController : 对照：/api/auth/api-keys/** 有 hasRole(ADMIN)
+    BillingController ..> TokenUsageController : 对照：/api/billing/team 有 hasAnyRole(OPERATOR,ADMIN)
+    ApiKeyManagementController ..> PermissionRuleRegistry : /mine → security:apikeys:self
+
+    %% ===== 双接入实现关系 =====
+    ModelsView "1" --> "*" ProviderManagement : tab2
+    ModelsView "1" --> "*" ModelPricing : tab3 假数据$
+    ProviderConsoleView "1" --> "*" PricingQuotaPanel : tab2 真实
+    ProviderConsoleView ..> ModelsView : 同功能 两个名字 一个有菜单一个没有$
+    PricingQuotaPanel "1" --> "1" ModelPriceService : getPriceCatalog / upsert
+    ModelPricing ..> ModelPriceService : 不调用 → 假保存$
+
+    %% ===== 错误提示分层关系 =====
+    RequestInterceptor ..> ErrorMessages : 应按角色查表 (未接线)
+    RequestInterceptor ..> PlaygroundErrorHandler : 已有分层 但只服务测试场
+    EmployeeTerms ..> RequestInterceptor : 43 条术语 未用于错误文案$
+

@@ -116,6 +116,11 @@ public class ExcludedPathsConfig {
         if (apiDocsAuthExcluded && isApiDocsPath(path)) {
             return true;
         }
+        // 根路径仅精确匹配豁免（SpaWebFluxConfig 把 / 302 引导到 /admin/）。
+        // 严禁把 "/" 放进 AUTH_EXCLUDED_PATHS 集合：下面 startsWith("/") 会放行所有请求。
+        if (path.equals("/")) {
+            return true;
+        }
         // 检查精确匹配和前缀匹配
         if (AUTH_EXCLUDED_PATHS.stream().anyMatch(excludedPath ->
             path.equals(excludedPath) || path.startsWith(excludedPath))) {
