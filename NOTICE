@@ -1,0 +1,34 @@
+Trunkline
+Copyright (c) 2026 Trunkline Team
+
+This product includes software developed by the JAiRouter Project
+(https://github.com/Lincoln-cn/JAiRouter), originally licensed under the
+Apache License, Version 2.0.
+
+The original copyright notices, license terms, and author attributions of
+the JAiRouter project are retained in source files where applicable.
+
+Modifications and additions beyond the upstream JAiRouter project —
+including but not limited to rebranding, additional governance features,
+the Trunkline Web Console rework, and enterprise-facing extension points —
+are Copyright (c) 2026 Trunkline Team, also licensed under the
+Apache License, Version 2.0.
+
+================================================================================
+Third-party components
+================================================================================
+
+This product bundles or depends on the following third-party open-source
+projects, which remain under their own licenses:
+
+  - Spring Boot / Spring Framework        — Apache License 2.0
+  - Vue 3 / Vite                         — MIT License
+  - Element Plus                         — MIT License
+  - Netty / Reactor                      — Apache License 2.0
+  - Redis / Lettuce                      — BSD 3-Clause / Apache 2.0
+  - Micrometer / Prometheus client       — Apache License 2.0 / Apache 2.0
+  - Hutool                               —木兰 Permissive License v2 / Apache 2.0
+  - OpenAI / Anthropic SDK wrappers      — see respective projects
+
+See THIRD_PARTY_NOTICES (if present) or the dependency POM tree for the
+exact versions used at build time.
