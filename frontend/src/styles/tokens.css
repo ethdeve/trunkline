@@ -1,48 +1,46 @@
 /**
  * Trunkline 设计令牌 (Design Tokens)
- * 所有语义化 CSS 自定义属性，基于 Element Plus 默认调色板
+ * 对齐 docs/Trunkline-UI设计规格.md 第四章配色规范：
+ * 主色青绿 #176C6B / 次强调陶土橙 #C4633F / 页面底 #e9eeed
  * 通过 html.dark 类切换暗色模式
  */
 
 :root {
-  /* ========== 品牌色 ========== */
-  --ja-primary: #409eff;
-  --ja-primary-light-3: #79bbff;
-  --ja-primary-light-5: #a0cfff;
-  --ja-primary-light-7: #c6e2ff;
-  --ja-primary-light-8: #d9ecff;
-  --ja-primary-light-9: #ecf5ff;
-  --ja-primary-dark-2: #337ecc;
+  /* ========== 品牌色（规格：--accent 青绿） ========== */
+  --ja-primary: #176C6B;
+  --ja-primary-light-3: #5D9897;
+  --ja-primary-light-5: #8BB6B6;
+  --ja-primary-light-7: #B9D3D3;
+  --ja-primary-light-8: #D0E1E1;
+  --ja-primary-light-9: #E8F0F0;
+  --ja-primary-dark-2: #125656;
 
-  /* ========== 侧边栏 ========== */
-  --ja-sidebar-bg: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-  --ja-sidebar-solid-bg: #2c3e50;
-  --ja-sidebar-text: #ffffff;
-  --ja-sidebar-active: #ffd04b;
-  --ja-sidebar-logo-bg: linear-gradient(135deg, #434b52 0%, #2c3e50 100%);
-  --ja-sidebar-logo-border: #3d444d;
+  /* 次强调色（规格：--accent-2 陶土橙） */
+  --ja-accent-2: #C4633F;
+  --ja-accent-2-soft: rgba(196, 99, 63, 0.10);
+  --ja-accent-2-border: rgba(196, 99, 63, 0.20);
 
-  /* ========== 主内容区 ========== */
-  --ja-main-bg: #f5f5f5;
-  --ja-main-bg-gradient: linear-gradient(180deg, #f6f9ff 0%, #fbfdff 100%);
+  /* ========== 主内容区（规格：--page 淡青灰 #e9eeed） ========== */
+  --ja-main-bg: #e9eeed;
+  --ja-main-bg-gradient: linear-gradient(180deg, #ecf1f0 0%, #f0f4f3 100%);
 
-  /* ========== 文字 ========== */
-  --ja-text-primary: #303133;
-  --ja-text-regular: #606266;
-  --ja-text-secondary: #909399;
-  --ja-text-placeholder: #a8abb2;
+  /* ========== 文字（规格：--ink-1/2/3） ========== */
+  --ja-text-primary: #0f2322;
+  --ja-text-regular: #3a4b4a;
+  --ja-text-secondary: #6b7d7c;
+  --ja-text-placeholder: #8fa09e;
 
   /* ========== 背景 ========== */
   --ja-bg-page: #ffffff;
   --ja-bg-card: #ffffff;
   --ja-bg-overlay: #ffffff;
-  --ja-bg-mask: rgba(0, 0, 0, 0.5);
+  --ja-bg-mask: rgba(15, 35, 34, 0.5);
 
-  /* ========== 边框 ========== */
-  --ja-border: #e6e6e6;
-  --ja-border-light: #ebeef5;
-  --ja-border-lighter: #f2f6fc;
-  --ja-border-dark: #d4d7de;
+  /* ========== 边框（规格：--border rgba(16,38,38,.08) 系） ========== */
+  --ja-border: rgba(16, 38, 38, 0.14);
+  --ja-border-light: rgba(16, 38, 38, 0.10);
+  --ja-border-lighter: rgba(16, 38, 38, 0.08);
+  --ja-border-dark: rgba(16, 38, 38, 0.22);
 
   /* ========== 间距梯度 (4pt) ========== */
   --ja-space-1: 4px;
@@ -54,66 +52,68 @@
   --ja-space-7: 32px;
   --ja-space-8: 40px;
 
-  /* ========== 圆角 ========== */
+  /* ========== 圆角（规格：卡片14 / 按钮8 / 胶囊999 / shell 20） ========== */
   --ja-radius-sm: 4px;
   --ja-radius: 8px;
-  --ja-radius-lg: 12px;
-  --ja-radius-xl: 16px;
+  --ja-radius-lg: 14px;
+  --ja-radius-xl: 20px;
+  --ja-radius-pill: 999px;
 
   /* ========== 阴影 ========== */
-  --ja-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
-  --ja-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  --ja-shadow-lg: 0 6px 14px rgba(0, 0, 0, 0.1);
-  --ja-shadow-xl: 0 10px 30px rgba(0, 0, 0, 0.2);
+  --ja-shadow-sm: 0 1px 2px rgba(16, 38, 38, 0.06);
+  --ja-shadow: 0 2px 8px rgba(16, 38, 38, 0.08);
+  --ja-shadow-lg: 0 6px 14px rgba(16, 38, 38, 0.10);
+  --ja-shadow-xl: 0 10px 30px rgba(16, 38, 38, 0.16);
 
-  /* ========== 字体 ========== */
-  --ja-font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  /* ========== 字体（规格：中文苹方/微软雅黑优先，等宽 ui-monospace） ========== */
+  --ja-font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', Tahoma, sans-serif;
+  --ja-font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
 
-  /* ========== 登录页渐变 ========== */
-  --ja-login-gradient-start: #667eea;
-  --ja-login-gradient-end: #764ba2;
+  /* ========== 功能色（规格：--up/--warn/--down） ========== */
+  --ja-success: #2e7d32;
+  --ja-warning: #e65100;
+  --ja-danger: #c62828;
+  --ja-info: #6b7d7c;
 
-  /* ========== 功能色 ========== */
-  --ja-success: #67c23a;
-  --ja-warning: #e6a23c;
-  --ja-danger: #f56c6c;
-  --ja-info: #909399;
+  /* ========== 彩色 chip 调色板（价格分层/配额标签，亮色） ========== */
+  --ja-chip-success-text: #1f9d72;
+  --ja-chip-success-bg: rgba(34, 160, 120, 0.12);
+  --ja-chip-warning-text: #b8860b;
+  --ja-chip-warning-bg: rgba(214, 158, 46, 0.14);
+  --ja-chip-danger-text: #d64545;
+  --ja-chip-danger-bg: rgba(214, 69, 69, 0.12);
+  --ja-chip-danger-soft-text: #c25b5b;
+  --ja-chip-danger-soft-bg: rgba(214, 69, 69, 0.10);
+  --ja-chip-info-text: #4a63b8;
+  --ja-chip-info-bg: rgba(90, 120, 200, 0.12);
+  --ja-chip-info-border: rgba(90, 120, 200, 0.18);
+  --ja-chip-rate-text: #176c6b;
+  --ja-chip-rate-bg: rgba(23, 108, 107, 0.10);
+  --ja-chip-rate-border: rgba(23, 108, 107, 0.20);
 
   /* ========== 仪表盘配色 ========== */
   --ja-dashboard-icon-color: #2b3a67;
-  --ja-dashboard-value-color: #222b45;
-  --ja-dashboard-label-color: #6b7280;
-  --ja-dashboard-config-title: #283044;
-  --ja-dashboard-error-row: #fff7f6;
-  --ja-dashboard-empty-color: #909399;
-
-  /* 仪表盘统计卡片渐变 */
-  --ja-stat-gradient-service: linear-gradient(135deg, #e6f7ff, #fff0f6);
-  --ja-stat-gradient-instance: linear-gradient(135deg, #fff7e6, #f0fff4);
-  --ja-stat-gradient-model: linear-gradient(135deg, #f0f5ff, #fff);
-  --ja-stat-gradient-healthy: linear-gradient(135deg, #e6fffb, #f0f9ff);
-  --ja-stat-gradient-error: linear-gradient(135deg, #fff0f0, #fff7e6);
-  --ja-stat-gradient-user: linear-gradient(135deg, #f8eaff, #eef7ff);
+  --ja-dashboard-value-color: #0f2322;
+  --ja-dashboard-label-color: #6b7d7c;
+  --ja-dashboard-config-title: #0f2322;
+  --ja-dashboard-error-row: #fdf1f0;
+  --ja-dashboard-empty-color: #8fa09e;
 }
 
 /* ========== 暗色模式 ========== */
 html.dark {
-  /* 品牌色（暗色模式下略微调亮） */
-  --ja-primary: #409eff;
-  --ja-primary-light-3: #3375b9;
-  --ja-primary-light-5: #2a598a;
-  --ja-primary-light-7: #213d5b;
-  --ja-primary-light-8: #1d3043;
-  --ja-primary-light-9: #18222b;
-  --ja-primary-dark-2: #337ecc;
+  /* 品牌色（暗色下略提亮保证可读） */
+  --ja-primary: #2E9E9C;
+  --ja-primary-light-3: #257E7C;
+  --ja-primary-light-5: #1D5F5E;
+  --ja-primary-light-7: #144140;
+  --ja-primary-light-8: #113433;
+  --ja-primary-light-9: #0D2625;
+  --ja-primary-dark-2: #257E7C;
 
-  /* 侧边栏暗色 */
-  --ja-sidebar-bg: linear-gradient(135deg, #1a1f2e 0%, #242b3d 100%);
-  --ja-sidebar-solid-bg: #1a1f2e;
-  --ja-sidebar-text: #e0e0e0;
-  --ja-sidebar-active: #ffd04b;
-  --ja-sidebar-logo-bg: linear-gradient(135deg, #1e2536 0%, #1a1f2e 100%);
-  --ja-sidebar-logo-border: #2a3040;
+  --ja-accent-2: #D9825F;
+  --ja-accent-2-soft: rgba(217, 130, 95, 0.12);
+  --ja-accent-2-border: rgba(217, 130, 95, 0.28);
 
   /* 主内容区 */
   --ja-main-bg: #0d1117;
@@ -143,15 +143,27 @@ html.dark {
   --ja-shadow-lg: 0 6px 14px rgba(0, 0, 0, 0.4);
   --ja-shadow-xl: 0 10px 30px rgba(0, 0, 0, 0.5);
 
-  /* 登录页渐变（暗色模式保持一致） */
-  --ja-login-gradient-start: #667eea;
-  --ja-login-gradient-end: #764ba2;
+  /* 功能色（暗色下提亮一档保证对比度） */
+  --ja-success: #55b35a;
+  --ja-warning: #f0954f;
+  --ja-danger: #ef6666;
+  --ja-info: #9aabaa;
 
-  /* 功能色 */
-  --ja-success: #67c23a;
-  --ja-warning: #e6a23c;
-  --ja-danger: #f56c6c;
-  --ja-info: #909399;
+  /* ========== 彩色 chip 调色板（暗色提亮，保证文字对比 ≥4.5） ========== */
+  --ja-chip-success-text: #6fd08e;
+  --ja-chip-success-bg: rgba(85, 179, 90, 0.18);
+  --ja-chip-warning-text: #e0a84f;
+  --ja-chip-warning-bg: rgba(240, 149, 79, 0.18);
+  --ja-chip-danger-text: #ef8f8f;
+  --ja-chip-danger-bg: rgba(239, 102, 102, 0.18);
+  --ja-chip-danger-soft-text: #e79a9a;
+  --ja-chip-danger-soft-bg: rgba(239, 102, 102, 0.16);
+  --ja-chip-info-text: #9db1e8;
+  --ja-chip-info-bg: rgba(120, 145, 230, 0.18);
+  --ja-chip-info-border: rgba(120, 145, 230, 0.30);
+  --ja-chip-rate-text: #6fc4c3;
+  --ja-chip-rate-bg: rgba(46, 158, 156, 0.20);
+  --ja-chip-rate-border: rgba(46, 158, 156, 0.35);
 
   /* 仪表盘配色 */
   --ja-dashboard-icon-color: #a8b4d0;
@@ -160,12 +172,4 @@ html.dark {
   --ja-dashboard-config-title: #e5eaf3;
   --ja-dashboard-error-row: #2d1f1f;
   --ja-dashboard-empty-color: #a3a6ad;
-
-  /* 仪表盘统计卡片渐变（暗色） */
-  --ja-stat-gradient-service: linear-gradient(135deg, #1a2a3a, #2a1a2e);
-  --ja-stat-gradient-instance: linear-gradient(135deg, #2a2a1a, #1a2a1f);
-  --ja-stat-gradient-model: linear-gradient(135deg, #1a1f2e, #1d1e1f);
-  --ja-stat-gradient-healthy: linear-gradient(135deg, #1a2e2e, #1a2233);
-  --ja-stat-gradient-error: linear-gradient(135deg, #2e1a1a, #2a2a1a);
-  --ja-stat-gradient-user: linear-gradient(135deg, #2a1a2e, #1a1f2e);
 }

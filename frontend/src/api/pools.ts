@@ -53,3 +53,14 @@ export const updatePool = (poolName: string, data: PoolDefinition) => {
 export const deletePool = (poolName: string) => {
   return request.delete<RouterResponse<void>>(`/config/pools/${poolName}`)
 }
+
+/**
+ * 查询分组（池）维度的配额用量与限额。
+ * 返回各窗口（DAILY / MONTHLY …）的请求数 / Token 数，用于「本月调用」列展示。
+ * 注意：本接口每次查询一个池，列表页按池逐个数取即可（池数量通常很少）。
+ */
+export const getPoolQuotaUsage = (poolName: string) => {
+  return request.get<RouterResponse<{
+    usage?: Array<{ window: string; requestCount: number; tokenCount: number }>
+  }>>(`/config/pools/${poolName}/quota/usage`)
+}

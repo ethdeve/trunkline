@@ -11,13 +11,13 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 /**
  * 默认安全配置
  * 
- * 当 jairouter.security.enabled=false 时生效
+ * 当 trunkline.security.enabled=false 时生效
  * 仅配置基本的安全规则，允许 /admin/** 和公开端点访问
  */
 @Slf4j
 @Configuration
 @EnableWebFluxSecurity
-@ConditionalOnProperty(name = "jairouter.security.enabled", havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.security.enabled", havingValue = "false", matchIfMissing = true)
 public class DefaultSecurityConfiguration {
 
     /**

@@ -1,14 +1,14 @@
 {
   "rule": {
-    "pageTitle": "路由规则",
+    "pageTitle": "分配规则",
     "refreshTooltip": "刷新列表与命中统计",
-    "emptyText": "还没有路由规则。规则决定「哪个请求用哪个模型」，不配置则按默认路由",
+    "emptyText": "还没有分配规则。规则决定「哪个请求用哪个模型」，不配置则按默认分配",
     "createFromTemplate": "从模板创建",
     "addRule": "新增规则",
     "editRule": "编辑规则",
     "name": "名称",
     "sort": "排序",
-    "priority": "优先级",
+    "priority": "先看哪条",
     "enabled": "启用",
     "hits": "命中",
     "condition": "条件",
@@ -21,9 +21,9 @@
     "close": "关闭",
     "runTest": "测试",
     "fetchListFailed": "获取规则列表失败",
-    "priorityUpdated": "优先级已更新",
-    "priorityUpdatedPartial": "已更新 {updated} 条,跳过 {skipped} 条(YAML 规则)",
-    "priorityUpdateFailed": "优先级更新失败",
+    "priorityUpdated": "顺序已更新",
+    "priorityUpdatedPartial": "已更新 {updated} 条,跳过 {skipped} 条(来自配置文件的规则)",
+    "priorityUpdateFailed": "顺序更新失败",
     "deleteConfirmTitle": "删除确认",
     "deleteConfirmMessage": "确定删除规则「{name}」?",
     "ruleDeleted": "规则已删除",
@@ -39,7 +39,7 @@
       "MODEL_NAME": "模型名",
       "HEADER": "请求头",
       "CLIENT_IP": "来源IP",
-      "WEIGHT": "权重"
+      "WEIGHT": "按比例"
     },
     "operator": {
       "EQUALS": "等于",
@@ -70,8 +70,8 @@
       "actionTargetLabel": "动作目标",
       "instancePlaceholder": "选择目标实例",
       "adapterPlaceholder": "选择适配器",
-      "lbStrategyPlaceholder": "选择LB策略",
-      "tagsLabel": "目标标签",
+      "lbStrategyPlaceholder": "选择分流方式",
+      "tagsLabel": "圈选实例的标签",
       "tagKeyPlaceholder": "标签名",
       "valuePlaceholder": "值",
       "addTag": "添加标签",
@@ -83,7 +83,7 @@
         "TARGET_INSTANCE": "锁定实例",
         "TARGET_ADAPTER": "切换适配器",
         "LB_STRATEGY": "分流方式",
-        "RATE_LIMIT": "限流",
+        "RATE_LIMIT": "用量上限",
         "TARGET_TAGS": "标签路由"
       },
       "actionTargetTips": {
@@ -91,23 +91,23 @@
         "TARGET_INSTANCE": "目标实例名称",
         "TARGET_ADAPTER": "切换到的适配器",
         "LB_STRATEGY": "用哪种方式在多个实例之间分流",
-        "RATE_LIMIT": "按规则限流(容量/速率必填)",
+        "RATE_LIMIT": "给命中这条规则的请求设置用量上限",
         "TARGET_TAGS": "按标签圈选实例(AND)"
       },
       "groupNamePlaceholder": "选择或输入模型分组名",
       "targetModelPlaceholder": "选择或输入目标模型(已接入模型)"
     },
     "rateLimit": {
-      "capacityLabel": "限流容量",
-      "capacityTip": "令牌桶容量",
-      "rateLabel": "限流速率",
-      "rateTip": "每秒补充速率",
-      "algorithmLabel": "限流算法",
-      "positiveRequired": "限流动作需要容量与速率大于 0",
+      "capacityLabel": "最多放行几次",
+      "capacityTip": "同一时刻最多放行多少次请求",
+      "rateLabel": "额度恢复多快",
+      "rateTip": "每秒恢复几次可用额度",
+      "algorithmLabel": "超了怎么办",
+      "positiveRequired": "请填写大于 0 的放行次数与恢复速度",
       "algorithms": {
-        "tokenBucket": "令牌桶",
-        "leakyBucket": "漏桶",
-        "slidingWindow": "滑动窗口"
+        "tokenBucket": "允许突发,空闲时攒额度",
+        "leakyBucket": "严格匀速放行",
+        "slidingWindow": "按固定时间窗口统计"
       }
     },
     "validation": {
@@ -117,7 +117,7 @@
       "atLeastOneCondition": "至少保留一个条件"
     },
     "test": {
-      "title": "规则模拟测试(dry-run)",
+      "title": "规则模拟测试",
       "serviceType": "模型分类",
       "modelName": "模型名",
       "modelNamePlaceholder": "如 gpt-4",
@@ -138,6 +138,41 @@
       "nextStep": "下一步:编辑并保存",
       "fetchListFailed": "获取模板列表失败",
       "createFailed": "模板创建失败"
+    },
+    "panelTitle": "满足什么条件 → 做什么动作",
+    "panelHint": "按顺序匹配，第一条命中就生效",
+    "simulate": "模拟测试",
+    "monthHits": "本月命中",
+    "status": "状态",
+    "statusEnabled": "启用",
+    "statusDisabled": "停用",
+    "enable": "启用",
+    "disable": "停用",
+    "plain": {
+      "and": "且",
+      "perSecond": "/秒",
+      "operator": {
+        "equals": "等于",
+        "contains": "包含",
+        "startsWith": "开头是",
+        "regex": "匹配正则",
+        "cidr": "属于网段"
+      },
+      "condition": {
+        "serviceType": "模型类型",
+        "modelName": "模型名",
+        "header": "请求头",
+        "clientIp": "来源 IP",
+        "weight": "按比例"
+      },
+      "action": {
+        "TARGET_MODEL": "转给指定模型",
+        "TARGET_INSTANCE": "锁定到实例",
+        "TARGET_ADAPTER": "换个供应商",
+        "LB_STRATEGY": "按分流方式",
+        "RATE_LIMIT": "限制速度",
+        "TARGET_TAGS": "按标签圈选实例"
+      }
     }
   }
 }

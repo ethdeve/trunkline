@@ -10,12 +10,12 @@
 
 
 
-本指南将在 5 分钟内帮您快速体验 JAiRouter 的核心功能，无需复杂配置即可开始使用。
+本指南将在 5 分钟内帮您快速体验 Trunkline 的核心功能，无需复杂配置即可开始使用。
 
 ## 🎯 学习目标
 
 完成本指南后，您将能够：
-- ✅ 启动 JAiRouter 服务
+- ✅ 启动 Trunkline 服务
 - ✅ 配置第一个 AI 模型服务
 - ✅ 发送 API 请求并获得响应
 - ✅ 体验负载均衡和限流功能
@@ -31,13 +31,13 @@
 
 ### 方式二：本地运行
 - ✅ 已安装 Java 17+
-- ✅ 下载了 JAiRouter JAR 文件
+- ✅ 下载了 Trunkline JAR 文件
 
 ### 可选：AI 模型服务
 - 如果您已有 AI 模型服务（如 Ollama、GPUStack），可以直接配置
 - 如果没有，我们将在步骤中提供测试用的模拟服务
 
-> 💡 **提示**: 如果您还没有安装 JAiRouter，请先查看 [安装指南](installation.md)。
+> 💡 **提示**: 如果您还没有安装 Trunkline，请先查看 [安装指南](installation.md)。
 
 ## 🗝️ 步骤 0：生成安全密钥（v3.1.1+ 推荐）
 
@@ -45,7 +45,7 @@
 
 > 💡 **提示**: 可以使用镜像内置工具一键生成密钥：
 > ```bash
-> docker run --rm sodlinken/jairouter:latest --generate-key
+> docker run --rm trunkline/trunkline:latest --generate-key
 > ```
 > 也可以使用以下命令行方式生成：
 
@@ -76,33 +76,33 @@ export INITIAL_ADMIN_PASSWORD="your-own-strong-password"
 > 💡 **提示**: 快速体验（dev profile）无需配置密钥，内置了开发密钥可直接启动。生产环境才需要设置 `JWT_SECRET`。
 > 🔐 **控制台默认账号**: `admin` / `ChangeMeOnFirstStartup123456`（**仅在账号表为空时自动创建**）。生产环境请通过上文的 `INITIAL_ADMIN_PASSWORD` 覆盖，或在首次登录后立即修改。
 
-## 🚀 步骤 1：启动 JAiRouter
+## 🚀 步骤 1：启动、验证与探索 API 文档
 
 ### 方式一：Docker 快速体验（推荐）
 
 ```bash
 # 使用 dev 方式启动（零配置，内置开发密钥）
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=dev \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 
 # 检查运行状态
-docker ps --filter "name=jairouter"
+docker ps --filter "name=trunkline"
 ```
 
 > ⚠️ **生产环境提醒**: 镜像默认以 prod 方式启动，**必须**自行提供 JWT 密钥，否则服务无法启动。示例：
 > ```bash
-> docker run -d --name jairouter -p 8080:8080 \
+> docker run -d --name trunkline -p 8080:8080 \
 >   -e JWT_SECRET="<至少32字符的密钥>" \
->   sodlinken/jairouter:latest
+>   trunkline/trunkline:latest
 > ```
 
 **预期输出**：
 ```
 CONTAINER ID   IMAGE                           COMMAND                  CREATED         STATUS         PORTS                    NAMES
-abc123def456   sodlinken/jairouter:latest   "java -jar /app/mode…"   2 seconds ago   Up 1 second    0.0.0.0:8080->8080/tcp   jairouter
+abc123def456   trunkline/trunkline:latest   "java -jar /app/mode…"   2 seconds ago   Up 1 second    0.0.0.0:8080->8080/tcp   trunkline
 ```
 
 ### 方式二：JAR 文件直接运行
@@ -130,7 +130,7 @@ java -jar model-router.jar --spring.config.location=classpath:/application.yml
 
 > 💡 **故障排查**: 如果端口 8080 被占用，可以使用 `-p 8081:8080` 映射到其他端口。
 
-## ✅ 步骤 2：验证服务启动
+### 验证服务启动
 
 ### 检查服务健康状态
 
@@ -165,7 +165,7 @@ curl http://localhost:8080/actuator/info
 ```json
 {
   "app": {
-    "name": "JAiRouter",
+    "name": "Trunkline",
     "version": "0.3.1",
     "description": "AI Model Service Router and Load Balancer"
   }
@@ -174,7 +174,7 @@ curl http://localhost:8080/actuator/info
 
 > ✅ **成功标志**: 看到 `"status": "UP"` 表示服务启动成功！
 
-## 📚 步骤 3：探索 API 文档
+### 探索 API 文档
 
 ### 访问 Swagger UI
 
@@ -203,6 +203,19 @@ http://localhost:8080/swagger-ui/index.html
 ![登录页](images/login-zh-CN.png)
 
 ![管理控制台](images/dashboard-zh-CN.png)
+
+## ✅ 方式零（推荐）：新控制台四步接入向导
+
+如果你已经能登录新控制台（`http://<host>:8080/`），最快的方式不是手写 API，而是用「接入 → 快速接入」向导（`/quick-start`），它会自动完成供应商创建、模型发现导入、建分组和签发测试密钥：
+
+1. **选服务商**：从模板目录选预设（国内/国际/本地），或自定义填 Base URL 与适配器；
+2. **填上游密钥**：发给下游服务商的 Key（本地推理可跳过）；
+3. **导入模型**：向导自动发现模型并按模型 ID 识别分类（chat/embedding/rerank/tts/stt/imgGen/imgEdit），勾选导入；
+4. **完成**：向导自动按分类建**模型分组**（命名 `<服务商>-<分类>`）、签发一个 `allowedGroups` 指向这些分组的测试密钥，并给出可复制的 curl / Python SDK 示例。
+
+> ⚠️ **v3.5 起 `model` 参数填「模型分组（虚拟模型名）」**，不是上游实例名。下文 API 方式添加的实例也应归入分组后再对外调用。
+
+下面的「方式一/方式二」适合脚本化或批量配置，保留作参考。
 
 ## ⚙️ 步骤 4：配置第一个 AI 服务
 
@@ -263,18 +276,18 @@ cat > config/model-router-config@1.json << 'EOF'
 EOF
 ```
 
-然后重启 JAiRouter：
+然后重启 Trunkline：
 
 ```bash
 # Docker 重启（挂载配置目录，dev 方式启动）
-docker stop jairouter
-docker rm jairouter
+docker stop trunkline
+docker rm trunkline
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=dev \
   -v $(pwd)/config:/app/config:ro \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 
 # JAR 重启
 # 停止当前进程（Ctrl+C），然后重新运行
@@ -476,11 +489,11 @@ curl -X POST "http://localhost:8080/api/config/instance/add/chat" \
   }'
 ```
 
-现在发送多个请求，JAiRouter 会根据配置的负载均衡策略（默认为轮询）分发请求。
+现在发送多个请求，Trunkline 会根据配置的负载均衡策略（默认为轮询）分发请求。
 
-## 步骤 8：体验限流功能
+### 体验限流功能
 
-JAiRouter 内置了多种限流算法。让我们快速测试一下：
+Trunkline 内置了多种限流算法。让我们快速测试一下：
 
 ```bash
 # 快速发送多个请求
@@ -508,7 +521,7 @@ done
 
 ```bash
 # Docker 查看日志
-docker logs jairouter
+docker logs trunkline
 
 # JAR 运行时日志会输出到控制台
 ```
@@ -530,11 +543,11 @@ curl http://localhost:11434/v1/models
 **A:** 检查：
 1. 请求格式是否正确
 2. 模型名称是否匹配
-3. 查看 JAiRouter 日志获取详细信息
+3. 查看 Trunkline 日志获取详细信息
 
-## 🎉 恭喜完成快速开始！
+## 🎉 下一步与示例配置
 
-您已经成功体验了 JAiRouter 的核心功能。现在您可以：
+您已经成功体验了 Trunkline 的核心功能。现在您可以：
 
 ### 🎯 继续深入学习
 
@@ -617,4 +630,4 @@ curl http://localhost:11434/v1/models
 }
 ```
 
-将此配置保存为 `config/model-router-config@1.json`，重启 JAiRouter 即可生效。
+将此配置保存为 `config/model-router-config@1.json`，重启 Trunkline 即可生效。

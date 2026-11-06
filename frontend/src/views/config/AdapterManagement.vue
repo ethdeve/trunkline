@@ -9,7 +9,9 @@
     </div>
 
     <el-table
+      ref="adaptersTableRef"
       :data="adapterList"
+      :max-height="adaptersMaxHeight"
       v-loading="loading"
       stripe
       border
@@ -94,7 +96,7 @@
     <el-dialog
       v-model="testDialogVisible"
       :title="t('adapter.testDialogTitle', { name: testingName })"
-      width="560px"
+      width="min(640px, 92vw)"
       :close-on-click-modal="false"
     >
       <AdapterTestPanel :adapter-name="testingName" />
@@ -107,7 +109,7 @@
     <el-dialog
       v-model="dialogVisible"
       :title="isEditing ? t('adapter.editAdapter') : t('adapter.newAdapter')"
-      width="600px"
+      width="min(640px, 92vw)"
       :close-on-click-modal="false"
     >
       <el-form
@@ -196,7 +198,7 @@
     <el-dialog
       v-model="viewDialogVisible"
       :title="t('adapter.detailTitle')"
-      width="500px"
+      width="min(480px, 92vw)"
     >
       <el-descriptions :column="1" border>
         <el-descriptions-item :label="t('adapter.name')">{{ viewData.name }}</el-descriptions-item>
@@ -215,7 +217,9 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { confirmDanger } from '@/utils/dangerConfirm'
 import { Plus } from '@element-plus/icons-vue'
 import {
   getAdapterList,
@@ -238,6 +242,9 @@ const canWrite = hasPermission('config:adapters:write')
 const loading = ref(false)
 const submitting = ref(false)
 const adapterList = ref<AdapterInfo[]>([])
+
+const adaptersTableRef = ref()
+const { maxHeight: adaptersMaxHeight } = useTableMaxHeight(adaptersTableRef)
 const parentAdapters = ref<ParentAdapterInfo[]>([])
 const dialogVisible = ref(false)
 const viewDialogVisible = ref(false)
@@ -367,12 +374,13 @@ const handleView = (row: AdapterInfo) => {
 }
 
 const handleDelete = async (row: AdapterInfo) => {
+  const confirmed = await confirmDanger({
+    title: t('adapter.deleteConfirmTitle'),
+    target: row.name,
+    type: 'warning'
+  })
+  if (!confirmed) return
   try {
-    await ElMessageBox.confirm(
-      t('adapter.deleteConfirmMessage', { name: row.name }),
-      t('adapter.deleteConfirmTitle'),
-      { type: 'warning' }
-    )
     const res = await deleteAdapter(row.name)
     if (res.data?.success) {
       ElMessage.success(t('adapter.deleteSuccess'))
@@ -381,9 +389,7 @@ const handleDelete = async (row: AdapterInfo) => {
       ElMessage.error(res.data?.message || t('adapter.deleteFailed'))
     }
   } catch (e: any) {
-    if (e !== 'cancel') {
-      ElMessage.error(t('adapter.deleteFailedDetail', { error: e.message || '' }))
-    }
+    ElMessage.error(t('adapter.deleteFailedDetail', { error: e.message || '' }))
   }
 }
 

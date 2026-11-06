@@ -12,13 +12,13 @@ import org.springframework.context.annotation.Configuration;
  */
 @Slf4j
 @Configuration
-@ConditionalOnProperty(name = "jairouter.security.jwt.persistence.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.jwt.persistence.enabled", havingValue = "true")
 public class JwtPersistenceConfiguration {
 
     /**
      * JWT持久化配置属性
      */
-    @ConfigurationProperties(prefix = "jairouter.security.jwt.persistence")
+    @ConfigurationProperties(prefix = "trunkline.security.jwt.persistence")
     public static class JwtPersistenceProperties {
         private String storagePath = "config-store";
         private Memory memory = new Memory();
@@ -75,7 +75,7 @@ public class JwtPersistenceConfiguration {
     /**
      * JWT黑名单配置属性
      */
-    @ConfigurationProperties(prefix = "jairouter.security.jwt.blacklist.persistence")
+    @ConfigurationProperties(prefix = "trunkline.security.jwt.blacklist.persistence")
     public static class JwtBlacklistProperties {
         private String storagePath = "config-store/jwt-blacklist";
         private int maxMemorySize = 10000;
@@ -111,7 +111,7 @@ public class JwtPersistenceConfiguration {
      * JWT持久化配置属性Bean
      */
     @Bean
-    @ConfigurationProperties(prefix = "jairouter.security.jwt.persistence")
+    @ConfigurationProperties(prefix = "trunkline.security.jwt.persistence")
     public JwtPersistenceProperties jwtPersistenceProperties() {
         return new JwtPersistenceProperties();
     }
@@ -120,7 +120,7 @@ public class JwtPersistenceConfiguration {
      * JWT黑名单配置属性Bean
      */
     @Bean
-    @ConfigurationProperties(prefix = "jairouter.security.jwt.blacklist.persistence")
+    @ConfigurationProperties(prefix = "trunkline.security.jwt.blacklist.persistence")
     public JwtBlacklistProperties jwtBlacklistProperties() {
         return new JwtBlacklistProperties();
     }

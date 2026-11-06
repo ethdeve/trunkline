@@ -48,6 +48,14 @@ public class ApiKeyBatchService {
     @Autowired
     private ApiKeyWhitelistValidator whitelistValidator;
 
+    // O(1) 查找索引（C6 整改）
+    @Autowired(required = false)
+    private ApiKeyLookupIndex lookupIndex;
+
+    // 密钥明文加密器（「我的密钥」复制能力的底层，2026-11 用户决策）
+    @Autowired
+    private ApiKeyPlaintextCipher plaintextCipher;
+
     // 审计辅助类
     private final ApiKeyAuditHelper auditHelper = new ApiKeyAuditHelper();
 
@@ -135,6 +143,11 @@ public class ApiKeyBatchService {
                 persistenceService.saveApiKeysToStore(apiKeyCache);
             }
 
+            // 重建 O(1) 查找索引（导入密钥若携带明文将在此被索引；存量无明文密钥回落 O(n)）
+            if (lookupIndex != null) {
+                lookupIndex.rebuild(apiKeyCache);
+            }
+
             // 记录审计
             auditHelper.auditBatchImport(extendedAuditService, importedBy, ipAddress, successCount, failureCount);
 
@@ -212,7 +225,16 @@ public class ApiKeyBatchService {
             // 更新缓存：移除旧的 keyHash，添加新的
             apiKeyCache.remove(keyHash);
             apiKey.setKeyHash(newKeyHash);
+            // 明文此刻可得：更新脱敏展示串与加密明文（2026-11 复制能力）
+            apiKey.setKeyMasked(ApiKey.maskKey(originalKeyValue));
+            apiKey.setKeyEncrypted(plaintextCipher.encrypt(originalKeyValue));
             apiKey.setLastRotatedAt(LocalDateTime.now());
+            // 同步更新 O(1) 查找索引：先摘除旧 lookupHash，再按新 keyValue 重建
+            if (lookupIndex != null) {
+                lookupIndex.remove(apiKey);
+                lookupIndex.attachLookupHash(apiKey, originalKeyValue);
+                lookupIndex.index(apiKey);
+            }
             apiKeyCache.put(newKeyHash, apiKey);
             keyIdIndex.put(keyId, newKeyHash);
 
@@ -226,16 +248,22 @@ public class ApiKeyBatchService {
 
             log.info("强制轮换密钥成功: {}, 操作者: {}", keyId, rotatedBy);
 
+            // 2026-11 安全加固：操作者 ≠ 持有人时，轮换响应不回传明文（C6）；
+            // 持有人登录后在「我的密钥」里查看并复制新密钥值。
+            final boolean selfHeld = rotatedBy != null && rotatedBy.equals(apiKey.getHolder());
             return ApiKeyCreationVO.builder()
                     .keyId(keyId)
-                    .keyValue(originalKeyValue)  // 仅此一次返回原始值
+                    .keyValue(selfHeld ? originalKeyValue : null)  // 仅持有人本人操作时回传明文
                     .description(apiKey.getDescription())
+                    .holder(apiKey.getHolder())
                     .permissions(apiKey.getPermissions())
                     .enabled(apiKey.isEnabled())
                     .createdAt(apiKey.getCreatedAt())
                     .expiresAt(apiKey.getExpiresAt())
                     .lastRotatedAt(apiKey.getLastRotatedAt())
-                    .warning("密钥已轮换，新的密钥值仅显示一次，请妥善保存！")
+                    .warning(selfHeld
+                        ? "密钥已轮换，新的密钥值仅显示一次，请妥善保存！"
+                        : "密钥已轮换并加密保存，持有人可在「我的密钥」中查看并复制新的密钥值。")
                     .build();
         });
     }
@@ -363,7 +391,11 @@ public class ApiKeyBatchService {
         LocalDateTime expiresAt = parseExpiresAt(item.getExpiresAt());
 
         // 归一化权限
-        final List<String> normalizedPermissions = normalizePermissions(item.getPermissions());
+        List<String> normalizedPermissions = normalizePermissions(item.getPermissions());
+        // 2026-11：导入未提供分类权限时按白名单自动推导（与单条创建路径口径一致）
+        if (normalizedPermissions == null || normalizedPermissions.isEmpty()) {
+            normalizedPermissions = whitelistValidator.derivePermissions(item.getAllowedGroups());
+        }
 
         // 2026-10-24：白名单与权限分类一致性校验（导入路径同样要拦）。
         // 校验失败 → 该条导入失败（不阻断整批），错误原因回传给前端展示。
@@ -379,7 +411,11 @@ public class ApiKeyBatchService {
                 .keyHash(keyHash)
                 .keyValue(null)
                 .keyPrefix("sk-")
+                // 明文此刻可得：落盘脱敏展示串与加密明文（2026-11 复制能力）
+                .keyMasked(ApiKey.maskKey(originalKeyValue))
+                .keyEncrypted(plaintextCipher.encrypt(originalKeyValue))
                 .description(item.getDescription())
+                .holder(item.getHolder())
                 .permissions(normalizedPermissions)
                 // 2026-10-24 修复：此前导入路径丢弃了白名单字段（DTO 有、实体没设），
                 // 导致「导出→导入」后分组白名单静默丢失
@@ -401,19 +437,26 @@ public class ApiKeyBatchService {
                 .build();
 
         // 更新缓存
+        if (lookupIndex != null) {
+            lookupIndex.attachLookupHash(apiKey, originalKeyValue);
+        }
         apiKeyCache.put(keyHash, apiKey);
         keyIdIndex.put(keyId, keyHash);
 
-        // 构建响应
+        // 构建响应（2026-11 安全加固：操作者 ≠ 持有人时不回传明文，C6）
+        final boolean selfHeld = importedBy != null && importedBy.equals(apiKey.getHolder());
         ApiKeyCreationVO creationVO = ApiKeyCreationVO.builder()
                 .keyId(keyId)
-                .keyValue(originalKeyValue)  // 仅此一次返回原始值
+                .keyValue(selfHeld ? originalKeyValue : null)  // 仅持有人本人导入时回传明文
                 .description(apiKey.getDescription())
+                .holder(apiKey.getHolder())
                 .permissions(apiKey.getPermissions())
                 .enabled(apiKey.isEnabled())
                 .createdAt(apiKey.getCreatedAt())
                 .expiresAt(apiKey.getExpiresAt())
-                .warning("密钥值只会显示一次，请妥善保存！")
+                .warning(selfHeld
+                    ? "密钥值只会显示一次，请妥善保存！"
+                    : "密钥已导入并加密保存，持有人可在「我的密钥」中查看并复制密钥值。")
                 .build();
 
         return ApiKeyImportResult.success(keyId, creationVO);
@@ -451,7 +494,16 @@ public class ApiKeyBatchService {
         // 更新缓存
         apiKeyCache.remove(oldKeyHash);
         apiKey.setKeyHash(newKeyHash);
+        // 明文此刻可得：更新脱敏展示串与加密明文（2026-11 复制能力）
+        apiKey.setKeyMasked(ApiKey.maskKey(originalKeyValue));
+        apiKey.setKeyEncrypted(plaintextCipher.encrypt(originalKeyValue));
         apiKey.setLastRotatedAt(now);
+        // 同步更新 O(1) 查找索引（摘除旧 lookupHash，按新 keyValue 重建）
+        if (lookupIndex != null) {
+            lookupIndex.remove(apiKey);
+            lookupIndex.attachLookupHash(apiKey, originalKeyValue);
+            lookupIndex.index(apiKey);
+        }
         apiKeyCache.put(newKeyHash, apiKey);
         keyIdIndex.put(keyId, newKeyHash);
     }
@@ -470,6 +522,7 @@ public class ApiKeyBatchService {
                 .enabled(apiKey.isEnabled())
                 .createdAt(apiKey.getCreatedAt())
                 .createdBy(apiKey.getCreatedBy())
+                .holder(apiKey.getHolder())
                 .expiresAt(apiKey.getExpiresAt())
                 .allowedIpAddresses(apiKey.getAllowedIpAddresses())
                 .dailyRequestLimit(apiKey.getDailyRequestLimit())

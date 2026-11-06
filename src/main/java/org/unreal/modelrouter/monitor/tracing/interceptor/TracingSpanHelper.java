@@ -55,6 +55,11 @@ public class TracingSpanHelper {
             final Throwable error) {
 
         Instant startTime = Instant.now();
+        // 入口线程捕获 traceId 快照（本方法为同步调用，上下文此刻必然有效）
+        final String capturedTraceId = tracingContext.getTraceId();
+        // 附加到链路记录的属性（前端链路详情的步骤副标题取自这里）
+        final Map<String, Object> spanAttrs = new HashMap<>();
+        final boolean[] failed = {false};
 
         // 创建实例选择Span
         String operationName = "InstanceSelection";
@@ -69,6 +74,9 @@ public class TracingSpanHelper {
             selectionSpan.setAttribute("service.type", serviceType.name());
             selectionSpan.setAttribute("model.name", modelName);
             selectionSpan.setAttribute("client.ip", clientIp != null ? clientIp : "unknown");
+            spanAttrs.put("service.type", serviceType.name());
+            spanAttrs.put("model.name", modelName);
+            spanAttrs.put("client.ip", clientIp != null ? clientIp : "unknown");
 
             if (selectedInstance != null) {
                 selectionSpan.setAttribute("instance.id", selectedInstance.getInstanceId());
@@ -77,6 +85,12 @@ public class TracingSpanHelper {
                 selectionSpan.setAttribute("instance.adapter",
                     selectedInstance.getAdapter() != null ? selectedInstance.getAdapter() : "default");
                 selectionSpan.setAttribute("instance.weight", selectedInstance.getWeight());
+                spanAttrs.put("instance.id", selectedInstance.getInstanceId());
+                spanAttrs.put("instance.name", selectedInstance.getName());
+                spanAttrs.put("instance.base_url", selectedInstance.getBaseUrl());
+                spanAttrs.put("instance.adapter",
+                    selectedInstance.getAdapter() != null ? selectedInstance.getAdapter() : "default");
+                spanAttrs.put("instance.weight", selectedInstance.getWeight());
 
                 // 记录实例选择成功事件
                 Map<String, Object> eventData = new HashMap<>();
@@ -98,6 +112,9 @@ public class TracingSpanHelper {
                     serviceType, modelName, selectedInstance.getInstanceId(), duration);
             } else if (error != null) {
                 // 实例选择失败
+                failed[0] = true;
+                spanAttrs.put("error.type", error.getClass().getSimpleName());
+                spanAttrs.put("error.message", error.getMessage() != null ? error.getMessage() : "");
                 selectionSpan.setStatus(StatusCode.ERROR, error.getMessage());
                 selectionSpan.recordException(error);
                 selectionSpan.setAttribute("error.type", error.getClass().getSimpleName());
@@ -120,6 +137,9 @@ public class TracingSpanHelper {
                     serviceType, modelName, error.getMessage(), duration);
             }
         } catch (Exception e) {
+            failed[0] = true;
+            spanAttrs.put("error.type", e.getClass().getSimpleName());
+            spanAttrs.put("error.message", e.getMessage() != null ? e.getMessage() : "");
             selectionSpan.setStatus(StatusCode.ERROR, e.getMessage());
             selectionSpan.recordException(e);
             log.warn("记录实例选择追踪失败", e);
@@ -127,7 +147,7 @@ public class TracingSpanHelper {
             if (selectionSpan.isRecording()) {
                 selectionSpan.end();
             }
-            recordChildSpan(selectionSpan, tracingContext, startTime, operationName);
+            recordChildSpan(selectionSpan, tracingContext, startTime, operationName, capturedTraceId, spanAttrs, failed[0]);
         }
     }
 
@@ -142,6 +162,15 @@ public class TracingSpanHelper {
             final Supplier<Mono<T>> operation) {
 
         Instant startTime = Instant.now();
+        // 入口线程捕获 traceId 快照：适配器完成回调可能在其它线程上执行，
+        // 届时共享上下文的 currentSpan 存在可见性竞态，实时取值可能为空
+        final String capturedTraceId = tracingContext.getTraceId();
+        // 附加到链路记录的属性（前端链路详情的步骤副标题取自这里）
+        final Map<String, Object> spanAttrs = new HashMap<>();
+        spanAttrs.put("adapter.name", adapterName);
+        spanAttrs.put("adapter.service_type", serviceType.name());
+        spanAttrs.put("adapter.instance_id", instance.getInstanceId());
+        spanAttrs.put("adapter.instance_url", instance.getBaseUrl());
 
         // 创建适配器调用Span
         String operationName = String.format("Adapter.%s.%s", adapterName, serviceType.name());
@@ -210,17 +239,37 @@ public class TracingSpanHelper {
                 if (adapterSpan.isRecording()) {
                     adapterSpan.end();
                 }
-                recordChildSpan(adapterSpan, tracingContext, startTime, operationName);
+                recordChildSpan(adapterSpan, tracingContext, startTime, operationName, capturedTraceId,
+                    spanAttrs, signalType == reactor.core.publisher.SignalType.ON_ERROR);
             });
     }
 
     /**
      * 记录子Span到TraceQueryService
+     *
+     * <p>v3.5 修复：共享 TracingContext 的 currentSpan 跨线程读取存在可见性竞态，
+     * 完成回调线程上 getTraceId() 可能返回空串，导致子 span（Adapter/Controller）
+     * 以空 traceId 落库（脏数据）或链路缺步骤。调用方须在入口线程捕获 traceId
+     * 快照传入；快照与上下文取值均为空时跳过落库。</p>
+     *
+     * @param capturedTraceId 调用方在入口线程捕获的 traceId 快照（可为 null）
+     * @param attributes 附加到链路记录上的属性（model/instance/adapter 等，供前端链路详情展示）
+     * @param error      该子步骤是否失败
      */
     void recordChildSpan(
             final Span span, final TracingContext tracingContext,
-            final Instant startTime, final String operationName) {
+            final Instant startTime, final String operationName,
+            final String capturedTraceId,
+            final Map<String, Object> attributes, final boolean error) {
         if (traceQueryService == null || tracingContext == null || span == null) {
+            return;
+        }
+
+        // traceId 快照优先，缺失时回退上下文实时取值；两者皆空则拒绝落库（避免产生空 traceId 脏数据）
+        final String traceId = (capturedTraceId != null && !capturedTraceId.isBlank())
+            ? capturedTraceId : tracingContext.getTraceId();
+        if (traceId == null || traceId.isBlank()) {
+            log.debug("子Span落库跳过：追踪编号缺失, operation={}", operationName);
             return;
         }
 
@@ -231,27 +280,27 @@ public class TracingSpanHelper {
             // 使用 TraceQueryService.SpanRecord 内部类
             TraceQueryService.SpanRecord spanRecord = new TraceQueryService.SpanRecord(
                 span.getSpanContext().getSpanId(),
-                tracingContext.getTraceId(),
+                traceId,
                 operationName != null ? operationName : "child-span",
                 startTime,
                 endTime,
                 duration,
-                false, // error status
-                "OK", // status code
-                new HashMap<>() // attributes
+                error,
+                error ? "ERROR" : "OK",
+                attributes != null ? attributes : new HashMap<>()
             );
 
             // 使用同步方法记录 span，确保数据存储完成
             // Controller层请求都是后端API请求，使用 "server" 作为服务标识
             traceQueryService.recordTraceSync(
-                tracingContext.getTraceId(),
+                traceId,
                 "server",
                 Collections.singletonList(spanRecord),
                 duration
             );
 
             log.debug("子Span已记录: traceId={}, spanId={}, operation={}, duration={}ms",
-                tracingContext.getTraceId(), span.getSpanContext().getSpanId(), operationName, duration);
+                traceId, span.getSpanContext().getSpanId(), operationName, duration);
         } catch (Exception e) {
             log.debug("记录子Span失败", e);
         }

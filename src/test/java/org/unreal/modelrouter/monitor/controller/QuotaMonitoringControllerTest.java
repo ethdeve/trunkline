@@ -52,6 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 @DisplayName("QuotaMonitoringController 配额观测面测试")
 class QuotaMonitoringControllerTest {

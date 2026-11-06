@@ -55,7 +55,7 @@ const recentCommands = computed<Command[]>(() => {
   try {
     const recents = JSON.parse(localStorage.getItem(RECENTS_KEY) || '[]') as string[]
     return recents
-      .filter(p => p !== '/overview') // 总览是默认页，不进最近
+      .filter(p => p !== '/my-quota') // 我的额度是默认页，不进最近
       .slice(0, MAX_RECENTS)
       .map((path): Command | null => {
         const item = flattenMenuItems().find(m => m.path === path)

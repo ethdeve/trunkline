@@ -9,7 +9,7 @@
 
 ## Overview
 
-Since **v2.9.8**, JAiRouter provides a **data-driven RBAC (role-based access control)** system built around the `module:resource:action` permission code as the single permission atom. It chains **permission code → role → JWT → URL permission matrix → menu** into one complete pipeline:
+Since **v2.9.8**, Trunkline provides a **data-driven RBAC (role-based access control)** system built around the `module:resource:action` permission code as the single permission atom. It chains **permission code → role → JWT → URL permission matrix → menu** into one complete pipeline:
 
 1. **Permission code**: 53 `module:resource:action` codes (`action` ∈ `read` / `write` / `manage` / `view`) drive both backend URL access decisions and frontend menu/route visibility.
 2. **Role template**: On startup the system seeds 4 built-in role templates (ADMIN / OPERATOR / USER / VIEWER) into the `role_permissions` table — full seeding when the table is empty, and insert-only additive reconcile when it is not (see "Role Templates").
@@ -174,10 +174,10 @@ Configuration:
 
 | Key | Values | Notes |
 |-----|--------|-------|
-| `jairouter.security.rbac.unmatched-policy` | `AUTHENTICATED` \| `DENY_WRITES` \| `DENY_ALL` | **default `DENY_ALL`** |
-| `jairouter.security.rbac.write-fail-closed.enabled` (legacy) | `true` \| `false` | **consulted only when `unmatched-policy` is absent**: `false`→`AUTHENTICATED`, `true`→`DENY_WRITES`; when both are present the new key wins, so they can never contradict |
+| `trunkline.security.rbac.unmatched-policy` | `AUTHENTICATED` \| `DENY_WRITES` \| `DENY_ALL` | **default `DENY_ALL`** |
+| `trunkline.security.rbac.write-fail-closed.enabled` (legacy) | `true` \| `false` | **consulted only when `unmatched-policy` is absent**: `false`→`AUTHENTICATED`, `true`→`DENY_WRITES`; when both are present the new key wins, so they can never contradict |
 
-**Rollback without a code change**: set `jairouter.security.rbac.unmatched-policy=AUTHENTICATED` (full legacy behavior) or `=DENY_WRITES` (phase-2 posture).
+**Rollback without a code change**: set `trunkline.security.rbac.unmatched-policy=AUTHENTICATED` (full legacy behavior) or `=DENY_WRITES` (phase-2 posture).
 
 ### Coverage Self-Check and Observability
 
@@ -220,7 +220,7 @@ The table below maps five caller classes against capability groups under the cur
 | Capability group | ROLE_ADMIN JWT | non-ADMIN JWT (OPERATOR/USER/VIEWER) | API-Key (`X-API-Key`) | anonymous |
 |------------------|:--------------:|:------------------------------------:|:---------------------:|:---------:|
 | `/v1/**` native inference surface (`GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/embeddings`, `POST /v1/rerank`, `POST /v1/messages`, `POST /v1/messages/count_tokens`) | ✔ (login only) | ✔ (login only) | ✔ (API-Key service-type permission + quota) | ✘ |
-| `/v1/debug/**` (exists only when `jairouter.debug.endpoints.enabled=true`, default off) | ✔ (login only) | ✔ (login only) | ✔ (login only) | ✘ |
+| `/v1/debug/**` (exists only when `trunkline.debug.endpoints.enabled=true`, default off) | ✔ (login only) | ✔ (login only) | ✔ (login only) | ✘ |
 | Exemption-list endpoints (`/api/v1/**` writes, JWT self-service, `/api/auth/permissions`, `/api/models`, token-usage ingest) | ✔ | ✔ (login only) | ✔ (login only) | ✘ |
 | Rule-matched `/api/**` (config/monitoring/security, etc.) | ✔ (bypass) | ✔ per role permission codes (see role templates) | **✘ always 403** | ✘ |
 | Unmatched and non-exempt `/api/**` (MISSING) | ✔ (short-circuit) | **✘ 403 (default DENY_ALL)** | **✘ 403** | ✘ |
@@ -231,7 +231,7 @@ The table below maps five caller classes against capability groups under the cur
 | `/actuator/health`, `/actuator/info`, `/actuator/prometheus` | ✔ | ✔ | ✔ | ✔ (permitAll) |
 | `/admin/**` (static SPA), `/favicon.ico` | ✔ | ✔ | ✔ | ✔ (permitAll) |
 | `POST /api/auth/jwt/login`, `POST /api/auth/jwt/validate` | ✔ | ✔ | ✔ | ✔ (permitAll) |
-| `/swagger-ui/**`, `/v3/api-docs/**`, `/webjars/**` | ✔ | ✔ | ✔ | login required by default; permitAll only when `jairouter.security.docs-public=true` |
+| `/swagger-ui/**`, `/v3/api-docs/**`, `/webjars/**` | ✔ | ✔ | ✔ | login required by default; permitAll only when `trunkline.security.docs-public=true` |
 
 What API-Key callers must know (external integrators):
 
@@ -239,7 +239,7 @@ What API-Key callers must know (external integrators):
 - Therefore an API-Key can **never** hold `ROLE_ADMIN` and never holds a permission code ⇒ **every rule-matched `/api/**` path is 403 for API-Keys**, and after phase 3 unmatched `/api/**` paths are 403 too.
 - The usable API-Key surface is: **all of `/v1/**`** (`SecurityConfiguration` maps `/v1/**` to `authenticated()` — NOT the permission manager) plus the exemption set above.
 - The `/v1/**` native surface (OpenAI + Anthropic, six endpoints) is **unaffected by all three changes** — existing integrations need no modification.
-- `/v1/debug/**` exists only when `jairouter.debug.endpoints.enabled=true` (default off) and requires only authentication ⇒ if enabled, any authenticated principal including an API-Key can call it. **Keep it off in production.**
+- `/v1/debug/**` exists only when `trunkline.debug.endpoints.enabled=true` (default off) and requires only authentication ⇒ if enabled, any authenticated principal including an API-Key can call it. **Keep it off in production.**
 
 What non-ADMIN roles must know:
 
@@ -363,10 +363,10 @@ Visibility control mechanisms:
 
 | Target | Configuration |
 |--------|---------------|
-| Full legacy fail-open | `jairouter.security.rbac.unmatched-policy=AUTHENTICATED` |
-| Phase-2 posture (writes fail-closed, GETs fail-open) | `jairouter.security.rbac.unmatched-policy=DENY_WRITES` |
+| Full legacy fail-open | `trunkline.security.rbac.unmatched-policy=AUTHENTICATED` |
+| Phase-2 posture (writes fail-closed, GETs fail-open) | `trunkline.security.rbac.unmatched-policy=DENY_WRITES` |
 
-The legacy key `jairouter.security.rbac.write-fail-closed.enabled` is consulted only when `unmatched-policy` is absent (`false`→`AUTHENTICATED`, `true`→`DENY_WRITES`); when both are present the new key wins, so they can never contradict.
+The legacy key `trunkline.security.rbac.write-fail-closed.enabled` is consulted only when `unmatched-policy` is absent (`false`→`AUTHENTICATED`, `true`→`DENY_WRITES`); when both are present the new key wins, so they can never contradict.
 
 ### Other compatibility notes
 

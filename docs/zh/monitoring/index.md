@@ -9,7 +9,7 @@
 
 
 
-JAiRouter 提供了全面的监控功能，包括系统指标收集、Prometheus 集成、Grafana 仪表板和告警配置。本指南将帮助您了解和使用 JAiRouter 的监控功能。
+Trunkline 提供了全面的监控功能，包括系统指标收集、Prometheus 集成、Grafana 仪表板和告警配置。本指南将帮助您了解和使用 Trunkline 的监控功能。
 
 ## 快速开始
 
@@ -27,16 +27,16 @@ JAiRouter 提供了全面的监控功能，包括系统指标收集、Prometheus
 
 ### 访问监控界面
 
-- **JAiRouter 应用**: http://localhost:8080
+- **Trunkline 应用**: http://localhost:8080
 - **Prometheus**: http://localhost:9090
-- **Grafana**: http://localhost:3000 (admin/jairouter2024)
+- **Grafana**: http://localhost:3000 (admin/trunkline2024)
 - **指标端点**: http://localhost:8080/actuator/prometheus
 
 ## 监控架构
 
 ```mermaid
 graph TB
-    subgraph "JAiRouter 应用"
+    subgraph "Trunkline 应用"
         A[HTTP 请求] --> B[指标拦截器]
         B --> C[指标收集器]
         C --> D[Micrometer 注册表]
@@ -108,34 +108,36 @@ graph TB
 
 ## 关键指标快速参考
 
+> 下列 PromQL 为**示意写法**；实际注册的指标名以 [指标参考](metrics.md) 的「代码已注册指标」与运行时 `/actuator/prometheus` 输出为准。通用请求/延迟指标通常对应 Micrometer 的 `http.server.requests`。
+
 ### 系统健康
 ```promql
 # 服务可用性
-up{job="jairouter"}
+up{job="trunkline"}
 
 # 请求错误率
-sum(rate(jairouter_requests_total{status=~"5.."}[5m])) / sum(rate(jairouter_requests_total[5m]))
+sum(rate(trunkline_requests_total{status=~"5.."}[5m])) / sum(rate(trunkline_requests_total[5m]))
 
 # P95 响应时间
-histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))
 ```
 
 ### 业务指标
 ```promql
 # 模型调用成功率
-sum(rate(jairouter_model_calls_total{status="success"}[5m])) / sum(rate(jairouter_model_calls_total[5m]))
+sum(rate(trunkline_model_calls_total{status="success"}[5m])) / sum(rate(trunkline_model_calls_total[5m]))
 
 # 活跃用户会话数
-sum(jairouter_user_sessions_active)
+sum(trunkline_user_sessions_active)
 ```
 
 ### 基础设施
 ```promql
 # 健康的后端实例数
-sum(jairouter_backend_health)
+sum(trunkline_backend_health)
 
 # 熔断器开启的服务数
-count(jairouter_circuit_breaker_state == 1)
+count(trunkline_circuit_breaker_state == 1)
 ```
 
 ## 支持和反馈

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# JAiRouter告警规则验证脚本
+# Trunkline告警规则验证脚本
 # 用于验证告警规则的完整性和有效性
 
 set -e
@@ -10,7 +10,7 @@ RULES_DIR="${SCRIPT_DIR}/rules"
 PROMETHEUS_URL="${PROMETHEUS_URL:-http://localhost:9090}"
 ALERTMANAGER_URL="${ALERTMANAGER_URL:-http://localhost:9093}"
 
-echo "=== JAiRouter告警规则验证 ==="
+echo "=== Trunkline告警规则验证 ==="
 echo "规则目录: ${RULES_DIR}"
 echo "Prometheus地址: ${PROMETHEUS_URL}"
 echo "AlertManager地址: ${ALERTMANAGER_URL}"
@@ -101,7 +101,7 @@ validate_queries() {
             expr=$(echo "$expr" | sed 's/^["|]//; s/["|]$//')
             queries+=("$expr")
         fi
-    done < "${RULES_DIR}/jairouter-alerts.yml"
+    done < "${RULES_DIR}/trunkline-alerts.yml"
     
     echo "找到 ${#queries[@]} 个查询表达式"
     
@@ -177,7 +177,7 @@ validate_alertmanager() {
 validate_coverage() {
     echo -e "${BLUE}4. 验证告警规则覆盖率...${NC}"
     
-    local alerts_file="${RULES_DIR}/jairouter-alerts.yml"
+    local alerts_file="${RULES_DIR}/trunkline-alerts.yml"
     
     if [ ! -f "$alerts_file" ]; then
         echo -e "${RED}❌ 告警规则文件未找到${NC}"
@@ -185,15 +185,15 @@ validate_coverage() {
     fi
     
     # 统计各类告警
-    local basic_alerts=$(grep -c "name: jairouter\.basic" "$alerts_file" || echo "0")
-    local performance_alerts=$(grep -c "name: jairouter\.performance" "$alerts_file" || echo "0")
-    local backend_alerts=$(grep -c "name: jairouter\.backend" "$alerts_file" || echo "0")
-    local infrastructure_alerts=$(grep -c "name: jairouter\.infrastructure" "$alerts_file" || echo "0")
-    local resource_alerts=$(grep -c "name: jairouter\.resources" "$alerts_file" || echo "0")
-    local business_alerts=$(grep -c "name: jairouter\.business" "$alerts_file" || echo "0")
-    local security_alerts=$(grep -c "name: jairouter\.security" "$alerts_file" || echo "0")
-    local capacity_alerts=$(grep -c "name: jairouter\.capacity" "$alerts_file" || echo "0")
-    local dependency_alerts=$(grep -c "name: jairouter\.dependencies" "$alerts_file" || echo "0")
+    local basic_alerts=$(grep -c "name: trunkline\.basic" "$alerts_file" || echo "0")
+    local performance_alerts=$(grep -c "name: trunkline\.performance" "$alerts_file" || echo "0")
+    local backend_alerts=$(grep -c "name: trunkline\.backend" "$alerts_file" || echo "0")
+    local infrastructure_alerts=$(grep -c "name: trunkline\.infrastructure" "$alerts_file" || echo "0")
+    local resource_alerts=$(grep -c "name: trunkline\.resources" "$alerts_file" || echo "0")
+    local business_alerts=$(grep -c "name: trunkline\.business" "$alerts_file" || echo "0")
+    local security_alerts=$(grep -c "name: trunkline\.security" "$alerts_file" || echo "0")
+    local capacity_alerts=$(grep -c "name: trunkline\.capacity" "$alerts_file" || echo "0")
+    local dependency_alerts=$(grep -c "name: trunkline\.dependencies" "$alerts_file" || echo "0")
     
     local total_groups=$((basic_alerts + performance_alerts + backend_alerts + infrastructure_alerts + resource_alerts + business_alerts + security_alerts + capacity_alerts + dependency_alerts))
     local total_rules=$(grep -c "alert:" "$alerts_file" || echo "0")
@@ -226,7 +226,7 @@ validate_coverage() {
 validate_severity() {
     echo -e "${BLUE}5. 验证告警级别分布...${NC}"
     
-    local alerts_file="${RULES_DIR}/jairouter-alerts.yml"
+    local alerts_file="${RULES_DIR}/trunkline-alerts.yml"
     
     if [ ! -f "$alerts_file" ]; then
         echo -e "${RED}❌ 告警规则文件未找到${NC}"
@@ -261,7 +261,7 @@ generate_report() {
     local report_file="${SCRIPT_DIR}/alert-validation-report.md"
     
     cat > "$report_file" << EOF
-# JAiRouter告警规则验证报告
+# Trunkline告警规则验证报告
 
 ## 验证概要
 - 验证时间: $(date)
@@ -298,7 +298,7 @@ AlertManager配置文件验证完成
 ./monitoring/prometheus/validate-alerts.sh
 
 # 仅检查语法
-promtool check rules monitoring/prometheus/rules/jairouter-alerts.yml
+promtool check rules monitoring/prometheus/rules/trunkline-alerts.yml
 
 # 检查AlertManager配置
 promtool check config monitoring/alertmanager/alertmanager.yml

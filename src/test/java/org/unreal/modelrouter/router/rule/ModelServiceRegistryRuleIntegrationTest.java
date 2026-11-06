@@ -501,19 +501,16 @@ class ModelServiceRegistryRuleIntegrationTest {
         }
 
         @Test
-        @DisplayName("INTEG-019: 无池时 auto-model 回退全部健康实例")
-        void testAutoModel_noPool_fallsBackAllInstances() {
+        @DisplayName("INTEG-019: 未显式创建分组时请求直接 404(v3.6 治理收口)")
+        void testAutoModel_noPool_rejected() {
             poolSelector.reloadPools(java.util.List.of());
 
-            ModelRouterProperties.ModelInstance selected =
-                    registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "auto-model", "1.1.1.1");
+            ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                    () -> registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "auto-model", "1.1.1.1"));
 
-            assertNotNull(selected);
-            // 测试意图：回退路径应将全部健康实例暴露给 LB（而非按模型名过滤为子集）。
-            // 断言具体哪个实例被选中依赖 LB 内部状态（如连接计数），跨测试不隔离时
-            // 会导致 flaky，因此改为集合成员断言，保持测试语义不变。
-            assertTrue(java.util.Set.of("inst-gpt", "inst-claude").contains(selected.getInstanceId()),
-                    "回退应走全部健康实例(LB 从中选择), 实际: " + selected.getInstanceId());
+            assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
+            assertTrue(ex.getReason().contains("is not a model group"),
+                    "未显式创建分组时应 404, 实际: " + ex.getReason());
         }
 
         @Test

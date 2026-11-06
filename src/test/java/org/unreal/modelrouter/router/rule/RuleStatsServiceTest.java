@@ -22,13 +22,13 @@ class RuleStatsServiceTest {
     private final RuleStatsService service = new RuleStatsService(meterRegistry, new MonitoringProperties());
 
     @Test
-    @DisplayName("recordHit 递增计数(指标名 jairouter_rule_hits_total, 按 ruleId+actionType 系列)")
+    @DisplayName("recordHit 递增计数(指标名 trunkline_rule_hits_total, 按 ruleId+actionType 系列)")
     void recordHit_incrementsCounter() {
         service.recordHit("rule-1", "TARGET_MODEL");
         service.recordHit("rule-1", "TARGET_MODEL");
         service.recordHit("rule-2", "LB_STRATEGY");
 
-        var counters = meterRegistry.find("jairouter_rule_hits_total").counters();
+        var counters = meterRegistry.find("trunkline_rule_hits_total").counters();
         assertEquals(2, counters.size());
 
         double rule1 = counters.stream()
@@ -57,5 +57,21 @@ class RuleStatsServiceTest {
         RuleStat rule2 = stats.stream().filter(s -> s.getRuleId().equals("rule-2")).findFirst().orElseThrow();
         assertEquals(1, rule2.getHits());
         assertTrue(rule2.getActionType().equals("LB_STRATEGY"));
+    }
+
+    @Test
+    @DisplayName("getStats 同时给出本月命中数(与累计命中一致,同月内)")
+    void getStats_reportsMonthHits() {
+        service.recordHit("rule-1", "TARGET_MODEL");
+        service.recordHit("rule-1", "TARGET_MODEL");
+        service.recordHit("rule-2", "LB_STRATEGY");
+
+        List<RuleStat> stats = service.getStats();
+
+        RuleStat rule1 = stats.stream().filter(s -> s.getRuleId().equals("rule-1")).findFirst().orElseThrow();
+        assertEquals(2, rule1.getMonthHits());
+
+        RuleStat rule2 = stats.stream().filter(s -> s.getRuleId().equals("rule-2")).findFirst().orElseThrow();
+        assertEquals(1, rule2.getMonthHits());
     }
 }

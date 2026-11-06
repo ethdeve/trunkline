@@ -9,7 +9,12 @@
       "instanceSection": "已接入模型",
       "emptyTitle": "还没有可用的模型",
       "emptyDesc": "需要先在「接入模型」里添加供应商与模型，或检查模型是否已停用",
-      "emptyAction": "去接入模型"
+      "emptyAction": "去接入模型",
+      "virtualModel": "虚拟模型",
+      "emptyTitleEmployee": "还没有可用的 AI 模型",
+      "emptyDescEmployee": "管理员还没给你开放模型，请联系管理员开通，开通后这里就会出现可选模型。",
+      "modelScopeUnavailable": "模型范围暂不可用（后端解析依赖缺失），下拉中的分组信息可能不完整，请稍后刷新或联系管理员。",
+      "scopeLoadFailed": "模型范围加载失败，已暂时显示全部模型，请稍后刷新重试。"
     },
     "availability": {
       "inactive": "已停用",

@@ -1,13 +1,13 @@
 # Management API
 
 <!-- 版本信息 -->
-> **Doc Version**: 2.0.0
-> **Last Updated**: 2026-05-21
+> **Doc Version**: 2.1.0
+> **Last Updated**: 2026-10-28
 > **Git Commit**: 61384b4a
 > **Author**: Lincoln
 <!-- /版本信息 -->
 
-JAiRouter provides a complete set of management APIs for dynamic configuration management, service instance management, monitoring configuration, and more. All management APIs use the `/api` prefix.
+Trunkline provides a complete set of management APIs for dynamic configuration management, service instance management, monitoring configuration, and more. All management APIs use the `/api` prefix.
 
 ## Table of Contents
 
@@ -24,6 +24,7 @@ JAiRouter provides a complete set of management APIs for dynamic configuration m
 - [Quota Management](#quota-management)
 - [API Key Quota Ops](#apikey-quota-ops)
 - [PII / Sanitization Management](#sanitization-mgmt)
+- [Other Management Endpoints](#other-mgmt)
 
 ---
 
@@ -41,8 +42,17 @@ Get all available service types.
 
 **Response Example:**
 ```json
-["chat", "embedding", "rerank", "tts", "stt", "imgGen", "imgEdit"]
+{
+  "success": true,
+  "message": "操作成功",
+  "data": ["chat", "embedding", "rerank", "tts", "stt", "imgGen", "imgEdit"]
+}
 ```
+
+> This endpoint returns a `RouterResponse<Set<String>>` wrapper, **not** a bare array.
+
+#### `GET /api/config/type/services/batch`
+Batch-fetch service type configurations (`ServiceTypeController.java:145`).
 
 #### `GET /api/config/type/services/{serviceType}`
 Get configuration for a specific service type.
@@ -267,7 +277,7 @@ Get current monitoring configuration.
 ```json
 {
   "enabled": true,
-  "prefix": "jairouter",
+  "prefix": "trunkline",
   "collectionInterval": "PT30S",
   "enabledCategories": ["request", "system", "custom"],
   "sampling": {
@@ -730,7 +740,7 @@ Get the current quota configuration snapshot (including runtime overrides).
     },
     "distributed": {
       "enabled": false,
-      "keyPrefix": "jairouter:quota",
+      "keyPrefix": "trunkline:quota",
       "timeoutMs": 50,
       "degradeToLocal": true
     },
@@ -794,7 +804,7 @@ Query the quota ledger runtime status.
     "windows": ["MINUTE", "HOUR", "DAY", "MONTH"],
     "distributed": {
       "enabled": false,
-      "keyPrefix": "jairouter:quota",
+      "keyPrefix": "trunkline:quota",
       "timeoutMs": 50,
       "degradeToLocal": true
     }
@@ -939,21 +949,39 @@ Get adapter configuration and capabilities.
 
 ---
 
-## Instance Configs (Legacy)
+> ⚠️ **Removed during the v3.3.1 review**: this section previously documented a legacy
+> `/api/instance-configs/**` group (GET/POST/PUT/DELETE). No such paths exist anywhere in the
+> codebase (zero matches for `instance-configs`). Real service-instance CRUD lives under
+> `/api/config/instance` (see [Other Management Endpoints](#other-mgmt)).
 
-### Base Path: `/api/instance-configs`
+---
 
-#### `GET /api/instance-configs/service/{serviceConfigId}`
-Get instance configs for a service.
+## Other Management Endpoints {#other-mgmt}
 
-#### `POST /api/instance-configs/service/{serviceConfigId}`
-Create instance config.
+The following endpoint groups exist in code (`@RestController`) but do not yet have dedicated chapters; they are summarized by base path for reference.
 
-#### `PUT /api/instance-configs/{id}`
-Update instance config.
+| Base Path | Controller (package) | Endpoint inventory |
+|---|---|---|
+| `/api/config/pools` | `router/controller/PoolConfigController` | `GET /list`, `GET /{poolName}`, `POST` (create group), `PUT /{poolName}`, `DELETE /{poolName}` |
+| `/api/config/pools/{poolName}/quota` | `router/controller/PoolQuotaController` | `GET /usage`, `POST /reset` |
+| `/api/config/providers` | `config/controller/ModelProviderController` | `GET` (provider list), `POST` (create provider) |
+| `/api/config/instance` | `router/serviceinstance/ServiceTypeInstanceController` | Service instance CRUD and paged list (`?page=&size=`); sub-path details to be confirmed |
+| `/api/config/rules` | `router/controller/RuleConfigController` | `GET /list`, `GET /{id}`, `POST` (create rule), `PUT /{id}`, `DELETE /{id}`, `POST /{id}/enable`, `POST /{id}/disable`, `PUT /{id}/priority`, `POST /validate`, `GET /stats` |
+| `/api/config/rules/templates` | `router/controller/RuleTemplateController` | `GET /list`, `GET /{id}`, `POST /{id}/create` (generate a rule from a template) |
+| `/api/config/adapter/templates` | `router/controller/AdapterTemplateController` | `GET` (template list), `GET /{id}`, `POST /{id}`, `PUT /{id}`, `DELETE /{id}`, `POST /{id}/hide`, `POST /{id}/restore`, `GET /hidden/list` |
+| `/api/config/adapter` (test) | `router/controller/AdapterTestController` | `POST /{name}/test`, `POST /test` (adapter connectivity test) |
+| `/api` (permissions) | `auth/controller/PermissionManagementController` | `GET /security/permissions`, `GET /security/permissions/roles`, `PUT /security/permissions/roles/{roleName}`, `GET /auth/permissions` |
+| `/api/config/dependencies` | `config/controller/DependencyController` | Configuration dependency checks |
+| `/api/config/cache` | `router/controller/ResponseCacheController` | `GET` (cache config/status), `PUT` (update config), `DELETE` (clear cache) |
+| `/api/config/circuit-breaker` | `config/controller/CircuitBreakerConfigController` | Global circuit-breaker configuration read/write |
+| `/api/config/call-history` | `monitor/callhistory/controller/CallHistoryConfigController` | `GET` / `PUT` call-history recording configuration |
+| `/api/call-history` | `monitor/callhistory/ApiCallHistoryController` | `GET` (paged call-history query); query-param details to be confirmed |
+| `/api/models/stats` | `monitor/controller/ModelStatsController` | `GET` (config stats: total services / instances / models / per-service distribution) |
+| `/api/exceptions` | `monitor/controller/ExceptionManagementController` | Exception record query and management |
+| `/api/dashboard/metrics` | `monitor/controller/DashboardMetricsController` | Console dashboard aggregate metrics |
+| `/api/state-persistence` | `persistence/controller/StatePersistenceManagementController` | State persistence management |
 
-#### `DELETE /api/instance-configs/{id}`
-Delete instance config.
+> `DebugMultipartController` (`/v1/debug/**`) is a development-only debug endpoint and is not exposed in production, so it is not listed in the formal API.
 
 ---
 
@@ -965,20 +993,34 @@ All API endpoints follow a consistent error response format:
 {
   "success": false,
   "message": "Error description",
-  "errorCode": "ERROR_CODE"
+  "errorCode": "ERROR_CODE",
+  "data": null
 }
 ```
 
 ### Common Error Codes
 
+| Code | Description | HTTP Status |
+|------|-------------|-------------|
+| `NOT_FOUND` | Resource not found | 404 |
+| `INVALID_REQUEST` | Invalid request data | 400 |
+| `INVALID_API_KEY` | Authentication required | 401 |
+| `FORBIDDEN` | Permission denied | 403 |
+| `CONFLICT` | Resource conflict | 409 |
+| `RATE_LIMIT_EXCEEDED` | Too many requests | 429 |
+| `INTERNAL_ERROR` | Server error | 500 |
+
+**Authentication-related error codes** (per the actual constants in `AuthenticationException` / `DefaultJwtTokenValidator` / `CustomReactiveAuthenticationManager`):
 | Code | Description |
 |------|-------------|
-| `NOT_FOUND` | Resource not found |
-| `VALIDATION_ERROR` | Invalid request data |
-| `UNAUTHORIZED` | Authentication required |
-| `FORBIDDEN` | Permission denied |
-| `CONFLICT` | Resource conflict |
-| `INTERNAL_ERROR` | Server error |
+| `INVALID_API_KEY` | Invalid API Key |
+| `EXPIRED_API_KEY` | API Key expired |
+| `MISSING_API_KEY` | Missing API Key |
+| `EMPTY_API_KEY` / `API_KEY_DISABLED` / `API_KEY_AUTH_FAILED` | Empty key / key disabled / key authentication failed |
+| `JWT_INVALID` / `JWT_EXPIRED` / `JWT_BLACKLISTED` | JWT invalid / expired / blacklisted |
+| `EMPTY_JWT_TOKEN` | Empty JWT token |
+
+> Note: `INVALID_JWT_TOKEN` / `EXPIRED_JWT_TOKEN` seen in older docs are **not** the codes actually emitted by the codebase; they were removed during the v3.3.x verification. The old `VALIDATION_ERROR` / `UNAUTHORIZED` rows above are likewise not real codes.
 
 ---
 
@@ -998,4 +1040,4 @@ Header: X-API-Key: <your-api-key>
 
 ---
 
-*Last updated: 2026-05-21*
+*Last updated: 2026-10-28*

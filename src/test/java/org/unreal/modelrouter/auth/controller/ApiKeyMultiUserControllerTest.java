@@ -76,11 +76,11 @@ class ApiKeyMultiUserControllerTest {
                 .permissions(Arrays.asList("chat"))
                 .build();
 
-        when(apiKeyService.createApiKey(any(ApiKeyCreateRequest.class)))
+        when(apiKeyService.createApiKey(any(ApiKeyCreateRequest.class), any(), any()))
                 .thenReturn(Mono.just(creationVO));
 
         // When & Then
-        StepVerifier.create(controller.createApiKey(request))
+        StepVerifier.create(controller.createApiKey(request, null))
                 .assertNext(response -> {
                     assertNotNull(response);
                     assertTrue(response.isSuccess());

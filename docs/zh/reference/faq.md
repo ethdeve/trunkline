@@ -9,15 +9,15 @@
 
 
 
-本文档收集了用户在使用 JAiRouter 过程中最常遇到的问题和解答。
+本文档收集了用户在使用 Trunkline 过程中最常遇到的问题和解答。
 
 ## 基础问题
 
-### Q1: JAiRouter 是什么？
+### Q1: Trunkline 是什么？
 
-**A**: JAiRouter 是一个基于 Spring Boot 的 AI 模型服务路由和负载均衡网关。它提供统一的 OpenAI 兼容 API 接口，支持多种后端 AI 服务，包括 GPUStack、Ollama、VLLM、OpenAI 等。主要功能包括负载均衡、限流、熔断、健康检查和动态配置管理。
+**A**: Trunkline 是一个基于 Spring Boot 的 AI 模型服务路由和负载均衡网关。它提供统一的 OpenAI 兼容 API 接口，支持多种后端 AI 服务，包括 GPUStack、Ollama、VLLM、OpenAI 等。主要功能包括负载均衡、限流、熔断、健康检查和动态配置管理。
 
-### Q2: JAiRouter 支持哪些 AI 服务？
+### Q2: Trunkline 支持哪些 AI 服务？
 
 **A**: 目前支持以下 AI 服务：
 - **GPUStack**: GPU 集群管理平台
@@ -31,7 +31,7 @@
 
 ### Q2.1: 适配器支持最新的 API 特性吗？
 
-**A**: 是的，JAiRouter 的所有适配器都已更新以支持最新的 API 特性：
+**A**: 是的，Trunkline 的所有适配器都已更新以支持最新的 API 特性：
 
 - **VllmAdapter**: 支持最新的 vLLM OpenAI 兼容 API，包括所有扩展参数
 - **GpuStackAdapter**: 支持最新的 GPUStack API 特性
@@ -47,9 +47,9 @@
 - 改进的流式响应处理
 - 统一的错误处理机制
 
-### Q3: JAiRouter 与其他 API 网关有什么区别？
+### Q3: Trunkline 与其他 API 网关有什么区别？
 
-**A**: JAiRouter 专门为 AI 模型服务设计，具有以下特色：
+**A**: Trunkline 专门为 AI 模型服务设计，具有以下特色：
 - **AI 专用**: 针对 AI 模型服务的特殊需求优化
 - **OpenAI 兼容**: 提供标准的 OpenAI API 格式
 - **智能路由**: 支持多种负载均衡策略
@@ -57,13 +57,13 @@
 - **成本优化**: 支持基于成本的路由策略
 - **易于使用**: 专门为 AI 开发者设计的简单配置
 
-### Q4: JAiRouter 是否免费？
+### Q4: Trunkline 是否免费？
 
-**A**: 是的，JAiRouter 是完全开源免费的项目，采用 MIT 许可证。您可以自由使用、修改和分发。我们也在考虑提供企业级的商业支持服务。
+**A**: 是的，Trunkline 是完全开源免费的项目，采用 MIT 许可证。您可以自由使用、修改和分发。我们也在考虑提供企业级的商业支持服务。
 
 ## 安装和部署
 
-### Q5: JAiRouter 的系统要求是什么？
+### Q5: Trunkline 的系统要求是什么？
 
 **A**: 最低系统要求：
 - **Java**: 17 或更高版本
@@ -72,26 +72,26 @@
 - **存储**: 最少 1GB 可用空间
 - **操作系统**: 支持 Linux、Windows、macOS
 
-### Q6: 如何快速开始使用 JAiRouter？
+### Q6: 如何快速开始使用 Trunkline？
 
 **A**: 最简单的方式是使用 Docker：
 
 ```bash
 # 拉取镜像
-docker pull sodlinken/jairouter:latest
+docker pull trunkline/trunkline:latest
 
 # 启动服务
 docker run -d -p 8080:8080 \
   -v ./config:/app/config \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 或者从源码构建：
 
 ```bash
 # 克隆项目
-git clone https://github.com/Lincoln-cn/JAiRouter.git
-cd jairouter
+git clone https://github.com/Lincoln-cn/Trunkline.git
+cd trunkline
 
 # 构建运行
 ./mvnw clean package
@@ -119,7 +119,7 @@ model:
 
 ### Q8: 支持哪些部署方式？
 
-**A**: JAiRouter 支持多种部署方式：
+**A**: Trunkline 支持多种部署方式：
 - **直接运行**: Java JAR 包直接运行
 - **Docker 容器**: 单容器部署
 - **Docker Compose**: 多容器编排部署
@@ -227,9 +227,9 @@ curl -X PUT http://localhost:8080/api/config/instance/update/chat \
 
 ## 监控和运维
 
-### Q13: 如何监控 JAiRouter 的运行状态？
+### Q13: 如何监控 Trunkline 的运行状态？
 
-**A**: JAiRouter 提供多种监控方式：
+**A**: Trunkline 提供多种监控方式：
 
 **健康检查**:
 ```bash
@@ -251,16 +251,16 @@ curl http://localhost:8080/actuator/prometheus
 ### Q14: 如何查看日志？
 
 **A**: 日志文件位置：
-- **容器部署**: `/app/logs/jairouter-debug.log`
-- **直接运行**: `./logs/jairouter-debug.log`
+- **容器部署**: `/app/logs/trunkline-debug.log`
+- **直接运行**: `./logs/trunkline-debug.log`
 
 查看实时日志：
 ```bash
 # Docker 容器
-docker logs -f jairouter
+docker logs -f trunkline
 
 # 直接运行
-tail -f logs/jairouter-debug.log
+tail -f logs/trunkline-debug.log
 ```
 
 调整日志级别：
@@ -291,12 +291,12 @@ cp -r config-backup-20250115/ config/
 curl -X POST http://localhost:8080/api/config/versions/1/apply
 
 # 重启服务使配置生效
-docker restart jairouter
+docker restart trunkline
 ```
 
 ## 性能和优化
 
-### Q16: JAiRouter 的性能如何？
+### Q16: Trunkline 的性能如何？
 
 **A**: 性能指标（基于标准测试环境）：
 - **吞吐量**: 1000+ RPS
@@ -345,7 +345,7 @@ model:
 
 **A**: 高并发优化策略：
 
-1. **水平扩展**: 部署多个 JAiRouter 实例
+1. **水平扩展**: 部署多个 Trunkline 实例
 2. **负载均衡**: 使用 Nginx 或云负载均衡器
 3. **连接池**: 增加连接池大小
 4. **缓存**: 启用响应缓存
@@ -399,7 +399,7 @@ curl http://localhost:8080/api/config/instance/type/chat
 
 4. **查看日志**:
 ```bash
-grep -i "connection\|timeout" logs/jairouter-debug.log
+grep -i "connection\|timeout" logs/trunkline-debug.log
 ```
 
 ### Q21: 性能问题如何排查？
@@ -421,10 +421,10 @@ curl http://localhost:8080/actuator/metrics/jvm.gc.pause
 **分析响应时间**:
 ```bash
 # 响应时间分布
-curl http://localhost:8080/actuator/metrics/jairouter.request.duration
+curl http://localhost:8080/actuator/metrics/trunkline.request.duration
 
 # 请求统计
-curl http://localhost:8080/actuator/metrics/jairouter.requests.total
+curl http://localhost:8080/actuator/metrics/trunkline.requests.total
 ```
 
 ## 开发和集成
@@ -438,8 +438,8 @@ curl http://localhost:8080/actuator/metrics/jairouter.requests.total
 # Python 示例
 import openai
 
-# 将 OpenAI 客户端指向 JAiRouter
-openai.api_base = "http://jairouter:8080/v1"
+# 将 OpenAI 客户端指向 Trunkline
+openai.api_base = "http://trunkline:8080/v1"
 openai.api_key = "your-api-key"
 
 response = openai.ChatCompletion.create(
@@ -453,7 +453,7 @@ response = openai.ChatCompletion.create(
 // Node.js 示例
 const axios = require('axios');
 
-const response = await axios.post('http://jairouter:8080/v1/chat/completions', {
+const response = await axios.post('http://trunkline:8080/v1/chat/completions', {
   model: 'gpt-3.5-turbo',
   messages: [{ role: 'user', content: 'Hello!' }]
 }, {
@@ -511,11 +511,11 @@ public class CustomAdapter extends BaseAdapter {
 
 ### Q25: 可以商业使用吗？
 
-**A**: 是的，JAiRouter 采用 MIT 许可证，允许商业使用。您可以：
+**A**: 是的，Trunkline 采用 MIT 许可证，允许商业使用。您可以：
 - 在商业项目中使用
 - 修改和定制功能
 - 重新分发（需保留许可证）
-- 提供基于 JAiRouter 的商业服务
+- 提供基于 Trunkline 的商业服务
 
 ### Q26: 是否提供技术支持？
 
@@ -538,7 +538,7 @@ public class CustomAdapter extends BaseAdapter {
 
 ## 其他问题
 
-### Q28: JAiRouter 的未来规划是什么？
+### Q28: Trunkline 的未来规划是什么？
 
 **A**: 请查看我们的 [发展路线图](roadmap.md)，主要包括：
 - 安全和认证体系完善
@@ -561,7 +561,7 @@ public class CustomAdapter extends BaseAdapter {
 2. **搜索 Issues**: 在 GitHub Issues 中搜索类似问题
 3. **提交 Issue**: 创建新的 Issue 详细描述问题
 4. **社区讨论**: 在 GitHub Discussions 中寻求帮助
-5. **邮件联系**: jairouter@example.com
+5. **邮件联系**: trunkline@example.com
 
 ---
 
@@ -569,9 +569,9 @@ public class CustomAdapter extends BaseAdapter {
 
 如果您的问题在此 FAQ 中没有找到答案，欢迎通过以下方式反馈：
 
-- **GitHub Issues**: [提交问题](https://github.com/Lincoln-cn/JAiRouter/issues)
-- **GitHub Discussions**: [参与讨论](https://github.com/Lincoln-cn/JAiRouter/discussions)
-- **邮件联系**: jairouter@example.com
+- **GitHub Issues**: [提交问题](https://github.com/Lincoln-cn/Trunkline/issues)
+- **GitHub Discussions**: [参与讨论](https://github.com/Lincoln-cn/Trunkline/discussions)
+- **邮件联系**: trunkline@example.com
 
 我们会持续更新 FAQ 内容，为用户提供更好的支持。
 

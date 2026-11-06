@@ -11,7 +11,7 @@
 > **最后更新：** 2026-06-09  
 > **配置路径：** `src/main/resources/config/tracing/tracing-base.yml`
 
-JAiRouter 集成了基于 OpenTelemetry 的分布式追踪系统，提供完整的请求链路追踪、性能监控和故障诊断能力。
+Trunkline 集成了基于 OpenTelemetry 的分布式追踪系统，提供完整的请求链路追踪、性能监控和故障诊断能力。
 
 ## 功能特性
 
@@ -146,6 +146,64 @@ Web 过滤器组件，实现：
 - **TracingSecurityManager**：追踪数据访问控制
 - **TracingSanitizationService**：敏感数据清洗
 - **TracingEncryptionService**：追踪数据加密
+
+## 标签（Tag / Attribute）设计
+
+追踪标签与操作名常量统一定义在 `org.unreal.modelrouter.monitor.tracing.TracingConstants`，以下为代码中的真实命名（标签值里的服务名 `trunkline` 属技术标识，保留原样）。
+
+### Span 操作名（Operations）
+
+| 常量 | 值 | 含义 |
+|------|----|------|
+| HTTP_REQUEST / HTTP_RESPONSE | `http.request` / `http.response` | HTTP 入站请求/响应 |
+| CHAT_REQUEST | `ai.chat` | 对话 |
+| EMBEDDING_REQUEST | `ai.embedding` | 嵌入 |
+| RERANK_REQUEST | `ai.rerank` | 重排 |
+| TTS_REQUEST | `ai.tts` | 语音合成 |
+| STT_REQUEST | `ai.stt` | 语音识别 |
+| IMAGE_GENERATION | `ai.image.generation` | 图像生成 |
+| IMAGE_EDIT | `ai.image.edit` | 图像编辑 |
+| LOAD_BALANCING | `infrastructure.load_balancing` | 负载均衡 |
+| RATE_LIMITING | `infrastructure.rate_limiting` | 限流 |
+| CIRCUIT_BREAKING | `infrastructure.circuit_breaking` | 熔断 |
+| HEALTH_CHECK | `infrastructure.health_check` | 健康检查 |
+| BACKEND_CALL | `backend.call` | 后端适配器调用 |
+| ADAPTER_* | `adapter.gpustack` / `adapter.ollama` / `adapter.vllm` / `adapter.xinference` / `adapter.localai` / `adapter.openai` | 各适配器 |
+| AUTHENTICATION / AUTHORIZATION / DATA_SANITIZATION | `security.authentication` / `security.authorization` / `security.sanitization` | 安全 |
+| CONFIG_LOAD / CONFIG_UPDATE / CONFIG_VALIDATION | `config.load` / `config.update` / `config.validation` | 配置 |
+
+### 属性键（Attributes）
+
+| 分组 | 属性键 |
+|------|--------|
+| HTTP | `http.method`、`http.url`、`http.scheme`、`http.host`、`http.target`、`http.status_code`、`http.request_content_length`、`http.response_content_length`、`http.client_ip`、`http.user_agent`、`http.response_time_ms` |
+| AI 服务 | `ai.service.type`、`ai.model.name`、`ai.model.provider`、`ai.request.tokens`、`ai.response.tokens`、`ai.total.tokens`、`ai.temperature`、`ai.max_tokens`、`ai.stream` |
+| 基础设施 | `component`、`strategy`、`instance`、`algorithm`、`capacity`、`rate`、`tokens.remaining`、`circuit.state`、`failure.count`、`success.count` |
+| 后端 | `backend.adapter.type`、`backend.instance.name`、`backend.base_url`、`backend.endpoint.path`、`backend.retry.count`、`backend.max_retries`、`backend.timeout`、`backend.connection_pool` |
+| 安全 | `user.id`、`user.type`、`auth.method`、`auth.api_key.id`、`auth.jwt.subject`、`security.sanitized_fields`、`security.sanitization_rules` |
+| 错误 | `error`、`error.type`、`error.message`、`error.stack`、`error.code`、`error.retry_after` |
+
+### 事件名（Events）
+
+`request.start` / `request.end` / `response.start` / `response.end`；业务事件 `load_balancer.selection`、`rate_limit.check`、`circuit_breaker.state_change`、`backend_call.start/end`；安全事件 `auth.success` / `auth.failure` / `authz.success` / `authz.failure` / `data.sanitized`；错误事件 `error.occurred` / `retry.attempt` / `fallback.executed`。
+
+### 常用标签值枚举
+
+| 维度 | 取值 |
+|------|------|
+| 组件 component | `http-server`、`http-client`、`load-balancer`、`rate-limiter`、`circuit-breaker`、`health-checker`、`backend-adapter`、`security-filter`、`config-manager`、`sanitizer` |
+| 负载均衡策略 strategy | `random`、`round-robin`、`least-connections`、`ip-hash` |
+| 限流算法 algorithm | `token-bucket`、`leaky-bucket`、`sliding-window`、`warm-up` |
+| 熔断器状态 circuit.state | `closed`、`open`、`half-open` |
+| 适配器类型 backend.adapter.type | `gpustack`、`ollama`、`vllm`、`xinference`、`localai`、`openai`、`normal` |
+
+### 上下文与传播头
+
+- 上下文键：`tracing.trace_id`、`tracing.span_id`、`tracing.parent_span_id`、`tracing.sampling_decision`、`tracing.current_span`；
+- 传播头：W3C `traceparent` / `tracestate`，自定义 `X-Trace-Id` / `X-Span-Id` / `X-Parent-Span-Id`，以及 `X-Request-Id` / `X-Correlation-Id`；
+- MDC 注入 `traceId` / `spanId`（见 `TracingMDCManager`）。
+
+> 敏感属性会经 `TracingSanitizationService` 脱敏（按属性键名小写匹配敏感名单后打码，并记录 `span_attribute` 脱敏审计）。
 
 ## 数据流程
 

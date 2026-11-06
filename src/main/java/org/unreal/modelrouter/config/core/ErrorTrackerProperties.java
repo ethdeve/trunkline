@@ -13,9 +13,10 @@ import java.util.List;
  * 
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Data
-@ConfigurationProperties(prefix = "jairouter.monitoring.error-tracking")
+@ConfigurationProperties(prefix = "trunkline.monitoring.error-tracking")
 public final class ErrorTrackerProperties {
     
     /**
@@ -110,7 +111,7 @@ public final class ErrorTrackerProperties {
         /**
          * 错误计数器前缀
          */
-        private String counterPrefix = "jairouter.errors";
+        private String counterPrefix = "trunkline.errors";
         
         /**
          * 是否按错误类型分组

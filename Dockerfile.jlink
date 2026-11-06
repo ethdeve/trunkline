@@ -30,21 +30,21 @@ LABEL version="3.1.1"
 RUN apk add --no-cache wget tzdata
 
 # 创建非 root 用户
-RUN addgroup -g 10010 -S jairouter && \
-    adduser -u 10010 -S jairouter -G jairouter
+RUN addgroup -g 10010 -S trunkline && \
+    adduser -u 10010 -S trunkline -G trunkline
 
 WORKDIR /app
 
 # 创建数据目录
 RUN mkdir -p /app/logs /app/config /app/config-store /app/data && \
-    chown -R jairouter:jairouter /app && \
+    chown -R trunkline:trunkline /app && \
     chmod -R 755 /app
 
 # 复制 Spring Boot 分层内容（利用 Docker 缓存）
-COPY --from=build-extract --chown=jairouter:jairouter /app/extracted/dependencies/ ./
-COPY --from=build-extract --chown=jairouter:jairouter /app/extracted/spring-boot-loader/ ./
-COPY --from=build-extract --chown=jairouter:jairouter /app/extracted/snapshot-dependencies/ ./
-COPY --from=build-extract --chown=jairouter:jairouter /app/extracted/application/ ./
+COPY --from=build-extract --chown=trunkline:trunkline /app/extracted/dependencies/ ./
+COPY --from=build-extract --chown=trunkline:trunkline /app/extracted/spring-boot-loader/ ./
+COPY --from=build-extract --chown=trunkline:trunkline /app/extracted/snapshot-dependencies/ ./
+COPY --from=build-extract --chown=trunkline:trunkline /app/extracted/application/ ./
 
 # 设置环境变量
 ENV JAVA_OPTS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
@@ -79,7 +79,7 @@ ENV REDIS_TIMEOUT=2000
 
 EXPOSE 8080
 
-USER jairouter
+USER trunkline
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

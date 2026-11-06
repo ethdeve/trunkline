@@ -7,16 +7,16 @@
 > **作者**: Lincoln
 <!-- /版本信息 -->
 
-JAiRouter 提供多种限流算法，支持全局、服务级别和实例级别的限流配置，以及基于客户端 IP 的独立限流。本文档详细介绍各种限流策略的配置和使用。
+Trunkline 提供多种限流算法，支持全局、服务级别和实例级别的限流配置，以及基于客户端 IP 的独立限流。本文档详细介绍各种限流策略的配置和使用。
 
 ## 模块化配置说明
 
-从 v1.0.0 版本开始，JAiRouter 采用模块化配置结构，限流相关配置已移至独立的配置文件中：
+从 v2.8.x 版本开始，Trunkline 采用模块化配置结构，限流相关配置位于独立的配置文件中：
 
 - 主配置文件: `application.yml`
-- 模型服务基础配置: `config/base/model-services-base.yml`
+- 限流配置: `config/router/ratelimit.yml`
 
-您可以在 `config/base/model-services-base.yml` 文件中找到所有限流相关配置，包括全局配置、各服务类型配置和实例配置。
+您可以在 `config/router/ratelimit.yml` 文件中找到全局限流配置（`model.rate-limit.*`）与分布式限流开关（`trunkline.ratelimit.distributed.*`）；各服务类型的限流配置写在 `config/router/services.yml` 的 `model.services.<serviceType>.rate-limit` 下。
 
 ## 限流概述
 
@@ -77,7 +77,7 @@ graph TB
 
 ### 基础配置
 
-在 `config/base/model-services-base.yml` 文件中配置全局限流：
+在 `config/router/ratelimit.yml` 文件中配置全局限流：
 ```yaml
 # config/base/model-services-base.yml
 model:
@@ -138,7 +138,7 @@ graph LR
 
 #### 配置示例
 
-在 `config/base/model-services-base.yml` 文件中配置令牌桶算法：
+在 `config/router/ratelimit.yml` 或 `config/router/services.yml`（服务级）中配置对应算法。
 
 ```yaml
 model:
@@ -155,7 +155,7 @@ model:
 
 #### JSON 配置
 
-JAiRouter 也支持通过动态配置 API 更新限流配置：
+Trunkline 也支持通过动态配置 API 更新限流配置：
 
 ```json
 {
@@ -219,7 +219,7 @@ graph TB
 
 #### 配置示例
 
-在 `config/base/model-services-base.yml` 文件中配置漏桶算法：
+在 `config/router/services.yml` 中配置对应服务的算法。
 
 ```yaml
 model:
@@ -236,7 +236,7 @@ model:
 
 #### JSON 配置
 
-JAiRouter 也支持通过动态配置 API 更新限流配置：
+Trunkline 也支持通过动态配置 API 更新限流配置：
 
 ```json
 {
@@ -283,7 +283,7 @@ graph LR
 
 #### 配置示例
 
-在 `config/base/model-services-base.yml` 文件中配置滑动窗口算法：
+在 `config/router/services.yml` 中配置对应服务的算法。
 
 ```yaml
 model:
@@ -300,7 +300,7 @@ model:
 
 #### JSON 配置
 
-JAiRouter 也支持通过动态配置 API 更新限流配置：
+Trunkline 也支持通过动态配置 API 更新限流配置：
 
 ```json
 {
@@ -350,7 +350,7 @@ graph LR
 
 #### 配置示例
 
-在 `config/base/model-services-base.yml` 文件中配置预热算法：
+在 `config/router/services.yml` 中配置对应服务的算法。
 
 ```yaml
 model:
@@ -360,14 +360,13 @@ model:
         enabled: true
         algorithm: "warm-up"
         capacity: 100           # 最终容量
-        rate: 10               # 最终速率
-        warm-up-period: 300    # 预热时间（秒）
+        rate: 10               # 最终速率（每秒）
         scope: "service"
 ```
 
 #### JSON 配置
 
-JAiRouter 也支持通过动态配置 API 更新限流配置：
+Trunkline 也支持通过动态配置 API 更新限流配置：
 
 ```json
 {
@@ -377,7 +376,6 @@ JAiRouter 也支持通过动态配置 API 更新限流配置：
         "algorithm": "warm-up",
         "capacity": 100,
         "rate": 10,
-        "warmUpPeriod": 300,
         "clientIpEnable": true
       }
     }
@@ -391,7 +389,6 @@ JAiRouter 也支持通过动态配置 API 更新限流配置：
 |------|------|------|--------|
 | `capacity` | Integer | 最终容量 | 100 |
 | `rate` | Integer | 最终速率（每秒） | 10 |
-| `warmUpPeriod` | Integer | 预热时间（秒） | 600 |
 
 #### 适用场景
 
@@ -403,7 +400,7 @@ JAiRouter 也支持通过动态配置 API 更新限流配置：
 
 ### 基础配置
 
-在 `config/base/model-services-base.yml` 中通过 `client-ip-enable` 启用客户端 IP 限流：
+在 `config/router/ratelimit.yml` 中通过 `client-ip-enable` 启用客户端 IP 限流：
 
 ```yaml
 model:
@@ -460,11 +457,41 @@ curl "http://localhost:8080/api/rate-limiter/status"
 curl "http://localhost:8080/api/rate-limiter/metrics"
 ```
 
+## 限流维度与分布式限流
+
+`model.rate-limit` 除 `enabled/algorithm/capacity/rate/scope/client-ip-enable` 外，还支持以下键（以 `config/router/ratelimit.yml` 为准）：
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `scope` | `service` | 限流范围：`global` / `service` / `instance` |
+| `key-dimension` | `client-ip` | 限流键维度：`client-ip` / `api-key` / `tenant` |
+| `key` | 空 | 自定义限流键（优先级高于 key-dimension） |
+
+多实例部署时，分布式限流开关位于 `trunkline.ratelimit.distributed` 前缀下：
+
+```yaml
+trunkline:
+  ratelimit:
+    distributed:
+      enabled: false        # 默认关闭（单机内存限流）
+      timeout-ms: 50        # Redis 操作超时（毫秒）
+```
+
+## 分组（模型池）维度限流
+
+服务级限流通过 Web 管理端 **动态配置并热生效**：
+
+- **API**：`PUT /api/services/{serviceType}/ratelimit`（持久化 + 立即生效）、`GET /api/services/{serviceType}/ratelimit`（读取当前配置，含 `rule` 级规则限流器状态）
+- 配置格式：`{enabled, algorithm, capacity, rate, scope, key}`；`enabled=false` 时移除该服务限流器；`capacity`/`rate` 必须 > 0，否则返回 400
+- 配置持久化后重启自动加载；YAML 中未配置限流的服务保持原样
+
+模型分组（资源池）命中的请求继续走既有的服务级/实例级限流链路；分组自身的**配额预算**（分钟/小时/天/月窗口）通过 `/api/config/pools` 与 `/api/config/pools/{poolName}/quota/*` 管理，详见 [模型分组](model-pools.md) 与 [配额配置](quota.md)。
+
 ## 多层限流配置
 
 ### 分层限流策略
 
-在 `config/base/model-services-base.yml` 文件中配置多层限流：
+在 `config/router/ratelimit.yml` 与 `config/router/services.yml` 中配置多层限流：
 
 ```yaml
 model:
@@ -508,7 +535,7 @@ model:
 
 ### 通过配置文件动态调整
 
-JAiRouter 也支持通过动态配置 API 更新限流配置：
+Trunkline 也支持通过动态配置 API 更新限流配置：
 
 ```json
 {
@@ -553,29 +580,29 @@ curl "http://localhost:8080/api/rate-limiter/summary"
 
 ```bash
 # 限流事件（允许/拒绝）
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_events_total"
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_events_total"
 
 # 各限流器剩余容量
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_remaining"
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_remaining"
 
 # 各限流器使用率
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_usage_ratio"
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_usage_ratio"
 ```
 
 ### Prometheus 指标
 
 ```prometheus
 # 限流请求速率
-rate(jairouter_rate_limit_events_total[5m])
+rate(trunkline_rate_limit_events_total[5m])
 
 # 限流拒绝率
-rate(jairouter_rate_limit_events_total{result="denied"}[5m]) / rate(jairouter_rate_limit_events_total[5m])
+rate(trunkline_rate_limit_events_total{result="denied"}[5m]) / rate(trunkline_rate_limit_events_total[5m])
 
 # 各限流器剩余容量
-jairouter_rate_limit_remaining
+trunkline_rate_limit_remaining
 
 # 各限流器使用率
-jairouter_rate_limit_usage_ratio
+trunkline_rate_limit_usage_ratio
 ```
 
 ### 告警规则
@@ -583,10 +610,10 @@ jairouter_rate_limit_usage_ratio
 ```yaml
 # Prometheus 告警规则
 groups:
-  - name: jairouter_ratelimit
+  - name: trunkline_ratelimit
     rules:
       - alert: HighRateLimitRejection
-        expr: rate(jairouter_rate_limit_events_total{result="denied"}[5m]) / rate(jairouter_rate_limit_events_total[5m]) > 0.1
+        expr: rate(trunkline_rate_limit_events_total{result="denied"}[5m]) / rate(trunkline_rate_limit_events_total[5m]) > 0.1
         for: 2m
         labels:
           severity: warning
@@ -683,7 +710,6 @@ model:
         algorithm: "warm-up"
         capacity: 1000
         rate: 100
-        warm-up-period: 600     # 10分钟预热
 ```
 
 ## 故障排查

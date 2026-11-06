@@ -24,7 +24,7 @@ import java.util.Optional;
  *
  * <p><b>Key 结构</b>：{@code {prefix}:{tenant}:{apiKey}:{user}:{service}:{model}:{WINDOW}:{windowStart}}
  * （{@link #keyOf(QuotaCounterKey)}）。{@code prefix} 由
- * {@code jairouter.quota.distributed.key-prefix} 配置；各维度片段中的非安全字符统一替换为
+ * {@code trunkline.quota.distributed.key-prefix} 配置；各维度片段中的非安全字符统一替换为
  * {@code '_'}（片段内不允许出现 {@code ':'}，否则不同维度可能拼出同一个 key），空片段写为
  * {@code '_'}；{@code windowStart} 采用 {@code yyyyMMddHHmmss} 定长格式，便于
  * {@link #deleteExpired(QuotaWindow, LocalDateTime)} 从 key 反解窗口起点。</p>
@@ -43,6 +43,7 @@ import java.util.Optional;
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 @Slf4j
 public final class RedisCounterBackend implements QuotaCounterBackend {

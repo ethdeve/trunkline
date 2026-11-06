@@ -2,7 +2,6 @@ package org.unreal.modelrouter.router.loadbalancer.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.unreal.modelrouter.router.loadbalancer.LoadBalancer;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
 import org.unreal.modelrouter.monitor.monitoring.collector.MetricsCollector;
@@ -24,6 +23,7 @@ import java.util.stream.Collectors;
  * 
  * @author JAiRouter Team
  * @since 2.4.0
+ * @modified Trunkline Team
  */
 public class ConsistentHashLoadBalancer implements LoadBalancer {
     
@@ -41,11 +41,9 @@ public class ConsistentHashLoadBalancer implements LoadBalancer {
     // 虚拟节点数量
     private final int virtualNodeCount;
     
-    @Autowired(required = false)
-    private MetricsCollector metricsCollector;
-    
-    @Autowired(required = false)
-    private ServiceStateManager serviceStateManager;
+    // R2: 由 ComponentFactory 在创建时注入(原 @Autowired 字段在 new 出的实例上恒为 null)
+    private final MetricsCollector metricsCollector;
+    private final ServiceStateManager serviceStateManager;
 
     // 为测试添加 getter 方法
     public MetricsCollector getMetricsCollector() {
@@ -57,11 +55,19 @@ public class ConsistentHashLoadBalancer implements LoadBalancer {
     }
 
     public ConsistentHashLoadBalancer() {
-        this(DEFAULT_VIRTUAL_NODES);
+        this(DEFAULT_VIRTUAL_NODES, null, null);
     }
 
     public ConsistentHashLoadBalancer(final int virtualNodeCount) {
+        this(virtualNodeCount, null, null);
+    }
+
+    public ConsistentHashLoadBalancer(final int virtualNodeCount,
+                                      final MetricsCollector metricsCollector,
+                                      final ServiceStateManager serviceStateManager) {
         this.virtualNodeCount = virtualNodeCount;
+        this.metricsCollector = metricsCollector;
+        this.serviceStateManager = serviceStateManager;
     }
 
     @Override

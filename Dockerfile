@@ -32,21 +32,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # 创建非 root 用户（安全最佳实践）
-RUN groupadd -g 10010 jairouter && \
-    useradd -u 10010 -g jairouter -m -s /bin/bash jairouter
+RUN groupadd -g 10010 trunkline && \
+    useradd -u 10010 -g trunkline -m -s /bin/bash trunkline
 
 WORKDIR /app
 
 # 创建数据目录
 RUN mkdir -p /app/logs /app/config /app/config-store /app/data && \
-    chown -R jairouter:jairouter /app && \
+    chown -R trunkline:trunkline /app && \
     chmod -R 755 /app
 
 # 复制 Spring Boot 分层内容（按层复制以利用缓存）
-COPY --from=extract-layer --chown=jairouter:jairouter /app/extracted/dependencies/ ./
-COPY --from=extract-layer --chown=jairouter:jairouter /app/extracted/spring-boot-loader/ ./
-COPY --from=extract-layer --chown=jairouter:jairouter /app/extracted/snapshot-dependencies/ ./
-COPY --from=extract-layer --chown=jairouter:jairouter /app/extracted/application/ ./
+COPY --from=extract-layer --chown=trunkline:trunkline /app/extracted/dependencies/ ./
+COPY --from=extract-layer --chown=trunkline:trunkline /app/extracted/spring-boot-loader/ ./
+COPY --from=extract-layer --chown=trunkline:trunkline /app/extracted/snapshot-dependencies/ ./
+COPY --from=extract-layer --chown=trunkline:trunkline /app/extracted/application/ ./
 
 # JVM 优化参数（容器感知）
 ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
@@ -81,7 +81,7 @@ ENV REDIS_TIMEOUT=2000
 
 EXPOSE 8080
 
-USER jairouter
+USER trunkline
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

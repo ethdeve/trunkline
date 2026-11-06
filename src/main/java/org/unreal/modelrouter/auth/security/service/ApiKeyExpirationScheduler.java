@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(
-        name = "jairouter.security.api-key.expiration-cleanup.enabled",
+        name = "trunkline.security.api-key.expiration-cleanup.enabled",
         havingValue = "true", matchIfMissing = false)
 public class ApiKeyExpirationScheduler {
 

@@ -127,7 +127,7 @@
 
           <el-divider content-position="left">{{ t('tracing.management.serviceSamplingDivider') }}</el-divider>
 
-          <el-table :data="samplingConfig.serviceConfigs" style="width: 100%">
+          <el-table ref="serviceSamplingTableRef" :data="samplingConfig.serviceConfigs" :max-height="serviceSamplingMaxHeight" style="width: 100%">
             <el-table-column prop="service" :label="t('tracing.management.serviceName')" width="200">
               <template #default="{ row }">
                 <el-input v-model="row.service" :placeholder="t('tracing.management.serviceName')" />
@@ -138,7 +138,7 @@
                 <el-slider v-model="row.rate" :min="0" :max="100" show-input />
               </template>
             </el-table-column>
-            <el-table-column :label="t('tracing.management.action')" width="100">
+            <el-table-column :label="t('tracing.management.action')" width="100" fixed="right">
               <template #default="{ $index }">
                 <el-button v-if="canWrite" type="danger" text @click="removeServiceConfig($index)">
                   {{ t('tracing.management.delete') }}
@@ -224,6 +224,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
+import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getTracingStatus,
@@ -287,6 +288,9 @@ const strategyOptions = computed(() => [
   { value: 'adaptive', label: t('tracing.management.strategyAdaptive') }
 ])
 
+const serviceSamplingTableRef = ref()
+const { maxHeight: serviceSamplingMaxHeight } = useTableMaxHeight(serviceSamplingTableRef)
+
 // 后端返回的原始 sampling 段。保存时以它为基底再覆盖本页可编辑的字段，
 // 否则本页没暴露的 rules / adaptive.targetSpansPerSecond / minRatio / maxRatio
 // 会被一并覆盖成默认值（后端是整体替换 sampling，不是逐字段合并）。
@@ -330,7 +334,7 @@ const loadStatus = async () => {
     const data = response.data?.data || response.data || response
     if (data) {
       statusInfo.value = {
-        serviceName: data.serviceName || 'jairouter',
+        serviceName: data.serviceName || 'trunkline',
         serviceVersion: data.serviceVersion || '1.0.0',
         openTelemetryEnabled: data.openTelemetry?.enabled ?? true,
         exporterType: data.exporter?.type || 'logging',

@@ -40,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 @DisplayName("QuotaConfigController 配额运行时配置测试")
 class QuotaConfigControllerTest {
@@ -205,7 +206,7 @@ class QuotaConfigControllerTest {
         final Map<String, Object> distributed = (Map<String, Object>) body.get("distributed");
         assertNotNull(distributed);
         assertEquals(false, distributed.get("enabled"));
-        assertEquals("jairouter:quota", distributed.get("keyPrefix"));
+        assertEquals("trunkline:quota", distributed.get("keyPrefix"));
         assertNotNull(distributed.get("timeoutMs"));
         assertEquals(true, distributed.get("degradeToLocal"));
     }

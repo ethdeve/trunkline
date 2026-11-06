@@ -23,7 +23,7 @@ import java.util.Map;
  */
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "jairouter.security.jwt.blacklist.persistence.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.jwt.blacklist.persistence.enabled", havingValue = "true")
 public class JwtBlacklistServiceImpl implements JwtBlacklistService {
 
     /** R3-P1：冷路径 block 超时 */
@@ -50,34 +50,43 @@ public class JwtBlacklistServiceImpl implements JwtBlacklistService {
         log.info("JWT Blacklist persistence is ENABLED and using H2 database storage");
     }
     
+    private static final long DEFAULT_BLACKLIST_TTL_DAYS = 30;
+
     @Override
     public Mono<Void> addToBlacklist(final String tokenHash, final String reason, final String addedBy) {
+        return addToBlacklist(tokenHash, reason, addedBy, DEFAULT_BLACKLIST_TTL_DAYS * 24 * 60 * 60);
+    }
+
+    @Override
+    public Mono<Void> addToBlacklist(final String tokenHash, final String reason, final String addedBy, final long ttlSeconds) {
         return Mono.fromRunnable(() -> {
             try {
                 if (tokenHash == null || tokenHash.trim().isEmpty()) {
                     throw new IllegalArgumentException("Token hash cannot be null or empty");
                 }
-                
+
+                long ttl = ttlSeconds > 0 ? ttlSeconds : DEFAULT_BLACKLIST_TTL_DAYS * 24 * 60 * 60;
+
                 // 创建黑名单条目
                 LocalDateTime now = LocalDateTime.now();
-                LocalDateTime expiresAt = now.plusDays(30); // 默认30天后过期
+                LocalDateTime expiresAt = now.plusSeconds(ttl); // TTL 可配置（C3）
                 TokenBlacklistEntry entry = new TokenBlacklistEntry(tokenHash, expiresAt, reason, addedBy, now);
-                
+
                 // 转换为Map进行存储
                 Map<String, Object> entryData = convertToMap(entry);
-                
+
                 // 保存黑名单条目
                 String blacklistKey = BLACKLIST_PREFIX + tokenHash;
                 storeManager.saveConfig(blacklistKey, entryData);
-                
+
                 // 更新黑名单索引
                 blacklistIndexHelper.updateBlacklistIndex(tokenHash, true);
-                
+
                 // 更新统计信息
                 blacklistIndexHelper.updateBlacklistStats(1, 0);
-                
+
                 log.debug("Successfully added token to blacklist: { }", tokenHash);
-                
+
             } catch (Exception e) {
                 log.error("Failed to add token to blacklist: { }", e.getMessage(), e);
                 throw new RuntimeException("Failed to add token to blacklist", e);

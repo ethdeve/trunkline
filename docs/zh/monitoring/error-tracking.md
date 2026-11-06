@@ -9,11 +9,11 @@
 
 ## 概述
 
-JAiRouter 的错误追踪功能是一个完整的错误监控和分析系统，能够自动收集、聚合和分析系统中的异常信息，提供详细的错误统计和告警功能。
+Trunkline 的错误追踪功能是一个完整的错误监控和分析系统，能够自动收集、聚合和分析系统中的异常信息，提供详细的错误统计和告警功能。
 
 ## 配置文件结构
 
-JAiRouter 使用模块化的配置管理方式，错误追踪配置位于独立的配置文件中：
+Trunkline 使用模块化的配置管理方式，错误追踪配置位于独立的配置文件中：
 
 - **主配置文件**: `src/main/resources/application.yml`
 - **错误追踪配置文件**: `src/main/resources/config/monitor/error-tracking.yml`
@@ -60,7 +60,7 @@ spring:
 在 `error-tracking.yml` 中配置：
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     error-tracking:
       enabled: true
@@ -71,7 +71,7 @@ jairouter:
 ### 2. 配置堆栈脱敏
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     error-tracking:
       sanitization:
@@ -89,7 +89,7 @@ jairouter:
 ### 3. 启用指标监控
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     error-tracking:
       metrics:
@@ -124,7 +124,7 @@ jairouter:
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
 | `metrics.enabled` | boolean | true | 是否启用错误指标 |
-| `metrics.counter-prefix` | String | "jairouter.errors" | 错误计数器前缀 |
+| `metrics.counter-prefix` | String | "trunkline.errors" | 错误计数器前缀 |
 | `metrics.group-by-error-type` | boolean | true | 是否按错误类型分组 |
 | `metrics.group-by-operation` | boolean | true | 是否按操作分组 |
 | `metrics.record-duration` | boolean | true | 是否记录错误持续时间 |
@@ -146,16 +146,16 @@ jairouter:
 
 ```prometheus
 # 错误总数计数器
-jairouter_errors_total{error_type="NullPointerException", operation="chat_request"}
+trunkline_errors_total{error_type="NullPointerException", operation="chat_request"}
 
 # 错误持续时间分布
-jairouter_errors_duration_seconds{error_type="TimeoutException", operation="embedding_request"}
+trunkline_errors_duration_seconds{error_type="TimeoutException", operation="embedding_request"}
 
 # 活跃错误聚合
-jairouter_errors_active_aggregations{error_type="IllegalArgumentException"}
+trunkline_errors_active_aggregations{error_type="IllegalArgumentException"}
 
 # 错误聚合数量
-jairouter_errors_aggregation_count
+trunkline_errors_aggregation_count
 ```
 
 ### 告警规则示例
@@ -164,10 +164,10 @@ jairouter_errors_aggregation_count
 
 ```yaml
 groups:
-  - name: jairouter.error-tracking
+  - name: trunkline.error-tracking
     rules:
-      - alert: JAiRouterErrorRateTooHigh
-        expr: rate(jairouter_errors_total[5m]) > 10
+      - alert: TrunklineErrorRateTooHigh
+        expr: rate(trunkline_errors_total[5m]) > 10
         for: 1m
         labels:
           severity: critical
@@ -175,8 +175,8 @@ groups:
           summary: "错误率过高"
           description: "5分钟内错误率超过10次/分钟"
       
-      - alert: JAiRouterNewErrorTypeDetected
-        expr: increase(jairouter_errors_total[10m]) > 0 and changes(jairouter_errors_total[10m]) > 0
+      - alert: TrunklineNewErrorTypeDetected
+        expr: increase(trunkline_errors_total[10m]) > 0 and changes(trunkline_errors_total[10m]) > 0
         for: 0m
         labels:
           severity: warning
@@ -242,7 +242,7 @@ GET /api/monitoring/errors/stats
 ### 开发环境 (application-dev.yml)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     error-tracking:
       enabled: true
@@ -257,7 +257,7 @@ jairouter:
 ### 生产环境 (application-prod.yml)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     error-tracking:
       enabled: true

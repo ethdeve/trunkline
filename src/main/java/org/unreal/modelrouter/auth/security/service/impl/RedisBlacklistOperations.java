@@ -26,8 +26,9 @@ public final class RedisBlacklistOperations {
 
     private final ReactiveRedisTemplate<String, String> redisTemplate;
 
-    // Redis键前缀
-    private static final String BLACKLIST_PREFIX = "jwt:blacklist:";
+    // Redis键前缀（C2 拆分：令牌哈希/条目维度统一落到 jwt:blacklist:entry: 命名空间，
+    // 与鉴权侧 jti 维度 jwt:blacklist:jti: 显式隔离，杜绝字符串"blacklisted"与 JSON 条目互踩）
+    private static final String BLACKLIST_PREFIX = "jwt:blacklist:entry:";
     private static final String BLACKLIST_INDEX_KEY = "jwt:blacklist_index";
     private static final String BLACKLIST_STATS_KEY = "jwt:blacklist_stats";
 

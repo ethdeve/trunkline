@@ -1,4 +1,4 @@
-# JAiRouter告警规则指南
+# Trunkline告警规则指南
 
 <!-- 版本信息 -->
 > **文档版本**: 1.0.3  
@@ -9,25 +9,25 @@
 
 ## 概述
 
-本文档详细介绍了JAiRouter项目的Prometheus告警规则配置，包括告警类型、触发条件、处理建议等。
+本文档详细介绍了Trunkline项目的Prometheus告警规则配置，包括告警类型、触发条件、处理建议等。
 
 ## 告警规则分类
 
-### 1. 基础服务告警 (jairouter.basic)
+### 1. 基础服务告警 (trunkline.basic)
 
-#### JAiRouterServiceDown
-- **描述**: JAiRouter服务不可用
-- **触发条件**: `up{job="jairouter"} == 0`
+#### TrunklineServiceDown
+- **描述**: Trunkline服务不可用
+- **触发条件**: `up{job="trunkline"} == 0`
 - **持续时间**: 1分钟
 - **严重级别**: Critical
 - **处理建议**:
-  1. 检查JAiRouter服务进程状态
+  1. 检查Trunkline服务进程状态
   2. 查看应用启动日志
   3. 验证端口占用情况
   4. 检查系统资源是否充足
 
-#### JAiRouterHighErrorRate
-- **描述**: JAiRouter错误率过高
+#### TrunklineHighErrorRate
+- **描述**: Trunkline错误率过高
 - **触发条件**: 4xx/5xx错误率超过10%
 - **持续时间**: 2分钟
 - **严重级别**: Warning
@@ -37,8 +37,8 @@
   3. 检查网络连接
   4. 分析错误类型分布
 
-#### JAiRouterCriticalErrorRate
-- **描述**: JAiRouter严重错误率过高
+#### TrunklineCriticalErrorRate
+- **描述**: Trunkline严重错误率过高
 - **触发条件**: 5xx错误率超过5%
 - **持续时间**: 1分钟
 - **严重级别**: Critical
@@ -48,10 +48,10 @@
   3. 检查数据库连接
   4. 验证依赖服务可用性
 
-### 2. 性能告警 (jairouter.performance)
+### 2. 性能告警 (trunkline.performance)
 
-#### JAiRouterHighLatency
-- **描述**: JAiRouter响应时间过高
+#### TrunklineHighLatency
+- **描述**: Trunkline响应时间过高
 - **触发条件**: 95%分位响应时间超过2秒
 - **持续时间**: 3分钟
 - **严重级别**: Warning
@@ -61,8 +61,8 @@
   3. 验证后端服务响应时间
   4. 检查网络延迟
 
-#### JAiRouterCriticalLatency
-- **描述**: JAiRouter响应时间严重过高
+#### TrunklineCriticalLatency
+- **描述**: Trunkline响应时间严重过高
 - **触发条件**: 95%分位响应时间超过5秒
 - **持续时间**: 1分钟
 - **严重级别**: Critical
@@ -72,8 +72,8 @@
   3. 考虑临时限流
   4. 检查是否需要扩容
 
-#### JAiRouterLowRequestVolume
-- **描述**: JAiRouter请求量异常低
+#### TrunklineLowRequestVolume
+- **描述**: Trunkline请求量异常低
 - **触发条件**: 请求率低于0.1 req/s
 - **持续时间**: 5分钟
 - **严重级别**: Warning
@@ -83,8 +83,8 @@
   3. 检查网络路由
   4. 确认是否为正常业务低峰
 
-#### JAiRouterSlowQueriesDetected
-- **描述**: JAiRouter检测到慢查询
+#### TrunklineSlowQueriesDetected
+- **描述**: Trunkline检测到慢查询
 - **触发条件**: 5分钟内慢查询数量超过5个
 - **持续时间**: 1分钟
 - **严重级别**: Warning
@@ -94,8 +94,8 @@
   3. 优化相关查询或操作
   4. 考虑增加索引或缓存
 
-#### JAiRouterHighSlowQueryRate
-- **描述**: JAiRouter慢查询率过高
+#### TrunklineHighSlowQueryRate
+- **描述**: Trunkline慢查询率过高
 - **触发条件**: 慢查询速率超过1个/秒
 - **持续时间**: 2分钟
 - **严重级别**: Critical
@@ -105,11 +105,11 @@
   3. 评估是否需要扩容资源
   4. 考虑临时限流措施
 
-### 3. 后端服务告警 (jairouter.backend)
+### 3. 后端服务告警 (trunkline.backend)
 
-#### JAiRouterBackendDown
-- **描述**: JAiRouter后端服务不可用
-- **触发条件**: `jairouter_backend_health == 0`
+#### TrunklineBackendDown
+- **描述**: Trunkline后端服务不可用
+- **触发条件**: `trunkline_backend_health == 0`
 - **持续时间**: 1分钟
 - **严重级别**: Critical
 - **处理建议**:
@@ -118,8 +118,8 @@
   3. 检查服务配置
   4. 查看健康检查日志
 
-#### JAiRouterBackendHighLatency
-- **描述**: JAiRouter后端服务响应慢
+#### TrunklineBackendHighLatency
+- **描述**: Trunkline后端服务响应慢
 - **触发条件**: 后端95%分位响应时间超过3秒
 - **持续时间**: 2分钟
 - **严重级别**: Warning
@@ -129,8 +129,8 @@
   3. 验证后端资源使用
   4. 考虑调整超时配置
 
-#### JAiRouterBackendHighErrorRate
-- **描述**: JAiRouter后端服务错误率高
+#### TrunklineBackendHighErrorRate
+- **描述**: Trunkline后端服务错误率高
 - **触发条件**: 后端错误率超过15%
 - **持续时间**: 2分钟
 - **严重级别**: Warning
@@ -140,11 +140,11 @@
   3. 检查认证配置
   4. 分析错误类型
 
-### 4. 基础设施告警 (jairouter.infrastructure)
+### 4. 基础设施告警 (trunkline.infrastructure)
 
-#### JAiRouterCircuitBreakerOpen
-- **描述**: JAiRouter熔断器开启
-- **触发条件**: `jairouter_circuit_breaker_state == 1`
+#### TrunklineCircuitBreakerOpen
+- **描述**: Trunkline熔断器开启
+- **触发条件**: `trunkline_circuit_breaker_state == 1`
 - **持续时间**: 30秒
 - **严重级别**: Warning
 - **处理建议**:
@@ -153,8 +153,8 @@
   3. 验证熔断器配置
   4. 考虑手动恢复
 
-#### JAiRouterRateLimitTriggered
-- **描述**: JAiRouter限流器频繁触发
+#### TrunklineRateLimitTriggered
+- **描述**: Trunkline限流器频繁触发
 - **触发条件**: 限流拒绝率超过10 req/s
 - **持续时间**: 1分钟
 - **严重级别**: Warning
@@ -164,8 +164,8 @@
   3. 评估是否需要调整阈值
   4. 考虑增加容量
 
-#### JAiRouterLoadBalancerImbalance
-- **描述**: JAiRouter负载均衡不均匀
+#### TrunklineLoadBalancerImbalance
+- **描述**: Trunkline负载均衡不均匀
 - **触发条件**: 实例间请求量差异超过50%
 - **持续时间**: 5分钟
 - **严重级别**: Warning
@@ -175,10 +175,10 @@
   3. 分析实例性能差异
   4. 考虑调整权重配置
 
-### 5. 资源告警 (jairouter.resources)
+### 5. 资源告警 (trunkline.resources)
 
-#### JAiRouterHighMemoryUsage
-- **描述**: JAiRouter内存使用率高
+#### TrunklineHighMemoryUsage
+- **描述**: Trunkline内存使用率高
 - **触发条件**: JVM堆内存使用率超过80%
 - **持续时间**: 2分钟
 - **严重级别**: Warning
@@ -188,8 +188,8 @@
   3. 考虑调整JVM参数
   4. 评估是否需要扩容
 
-#### JAiRouterCriticalMemoryUsage
-- **描述**: JAiRouter内存使用率严重过高
+#### TrunklineCriticalMemoryUsage
+- **描述**: Trunkline内存使用率严重过高
 - **触发条件**: JVM堆内存使用率超过90%
 - **持续时间**: 1分钟
 - **严重级别**: Critical
@@ -199,8 +199,8 @@
   3. 增加内存配置
   4. 分析内存泄漏原因
 
-#### JAiRouterHighGCRate
-- **描述**: JAiRouter GC频率过高
+#### TrunklineHighGCRate
+- **描述**: Trunkline GC频率过高
 - **触发条件**: GC频率超过0.2次/秒
 - **持续时间**: 3分钟
 - **严重级别**: Warning
@@ -210,8 +210,8 @@
   3. 检查内存分配模式
   4. 考虑调整堆大小
 
-#### JAiRouterHighThreadCount
-- **描述**: JAiRouter线程数过多
+#### TrunklineHighThreadCount
+- **描述**: Trunkline线程数过多
 - **触发条件**: 当前线程数超过200
 - **持续时间**: 2分钟
 - **严重级别**: Warning
@@ -221,10 +221,10 @@
   3. 查找线程泄漏
   4. 优化并发处理
 
-### 6. 业务指标告警 (jairouter.business)
+### 6. 业务指标告警 (trunkline.business)
 
-#### JAiRouterModelCallFailureRate
-- **描述**: JAiRouter模型调用失败率高
+#### TrunklineModelCallFailureRate
+- **描述**: Trunkline模型调用失败率高
 - **触发条件**: 模型调用失败率超过20%
 - **持续时间**: 2分钟
 - **严重级别**: Warning
@@ -234,8 +234,8 @@
   3. 分析失败原因
   4. 检查网络连接
 
-#### JAiRouterLargeRequestSize
-- **描述**: JAiRouter请求大小异常
+#### TrunklineLargeRequestSize
+- **描述**: Trunkline请求大小异常
 - **触发条件**: 95%分位请求大小超过1MB
 - **持续时间**: 3分钟
 - **严重级别**: Warning
@@ -245,8 +245,8 @@
   3. 考虑添加大小限制
   4. 优化数据传输
 
-#### JAiRouterLargeResponseSize
-- **描述**: JAiRouter响应大小异常
+#### TrunklineLargeResponseSize
+- **描述**: Trunkline响应大小异常
 - **触发条件**: 95%分位响应大小超过5MB
 - **持续时间**: 3分钟
 - **严重级别**: Warning
@@ -256,10 +256,10 @@
   3. 考虑分页处理
   4. 检查是否有数据泄漏
 
-### 7. 安全告警 (jairouter.security)
+### 7. 安全告警 (trunkline.security)
 
-#### JAiRouterSuspiciousIPActivity
-- **描述**: JAiRouter检测到可疑IP活动
+#### TrunklineSuspiciousIPActivity
+- **描述**: Trunkline检测到可疑IP活动
 - **触发条件**: 单个IP请求率超过100 req/s
 - **持续时间**: 2分钟
 - **严重级别**: Warning
@@ -269,8 +269,8 @@
   3. 考虑临时封禁
   4. 加强访问控制
 
-#### JAiRouterHighAuthFailureRate
-- **描述**: JAiRouter认证失败率高
+#### TrunklineHighAuthFailureRate
+- **描述**: Trunkline认证失败率高
 - **触发条件**: 401错误率超过5%
 - **持续时间**: 2分钟
 - **严重级别**: Warning
@@ -280,8 +280,8 @@
   3. 验证密钥配置
   4. 检查是否有暴力破解
 
-#### JAiRouterHighClientErrorRate
-- **描述**: JAiRouter客户端错误率高
+#### TrunklineHighClientErrorRate
+- **描述**: Trunkline客户端错误率高
 - **触发条件**: 4xx错误率超过20%
 - **持续时间**: 3分钟
 - **严重级别**: Warning
@@ -291,10 +291,10 @@
   3. 验证参数校验逻辑
   4. 提供更好的错误信息
 
-### 8. 容量规划告警 (jairouter.capacity)
+### 8. 容量规划告警 (trunkline.capacity)
 
-#### JAiRouterRequestVolumeGrowth
-- **描述**: JAiRouter请求量显著增长
+#### TrunklineRequestVolumeGrowth
+- **描述**: Trunkline请求量显著增长
 - **触发条件**: 相比24小时前增长超过50%
 - **持续时间**: 5分钟
 - **严重级别**: Info
@@ -304,8 +304,8 @@
   3. 考虑扩容计划
   4. 监控资源使用
 
-#### JAiRouterLowDiskSpace
-- **描述**: JAiRouter服务器磁盘空间不足
+#### TrunklineLowDiskSpace
+- **描述**: Trunkline服务器磁盘空间不足
 - **触发条件**: 可用磁盘空间低于20%
 - **持续时间**: 5分钟
 - **严重级别**: Warning
@@ -315,8 +315,8 @@
   3. 检查磁盘使用
   4. 考虑扩容
 
-#### JAiRouterHighCPUUsage
-- **描述**: JAiRouter服务器CPU使用率高
+#### TrunklineHighCPUUsage
+- **描述**: Trunkline服务器CPU使用率高
 - **触发条件**: CPU使用率超过80%
 - **持续时间**: 3分钟
 - **严重级别**: Warning
@@ -326,10 +326,10 @@
   3. 优化性能瓶颈
   4. 考虑扩容
 
-### 9. 依赖服务告警 (jairouter.dependencies)
+### 9. 依赖服务告警 (trunkline.dependencies)
 
-#### JAiRouterDatabaseConnectionIssue
-- **描述**: JAiRouter数据库连接池使用率高
+#### TrunklineDatabaseConnectionIssue
+- **描述**: Trunkline数据库连接池使用率高
 - **触发条件**: 连接池使用率超过80%
 - **持续时间**: 2分钟
 - **严重级别**: Warning
@@ -339,8 +339,8 @@
   3. 优化连接池配置
   4. 检查慢查询
 
-#### JAiRouterLowCacheHitRate
-- **描述**: JAiRouter缓存命中率低
+#### TrunklineLowCacheHitRate
+- **描述**: Trunkline缓存命中率低
 - **触发条件**: 缓存命中率低于70%
 - **持续时间**: 5分钟
 - **严重级别**: Warning
@@ -350,8 +350,8 @@
   3. 优化缓存键设计
   4. 考虑预热缓存
 
-#### JAiRouterExternalAPITimeout
-- **描述**: JAiRouter外部API调用超时频繁
+#### TrunklineExternalAPITimeout
+- **描述**: Trunkline外部API调用超时频繁
 - **触发条件**: 超时频率超过5次/秒
 - **持续时间**: 2分钟
 - **严重级别**: Warning
@@ -434,12 +434,12 @@
 
 - [Prometheus告警规则文档](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/)
 - [AlertManager配置文档](https://prometheus.io/docs/alerting/latest/configuration/)
-- [Grafana仪表板](http://localhost:3000/d/jairouter-overview)
+- [Grafana仪表板](http://localhost:3000/d/trunkline-overview)
 - [Prometheus Web界面](http://localhost:9090/alerts)
 
 ## 联系方式
 
 如有问题或建议，请联系：
-- 运维团队: https://github.com/Lincoln-cn/JAiRouter/issues
-- 开发团队: https://github.com/Lincoln-cn/JAiRouter/issues
-- JAiRouter团队: https://github.com/Lincoln-cn/JAiRouter/issues
+- 运维团队: https://github.com/Lincoln-cn/Trunkline/issues
+- 开发团队: https://github.com/Lincoln-cn/Trunkline/issues
+- Trunkline团队: https://github.com/Lincoln-cn/Trunkline/issues

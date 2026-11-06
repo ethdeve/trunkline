@@ -12,6 +12,7 @@ import org.unreal.modelrouter.auth.security.authentication.JwtTokenValidator;
 import org.unreal.modelrouter.auth.security.config.properties.SecurityProperties;
 import org.unreal.modelrouter.common.util.TokenHashUtils;
 import org.unreal.modelrouter.auth.security.audit.ExtendedSecurityAuditService;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
@@ -28,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "jairouter.security.jwt.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.jwt.enabled", havingValue = "true")
 public class JwtTokenRefreshService {
     
     private final JwtTokenValidator jwtTokenValidator;
@@ -118,6 +119,24 @@ public class JwtTokenRefreshService {
             });
     }
     
+    /**
+     * 提取令牌的主体（用户名），用于刷新前的归属校验。
+     *
+     * <p>P0-L 安全修复（漏洞 3）：刷新端点从请求体取待刷新的令牌，必须先确认
+     * 该令牌属于当前认证主体，否则任何已认证用户都能把别人的令牌刷新成自己的
+     * （实测：USER 刷出 roles=[ADMIN,USER] 的令牌，属于权限提升）。
+     *
+     * @param token 待刷新的令牌
+     * @return 令牌主体；无法解析时返回空字符串（由归属校验判为 INVALID_TOKEN）
+     */
+    public Mono<String> subjectOf(final String token) {
+        if (token == null || token.trim().isEmpty()) {
+            return Mono.just("");
+        }
+        return jwtTokenValidator.extractUserId(token)
+                .onErrorReturn("");
+    }
+
     /**
      * 撤销JWT令牌（加入黑名单）
      * @param token 要撤销的JWT令牌
@@ -240,16 +259,21 @@ public class JwtTokenRefreshService {
         }
         
         log.debug("开始批量撤销{}个JWT令牌", tokens.size());
-        
-        return Mono.fromRunnable(() -> {
-            tokens.parallelStream().forEach(token -> {
-                if (token != null && !token.trim().isEmpty()) {
-                    revokeToken(token).subscribe();
-                }
-            });
-        }).then()
-        .doOnSuccess(v -> log.debug("批量撤销JWT令牌完成"))
-        .doOnError(error -> log.warn("批量撤销JWT令牌失败: {}", error.getMessage()));
+
+        // C5: 原 parallelStream + fire-and-forget subscribe 存在并发隐患
+        // （并行流多线程同时撤销、订阅无错误处理与背压控制）。
+        // 改为 Flux.flatMap 受控并发聚合，任一失败不阻断其余。
+        // fromIterable 不允许 null 元素（原 parallelStream 容忍），先移除。
+        final List<String> validTokens = tokens.stream()
+            .filter(java.util.Objects::nonNull)
+            .filter(token -> !token.trim().isEmpty())
+            .toList();
+        return Flux.fromIterable(validTokens)
+            .flatMap(token -> revokeToken(token)
+                .doOnError(error -> log.warn("批量撤销中单个令牌失败: {}", error.getMessage())), 16)
+            .then()
+            .doOnSuccess(v -> log.debug("批量撤销JWT令牌完成"))
+            .doOnError(error -> log.warn("批量撤销JWT令牌失败: {}", error.getMessage()));
     }
     
     /**

@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 PROJECT_NAME="model-router"
-IMAGE_NAME="sodlinken/jairouter"
+IMAGE_NAME="trunkline/trunkline"
 
 # Parse arguments
 IMAGE_TYPE=${1:-optimized}  # default to optimized

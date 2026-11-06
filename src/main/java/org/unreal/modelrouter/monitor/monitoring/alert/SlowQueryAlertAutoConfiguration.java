@@ -15,11 +15,12 @@ import org.unreal.modelrouter.monitor.tracing.logger.StructuredLogger;
  * 
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Configuration
 @EnableConfigurationProperties(SlowQueryAlertProperties.class)
 @ConditionalOnProperty(
-        name = "jairouter.monitoring.slow-query-alert.enabled",
+        name = "trunkline.monitoring.slow-query-alert.enabled",
         havingValue = "true", matchIfMissing = true)
 public class SlowQueryAlertAutoConfiguration {
     
@@ -34,7 +35,7 @@ public class SlowQueryAlertAutoConfiguration {
      * @return 慢查询告警服务
      */
     @Bean
-    @ConditionalOnProperty(name = "jairouter.monitoring.enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(name = "trunkline.monitoring.enabled", havingValue = "true", matchIfMissing = true)
     public SlowQueryAlertService slowQueryAlertService(
             final MonitoringProperties monitoringProperties,
             final SlowQueryAlertProperties alertProperties,

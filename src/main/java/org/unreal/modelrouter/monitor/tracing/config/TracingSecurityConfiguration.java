@@ -21,11 +21,12 @@ import org.unreal.modelrouter.monitor.tracing.security.TracingSecurityFilter;
  * 
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "jairouter.tracing.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.tracing.enabled", havingValue = "true", matchIfMissing = true)
 public class TracingSecurityConfiguration {
     
     private final @Lazy TracingWebFilter tracingWebFilter;
@@ -38,7 +39,7 @@ public class TracingSecurityConfiguration {
      * 实际的安全配置仍然由SecurityConfiguration类负责
      */
     @Bean
-    @ConditionalOnProperty(name = "jairouter.security.enabled", havingValue = "true")
+    @ConditionalOnProperty(name = "trunkline.security.enabled", havingValue = "true")
     public org.springframework.boot.web.server.WebServerFactoryCustomizer<?> tracingSecurityFilterCustomizer() {
         return factory -> {
             log.info("配置追踪安全过滤器集成");

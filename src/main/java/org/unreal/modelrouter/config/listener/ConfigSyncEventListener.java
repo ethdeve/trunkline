@@ -110,7 +110,7 @@ public class ConfigSyncEventListener {
                     } else {
                         log.warn("Broadcast partially failed: {} failures", result.failureCount());
                     }
-                });
+                }, error -> log.error("Broadcast config failed: {}", error.getMessage(), error));
         } else if (event.targetService() != null) {
             configPushService.pushToService(event.targetService(), event.config())
                 .subscribe(result -> {
@@ -119,7 +119,7 @@ public class ConfigSyncEventListener {
                     } else {
                         log.warn("Push to {} failed: {}", event.targetService(), result.message());
                     }
-                });
+                }, error -> log.error("Push config to {} failed", event.targetService(), error));
         } else {
             log.warn("REFRESH event has no target service and not broadcast, skipping");
         }
@@ -155,7 +155,7 @@ public class ConfigSyncEventListener {
                         log.warn("Instance config update failed: instanceId={}, error={}",
                             instanceId, result.message());
                     }
-                });
+                }, error -> log.error("Instance config update failed: instanceId={}", instanceId, error));
         } else {
             log.warn("INSTANCE_UPDATE event has no instance ID, skipping");
         }
@@ -202,6 +202,6 @@ public class ConfigSyncEventListener {
                 } else {
                     log.warn("Migration failed: {}", result.message());
                 }
-            });
+            }, error -> log.error("Config migration from {} to {} failed", sourceEnv, targetEnv, error));
     }
 }

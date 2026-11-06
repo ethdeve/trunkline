@@ -7,7 +7,7 @@
 > **作者**: Lincoln
 <!-- /版本信息 -->
 
-JAiRouter 从 **v2.9.0** 起提供 **LLM KV 缓存增强**：自动租户粘性路由 + 缓存命中指标 + 缓存参数透传，最大化 LLM 前缀缓存（prefix cache / KV cache）利用率。本网关面向**长文档、多轮对话**场景——同一租户的请求被稳定路由到同一实例，使下游服务的前缀缓存持续命中，显著降低首 token 延迟（TTFT）与 prefill 开销。
+Trunkline 从 **v2.9.0** 起提供 **LLM KV 缓存增强**：自动租户粘性路由 + 缓存命中指标 + 缓存参数透传，最大化 LLM 前缀缓存（prefix cache / KV cache）利用率。本网关面向**长文档、多轮对话**场景——同一租户的请求被稳定路由到同一实例，使下游服务的前缀缓存持续命中，显著降低首 token 延迟（TTFT）与 prefill 开销。
 
 > **说明**：这是**前缀缓存友好**网关，不是响应缓存。它不做内容缓存，而是通过"路由 + 观测 + 透传"三件事让下游 LLM 服务自身的缓存生效。
 
@@ -29,7 +29,7 @@ JAiRouter 从 **v2.9.0** 起提供 **LLM KV 缓存增强**：自动租户粘性�
 model:
   services:
     deepseek:
-      adapter: deepseek
+      adapter: normal              # OpenAI 兼容适配器
       sticky:
         enabled: true            # 是否启用粘性路由（默认 true；实例数 > 1 时生效）
         affinityKeyScope: tenant_model  # 粘性粒度：tenant_model（默认）/ tenant
@@ -53,9 +53,9 @@ model:
 
 | 指标 | 类型 | 标签 | 说明 |
 |------|------|------|------|
-| `jairouter_cache_hit_tokens_total` | Counter | `adapter`, `instance` | 缓存命中 token 累计数 |
-| `jairouter_cache_miss_tokens_total` | Counter | `adapter`, `instance` | 缓存未命中 token 累计数 |
-| `jairouter_cache_hit_ratio` | Gauge | `adapter`, `instance` | 命中率 0.0~1.0，基于累计计数 hit/(hit+miss) |
+| `trunkline_cache_hit_tokens_total` | Counter | `adapter`, `instance` | 缓存命中 token 累计数 |
+| `trunkline_cache_miss_tokens_total` | Counter | `adapter`, `instance` | 缓存未命中 token 累计数 |
+| `trunkline_cache_hit_ratio` | Gauge | `adapter`, `instance` | 命中率 0.0~1.0，基于累计计数 hit/(hit+miss) |
 
 - 字段缺失按 0 容忍，不报错
 - `cache_hit_ratio` 为**累积语义**（hitTotal/(hitTotal+missTotal)），非单次请求比率
@@ -81,7 +81,7 @@ model:
 ## 四、验证
 
 - **粘性路由**：同一 `apiKeyId` 连续请求，追踪/日志中目标 `instance` 应保持一致（实例健康时）
-- **指标**：`curl http://<host>:8080/actuator/prometheus | grep jairouter_cache`（或 Grafana 查询）
+- **指标**：`curl http://<host>:8080/actuator/prometheus | grep trunkline_cache`（或 Grafana 查询）
 - **前缀卫生**：消息数组逐字透传（4 消息 + 6 消息两组回归测试），缓存 token 解析 5 组容错测试
 
 ## 五、已知限制

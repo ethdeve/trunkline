@@ -9,7 +9,7 @@
 
 
 
-本文档提供 JAiRouter 监控系统常见问题的诊断和解决方案，帮助快速定位和修复监控相关问题。
+本文档提供 Trunkline 监控系统常见问题的诊断和解决方案，帮助快速定位和修复监控相关问题。
 
 ## 快速诊断
 
@@ -28,7 +28,7 @@
 ### 手动检查步骤
 
 ```bash
-# 1. 检查 JAiRouter 服务状态
+# 1. 检查 Trunkline 服务状态
 curl http://localhost:8080/actuator/health
 
 # 2. 检查指标端点
@@ -52,7 +52,7 @@ curl http://localhost:9093/-/healthy
 
 **症状**:
 - 访问 `/actuator/prometheus` 返回 404
-- Prometheus targets 页面显示 JAiRouter 为 down 状态
+- Prometheus targets 页面显示 Trunkline 为 down 状态
 
 **诊断步骤**:
 ```bash
@@ -63,7 +63,7 @@ curl http://localhost:8080/actuator/health
 curl http://localhost:8080/actuator
 
 # 检查应用日志
-docker logs jairouter | grep -i actuator
+docker logs trunkline | grep -i actuator
 ```
 
 **解决方案**:
@@ -95,7 +95,7 @@ curl http://localhost:8080/actuator/configprops | jq '.contexts.application.bean
 curl http://localhost:8080/actuator/metrics
 
 # 检查特定指标
-curl http://localhost:8080/actuator/metrics/jairouter.requests.total
+curl http://localhost:8080/actuator/metrics/trunkline.requests.total
 ```
 
 **可能原因和解决方案**:
@@ -173,10 +173,10 @@ monitoring:
 **诊断步骤**:
 ```bash
 # 1. 检查 Prometheus 配置
-cat monitoring/prometheus/prometheus.yml | grep -A 10 jairouter
+cat monitoring/prometheus/prometheus.yml | grep -A 10 trunkline
 
 # 2. 检查网络连通性
-docker exec prometheus curl http://jairouter:8080/actuator/prometheus
+docker exec prometheus curl http://trunkline:8080/actuator/prometheus
 
 # 3. 检查 Prometheus 日志
 docker logs prometheus | grep -i error
@@ -192,7 +192,7 @@ networks:
     driver: bridge
 
 services:
-  jairouter:
+  trunkline:
     networks:
       - monitoring
   prometheus:
@@ -204,9 +204,9 @@ services:
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
-      - targets: ['jairouter:8080']  # 使用服务名而不是 localhost
+      - targets: ['trunkline:8080']  # 使用服务名而不是 localhost
     metrics_path: '/actuator/prometheus'
     scrape_interval: 10s
     scrape_timeout: 5s
@@ -250,7 +250,7 @@ command:
 curl http://localhost:3000/api/datasources/proxy/1/api/v1/query?query=up
 
 # 2. 检查查询语法
-curl "http://localhost:9090/api/v1/query?query=jairouter_requests_total"
+curl "http://localhost:9090/api/v1/query?query=trunkline_requests_total"
 
 # 3. 检查时间范围
 # 在 Grafana 中调整时间范围到最近 5 分钟
@@ -272,10 +272,10 @@ datasources:
 **查询优化**:
 ```promql
 # 确保查询语法正确
-sum(rate(jairouter_requests_total[5m]))
+sum(rate(trunkline_requests_total[5m]))
 
 # 检查标签是否存在
-label_values(jairouter_requests_total, service)
+label_values(trunkline_requests_total, service)
 ```
 
 #### 问题 7: Grafana 仪表板加载缓慢
@@ -298,12 +298,12 @@ curl "http://localhost:9090/api/v1/query?query=prometheus_tsdb_head_samples_appe
 **查询优化**:
 ```promql
 # 使用 recording rules 预聚合数据
-# rules/jairouter-recording-rules.yml
+# rules/trunkline-recording-rules.yml
 groups:
-  - name: jairouter.recording
+  - name: trunkline.recording
     rules:
-      - record: jairouter:request_rate_5m
-        expr: sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:request_rate_5m
+        expr: sum(rate(trunkline_requests_total[5m]))
 ```
 
 **面板优化**:
@@ -328,7 +328,7 @@ curl http://localhost:9090/api/v1/rules
 curl http://localhost:9093/api/v1/alerts
 
 # 3. 检查告警规则语法
-promtool check rules monitoring/prometheus/rules/jairouter-alerts.yml
+promtool check rules monitoring/prometheus/rules/trunkline-alerts.yml
 ```
 
 **解决方案**:
@@ -377,8 +377,8 @@ amtool silence query
 # alertmanager.yml
 global:
   smtp_smarthost: 'smtp.example.com:587'
-  smtp_from: 'alerts@jairouter.com'
-  smtp_auth_username: 'alerts@jairouter.com'
+  smtp_from: 'alerts@trunkline.com'
+  smtp_auth_username: 'alerts@trunkline.com'
   smtp_auth_password: 'your-password'
 ```
 
@@ -462,22 +462,22 @@ global:
   evaluation_interval: 30s
 
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     scrape_interval: 15s  # 针对重要服务保持较短间隔
 ```
 
 **使用 Recording Rules**:
 ```yaml
-# rules/jairouter-recording-rules.yml
+# rules/trunkline-recording-rules.yml
 groups:
-  - name: jairouter.recording
+  - name: trunkline.recording
     interval: 30s
     rules:
-      - record: jairouter:request_rate_5m
-        expr: sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:request_rate_5m
+        expr: sum(rate(trunkline_requests_total[5m]))
       
-      - record: jairouter:error_rate_5m
-        expr: sum(rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:error_rate_5m
+        expr: sum(rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum(rate(trunkline_requests_total[5m]))
 ```
 
 ## 数据一致性问题
@@ -494,7 +494,7 @@ groups:
 ntpdate -q pool.ntp.org
 
 # 检查 Prometheus 数据完整性
-curl "http://localhost:9090/api/v1/query?query=up{job=\"jairouter\"}"
+curl "http://localhost:9090/api/v1/query?query=up{job=\"trunkline\"}"
 
 # 检查 Grafana 缓存设置
 ```
@@ -549,7 +549,7 @@ echo "=== 指标信息 ===" > ${LOG_DIR}/metrics.log
 curl -s http://localhost:8080/actuator/prometheus | head -100 >> ${LOG_DIR}/metrics.log
 
 # 收集应用日志
-docker logs jairouter > ${LOG_DIR}/jairouter.log 2>&1
+docker logs trunkline > ${LOG_DIR}/trunkline.log 2>&1
 docker logs prometheus > ${LOG_DIR}/prometheus.log 2>&1
 docker logs grafana > ${LOG_DIR}/grafana.log 2>&1
 docker logs alertmanager > ${LOG_DIR}/alertmanager.log 2>&1
@@ -565,16 +565,16 @@ echo "诊断信息已收集到 ${LOG_DIR} 目录"
 
 ### 日志分析技巧
 
-#### 1. JAiRouter 应用日志
+#### 1. Trunkline 应用日志
 ```bash
 # 查看监控相关错误
-docker logs jairouter | grep -i "metric\|monitor\|prometheus"
+docker logs trunkline | grep -i "metric\|monitor\|prometheus"
 
 # 查看性能相关日志
-docker logs jairouter | grep -i "performance\|slow\|timeout"
+docker logs trunkline | grep -i "performance\|slow\|timeout"
 
 # 查看配置加载日志
-docker logs jairouter | grep -i "config\|property"
+docker logs trunkline | grep -i "config\|property"
 ```
 
 #### 2. Prometheus 日志
@@ -619,8 +619,8 @@ docker-compose -f docker-compose-monitoring.yml up -d
 
 #### 2. 单个服务重启
 ```bash
-# 重启 JAiRouter
-docker-compose -f docker-compose-monitoring.yml restart jairouter
+# 重启 Trunkline
+docker-compose -f docker-compose-monitoring.yml restart trunkline
 
 # 重启 Prometheus
 docker-compose -f docker-compose-monitoring.yml restart prometheus

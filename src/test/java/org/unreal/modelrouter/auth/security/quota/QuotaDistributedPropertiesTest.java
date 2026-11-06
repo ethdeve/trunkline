@@ -16,12 +16,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 @DisplayName("QuotaProperties 分布式计数配置测试")
 class QuotaDistributedPropertiesTest {
 
     @Test
-    @DisplayName("默认关闭：distributed.enabled=false / prefix=jairouter:quota / 50ms 超时 / 降级到本地")
+    @DisplayName("默认关闭：distributed.enabled=false / prefix=trunkline:quota / 50ms 超时 / 降级到本地")
     void defaults_shouldBeDisabledAndConservative() {
         final QuotaProperties properties = new QuotaProperties();
 
@@ -29,7 +30,7 @@ class QuotaDistributedPropertiesTest {
         assertEquals(QuotaProperties.DEFAULT_DISTRIBUTED_KEY_PREFIX, properties.distributedKeyPrefix());
         assertEquals(Duration.ofMillis(50L), properties.distributedTimeout());
         assertTrue(properties.distributedDegradeToLocal());
-        assertEquals("jairouter:quota", QuotaProperties.DEFAULT_DISTRIBUTED_KEY_PREFIX);
+        assertEquals("trunkline:quota", QuotaProperties.DEFAULT_DISTRIBUTED_KEY_PREFIX);
     }
 
     @Test

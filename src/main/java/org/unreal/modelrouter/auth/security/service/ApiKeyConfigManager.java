@@ -66,22 +66,33 @@ public class ApiKeyConfigManager {
 
     /**
      * 获取版本配置
+     *
+     * <p>E1: version=0 统一语义为「当前生效配置」（走 v0 当前行）；
+     * version>=1 读不可变快照行。</p>
      */
     public Map<String, Object> getVersionConfig(final int version) {
         if (version == 0) {
-            Map<String, Object> config = new HashMap<>();
-            config.put(storeApiKeys, new java.util.ArrayList<>());
-            return config;
+            Map<String, Object> config = storeManager.getConfig(apiKeysStoreKey);
+            if (config != null) {
+                return config;
+            }
+            Map<String, Object> empty = new HashMap<>();
+            empty.put(storeApiKeys, new java.util.ArrayList<>());
+            return empty;
         }
         return storeManager.getConfigByVersion(apiKeysStoreKey, version);
     }
 
     /**
      * 保存新版本配置
+     *
+     * <p>E1: 版本快照只追加（isLatest=false），当前值由 v0 当前行承载。</p>
      */
     public int saveNewVersion(final Map<String, Object> config) {
         int version = getCurrentVersion() + 1;
         storeManager.saveConfigVersion(apiKeysStoreKey, config, version);
+        // E1: 同步刷新当前行（saveConfig 只 upsert v0，不触碰快照）
+        storeManager.saveConfig(apiKeysStoreKey, config);
         log.info("已保存 API Key 配置为新版本：{}", version);
         return version;
     }
@@ -99,6 +110,18 @@ public class ApiKeyConfigManager {
     public int getCurrentVersion() {
         List<Integer> versions = getAllVersions();
         return versions.isEmpty() ? 0 : versions.stream().mapToInt(Integer::intValue).max().orElse(0);
+    }
+
+    /**
+     * 加载当前生效的 API Key 配置
+     *
+     * <p>E1: 当前值 = v0 当前行（storeManager.getConfig 已按此语义实现，
+     * 兼容迁移前无 v0 行的存量数据回退 isLatest 行）。调用方不要再走
+     * 「getConfigVersions(max) + getConfigByVersion」拼接——那只代表快照，
+     * 运行期追加的密钥只存在于 v0 当前行。</p>
+     */
+    public Map<String, Object> loadCurrentConfig() {
+        return storeManager.getConfig(apiKeysStoreKey);
     }
 
     /**

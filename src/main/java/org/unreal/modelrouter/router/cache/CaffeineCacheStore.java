@@ -17,7 +17,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * v2.9.9: Caffeine 响应缓存存储实现.
  *
  * <p>基于 Caffeine 的内存缓存（单节点默认实现，惯例参考
- * RolePermissionService 5min/200、ClientIpRateLimiterCache 10000/30min）：
+ * ClientIpRateLimiterCache 10000/30min）：
  * <ul>
  *   <li>{@code maximumSize} 取自配置 maxSize（注入时读 Properties，默认 10000）</li>
  *   <li>写后过期：每次 put 以传入 ttl 为基准施加 ±10% 随机抖动防雪崩，

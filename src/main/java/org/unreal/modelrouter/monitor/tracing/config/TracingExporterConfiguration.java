@@ -25,11 +25,12 @@ import org.springframework.core.env.Environment;
  * 
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
-@ConditionalOnProperty(prefix = "jairouter.tracing", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "trunkline.tracing", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class TracingExporterConfiguration {
     
     private final TracingConfiguration tracingConfig;

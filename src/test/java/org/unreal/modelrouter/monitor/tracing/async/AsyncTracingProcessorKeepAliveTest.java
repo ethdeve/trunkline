@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * tracing 异步线程池的 {@code keep-alive} 真的生效（issue #220）。
  *
  * <p>起因：{@code TracingPerformanceConfig.ThreadPoolConfig.keepAlive} 一直被绑定，但**没有任何
- * 消费方** —— 运维按 {@code jairouter.tracing.performance.thread-pool.keep-alive} 调参静默无效。
+ * 消费方** —— 运维按 {@code trunkline.tracing.performance.thread-pool.keep-alive} 调参静默无效。
  * 本测试盯住修复后的接线：该值必须出现在 Reactor 调度器的空闲线程 TTL 上。</p>
  *
  * <p>为什么用反射：Reactor 没有公开读 TTL 的接口（boundedElastic 只有

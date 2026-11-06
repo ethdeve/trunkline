@@ -61,6 +61,7 @@ import static org.mockito.Mockito.when;
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -107,9 +108,9 @@ class NonStreamingRequestProcessorQuotaSettleTest {
         enforcementService = new QuotaEnforcementService(ledgerService, quotaProperties, apiKeyService, clock);
 
         final ObjectMapper objectMapper = new ObjectMapper();
-        // apiKeyService / poolSelector / metricsCollector 传 null：配额结算不依赖它们
+        // apiKeyService / poolSelector / metricsCollector / callerIdentityResolver 传 null：配额结算不依赖它们
         final TokenUsageExtractor tokenUsageExtractor = new TokenUsageExtractor(objectMapper,
-            new TokenUsageRecorder(tokenUsageService), null, null, null);
+            new TokenUsageRecorder(tokenUsageService), null, null, null, null);
         processor = new NonStreamingRequestProcessor(objectMapper, null, null, tokenUsageExtractor);
 
         instance = new ModelRouterProperties.ModelInstance();

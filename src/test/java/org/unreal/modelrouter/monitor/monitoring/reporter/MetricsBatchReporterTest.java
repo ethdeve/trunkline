@@ -36,6 +36,7 @@ import static org.mockito.Mockito.verify;
  *
  * @author JAiRouter Team
  * @since v2.7.x
+ * @modified Trunkline Team
  */
 class MetricsBatchReporterTest {
 
@@ -186,7 +187,7 @@ class MetricsBatchReporterTest {
     @DisplayName("Prometheus 格式应正确生成")
     void formatAsPrometheus_shouldGenerateCorrectFormat() {
         MetricsBatchReporter.MetricData data = new MetricsBatchReporter.MetricData(
-                "jairouter_requests_total",
+                "trunkline_requests_total",
                 "counter",
                 12345.0,
                 Map.of("service", "chat", "status", "200"),
@@ -195,7 +196,7 @@ class MetricsBatchReporterTest {
 
         String result = invokeFormatAsPrometheus(List.of(data));
 
-        assertTrue(result.contains("jairouter_requests_total"));
+        assertTrue(result.contains("trunkline_requests_total"));
         assertTrue(result.contains("service=\"chat\""));
         assertTrue(result.contains("status=\"200\""));
         assertTrue(result.contains("12345.0"));
@@ -410,7 +411,7 @@ class MetricsBatchReporterTest {
 
         // 包含中文标签的指标
         MetricsBatchReporter.MetricData data = new MetricsBatchReporter.MetricData(
-                "jairouter_requests_total", "counter", 100.0,
+                "trunkline_requests_total", "counter", 100.0,
                 Map.of("service", "聊天机器人", "status", "成功"),
                 System.currentTimeMillis()
         );
@@ -469,7 +470,7 @@ class MetricsBatchReporterTest {
             reporter.setReportTarget(MetricsBatchReporter.ReportTarget.HTTP);
 
             final boolean result = invokeReportToHttp(List.of(new MetricsBatchReporter.MetricData(
-                    "jairouter_requests_total", "counter", 1.0,
+                    "trunkline_requests_total", "counter", 1.0,
                     Map.of("service", "chat"), System.currentTimeMillis())));
 
             assertTrue(result);

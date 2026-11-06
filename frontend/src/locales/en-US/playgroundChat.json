@@ -35,7 +35,8 @@
     "config": {
       "stream": "Streaming response",
       "stopSequences": "Stop Sequences",
-      "stopPlaceholder": "Enter stop sequences"
+      "stopPlaceholder": "Enter stop sequences",
+      "advanced": "Advanced settings"
     },
     "messages": {
       "errorContext": "Chat request",

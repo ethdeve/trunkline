@@ -3,7 +3,7 @@ groups:
     rules:
       # JWT Token Storage Alerts
       - alert: JWTTokenStorageDown
-        expr: up{job="jairouter-jwt-persistence"} == 0
+        expr: up{job="trunkline-jwt-persistence"} == 0
         for: 1m
         labels:
           severity: critical
@@ -11,10 +11,10 @@ groups:
         annotations:
           summary: "JWT token storage service is down"
           description: "JWT token persistence service has been down for more than 1 minute"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence"
 
       - alert: JWTTokenStorageHighMemoryUsage
-        expr: jairouter_security_storage_memory_usage_bytes / jairouter_security_storage_memory_max_bytes > 0.85
+        expr: trunkline_security_storage_memory_usage_bytes / trunkline_security_storage_memory_max_bytes > 0.85
         for: 5m
         labels:
           severity: warning
@@ -22,10 +22,10 @@ groups:
         annotations:
           summary: "JWT token storage high memory usage"
           description: "JWT token storage memory usage is above 85% for more than 5 minutes"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#memory-usage"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#memory-usage"
 
       - alert: JWTTokenStorageMemoryFull
-        expr: jairouter_security_storage_memory_usage_bytes / jairouter_security_storage_memory_max_bytes > 0.95
+        expr: trunkline_security_storage_memory_usage_bytes / trunkline_security_storage_memory_max_bytes > 0.95
         for: 2m
         labels:
           severity: critical
@@ -33,7 +33,7 @@ groups:
         annotations:
           summary: "JWT token storage memory nearly full"
           description: "JWT token storage memory usage is above 95% for more than 2 minutes"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#memory-full"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#memory-full"
 
       # Redis Connection Alerts
       - alert: JWTRedisConnectionDown
@@ -45,7 +45,7 @@ groups:
         annotations:
           summary: "JWT Redis connection is down"
           description: "Redis connection for JWT persistence is down for more than 1 minute"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#redis-connection"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#redis-connection"
 
       - alert: JWTRedisHighMemoryUsage
         expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.8
@@ -56,7 +56,7 @@ groups:
         annotations:
           summary: "JWT Redis high memory usage"
           description: "Redis memory usage for JWT persistence is above 80% for more than 5 minutes"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#redis-memory"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#redis-memory"
 
       - alert: JWTRedisSlowQueries
         expr: rate(redis_slowlog_length[5m]) > 0.1
@@ -67,11 +67,11 @@ groups:
         annotations:
           summary: "JWT Redis slow queries detected"
           description: "Redis is experiencing slow queries for JWT operations"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#redis-performance"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#redis-performance"
 
       # JWT Token Operation Alerts
       - alert: JWTTokenHighErrorRate
-        expr: rate(jairouter_security_jwt_operations_total{result="error"}[5m]) / rate(jairouter_security_jwt_operations_total[5m]) > 0.05
+        expr: rate(trunkline_security_jwt_operations_total{result="error"}[5m]) / rate(trunkline_security_jwt_operations_total[5m]) > 0.05
         for: 2m
         labels:
           severity: warning
@@ -79,10 +79,10 @@ groups:
         annotations:
           summary: "High JWT token operation error rate"
           description: "JWT token operations error rate is above 5% for more than 2 minutes"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#operation-errors"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#operation-errors"
 
       - alert: JWTTokenOperationLatencyHigh
-        expr: histogram_quantile(0.95, rate(jairouter_security_jwt_operation_duration_seconds_bucket[5m])) > 1.0
+        expr: histogram_quantile(0.95, rate(trunkline_security_jwt_operation_duration_seconds_bucket[5m])) > 1.0
         for: 5m
         labels:
           severity: warning
@@ -90,10 +90,10 @@ groups:
         annotations:
           summary: "High JWT token operation latency"
           description: "95th percentile JWT token operation latency is above 1 second for more than 5 minutes"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#operation-latency"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#operation-latency"
 
       - alert: JWTBlacklistSizeGrowth
-        expr: increase(jairouter_security_jwt_blacklist_size[1h]) > 1000
+        expr: increase(trunkline_security_jwt_blacklist_size[1h]) > 1000
         for: 0m
         labels:
           severity: warning
@@ -101,11 +101,11 @@ groups:
         annotations:
           summary: "JWT blacklist size growing rapidly"
           description: "JWT blacklist has grown by more than 1000 entries in the last hour"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#blacklist-growth"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#blacklist-growth"
 
       # JWT Cleanup Alerts
       - alert: JWTCleanupFailed
-        expr: jairouter_security_jwt_cleanup_last_success_timestamp < (time() - 86400)
+        expr: trunkline_security_jwt_cleanup_last_success_timestamp < (time() - 86400)
         for: 0m
         labels:
           severity: warning
@@ -113,10 +113,10 @@ groups:
         annotations:
           summary: "JWT cleanup has not run successfully"
           description: "JWT cleanup has not run successfully for more than 24 hours"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#cleanup-failed"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#cleanup-failed"
 
       - alert: JWTCleanupHighDuration
-        expr: jairouter_security_jwt_cleanup_duration_seconds > 300
+        expr: trunkline_security_jwt_cleanup_duration_seconds > 300
         for: 0m
         labels:
           severity: warning
@@ -124,11 +124,11 @@ groups:
         annotations:
           summary: "JWT cleanup taking too long"
           description: "JWT cleanup operation took more than 5 minutes to complete"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#cleanup-performance"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#cleanup-performance"
 
       # Security Audit Alerts
       - alert: JWTSecurityAuditHighFailureRate
-        expr: rate(jairouter_security_audit_events_total{result="failure"}[5m]) > 10
+        expr: rate(trunkline_security_audit_events_total{result="failure"}[5m]) > 10
         for: 1m
         labels:
           severity: critical
@@ -136,10 +136,10 @@ groups:
         annotations:
           summary: "High JWT security audit failure rate"
           description: "JWT security audit is recording more than 10 failures per second"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#audit-failures"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#audit-failures"
 
       - alert: JWTSuspiciousActivity
-        expr: rate(jairouter_security_audit_events_total{event_type="suspicious_activity"}[5m]) > 1
+        expr: rate(trunkline_security_audit_events_total{event_type="suspicious_activity"}[5m]) > 1
         for: 0m
         labels:
           severity: critical
@@ -147,10 +147,10 @@ groups:
         annotations:
           summary: "JWT suspicious activity detected"
           description: "Suspicious JWT-related activity has been detected"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#suspicious-activity"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#suspicious-activity"
 
       - alert: JWTAuditLogStorageFull
-        expr: jairouter_security_audit_storage_usage_bytes / jairouter_security_audit_storage_max_bytes > 0.9
+        expr: trunkline_security_audit_storage_usage_bytes / trunkline_security_audit_storage_max_bytes > 0.9
         for: 5m
         labels:
           severity: warning
@@ -158,11 +158,11 @@ groups:
         annotations:
           summary: "JWT audit log storage nearly full"
           description: "JWT audit log storage is above 90% capacity"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#audit-storage"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#audit-storage"
 
       # API Key Operation Alerts
       - alert: APIKeyHighUsageRate
-        expr: rate(jairouter_security_api_key_operations_total[5m]) > 100
+        expr: rate(trunkline_security_api_key_operations_total[5m]) > 100
         for: 5m
         labels:
           severity: warning
@@ -170,10 +170,10 @@ groups:
         annotations:
           summary: "High API key usage rate"
           description: "API key operations rate is above 100 per second for more than 5 minutes"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#api-key-usage"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#api-key-usage"
 
       - alert: APIKeyValidationErrors
-        expr: rate(jairouter_security_api_key_validation_errors_total[5m]) > 5
+        expr: rate(trunkline_security_api_key_validation_errors_total[5m]) > 5
         for: 2m
         labels:
           severity: warning
@@ -181,11 +181,11 @@ groups:
         annotations:
           summary: "High API key validation error rate"
           description: "API key validation errors are above 5 per second for more than 2 minutes"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#api-key-validation"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#api-key-validation"
 
       # Storage Failover Alerts
       - alert: JWTStorageFailover
-        expr: jairouter_security_storage_failover_active == 1
+        expr: trunkline_security_storage_failover_active == 1
         for: 0m
         labels:
           severity: warning
@@ -193,10 +193,10 @@ groups:
         annotations:
           summary: "JWT storage failover activated"
           description: "JWT storage has failed over from primary to fallback storage"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#storage-failover"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#storage-failover"
 
       - alert: JWTStorageFailoverDuration
-        expr: time() - jairouter_security_storage_failover_timestamp > 3600
+        expr: time() - trunkline_security_storage_failover_timestamp > 3600
         for: 0m
         labels:
           severity: critical
@@ -204,4 +204,4 @@ groups:
         annotations:
           summary: "JWT storage failover duration too long"
           description: "JWT storage has been in failover mode for more than 1 hour"
-          runbook_url: "https://docs.jairouter.com/troubleshooting/jwt-persistence#storage-failover-duration"
+          runbook_url: "https://docs.trunkline.com/troubleshooting/jwt-persistence#storage-failover-duration"

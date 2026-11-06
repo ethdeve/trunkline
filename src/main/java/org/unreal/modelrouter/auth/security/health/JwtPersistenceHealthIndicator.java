@@ -17,7 +17,7 @@ import java.util.Map;
  */
 @Component("jwtPersistenceHealthIndicator")
 @ConditionalOnProperty(
-        name = "jairouter.security.monitoring.jwt-persistence.health-checks.enabled",
+        name = "trunkline.security.monitoring.jwt-persistence.health-checks.enabled",
         havingValue = "true", matchIfMissing = true)
 public final class JwtPersistenceHealthIndicator {
     

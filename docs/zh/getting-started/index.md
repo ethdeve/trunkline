@@ -9,11 +9,11 @@
 
 
 
-欢迎使用 JAiRouter！本节将帮助您快速上手 JAiRouter，从安装到第一次 API 调用。
+欢迎使用 Trunkline！本节将帮助您快速上手 Trunkline，从安装到第一次 API 调用。
 
-## 什么是 JAiRouter？
+## 什么是 Trunkline？
 
-JAiRouter 是一个基于 Spring Boot 的 AI 模型服务路由和负载均衡网关，通过 OpenAI 兼容的 API 提供对各种 AI 模型服务的统一访问。
+Trunkline 是一个基于 Spring Boot 的 AI 模型服务路由和负载均衡网关，通过 OpenAI 兼容的 API 提供对各种 AI 模型服务的统一访问。
 
 ## 核心优势
 
@@ -25,7 +25,7 @@ JAiRouter 是一个基于 Spring Boot 的 AI 模型服务路由和负载均衡�
 
 ## 快速导航
 
-1. **[安装指南](installation.md)** - 安装和配置 JAiRouter
+1. **[安装指南](installation.md)** - 安装和配置 Trunkline
 2. **[快速开始](quick-start.md)** - 进行第一次 API 调用
 3. **[第一步](first-steps.md)** - 基本配置和使用
 4. **[Claude Code 接入](claude-code.md)** - 用 Claude Code 零改造直连（Anthropic 协议入口）
@@ -42,18 +42,18 @@ JAiRouter 是一个基于 Spring Boot 的 AI 模型服务路由和负载均衡�
 
 ```mermaid
 graph TB
-    Client[客户端应用] --> JAiRouter[JAiRouter 网关]
-    JAiRouter --> LB[负载均衡器]
+    Client[客户端应用] --> Trunkline[Trunkline 网关]
+    Trunkline --> LB[负载均衡器]
     LB --> Service1[AI 服务 1]
     LB --> Service2[AI 服务 2]
     LB --> Service3[AI 服务 3]
     
-    JAiRouter --> RL[限流器]
-    JAiRouter --> CB[熔断器]
-    JAiRouter --> HC[健康检查器]
+    Trunkline --> RL[限流器]
+    Trunkline --> CB[熔断器]
+    Trunkline --> HC[健康检查器]
 ```
 
-JAiRouter 位于您的应用程序和 AI 模型服务之间，提供：
+Trunkline 位于您的应用程序和 AI 模型服务之间，提供：
 
 - **负载均衡**: 在多个服务实例之间分发请求
 - **限流**: 控制请求速率以防止过载
@@ -62,4 +62,4 @@ JAiRouter 位于您的应用程序和 AI 模型服务之间，提供：
 
 ## 下一步
 
-准备开始了吗？前往[安装指南](installation.md)在您的环境中设置 JAiRouter。
+准备开始了吗？前往[安装指南](installation.md)在您的环境中设置 Trunkline。

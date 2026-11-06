@@ -65,7 +65,7 @@ class PasswordSecurityCheckerTest {
     @Test
     @DisplayName("跳过警告启用时应跳过检查")
     void testSkipWarningEnabled() {
-        when(environment.getProperty("JAROUTER_SKIP_PASSWORD_WARNING", "false")).thenReturn("true");
+        when(environment.getProperty("TRUNKLINE_SKIP_PASSWORD_WARNING", "false")).thenReturn("true");
 
         checker.checkPasswordSecurity();
 
@@ -75,7 +75,7 @@ class PasswordSecurityCheckerTest {
     @Test
     @DisplayName("JWT禁用时应跳过检查")
     void testJwtDisabled() {
-        when(environment.getProperty("JAROUTER_SKIP_PASSWORD_WARNING", "false")).thenReturn("false");
+        when(environment.getProperty("TRUNKLINE_SKIP_PASSWORD_WARNING", "false")).thenReturn("false");
         when(jwtConfig.isEnabled()).thenReturn(false);
 
         checker.checkPasswordSecurity();
@@ -86,7 +86,7 @@ class PasswordSecurityCheckerTest {
     @Test
     @DisplayName("无账户时应跳过检查")
     void testNoAccounts() {
-        when(environment.getProperty("JAROUTER_SKIP_PASSWORD_WARNING", "false")).thenReturn("false");
+        when(environment.getProperty("TRUNKLINE_SKIP_PASSWORD_WARNING", "false")).thenReturn("false");
         when(jwtConfig.isEnabled()).thenReturn(true);
         when(jwtConfig.getAccounts()).thenReturn(Collections.emptyList());
 
@@ -98,7 +98,7 @@ class PasswordSecurityCheckerTest {
     @Test
     @DisplayName("明文密码账户应触发警告")
     void testPlaintextPasswordWarning() {
-        when(environment.getProperty("JAROUTER_SKIP_PASSWORD_WARNING", "false")).thenReturn("false");
+        when(environment.getProperty("TRUNKLINE_SKIP_PASSWORD_WARNING", "false")).thenReturn("false");
         when(jwtConfig.isEnabled()).thenReturn(true);
         when(jwtConfig.getAccounts()).thenReturn(List.of(plaintextAccount));
 
@@ -111,7 +111,7 @@ class PasswordSecurityCheckerTest {
     @Test
     @DisplayName("BCrypt密码账户不应触发警告")
     void testBcryptPasswordNoWarning() {
-        when(environment.getProperty("JAROUTER_SKIP_PASSWORD_WARNING", "false")).thenReturn("false");
+        when(environment.getProperty("TRUNKLINE_SKIP_PASSWORD_WARNING", "false")).thenReturn("false");
         when(jwtConfig.isEnabled()).thenReturn(true);
         when(jwtConfig.getAccounts()).thenReturn(List.of(bcryptAccount));
 
@@ -123,7 +123,7 @@ class PasswordSecurityCheckerTest {
     @Test
     @DisplayName("混合密码账户应正确计数")
     void testMixedPasswords() {
-        when(environment.getProperty("JAROUTER_SKIP_PASSWORD_WARNING", "false")).thenReturn("false");
+        when(environment.getProperty("TRUNKLINE_SKIP_PASSWORD_WARNING", "false")).thenReturn("false");
         when(jwtConfig.isEnabled()).thenReturn(true);
         when(jwtConfig.getAccounts()).thenReturn(Arrays.asList(plaintextAccount, bcryptAccount));
 
@@ -135,7 +135,7 @@ class PasswordSecurityCheckerTest {
     @Test
     @DisplayName("生产环境明文密码应触发严重警告")
     void testProductionEnvironmentWarning() {
-        when(environment.getProperty("JAROUTER_SKIP_PASSWORD_WARNING", "false")).thenReturn("false");
+        when(environment.getProperty("TRUNKLINE_SKIP_PASSWORD_WARNING", "false")).thenReturn("false");
         when(environment.getActiveProfiles()).thenReturn(new String[]{"prod"});
         when(jwtConfig.isEnabled()).thenReturn(true);
         when(jwtConfig.getAccounts()).thenReturn(List.of(plaintextAccount));
@@ -163,7 +163,7 @@ class PasswordSecurityCheckerTest {
         nullPasswordAccount.setUsername("null-password-user");
         nullPasswordAccount.setPassword(null);
 
-        when(environment.getProperty("JAROUTER_SKIP_PASSWORD_WARNING", "false")).thenReturn("false");
+        when(environment.getProperty("TRUNKLINE_SKIP_PASSWORD_WARNING", "false")).thenReturn("false");
         when(jwtConfig.isEnabled()).thenReturn(true);
         when(jwtConfig.getAccounts()).thenReturn(List.of(nullPasswordAccount));
 

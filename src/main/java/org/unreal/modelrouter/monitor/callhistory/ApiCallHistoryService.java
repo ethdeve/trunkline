@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
  *
  * @author JAiRouter Team
  * @since 2.7.8
+ * @modified Trunkline Team
  */
 @Slf4j
 @Service
@@ -111,10 +112,14 @@ public class ApiCallHistoryService {
         return repository.findWithFilters(
                 startTime, endTime,
                 query.getModelName(),
+                query.getVirtualModel(),
+                query.getUserId(),
                 query.getServiceType(),
                 query.getApiKeyId(),
                 query.getIsSuccess(),
+                query.getRateLimited(),
                 query.getHttpStatusCode(),
+                query.getKeyword(),
                 pageRequest);
     }
 
@@ -389,6 +394,7 @@ public class ApiCallHistoryService {
                 .contentType(dto.getContentType())
                 .serviceType(dto.getServiceType() != null ? dto.getServiceType() : "unknown")
                 .modelName(dto.getModelName() != null ? dto.getModelName() : "unknown")
+                .virtualModel(dto.getVirtualModel())
                 .provider(dto.getProvider())
                 .instanceName(dto.getInstanceName())
                 .instanceUrl(dto.getInstanceUrl())

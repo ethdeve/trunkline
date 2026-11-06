@@ -6,7 +6,6 @@ import org.springframework.boot.web.reactive.filter.OrderedWebFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.Ordered;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilterChain;
 import org.unreal.modelrouter.monitor.monitoring.WebFluxMetricsInterceptor;
@@ -38,8 +37,8 @@ public class WebFluxMetricsConfiguration {
 
             @Override
             public int getOrder() {
-                // 设置高优先级，确保在业务逻辑之前执行
-                return Ordered.HIGHEST_PRECEDENCE + 1;
+                // 顺序契约见 FilterOrderContract（X2：与 writeableHeaders 不再同值冲突）
+                return org.unreal.modelrouter.common.filter.FilterOrderContract.WEB_METRICS;
             }
         };
     }

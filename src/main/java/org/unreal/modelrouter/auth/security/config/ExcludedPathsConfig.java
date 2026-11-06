@@ -63,7 +63,10 @@ public class ExcludedPathsConfig {
         // 认证排除路径模式
         AUTH_EXCLUDED_PATTERNS = List.of(
             "/actuator/**",
-            "/admin/**"
+            "/admin/**",
+            // 内置帮助文档静态资源（docs md 配图/附件）：由前端 <img>/<a> 直接加载，
+            // 浏览器无法携带认证头，与 /admin/** 同级免认证；文档正文仍经 /api/docs/content 认证读取。
+            "/docs-res/**"
         );
         
         // 数据脱敏排除路径（ResponseSanitizationFilter 网关响应过滤器）

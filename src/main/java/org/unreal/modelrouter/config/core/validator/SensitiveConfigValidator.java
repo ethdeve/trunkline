@@ -25,7 +25,7 @@ import java.util.List;
  * </ul>
  */
 @Component
-@ConditionalOnProperty(name = "jairouter.config.validation.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.config.validation.enabled", havingValue = "true", matchIfMissing = true)
 public class SensitiveConfigValidator implements ApplicationListener<ApplicationReadyEvent> {
 
     private static final Logger log = LoggerFactory.getLogger(SensitiveConfigValidator.class);
@@ -39,7 +39,7 @@ public class SensitiveConfigValidator implements ApplicationListener<Application
     @Value("${GPUSTACK_API_TOKEN:}")
     private String gpustackApiToken;
 
-    @Value("${jairouter.config.validation.strict-mode:false}")
+    @Value("${trunkline.config.validation.strict-mode:false}")
     private boolean strictMode;
 
     @Override

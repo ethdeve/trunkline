@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# JAiRouter 安全功能迁移脚本
+# Trunkline 安全功能迁移脚本
 # 用于帮助用户从传统模式迁移到安全增强模式
 
 set -e
@@ -46,7 +46,7 @@ log_error() {
 # 显示帮助信息
 show_help() {
     cat << EOF
-JAiRouter 安全功能迁移脚本
+Trunkline 安全功能迁移脚本
 
 用法: $0 [选项]
 
@@ -124,7 +124,7 @@ check_migration_readiness() {
             config_found=true
             
             # 检查是否已经包含安全配置
-            if grep -q "jairouter.security" "$config_file"; then
+            if grep -q "trunkline.security" "$config_file"; then
                 log_warning "配置文件已包含安全配置，可能已经迁移过"
             fi
             break
@@ -144,11 +144,11 @@ check_migration_readiness() {
         log_warning "磁盘空间可能不足，建议清理后再迁移"
     fi
     
-    # 检查是否有运行中的JAiRouter实例
+    # 检查是否有运行中的Trunkline实例
     if pgrep -f "model-router" >/dev/null; then
-        log_warning "检测到运行中的JAiRouter实例，建议停止后再迁移"
+        log_warning "检测到运行中的Trunkline实例，建议停止后再迁移"
     else
-        log_success "没有运行中的JAiRouter实例"
+        log_success "没有运行中的Trunkline实例"
     fi
     
     # 总结检查结果
@@ -186,7 +186,7 @@ backup_current_config() {
     
     # 创建备份信息文件
     cat > "$BACKUP_DIR/backup-info.txt" << EOF
-JAiRouter 配置备份信息
+Trunkline 配置备份信息
 备份时间: $(date)
 备份目录: $BACKUP_DIR
 原始目录: $PROJECT_ROOT
@@ -196,7 +196,7 @@ JAiRouter 配置备份信息
 $(ls -la "$BACKUP_DIR")
 
 恢复方法:
-1. 停止JAiRouter服务
+1. 停止Trunkline服务
 2. 将备份文件复制回原位置
 3. 重启服务
 
@@ -213,11 +213,11 @@ generate_security_config() {
     local security_config_file="$PROJECT_ROOT/security-config-template.yml"
     
     cat > "$security_config_file" << 'EOF'
-# JAiRouter 安全功能配置模板
+# Trunkline 安全功能配置模板
 # 此文件包含启用安全功能所需的基本配置
 # 请根据实际需求修改相关参数
 
-jairouter:
+trunkline:
   security:
     # 安全功能总开关
     enabled: true
@@ -282,7 +282,7 @@ EOF
     local env_template_file="$PROJECT_ROOT/.env.security.template"
     
     cat > "$env_template_file" << 'EOF'
-# JAiRouter 安全功能环境变量模板
+# Trunkline 安全功能环境变量模板
 # 复制此文件为 .env 并设置实际的密钥值
 
 # 安全功能开关
@@ -323,7 +323,7 @@ update_application_config() {
     fi
     
     # 检查是否已经包含安全配置
-    if grep -q "jairouter.security" "$main_config"; then
+    if grep -q "trunkline.security" "$main_config"; then
         log_warning "配置文件已包含安全配置，跳过更新"
         return 0
     fi
@@ -351,7 +351,7 @@ step_by_step_migration() {
     log_info "开始分步骤迁移..."
     
     echo ""
-    echo "=== JAiRouter 安全功能迁移向导 ==="
+    echo "=== Trunkline 安全功能迁移向导 ==="
     echo ""
     
     # 步骤1: 确认迁移
@@ -402,7 +402,7 @@ step_by_step_migration() {
     # 创建环境变量文件
     local env_file="$PROJECT_ROOT/.env"
     cat > "$env_file" << EOF
-# JAiRouter 安全功能环境变量
+# Trunkline 安全功能环境变量
 # 由迁移脚本自动生成于 $(date)
 
 JAIROUTER_SECURITY_ENABLED=true
@@ -422,7 +422,7 @@ EOF
     echo ""
     echo "下一步操作:"
     echo "1. 检查生成的配置文件并根据需要调整"
-    echo "2. 重启JAiRouter服务"
+    echo "2. 重启Trunkline服务"
     echo "3. 使用API Key测试访问: curl -H 'X-API-Key: $admin_key' http://localhost:8080/v1/models"
     echo "4. 查看迁移日志: $MIGRATION_LOG"
     echo ""
@@ -479,7 +479,7 @@ rollback_migration() {
     done
     
     log_success "回滚完成！"
-    log_info "请重启JAiRouter服务以应用回滚的配置"
+    log_info "请重启Trunkline服务以应用回滚的配置"
 }
 
 # 主函数
@@ -536,7 +536,7 @@ main() {
     done
     
     # 创建迁移日志
-    echo "JAiRouter 安全功能迁移日志 - $(date)" > "$MIGRATION_LOG"
+    echo "Trunkline 安全功能迁移日志 - $(date)" > "$MIGRATION_LOG"
     log_info "迁移日志: $MIGRATION_LOG"
     
     # 执行相应操作

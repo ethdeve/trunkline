@@ -15,6 +15,8 @@ export interface DangerConfirmOptions {
   title: string
   /** 被操作对象的名称（用于「即将删除 xxx」这句话） */
   target?: string
+  /** 动作动词，默认「删除」；重置/轮换/隐藏等非删除危险操作必须传（如「重置」「轮换」「隐藏」） */
+  action?: string
   /** 影响面：会连带发生什么 */
   impact?: string
   /** 补救方式：出问题怎么办 */
@@ -41,6 +43,7 @@ export const confirmDanger = async (options: DangerConfirmOptions): Promise<bool
   const {
     title,
     target,
+    action = '删除',
     impact,
     remedy,
     requireType = null,
@@ -51,7 +54,7 @@ export const confirmDanger = async (options: DangerConfirmOptions): Promise<bool
 
   const lines: string[] = []
   if (target) {
-    lines.push(`即将删除：${target}`)
+    lines.push(`即将${action}：${target}`)
   }
   if (impact) {
     lines.push(`影响范围：${impact}`)

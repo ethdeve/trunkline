@@ -1,45 +1,53 @@
 <template>
   <PageSkeleton :title="t('rule.pageTitle')">
-    <!-- 操作区：嵌入模式（策略中心聚合页）下 PageSkeleton 页头整体隐藏，
-         #actions 插槽不会渲染，故按钮改为内容顶部自渲染，避免入口丢失 -->
-    <div class="page-actions-row">
-      <el-button :icon="Refresh" circle @click="refresh" :title="t('rule.refreshTooltip')" />
-      <el-button v-if="canWrite" type="success" plain @click="templateDialogVisible = true">
-        <el-icon><MagicStick /></el-icon>&nbsp;{{ t('rule.createFromTemplate') }}
-      </el-button>
-      <el-button v-if="canWrite" type="primary" @click="handleCreate">
-        <el-icon><Plus /></el-icon>&nbsp;{{ t('rule.addRule') }}
-      </el-button>
+    <!-- 原型式面板头：标题 + 提示 + 操作按钮 -->
+    <div class="rule-panel-head">
+      <div class="rule-panel-head__left">
+        <span class="rule-panel-head__title">{{ t('rule.panelTitle') }}</span>
+        <span class="rule-panel-head__hint">{{ t('rule.panelHint') }}</span>
+      </div>
+      <div class="rule-panel-head__actions">
+        <el-button :icon="Refresh" circle @click="refresh" :title="t('rule.refreshTooltip')" />
+        <el-button v-if="canWrite" type="success" plain @click="templateDialogVisible = true">
+          <el-icon><MagicStick /></el-icon>&nbsp;{{ t('rule.createFromTemplate') }}
+        </el-button>
+        <el-button v-if="canWrite" @click="simulateVisible = true">
+          <el-icon><MagicStick /></el-icon>&nbsp;{{ t('rule.simulate') }}
+        </el-button>
+        <el-button v-if="canWrite" type="primary" @click="handleCreate">
+          <el-icon><Plus /></el-icon>&nbsp;{{ t('rule.addRule') }}
+        </el-button>
+      </div>
     </div>
 
-    <el-table ref="tableRef" :data="rules" v-loading="loading" style="width: 100%" row-key="id">
-      <el-table-column :label="t('rule.sort')" width="60" align="center">
+    <el-table ref="tableRef" :data="rules" :max-height="tableMaxHeight" v-loading="loading" style="width: 100%" row-key="id">
+      <!-- 优先级：数字标签（越大越先匹配），YAML 规则不可拖拽 -->
+      <el-table-column :label="t('rule.priority')" width="86" align="center">
         <template #default="{ row }">
-          <el-icon v-if="row.source !== 'YAML'" class="drag-handle"><Rank /></el-icon>
+          <span class="rule-priority">
+            <el-icon v-if="row.source !== 'YAML'" class="drag-handle"><Rank /></el-icon>
+            <el-tag size="small" effect="plain" :type="row.enabled ? 'primary' : 'info'">{{ row.priority }}</el-tag>
+          </span>
         </template>
       </el-table-column>
-      <el-table-column :label="t('rule.enabled')" width="70" align="center">
+
+      <!-- 规则名 -->
+      <el-table-column :label="t('rule.name')" min-width="150">
         <template #default="{ row }">
-          <el-switch v-if="canWrite" :model-value="row.enabled" @change="(val: boolean) => handleToggle(row, val)" />
-        </template>
-      </el-table-column>
-      <el-table-column :label="t('rule.name')" min-width="140">
-        <template #default="{ row }">
-          {{ row.name }}
+          <span class="rule-name">{{ row.name }}</span>
           <el-tag v-if="row.source === 'YAML'" size="small" type="info" style="margin-left: 6px">YAML</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="priority" :label="t('rule.priority')" width="80" align="center" />
-      <el-table-column :label="t('rule.hits')" width="90" align="center">
+
+      <!-- 满足什么条件（白话） -->
+      <el-table-column :label="t('rule.condition')" min-width="220">
         <template #default="{ row }">
-          <el-badge v-if="statsMap[row.id]" :value="statsMap[row.id]" type="success" />
-          <span v-else>-</span>
+          <span class="rule-plain">{{ plainConditions(t, row.conditions) }}</span>
         </template>
       </el-table-column>
-      <el-table-column :label="t('rule.condition')" min-width="200">
-        <template #default="{ row }">{{ formatConditions(row.conditions) }}</template>
-      </el-table-column>
-      <el-table-column :label="t('rule.action')" min-width="160">
+
+      <!-- 做什么（白话） -->
+      <el-table-column :label="t('rule.action')" min-width="200">
         <template #default="{ row }">
           <el-link
             v-if="row.action && (row.action.type === 'TARGET_MODEL' || row.action.type === 'TARGET_INSTANCE' || row.action.type === 'TARGET_ADAPTER')"
@@ -47,13 +55,34 @@
             underline="never"
             @click.stop="navigateActionTarget(row.action)"
           >
-            {{ formatAction(row.action) }}
+            {{ plainAction(t, row.action) }}
           </el-link>
-          <span v-else>{{ formatAction(row.action) }}</span>
+          <span v-else class="rule-plain">{{ plainAction(t, row.action) }}</span>
         </template>
       </el-table-column>
-      <el-table-column :label="t('rule.operations')" width="200" align="center">
+
+      <!-- 本月命中：多副本下命中数只含本副本，必须标注口径，否则运维会误判 -->
+      <el-table-column :label="monthHitsLabel" width="130" align="right">
         <template #default="{ row }">
+          <span v-if="monthHitsMap[row.id]" class="rule-hits">{{ formatNumber(monthHitsMap[row.id]) }}</span>
+          <span v-else class="rule-hits-empty">—</span>
+        </template>
+      </el-table-column>
+
+      <!-- 状态 -->
+      <el-table-column :label="t('rule.status')" width="90" align="center" fixed="right">
+        <template #default="{ row }">
+          <el-tag v-if="row.enabled" type="success" size="small" effect="plain">{{ t('rule.statusEnabled') }}</el-tag>
+          <el-tag v-else type="info" size="small" effect="plain">{{ t('rule.statusDisabled') }}</el-tag>
+        </template>
+      </el-table-column>
+
+      <!-- 操作 -->
+      <el-table-column :label="t('rule.operations')" width="190" align="center" fixed="right">
+        <template #default="{ row }">
+          <el-button v-if="canWrite" size="small" @click="handleToggle(row, !row.enabled)">
+            {{ row.enabled ? t('rule.disable') : t('rule.enable') }}
+          </el-button>
           <el-button v-if="canWrite" size="small" @click="handleEdit(row)">{{ t('rule.edit') }}</el-button>
           <el-button v-if="canWrite" size="small" type="danger" @click="handleDelete(row)">{{ t('rule.delete') }}</el-button>
         </template>
@@ -73,15 +102,19 @@
     @saved="fetchRules"
   />
 
+  <RuleSimulateDialog v-model="simulateVisible" />
+
   <RuleTemplateDialog v-model="templateDialogVisible" @created="handleTemplateCreated" />
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
+import { ElMessage } from 'element-plus'
+import { confirmDanger } from '@/utils/dangerConfirm'
 import { Plus, MagicStick, Rank, Refresh } from '@element-plus/icons-vue'
 import Sortable from 'sortablejs'
 import {
@@ -92,24 +125,46 @@ import {
   getRuleStats,
   updateRulePriorities,
   type RuleDefinition,
-  type RuleCondition,
   type RuleAction
 } from '@/api/rules'
 import RuleFormDialog from './RuleFormDialog.vue'
+import RuleSimulateDialog from './RuleSimulateDialog.vue'
 import RuleTemplateDialog from './RuleTemplateDialog.vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
+import { plainAction, plainConditions } from './rulePlainText'
+import { useDeploymentStore } from '@/stores/deployment'
 
 const rules = ref<RuleDefinition[]>([])
 const loading = ref(false)
 const dialogVisible = ref(false)
 const editingRule = ref<RuleDefinition | null>(null)
-const statsMap = ref<Record<string, number>>({})
+/** 本月命中数（ruleId → 次数），跨月归零 */
+const monthHitsMap = ref<Record<string, number>>({})
 const tableRef = ref()
+const { maxHeight: tableMaxHeight } = useTableMaxHeight(tableRef)
 const templateDialogVisible = ref(false)
+const simulateVisible = ref(false)
 const { t } = useI18n()
 const { hasPermission } = usePermission()
 const canWrite = hasPermission('config:rules:write')
 const router = useRouter()
+const deployment = useDeploymentStore()
+
+/**
+ * 「本月命中」列头（S4 副本感知）。
+ *
+ * 命中计数是**进程内**统计，多副本部署时每台只算自己经手的请求，
+ * 三副本下看到的数字大约是总量的 1/3。列头不标注的话，运维会拿它当月度总量做判断。
+ */
+const monthHitsLabel = computed(() =>
+  deployment.isCluster && deployment.replicas > 0
+    ? `${t('rule.monthHits')}（本副本 / ${deployment.replicas}）`
+    : deployment.isCluster
+      ? `${t('rule.monthHits')}（本副本）`
+      : t('rule.monthHits')
+)
+
+const formatNumber = (n: number) => n.toLocaleString()
 
 const fetchRules = async () => {
   loading.value = true
@@ -131,9 +186,9 @@ const fetchStats = async () => {
     const stats = res.data?.data || []
     const map: Record<string, number> = {}
     stats.forEach(s => {
-      map[s.ruleId] = (map[s.ruleId] || 0) + s.hits
+      map[s.ruleId] = (map[s.ruleId] || 0) + (s.monthHits ?? 0)
     })
-    statsMap.value = map
+    monthHitsMap.value = map
   } catch (e) {
     // 统计加载失败不阻塞列表
   }
@@ -158,6 +213,7 @@ const initDrag = () => {
     onEnd: (evt) => {
       const { oldIndex, newIndex } = evt
       if (oldIndex == null || newIndex == null || oldIndex === newIndex) return
+
       const arr = [...rules.value]
       const [moved] = arr.splice(oldIndex, 1)
       arr.splice(newIndex, 0, moved)
@@ -205,17 +261,18 @@ const handleEdit = (row: RuleDefinition) => {
 }
 
 const handleDelete = async (row: RuleDefinition) => {
+  const confirmed = await confirmDanger({
+    title: t('rule.deleteConfirmTitle'),
+    target: row.name,
+    type: 'warning'
+  })
+  if (!confirmed) return
   try {
-    await ElMessageBox.confirm(
-      t('rule.deleteConfirmMessage', { name: row.name }),
-      t('rule.deleteConfirmTitle'),
-      { type: 'warning' }
-    )
     await deleteRule(row.id!)
     ElMessage.success(t('rule.ruleDeleted'))
     fetchRules()
   } catch (e) {
-    // 用户取消
+    // 删除失败保持安静（与原行为一致）
   }
 }
 
@@ -231,54 +288,6 @@ const handleToggle = async (row: RuleDefinition, enabled: boolean) => {
   } catch (e) {
     ElMessage.error(t('rule.operationFailed'))
   }
-}
-
-const conditionTypeMap: Record<string, string> = {
-  SERVICE_TYPE: 'rule.conditionType.SERVICE_TYPE',
-  MODEL_NAME: 'rule.conditionType.MODEL_NAME',
-  HEADER: 'rule.conditionType.HEADER',
-  CLIENT_IP: 'rule.conditionType.CLIENT_IP',
-  WEIGHT: 'rule.conditionType.WEIGHT'
-}
-
-const operatorMap: Record<string, string> = {
-  EQUALS: 'rule.operator.EQUALS',
-  CONTAINS: 'rule.operator.CONTAINS',
-  STARTS_WITH: 'rule.operator.STARTS_WITH',
-  REGEX: 'rule.operator.REGEX',
-  CIDR_MATCH: 'rule.operator.CIDR_MATCH'
-}
-
-const actionTypeMap: Record<string, string> = {
-  TARGET_MODEL: 'rule.actionType.TARGET_MODEL',
-  TARGET_INSTANCE: 'rule.actionType.TARGET_INSTANCE',
-  TARGET_ADAPTER: 'rule.actionType.TARGET_ADAPTER',
-  LB_STRATEGY: 'rule.actionType.LB_STRATEGY',
-  TARGET_TAGS: 'rule.actionType.TARGET_TAGS'
-}
-
-const formatConditions = (conditions: RuleCondition[]) => {
-  return conditions
-    .map(c => {
-      const prefix = c.type === 'HEADER' ? `${c.field}:` : ''
-      const typeLabel = conditionTypeMap[c.type] ? t(conditionTypeMap[c.type]) : c.type
-      const opLabel = operatorMap[c.operator] ? t(operatorMap[c.operator]) : c.operator
-      return `${typeLabel} ${opLabel} ${prefix}${c.value}`
-    })
-    .join(t('rule.conditionsAnd'))
-}
-
-const formatAction = (action: RuleAction) => {
-  if (!action) return '-'
-  const label = actionTypeMap[action.type] ? t(actionTypeMap[action.type]) : action.type
-  if (action.type === 'TARGET_TAGS') {
-    const tags = Object.entries(action.tags || {})
-      .map(([k, v]) => `${k}=${v}`)
-      .join(',')
-    return `${label}: ${tags || '-'}`
-  }
-  const target = action.modelName || action.instanceId || action.adapterName || action.lbStrategy || '-'
-  return `${label}: ${target}`
 }
 
 // Cross-link: 根据动作类型导航到对应配置页
@@ -301,12 +310,65 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-actions-row {
+/* 原型式面板头：标题 + 灰字提示 + 右侧按钮 */
+.rule-panel-head {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--ja-border-color, var(--el-border-color-lighter));
+}
+
+.rule-panel-head__left {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rule-panel-head__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ja-text-primary);
+}
+
+.rule-panel-head__hint {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+}
+
+.rule-panel-head__actions {
+  display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+}
+
+.rule-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rule-name {
+  font-weight: 600;
+  color: var(--ja-text-primary);
+}
+
+.rule-plain {
+  color: var(--ja-text-primary);
+  line-height: 1.6;
+}
+
+.rule-hits {
+  font-variant-numeric: tabular-nums;
+  color: var(--ja-text-primary);
+}
+
+.rule-hits-empty {
+  color: var(--ja-text-tertiary, var(--ja-text-placeholder));
 }
 
 .drag-handle {

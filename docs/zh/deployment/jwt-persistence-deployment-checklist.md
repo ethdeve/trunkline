@@ -7,7 +7,7 @@
 > **作者**: System
 <!-- /版本信息 -->
 
-本检查清单确保 JAiRouter 中 JWT 令牌持久化功能的正确部署。
+本检查清单确保 Trunkline 中 JWT 令牌持久化功能的正确部署。
 
 ## 部署前检查清单
 
@@ -99,11 +99,11 @@ docker-compose exec redis redis-cli ping
 ### 步骤 3：启动应用
 
 ```bash
-# 启动 JAiRouter 应用
-docker-compose up -d jairouter
+# 启动 Trunkline 应用
+docker-compose up -d trunkline
 
 # 监控启动日志
-docker-compose logs -f jairouter
+docker-compose logs -f trunkline
 
 # 等待应用就绪
 curl -f http://localhost:8080/actuator/health
@@ -213,11 +213,11 @@ curl http://localhost:3000/api/health
 ```bash
 # 1. 禁用 JWT 持久化
 export JWT_PERSISTENCE_ENABLED=false
-docker-compose restart jairouter
+docker-compose restart trunkline
 
 # 2. 或回滚到之前的配置
 git checkout HEAD~1 -- src/main/resources/config/security/
-docker-compose restart jairouter
+docker-compose restart trunkline
 
 # 3. 或停止 Redis 使用内存模式
 docker-compose stop redis
@@ -253,7 +253,7 @@ docker-compose stop redis
 2. **JWT 持久化不工作**
    ```bash
    # 检查应用日志
-   docker-compose logs jairouter | grep -i jwt
+   docker-compose logs trunkline | grep -i jwt
 
    # 检查健康端点
    curl http://localhost:8080/actuator/health/jwt-persistence
@@ -382,7 +382,7 @@ JWT 持久化部署相关问题：
 
 | 端口 | 服务 | 描述 |
 |------|------|------|
-| 8080 | JAiRouter | 主应用端口 |
+| 8080 | Trunkline | 主应用端口 |
 | 6379 | Redis | Redis 服务器端口 |
 | 9090 | Prometheus | 监控指标 |
 | 3000 | Grafana | 监控仪表板 |

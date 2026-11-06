@@ -7,7 +7,7 @@
 > **作者**: Lincoln
 <!-- /版本信息 -->
 
-本文档详细介绍 JAiRouter 的基础应用配置，包括服务器配置、WebClient 配置、监控配置等。
+本文档详细介绍 Trunkline 的基础应用配置，包括服务器配置、WebClient 配置、监控配置等。
 
 ## 配置文件位置
 
@@ -20,7 +20,7 @@
 
 ## 模块化配置结构 (v2.8.x)
 
-JAiRouter 采用**模块化配置管理**方式，将复杂的配置按功能和服务模块拆分为多个独立的配置文件。
+Trunkline 采用**模块化配置管理**方式，将复杂的配置按功能和服务模块拆分为多个独立的配置文件。
 
 ### 配置模块概览
 
@@ -29,7 +29,9 @@ config/
 ├── common/              # 公共基础设施
 │   ├── server.yml       # 服务器配置
 │   ├── webclient.yml    # WebClient 配置
-│   └── logging.yml      # 日志配置
+│   ├── logging.yml      # 日志配置
+│   ├── scheduling.yml   # 定时任务开关
+│   └── cluster.yml      # 集群开关
 ├── config-service/      # 配置服务
 │   └── core.yml         # ConfigurationService 设置
 ├── router/              # 路由服务
@@ -38,7 +40,9 @@ config/
 │   ├── ratelimit.yml    # 限流配置
 │   ├── circuitbreaker.yml # 熔断器配置
 │   ├── fallback.yml     # 降级配置
-│   └── services.yml     # 服务实例配置
+│   ├── services.yml     # 服务实例配置
+│   ├── rules.yml        # 条件路由规则
+│   └── pools.yml        # 模型分组（资源池）
 ├── auth/                # 认证服务
 │   ├── jwt.yml          # JWT 认证配置
 │   ├── api-key.yml      # API 密钥配置
@@ -54,7 +58,8 @@ config/
 │   └── state-persistence-base.yml
 ├── base/                # 基础配置（遗留）
 │   ├── server-base.yml
-│   └── model-services-base.yml
+│   ├── model-services-base.yml
+│   └── monitoring-base.yml
 └── security/            # 安全配置（遗留）
     ├── security-base.yml
     ├── persistence-base.yml
@@ -63,21 +68,18 @@ config/
 
 ### 配置导入
 
-主配置文件 `application.yml` 导入所有模块配置：
+主配置文件 `application.yml` 导入所有模块配置（外部挂载配置必须放在 import 列表**末尾**，后导入者优先级更高）：
 
 ```yaml
 spring:
   config:
     import:
-      # 外部配置（最高优先级）
-      - optional:file:/app/config/application.yml
-      - optional:file:/app/config/auth/jwt.yml
-      - optional:file:/app/config/router/services.yml
-
       # common 模块
       - classpath:config/common/server.yml
       - classpath:config/common/webclient.yml
       - classpath:config/common/logging.yml
+      - classpath:config/common/scheduling.yml
+      - classpath:config/common/cluster.yml
 
       # config-service 模块
       - classpath:config/config-service/core.yml
@@ -89,6 +91,8 @@ spring:
       - classpath:config/router/circuitbreaker.yml
       - classpath:config/router/fallback.yml
       - classpath:config/router/services.yml
+      - classpath:config/router/rules.yml
+      - classpath:config/router/pools.yml
 
       # auth 模块
       - classpath:config/auth/jwt.yml
@@ -96,17 +100,25 @@ spring:
       - classpath:config/auth/audit.yml
       - classpath:config/auth/sanitization.yml
 
-      # monitor 模块
+      # monitor / tracing / persistence 模块
       - classpath:config/base/monitoring-base.yml
       - classpath:config/monitor/slow-query-alerts.yml
       - classpath:config/monitor/error-tracking.yml
       - classpath:config/monitor/persistence-monitoring-base.yml
-
-      # tracing 模块
       - classpath:config/tracing/tracing-base.yml
-
-      # persistence 模块
       - classpath:config/persistence/state-persistence-base.yml
+
+      # 向后兼容配置
+      - classpath:config/base/server-base.yml
+      - classpath:config/base/model-services-base.yml
+      - classpath:config/security/security-base.yml
+      - classpath:config/security/persistence-base.yml
+      - classpath:config/security/audit-base.yml
+
+      # 外部配置（Docker 挂载，必须放最后）
+      - optional:file:/app/config/application.yml
+      - optional:file:/app/config/auth/jwt.yml
+      - optional:file:/app/config/router/services.yml
 ```
 
 ### 配置优先级
@@ -129,21 +141,13 @@ spring:
 ```yaml
 server:
   port: 8080                    # 服务端口
-  compression:
-    enabled: true               # 启用响应压缩
-    mime-types: application/json,text/plain,text/html
-  http2:
-    enabled: true               # 启用 HTTP/2
+  shutdown: graceful            # 优雅停机
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 ```
 
-### 高级服务器配置
-
-```yaml
-server:
-  netty:
-    connection-timeout: 45s     # Netty 连接超时
-    h2c-max-content-length: 0   # H2C 最大内容长度
-```
+> 早期文档中的 `server.compression.*`、`server.http2.*`、`server.netty.*` 配置块在 `config/common/server.yml` 中不存在。
 
 ---
 
@@ -151,16 +155,19 @@ server:
 
 ### 文件：`config/common/webclient.yml`
 
+出站 HTTP 客户端连接池配置（前缀 `trunkline.webclient`）：
+
 ```yaml
-webclient:
-  connect-timeout: 10000        # 连接超时（毫秒）
-  read-timeout: 60000           # 读取超时（毫秒）
-  write-timeout: 60000          # 写入超时（毫秒）
-  max-in-memory-size: 10MB      # 内存缓冲区最大值
-  pool:
-    max-connections: 500        # 最大连接数
-    acquire-timeout: 10000      # 获取连接超时（毫秒）
+trunkline:
+  webclient:
+    connect-timeout-ms: 5000          # 连接超时（毫秒）
+    response-timeout-seconds: 60      # 响应超时（秒）
+    max-connections: 500              # 连接池最大连接数
+    pending-acquire-timeout-ms: 10000 # 获取连接等待超时（毫秒）
+    max-idle-time-seconds: 300        # 空闲连接回收时间（秒）
 ```
+
+> 早期文档中的顶层 `webclient.connect-timeout/read-timeout/write-timeout/max-in-memory-size` 与 `webclient.pool.*` 键为历史遗留（无消费者），实际生效以上述 `trunkline.webclient.*` 为准。
 
 ---
 
@@ -172,15 +179,13 @@ webclient:
 logging:
   level:
     root: INFO
-    org.unreal.modelrouter: DEBUG
-    org.springframework.web: INFO
+    org.unreal.modelrouter: INFO
+    org.springframework: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
-  file:
-    name: logs/jairouter.log
-    max-size: 10MB
-    max-history: 30
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
 ```
+
+日志文件输出在各 Profile 中配置（如 `application-prod.yml` 的 `logging.file.name: logs/trunkline-prod.log`），`config/common/logging.yml` 只定义级别与控制台格式。
 
 ---
 
@@ -191,16 +196,16 @@ logging:
 #### 文件：`config/auth/jwt.yml`
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
-      enabled: false                    # 启用 JWT 认证
+      enabled: true                     # 启用 JWT 认证
       jwt-header: "Jairouter_Token"     # 自定义 JWT 头
-      secret: "${JWT_SECRET:}"          # JWT 密钥（使用环境变量）
+      secret: "${JWT_SECRET:}"          # JWT 密钥（使用环境变量，>=32 字符）
       algorithm: "HS256"                # 签名算法
       expiration-minutes: 60            # 访问令牌过期时间
       refresh-expiration-days: 7        # 刷新令牌过期时间
-      issuer: "jairouter"               # 令牌签发者
+      issuer: "trunkline"               # 令牌签发者
       blacklist-enabled: true           # 启用令牌黑名单
 ```
 
@@ -209,13 +214,16 @@ jairouter:
 #### 文件：`config/auth/api-key.yml`
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       enabled: true                     # 启用 API 密钥认证
       header-name: "X-API-Key"          # API 密钥头名称
-      hash-algorithm: "SHA-256"         # 密钥哈希算法
+      default-expiration-days: 365      # 默认有效期（天）
+      cache-enabled: true               # 启用校验缓存
 ```
+
+> 早期文档中的 `api-key.hash-algorithm` 键在 `config/auth/api-key.yml` 中不存在。
 
 ---
 
@@ -227,7 +235,8 @@ jairouter:
 
 ```yaml
 model:
-  adapter: "ollama"                       # 默认适配器类型
+  adapter: "gpustack"                     # 默认适配器（实际默认值）
+  # 支持: normal, gpustack, ollama, vllm, xinference, localai, claude, gemini
 ```
 
 ### 负载均衡配置
@@ -237,7 +246,7 @@ model:
 ```yaml
 model:
   load-balance:
-    type: "random"                        # 默认策略：random, round-robin, least-connections, ip-hash
+    type: "random"                        # 默认策略：random / round-robin / least-connections / ip-hash / consistent-hash / latency
 ```
 
 ### 限流配置
@@ -247,8 +256,8 @@ model:
 ```yaml
 model:
   rate-limit:
-    enabled: true
-    algorithm: "token-bucket"             # 支持: token-bucket, sliding-window
+    enabled: false                        # 默认关闭
+    algorithm: "token-bucket"             # token-bucket / leaky-bucket / sliding-window / warm-up
 ```
 
 ### 熔断器配置
@@ -260,8 +269,8 @@ model:
   circuit-breaker:
     enabled: true
     failureThreshold: 5                   # 触发熔断的失败次数
-    successThreshold: 3                   # 恢复所需成功次数
-    timeout: 60000                        # 熔断状态超时（毫秒）
+    successThreshold: 2                   # 恢复所需成功次数
+    timeout: 60000                        # OPEN 状态持续时间（毫秒）
 ```
 
 ---
@@ -271,16 +280,16 @@ model:
 ### 文件：`config/base/monitoring-base.yml`
 
 ```yaml
-jairouter:
-  monitoring:
-    enabled: true
-    prefix: "jairouter"                 # 指标前缀
-    collection-interval: "PT30S"        # 采集间隔
-    enabled-categories:
-      - request
+monitoring:
+  metrics:
+    prefix: "trunkline"                 # 指标前缀
+    collection-interval: "30s"          # 采集间隔
+    enabled-categories:                 # system / business / infrastructure / errors
       - system
-      - custom
+      - business
 ```
+
+> 早期文档中的 `trunkline.monitoring.enabled/prefix/collection-interval/enabled-categories` 嵌套前缀不正确；监控配置为扁平 `monitoring.metrics.*`。
 
 ---
 
@@ -289,14 +298,17 @@ jairouter:
 ### 文件：`config/tracing/tracing-base.yml`
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
-    enabled: false
-    sampling-rate: 1.0                  # 采样率（0.0 - 1.0）
-    export-enabled: false
-    exporter-type: "otlp"               # otlp, jaeger, zipkin
-    endpoint: "http://localhost:4317"
+    enabled: true
+    sampling:
+      strategy: ratio                     # 采样策略
+      ratio: 1.0                          # 采样比例
+    exporter:
+      type: logging                       # 导出器类型（logging / otlp 等）
 ```
+
+> 早期文档中的 `tracing.sampling-rate`、`export-enabled`、`exporter-type`、`endpoint` 键不存在；实际结构为 `sampling.strategy/ratio` 与 `exporter.type`。
 
 ---
 
@@ -304,17 +316,36 @@ jairouter:
 
 ### 文件：`config/persistence/state-persistence-base.yml`
 
+三层退坡状态持久化（Redis → H2 → 文件），前缀 `trunkline.persistence`：
+
 ```yaml
-jairouter:
+trunkline:
   persistence:
-    enabled: true
-    primary-storage: "h2"               # h2, redis, memory
-    fallback-storage: "memory"
-    cleanup:
+    redis:
+      enabled: false
+      host: localhost
+      port: 6379
+      ttl-days: 7
+    h2:
       enabled: true
-      schedule: "0 */5 * * * ?"         # 每 5 分钟执行
-      retention-days: 7
+      data-dir: ./data
+      database: trunkline_state
+    file:
+      enabled: true
+      path: ./data/state
+      compress: false
+    recovery:
+      enabled: true
+      auto-on-startup: true
+      timeout: 10000
+    fallback:
+      auto-detect: true
+      health-check-interval: 30
+      max-retries: 3
+      sync-on-recovery: true
 ```
+
+> 早期文档中的 `trunkline.persistence.enabled/primary-storage/fallback-storage/cleanup.*` 块不存在；实际按 `redis/h2/file/recovery/fallback` 分层配置。详见 [状态持久化](state-persistence.md)。
 
 ---
 
@@ -322,41 +353,25 @@ jairouter:
 
 ### 开发环境（`application-dev.yml`）
 
+开发环境保持 JWT 启用；通过环境变量注入密钥，日志级别按需调高：
+
 ```yaml
-spring:
-  config:
-    activate:
-      on-profile: dev
-
-jairouter:
-  security:
-    jwt:
-      enabled: false                    # 开发环境禁用 JWT
-  monitoring:
-    enabled: false                      # 开发环境禁用监控
-
 logging:
   level:
-    root: DEBUG
+    org.unreal.modelrouter: DEBUG
 ```
 
 ### 生产环境（`application-prod.yml`）
 
 ```yaml
-spring:
-  config:
-    activate:
-      on-profile: prod
-
-jairouter:
+trunkline:
   security:
     jwt:
-      enabled: true
-      secret: "${JWT_SECRET}"           # 必须通过环境变量设置
-  monitoring:
-    enabled: true
+      secret: "${JWT_SECRET}"           # 必须通过环境变量设置（>=32 字符）
 
 logging:
+  file:
+    name: logs/trunkline-prod.log       # 生产环境输出日志文件
   level:
     root: INFO
 ```
@@ -369,11 +384,11 @@ logging:
 
 ```bash
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -v /path/to/config:/app/config \
   -e JWT_SECRET="your-secret-key" \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 ### 外部配置结构

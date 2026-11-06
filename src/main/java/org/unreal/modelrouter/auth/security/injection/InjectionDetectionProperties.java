@@ -11,11 +11,11 @@ import org.springframework.stereotype.Component;
 import lombok.Data;
 
 /**
- * 注入检测配置（G10），前缀 {@code jairouter.security.injection}。
+ * 注入检测配置（G10），前缀 {@code trunkline.security.injection}。
  *
  * <p>标准 Spring 配置绑定，可直接写在任意既有 yml / 环境变量，无需新增配置文件。示例：</p>
  * <pre>
- * jairouter:
+ * trunkline:
  *   security:
  *     injection:
  *       enabled: true          # 总开关（默认 true）
@@ -35,10 +35,11 @@ import lombok.Data;
  *
  * @author wjy-gateway Extensions
  * @since 3.3.1
+ * @modified Trunkline Team
  */
 @Data
 @Component
-@ConfigurationProperties(prefix = "jairouter.security.injection")
+@ConfigurationProperties(prefix = "trunkline.security.injection")
 public class InjectionDetectionProperties {
 
     /** 总开关，默认启用。 */

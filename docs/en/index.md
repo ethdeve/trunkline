@@ -1,4 +1,4 @@
-# JAiRouter
+# Trunkline
 
 <!-- 版本信息 -->
 > **Doc Version**: 1.0.0
@@ -6,6 +6,8 @@
 > **Git Commit**: b1088a7e
 > **Author**: Lincoln
 <!-- /版本信息 -->
+
+> **Trunkline** is an independently branded, enhanced distribution of [Trunkline](https://github.com/Lincoln-cn/Trunkline), released under the Apache License 2.0. Original copyright and attribution to the Trunkline project are retained.
 
 <p align="center">
   <strong>AI Model Service Unified Gateway</strong><br>
@@ -19,7 +21,7 @@
   <a href="configuration/index.md">
     <img src="https://img.shields.io/badge/Configuration-📖-green?style=for-the-badge" alt="Configuration">
   </a>
-  <a href="https://github.com/Lincoln-cn/JAiRouter">
+  <a href="https://github.com/Lincoln-cn/Trunkline">
     <img src="https://img.shields.io/badge/GitHub-🐙-black?style=for-the-badge" alt="GitHub">
   </a>
 </p>
@@ -48,7 +50,7 @@
 
 ```
 ┌─────────────────┐     ┌─────────────────────┐     ┌─────────────────┐
-│   OpenAI SDK    │────▶│     JAiRouter       │────▶│    Ollama       │
+│   OpenAI SDK    │────▶│     Trunkline      │────▶│    Ollama       │
 │   Langchain     │     │  • Load Balancing   │     │    vLLM         │
 │   HTTP Client   │     │  • Rate Limiting    │     │    GPUStack     │
 └─────────────────┘     │  • Authentication   │     │    Xinference   │
@@ -61,7 +63,7 @@
 
 ```bash
 # Start the service (dev mode, zero config)
-docker run -d --name jairouter -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev sodlinken/jairouter:latest
+docker run -d --name trunkline -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev trunkline/trunkline:latest
 
 # For production, provide a JWT secret: -e JWT_SECRET=<at-least-32-characters>
 
@@ -86,11 +88,11 @@ open http://localhost:8080
 
 ## 📈 Project Status
 
-[![GitHub stars](https://img.shields.io/github/stars/Lincoln-cn/JAiRouter?style=social)](https://github.com/Lincoln-cn/JAiRouter/stargazers)
-[![Docker Pulls](https://img.shields.io/docker/pulls/sodlinken/jairouter)](https://hub.docker.com/r/sodlinken/jairouter)
-[![License](https://img.shields.io/github/license/Lincoln-cn/JAiRouter)](https://github.com/Lincoln-cn/JAiRouter/blob/master/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/Lincoln-cn/Trunkline?style=social)](https://github.com/Lincoln-cn/Trunkline/stargazers)
+[![Docker Pulls](https://img.shields.io/docker/pulls/trunkline/trunkline)](https://hub.docker.com/r/trunkline/trunkline)
+[![License](https://img.shields.io/github/license/Lincoln-cn/Trunkline)](https://github.com/Lincoln-cn/Trunkline/blob/master/LICENSE)
 
-> **Current Release**: v3.1.2 (2026-09-18)
+> **Current Release**: v3.3.1 (2026-10-14)
 
 ---
 
@@ -109,12 +111,12 @@ open http://localhost:8080
 
 ## 🤝 Community Support
 
-- [GitHub Issues](https://github.com/Lincoln-cn/JAiRouter/issues) - Bug reports
-- [GitHub Discussions](https://github.com/Lincoln-cn/JAiRouter/discussions) - Discussions
+- [GitHub Issues](https://github.com/Lincoln-cn/Trunkline/issues) - Bug reports
+- [GitHub Discussions](https://github.com/Lincoln-cn/Trunkline/discussions) - Discussions
 - [Contributing Guide](development/contributing.md) - Join development
 
 ---
 
 <p align="center">
-If JAiRouter helps you, please give it a ⭐️ <a href="https://github.com/Lincoln-cn/JAiRouter">Star</a>!
+If Trunkline helps you, please give it a ⭐️ <a href="https://github.com/Lincoln-cn/Trunkline">Star</a>!
 </p>

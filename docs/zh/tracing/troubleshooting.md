@@ -7,7 +7,7 @@
 > **作者**: Lincoln
 <!-- /版本信息 -->
 
-本文档提供 JAiRouter 分布式追踪功能常见问题的诊断和解决方案。
+本文档提供 Trunkline 分布式追踪功能常见问题的诊断和解决方案。
 
 ## 追踪数据问题
 
@@ -25,17 +25,17 @@
 curl http://localhost:8080/actuator/health/tracing
 
 # 2. 检查配置
-curl http://localhost:8080/actuator/configprops | jq '.jairouter.tracing'
+curl http://localhost:8080/actuator/configprops | jq '.trunkline.tracing'
 
 # 3. 检查采样率
-curl http://localhost:8080/actuator/metrics/jairouter.tracing.sampling.rate
+curl http://localhost:8080/actuator/metrics/trunkline.tracing.sampling.rate
 ```
 
 **常见原因和解决方案**：
 
 | 原因 | 解决方案 |
 |------|----------|
-| 追踪未启用 | 设置 `jairouter.tracing.enabled=true` |
+| 追踪未启用 | 设置 `trunkline.tracing.enabled=true` |
 | 采样率过低 | 临时设置 `sampling.ratio=1.0` 进行测试 |
 | 导出器配置错误 | 检查导出器端点和认证配置 |
 | 过滤器顺序问题 | 确保 TracingWebFilter 在过滤器链前端 |
@@ -51,7 +51,7 @@ curl http://localhost:8080/actuator/metrics/jairouter.tracing.sampling.rate
 
 ```yaml
 # 临时提高采样率进行调试
-jairouter:
+trunkline:
   tracing:
     sampling:
       ratio: 1.0
@@ -87,7 +87,7 @@ curl -s http://localhost:8080/actuator/metrics/jvm.threads.live
 **优化措施**：
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     # 降低采样率
     sampling:
@@ -118,7 +118,7 @@ jairouter:
 
 ```bash
 # 1. 检查 Span 数量
-curl http://localhost:8080/actuator/metrics/jairouter.tracing.spans.active
+curl http://localhost:8080/actuator/metrics/trunkline.tracing.spans.active
 
 # 2. 检查内存使用
 jmap -histo <pid> | grep Span
@@ -131,7 +131,7 @@ jcmd <pid> VM.gc
 **解决方案**：
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     # 核对（issue #159）：真实路径是 performance.memory，且没有 cleanup-interval /
     # span-ttl 这两个旋钮（内存压力由 memory-limit-mb 决定）。
@@ -158,14 +158,14 @@ jairouter:
 python -c "import yaml; yaml.safe_load(open('application.yml'))"
 
 # 检查配置绑定
-curl http://localhost:8080/actuator/configprops | jq '.jairouter.tracing'
+curl http://localhost:8080/actuator/configprops | jq '.trunkline.tracing'
 ```
 
 **常见配置错误**：
 
 ```yaml
 # ❌ 错误配置
-jairouter:
+trunkline:
   tracing:
     sampling:
       ratio: 1.5                   # 超出范围 [0.0, 1.0]
@@ -178,7 +178,7 @@ jairouter:
 
 ```yaml
 # ✅ 正确配置  
-jairouter:
+trunkline:
   tracing:
     sampling:
       ratio: 1.0
@@ -224,7 +224,7 @@ netstat -an | grep 14268
 **配置调整**：
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     exporter:
       type: "jaeger"
@@ -325,12 +325,12 @@ groups:
   - name: tracing_alerts
     rules:
       - alert: TracingExportFailure
-        expr: rate(jairouter_tracing_export_errors_total[5m]) > 0.1
+        expr: rate(trunkline_tracing_export_errors_total[5m]) > 0.1
         labels:
           severity: warning
           
       - alert: TracingMemoryHigh
-        expr: jairouter_tracing_memory_used_ratio > 0.8
+        expr: trunkline_tracing_memory_used_ratio > 0.8
         labels:
           severity: critical
 ```

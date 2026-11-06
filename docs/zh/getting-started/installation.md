@@ -9,7 +9,7 @@
 
 
 
-本指南将详细介绍如何在不同环境中安装和构建 JAiRouter。
+本指南将详细介绍如何在不同环境中安装和构建 Trunkline。
 
 ## 环境要求
 
@@ -31,7 +31,7 @@
 
 ## 安装方式选择
 
-JAiRouter 提供多种安装方式，请根据您的需求选择：
+Trunkline 提供多种安装方式，请根据您的需求选择：
 
 | 安装方式 | 适用场景 | 优势 | 劣势 |
 |----------|----------|------|------|
@@ -51,10 +51,10 @@ Docker 安装是最简单快捷的方式，适合大多数用户。
 
 ```bash
 # 拉取最新版本
-docker pull sodlinken/jairouter:latest
+docker pull trunkline/trunkline:latest
 
 # 或拉取指定版本
-docker pull sodlinken/jairouter:v3.1.1
+docker pull trunkline/trunkline:v3.1.1
 ```
 
 ### 3. 运行容器
@@ -64,10 +64,10 @@ docker pull sodlinken/jairouter:v3.1.1
 ```bash
 # 使用 dev 方式启动，内置开发密钥，无需额外配置
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=dev \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 **生产环境（prod profile，必须提供密钥）**：
@@ -75,29 +75,29 @@ docker run -d \
 ```bash
 # 生产环境需自行提供 JWT 密钥（至少 32 字符）
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e JWT_SECRET="<至少32字符的密钥>" \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 
 # 挂载自定义配置目录
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e JWT_SECRET="<至少32字符的密钥>" \
   -v $(pwd)/config:/app/config:ro \
   -v $(pwd)/logs:/app/logs \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 ### 4. 验证安装
 
 ```bash
 # 检查容器状态
-docker ps --filter "name=jairouter"
+docker ps --filter "name=trunkline"
 
 # 查看日志
-docker logs jairouter
+docker logs trunkline
 
 # 测试 API
 curl http://localhost:8080/actuator/health
@@ -126,14 +126,14 @@ java -version
 
 ### 2. 下载 JAR 文件
 
-从 [GitHub Releases](https://github.com/Lincoln-cn/JAiRouter/releases) 下载最新版本的 JAR 文件：
+从 [GitHub Releases](https://github.com/Lincoln-cn/Trunkline/releases) 下载最新版本的 JAR 文件：
 
 ```bash
 # 访问 Releases 页面下载
-# https://github.com/Lincoln-cn/JAiRouter/releases
+# https://github.com/Lincoln-cn/Trunkline/releases
 
 # 或使用命令行（替换 VERSION 为实际版本号）
-wget https://github.com/Lincoln-cn/JAiRouter/releases/download/vVERSION/model-router-VERSION.jar
+wget https://github.com/Lincoln-cn/Trunkline/releases/download/vVERSION/model-router-VERSION.jar
 ```
 
 ### 3. 运行应用
@@ -149,7 +149,7 @@ java -jar model-router.jar --spring.config.location=classpath:/application.yml
 java -Xmx1g -Xms512m -jar model-router.jar
 
 # 后台运行
-nohup java -jar model-router.jar > jairouter.log 2>&1 &
+nohup java -jar model-router.jar > trunkline.log 2>&1 &
 ```
 
 ### 4. 验证安装
@@ -169,13 +169,13 @@ curl http://localhost:8080/actuator/health
 ### 1. 克隆代码
 
 ```bash
-git clone https://github.com/Lincoln-cn/JAiRouter.git
-cd jairouter
+git clone https://github.com/Lincoln-cn/Trunkline.git
+cd trunkline
 ```
 
 ### 2. 构建方式选择
 
-JAiRouter 提供多种构建方式，针对不同用户群体和网络环境优化：
+Trunkline 提供多种构建方式，针对不同用户群体和网络环境优化：
 
 | 构建方式 | 适用用户 | Maven仓库 | 构建速度 | 推荐度 |
 |----------|----------|-----------|----------|--------|
@@ -266,7 +266,7 @@ java -Xmx1g -Xms512m -jar target/model-router-*.jar
 
 ### 1. 使用构建脚本（推荐）
 
-JAiRouter 提供了针对不同用户群体优化的构建脚本：
+Trunkline 提供了针对不同用户群体优化的构建脚本：
 
 ```bash
 # 中国用户（使用阿里云镜像，构建速度快）
@@ -285,7 +285,7 @@ JAiRouter 提供了针对不同用户群体优化的构建脚本：
 
 ```bash
 # 使用中国优化的 Dockerfile
-docker build -f Dockerfile.china -t sodlinken/jairouter:latest .
+docker build -f Dockerfile.china -t trunkline/trunkline:latest .
 ```
 
 **Dockerfile.china 特性**：
@@ -297,7 +297,7 @@ docker build -f Dockerfile.china -t sodlinken/jairouter:latest .
 
 ```bash
 # 使用标准 Dockerfile
-docker build -t sodlinken/jairouter:latest .
+docker build -t trunkline/trunkline:latest .
 ```
 
 ### 3. 使用 Maven 插件
@@ -452,7 +452,7 @@ docker --version
 docker system prune -a
 
 # 重新构建
-docker build --no-cache -t sodlinken/jairouter:latest .
+docker build --no-cache -t trunkline/trunkline:latest .
 ```
 
 ### 获取帮助
@@ -460,8 +460,8 @@ docker build --no-cache -t sodlinken/jairouter:latest .
 如果遇到其他问题，请：
 
 1. 查看 [故障排查文档](../troubleshooting/index.md)
-2. 搜索 [GitHub Issues](https://github.com/Lincoln-cn/JAiRouter/issues)
-3. 提交新的 [Issue](https://github.com/Lincoln-cn/JAiRouter/issues/new)
+2. 搜索 [GitHub Issues](https://github.com/Lincoln-cn/Trunkline/issues)
+3. 提交新的 [Issue](https://github.com/Lincoln-cn/Trunkline/issues/new)
 
 ## 故障排查 {#故障排查}
 
@@ -534,13 +534,13 @@ docker --version
 docker system prune -a
 
 # 重新构建
-docker build --no-cache -t sodlinken/jairouter:latest .
+docker build --no-cache -t trunkline/trunkline:latest .
 ```
 
 ## 下一步
 
 安装完成后，您可以：
 
-1. **[快速开始](quick-start.md)** - 5分钟快速体验 JAiRouter
+1. **[快速开始](quick-start.md)** - 5分钟快速体验 Trunkline
 2. **[第一步](first-steps.md)** - 配置您的第一个 AI 服务
 3. **[配置指南](../configuration/index.md)** - 详细的配置说明

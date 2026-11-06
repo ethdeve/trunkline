@@ -9,7 +9,7 @@
 
 
 
-This guide provides a detailed introduction to installing and building JAiRouter in different environments.
+This guide provides a detailed introduction to installing and building Trunkline in different environments.
 
 ## Environment Requirements
 
@@ -31,7 +31,7 @@ This guide provides a detailed introduction to installing and building JAiRouter
 
 ## Choosing an Installation Method
 
-JAiRouter offers multiple installation methods. Choose according to your needs:
+Trunkline offers multiple installation methods. Choose according to your needs:
 
 | Installation Method | Suitable Scenarios | Advantages | Disadvantages |
 |---------------------|--------------------|------------|---------------|
@@ -51,10 +51,10 @@ If you do not have Docker installed yet, refer to the [Docker official installat
 
 ```bash
 # Pull the latest version
-docker pull sodlinken/jairouter:latest
+docker pull trunkline/trunkline:latest
 
 # Or pull a specific version
-docker pull sodlinken/jairouter:v3.1.1
+docker pull trunkline/trunkline:v3.1.1
 ```
 
 ### 3. Run the Container
@@ -64,10 +64,10 @@ docker pull sodlinken/jairouter:v3.1.1
 ```bash
 # Start with the dev profile — a built-in development key is included
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=dev \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 **Production (prod profile — key required)**:
@@ -75,29 +75,29 @@ docker run -d \
 ```bash
 # Production requires your own JWT secret (at least 32 characters)
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e JWT_SECRET="<your-secret-at-least-32-characters>" \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 
 # With custom config directory mounted
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e JWT_SECRET="<your-secret-at-least-32-characters>" \
   -v $(pwd)/config:/app/config:ro \
   -v $(pwd)/logs:/app/logs \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 ### 4. Verify the Installation
 
 ```bash
 # Check the container status
-docker ps --filter "name=jairouter"
+docker ps --filter "name=trunkline"
 
 # View the logs
-docker logs jairouter
+docker logs trunkline
 
 # Test the API
 curl http://localhost:8080/actuator/health
@@ -126,14 +126,14 @@ If Java is not installed, download it from one of the following channels:
 
 ### 2. Download the JAR File
 
-Download the latest JAR file from [GitHub Releases](https://github.com/Lincoln-cn/JAiRouter/releases):
+Download the latest JAR file from [GitHub Releases](https://github.com/Lincoln-cn/Trunkline/releases):
 
 ```bash
 # Visit the Releases page to download
-# https://github.com/Lincoln-cn/JAiRouter/releases
+# https://github.com/Lincoln-cn/Trunkline/releases
 
 # Or use the command line (replace VERSION with the actual version number)
-wget https://github.com/Lincoln-cn/JAiRouter/releases/download/vVERSION/model-router-VERSION.jar
+wget https://github.com/Lincoln-cn/Trunkline/releases/download/vVERSION/model-router-VERSION.jar
 ```
 
 ### 3. Run the Application
@@ -149,7 +149,7 @@ java -jar model-router.jar --spring.config.location=classpath:/application.yml
 java -Xmx1g -Xms512m -jar model-router.jar
 
 # Run in the background
-nohup java -jar model-router.jar > jairouter.log 2>&1 &
+nohup java -jar model-router.jar > trunkline.log 2>&1 &
 ```
 
 ### 4. Verify the Installation
@@ -169,13 +169,13 @@ Building from source is suitable for developers and users who need customization
 ### 1. Clone the Code
 
 ```bash
-git clone https://github.com/Lincoln-cn/JAiRouter.git
-cd jairouter
+git clone https://github.com/Lincoln-cn/Trunkline.git
+cd trunkline
 ```
 
 ### 2. Choosing a Build Method
 
-JAiRouter offers multiple build methods, optimized for different user groups and network environments:
+Trunkline offers multiple build methods, optimized for different user groups and network environments:
 
 | Build Method | Target Users | Maven Repository | Build Speed | Recommendation |
 |--------------|--------------|------------------|-------------|----------------|
@@ -266,7 +266,7 @@ If you need to build a custom Docker image:
 
 ### 1. Use the Build Scripts (Recommended)
 
-JAiRouter provides build scripts optimized for different user groups:
+Trunkline provides build scripts optimized for different user groups:
 
 ```bash
 # Chinese users (use the Alibaba Cloud mirror, fast build)
@@ -285,7 +285,7 @@ JAiRouter provides build scripts optimized for different user groups:
 
 ```bash
 # Use the China-optimized Dockerfile
-docker build -f Dockerfile.china -t sodlinken/jairouter:latest .
+docker build -f Dockerfile.china -t trunkline/trunkline:latest .
 ```
 
 **Dockerfile.china features**:
@@ -297,7 +297,7 @@ docker build -f Dockerfile.china -t sodlinken/jairouter:latest .
 
 ```bash
 # Use the standard Dockerfile
-docker build -t sodlinken/jairouter:latest .
+docker build -t trunkline/trunkline:latest .
 ```
 
 ### 3. Use Maven Plugins
@@ -452,7 +452,7 @@ docker --version
 docker system prune -a
 
 # Rebuild
-docker build --no-cache -t sodlinken/jairouter:latest .
+docker build --no-cache -t trunkline/trunkline:latest .
 ```
 
 ### Getting Help
@@ -460,8 +460,8 @@ docker build --no-cache -t sodlinken/jairouter:latest .
 If you encounter other problems, please:
 
 1. Check the [Troubleshooting documentation](../troubleshooting/index.md)
-2. Search [GitHub Issues](https://github.com/Lincoln-cn/JAiRouter/issues)
-3. Submit a new [Issue](https://github.com/Lincoln-cn/JAiRouter/issues/new)
+2. Search [GitHub Issues](https://github.com/Lincoln-cn/Trunkline/issues)
+3. Submit a new [Issue](https://github.com/Lincoln-cn/Trunkline/issues/new)
 
 ## Troubleshooting {#troubleshooting}
 
@@ -534,13 +534,13 @@ docker --version
 docker system prune -a
 
 # Rebuild
-docker build --no-cache -t sodlinken/jairouter:latest .
+docker build --no-cache -t trunkline/trunkline:latest .
 ```
 
 ## Next Steps
 
 After installation, you can:
 
-1. **[Quick Start](quick-start.md)** - Experience JAiRouter in 5 minutes
+1. **[Quick Start](quick-start.md)** - Experience Trunkline in 5 minutes
 2. **[First Steps](first-steps.md)** - Configure your first AI service
 3. **[Configuration Guide](../configuration/index.md)** - Detailed configuration instructions

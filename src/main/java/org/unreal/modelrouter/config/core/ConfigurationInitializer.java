@@ -9,11 +9,13 @@ import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 /**
  * 配置初始化器
  * 在 Spring Boot 应用启动完成后执行配置初始化工作
- * 确保 ModelServiceRegistry 与 ConfigurationService 正确关联
- * 
+ *
  * V1.4.4 重构版：数据库化配置管理
  * 由 ConfigInitializer 负责数据库表初始化和数据迁移
- * 本类仅负责设置 ModelServiceRegistry 引用并记录状态
+ * E2/R9（2026-10-28）：原「设置 ModelServiceRegistry 引用到 ConfigurationService」已删除——
+ * ConfigurationService 从不读取该引用（死注入点），运行时投影刷新由
+ * ServiceInstanceManager.saveVersion 单点触发，职责已收敛。
+ * 本类仅负责记录启动状态。
  */
 @Slf4j
 @Component
@@ -21,7 +23,6 @@ import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 @org.springframework.context.annotation.DependsOn("jpaDatabaseInitializer")
 public class ConfigurationInitializer {
 
-    private final ConfigurationService configurationService;
     private final ModelServiceRegistry modelServiceRegistry;
 
     @PostConstruct
@@ -30,15 +31,11 @@ public class ConfigurationInitializer {
 
         try {
             // V1.4.4: 数据库化配置管理，由 ConfigInitializer 负责数据库初始化
-            // 此处仅设置 ModelServiceRegistry 引用并记录状态
-            configurationService.setModelServiceRegistry(modelServiceRegistry);
-            log.debug("已设置 ModelServiceRegistry 引用到 ConfigurationService");
-            
-            // 输出初始化状态信息
+            // E2/R9: 不再向 ConfigurationService 注入 ModelServiceRegistry（死引用）
             logInitializationStatus();
-            
+
             log.info("配置初始化完成（V1.4.4 数据库模式）");
-            
+
         } catch (Exception e) {
             log.error("配置初始化过程中发生错误", e);
             throw e;

@@ -11,18 +11,78 @@
 
 ## Overview
 
-The API Key authentication feature of JAiRouter provides a secure access control mechanism for the system. Through API Keys, you can control who can access your AI model services and assign different permission levels to different users.
+The API Key authentication feature of Trunkline provides a secure access control mechanism. Through API Keys you control who can access your AI model services.
+
+> **v3.5 governance (important)**: the only outbound entry is the **model group (virtual model name)**. Keys no longer register upstream instance names (the former `allowedModels` is removed; instances cannot be called directly). Admission goes through a chain of three gates: **model category → model group whitelist → runtime constraints**.
+
+## Three-gate permission model
+
+A request passes only if it crosses all three gates in order; any failure rejects it:
+
+| Gate | Field | Meaning | On failure |
+|------|-------|---------|------------|
+| **Gate 1 · model category** | `permissions` | Which model categories the key may call. The request category C is derived from the URL endpoint and must be in permissions | 403 |
+| **Gate 2 · model group whitelist** | `allowedGroups` | Which model groups (pool names / virtual model names) the key may use. Empty = unrestricted; a group's category must be within permissions | 403 / 404 |
+| **Gate 3 · runtime constraints** | `allowedIpAddresses` / `expiresAt` / quota & alerts | Source IP, expiry, multi-window quotas and alert thresholds | 403 / 429 |
+
+There are exactly 7 model categories (`org.unreal.modelrouter.common.constants.ServiceTypeConstants`):
+
+| Value | Meaning |
+|-------|---------|
+| `chat` | Chat model |
+| `embedding` | Embedding model |
+| `rerank` | Rerank model |
+| `tts` | Text-to-speech |
+| `stt` | Speech-to-text |
+| `imgGen` | Image generation |
+| `imgEdit` | Image edit |
+
+> The legacy permission value `admin` (case-insensitive) allows all categories at runtime and skips gate-2 consistency validation.
+
+### Gate-2 consistency validation
+
+On save, `ApiKeyWhitelistValidator` checks that every group name in `allowedGroups` belongs to a category within the key's `permissions`; otherwise it returns `400 INVALID_REQUEST`.
+
+| permissions | allowedGroups | Runtime result |
+|-------------|---------------|----------------|
+| `chat` | `xxx-chat` | OK |
+| `tts` | `xxx-chat` | Gate 1 → 403 |
+| `chat` | `xxx-tts` | Gate 1 passes, but no pool matches the category → 404/503 |
+
+> Names not found in the catalog (deleted or external) or catalog-read failures are **conservatively allowed** (warned, not blocked).
+
+### Key-to-group binding semantics
+
+- Set `allowedGroups` to allowed **group (pool) names**, never instance names;
+- Clients pass a group name as the `model` parameter; the gateway picks an instance inside the group;
+- The quick-start wizard (`/quick-start`) auto-creates groups and writes them into the test key's `allowedGroups`, with `permissions` = imported categories.
 
 ## Features
 
-- **Multi-level Permission Control**: Supports different permission levels such as admin, read, write, and delete
+### Core Features
+
+- **Three-gate access control**: model category (permissions) → model group whitelist (allowedGroups) → IP/expiry/quota & alerts
 - **Expiration Time Management**: Supports setting expiration times for API Keys
 - **Usage Statistics**: Records usage statistics for each API Key
-- **Quota Management**: Supports daily Token usage limits, rate limiting, and alert thresholds
+- **Quota Management**: Multi-window (hourly/daily/monthly) request & token limits, per-minute rate, and alert thresholds
 - **Cache Optimization**: Supports Redis and local caching to improve authentication performance
-- **Dynamic Management**: Supports adding, deleting, and updating API Keys at runtime
+- **Dynamic Management**: Supports adding, deleting, and updating API Keys at runtime (admin-side `hasRole('ADMIN')`)
 - **Persistent Storage**: Supports storing API Key information in H2 database
-- **H2 Database Default Storage**: H2 database is now the default persistent storage method for API Key data, providing better performance and reliability
+- **H2 Database Default Storage**: H2 is the default persistent storage for API Key data
+
+### Security Enhancements (v1.6.1+)
+
+- **SHA-256 hashed storage**: API keys are stored as SHA-256 hashes (with salt), not in plaintext
+- **Admin API rate limiting**: management endpoints are rate-limited (write 30/min, 200/hour; create 10/hour)
+- **IP whitelist**: restrict a key to specific source IPs / CIDR ranges
+- **Daily request limit**: cap the number of requests per day per key
+
+### Advanced Management (v1.6.2+)
+
+- **Bulk import/export**: export and import API keys for migration and backup
+- **Automatic key rotation**: configure a rotation period to issue new key values periodically
+- **Expired-key auto cleanup**: automatically disable expired API keys
+- **Creator audit**: record who created a key and from which IP
 
 ## Quick Start
 
@@ -31,7 +91,7 @@ The API Key authentication feature of JAiRouter provides a secure access control
 Enable security features in `application.yml`:
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -42,14 +102,15 @@ jairouter:
 ### 2. Configure API Key
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
         - key-id: "admin-key-001"
           key-value: "${ADMIN_API_KEY}"
           description: "Administrator API Key"
-          permissions: ["admin", "read", "write", "delete"]
+          permissions: ["admin"]                 # Gate 1: model category; admin = legacy, all categories
+          allowed-groups: ["OpenAI-chat"]        # Gate 2: allowed model groups (pool names); empty = unrestricted
           expires-at: "2027-12-31T23:59:59"
           enabled: true
 ```
@@ -86,7 +147,9 @@ Each API Key contains the following attributes:
 - key-id: "unique-key-identifier"      # Unique identifier
   key-value: "actual-api-key-string"   # Actual API Key value
   description: "Key description"        # Description information
-  permissions: ["read", "write"]        # Permission list
+  permissions: ["chat", "embedding"]   # Gate 1: callable model categories
+  allowed-groups: ["OpenAI-chat", "OpenAI-embedding"]  # Gate 2: model group whitelist (pool names)
+  allowed-ip-addresses: ["10.0.0.0/8"] # Gate 3: source IP whitelist (optional)
   expires-at: "2027-12-31T23:59:59"    # Expiration time
   enabled: true                         # Whether enabled
   daily-token-limit: 100000            # Daily Token usage limit (optional)
@@ -99,28 +162,33 @@ Each API Key contains the following attributes:
 
 ### Quota Management Configuration
 
-JAiRouter supports comprehensive quota management for API Keys, including daily Token usage limits, rate limiting, and alert thresholds.
+Trunkline supports comprehensive quota management for API Keys, including daily Token usage limits, rate limiting, and alert thresholds.
 
 #### Quota Configuration Parameters
 
 | Parameter | Type | Default Value | Description |
 |-----------|------|---------------|-------------|
-| `daily-token-limit` | long | 0 (unlimited) | Maximum Token usage per day |
-| `daily-request-limit` | long | 0 (unlimited) | Maximum requests per day |
-| `rate-limit-per-minute` | int | 0 (unlimited) | Maximum requests per minute |
-| `quota-alert-threshold` | double | 0.8 | Alert threshold as ratio 0.0–1.0 (0.8 = 80%) |
+| `dailyRequestLimit` | long | 0 (unlimited) | Max requests per day |
+| `dailyTokenLimit` | long | 0 (unlimited) | Max Token usage per day |
+| `hourlyRequestLimit` | long | 0 (unlimited) | Max requests per hour (multi-window quota) |
+| `hourlyTokenLimit` | long | 0 (unlimited) | Max Token usage per hour |
+| `monthlyRequestLimit` | long | 0 (unlimited) | Max requests per month |
+| `monthlyTokenLimit` | long | 0 (unlimited) | Max Token usage per month |
+| `rateLimitPerMinute` | int | 0 (unlimited) | Max requests per minute |
+| `quotaAlertThreshold` | double | 0.8 | Alert threshold as ratio 0.0–1.0 (0.8 = 80%) |
 
 #### Quota Configuration Example
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
         - key-id: "limited-api-key"
           key-value: "${LIMITED_API_KEY}"
           description: "API Key with quota limits"
-          permissions: ["read"]
+          permissions: ["chat"]
+          allowed-groups: ["OpenAI-chat"]
           expires-at: "2027-12-31T23:59:59"
           enabled: true
           daily-token-limit: 100000      # 100K tokens per day
@@ -146,23 +214,39 @@ jairouter:
 
 You can monitor API Key quota usage through:
 
-1. **Prometheus Metrics**:
-   - `jairouter_security_api_key_daily_token_usage`: Current day Token usage
-   - `jairouter_security_api_key_daily_request_count`: Current day request count
-   - `jairouter_security_api_key_quota_exceeded_total`: Total quota exceeded events
+1. **Management API** (quota usage has no dedicated Prometheus metric):
+   - `GET /api/auth/api-keys/{keyId}/quota`: per-key quota detail (today's requests/tokens, alert triggered)
+   - `GET /api/auth/api-keys/quota/overview`: overview of all keys
+   - `GET /api/auth/api-keys/quota/alerts`: keys that crossed the alert threshold
 
 2. **Audit Logs**: Quota-related events are logged for audit purposes.
 
 3. **Management API**: Query quota status through the management API endpoint.
 
-### Permission Level Descriptions
+### v3.2.0 Quick Quota Operations API
 
-| Permission | Description | Applicable Scenarios |
-|------------|-------------|----------------------|
-| `read` | Read-only permission, can query models and send inference requests | Regular users, client applications |
-| `write` | Write permission, can modify configurations (excluding security configurations) | Service administrators |
-| `delete` | Delete permission, can delete configurations and data | Senior administrators |
-| `admin` | Administrator permission, can manage all functions including security configurations | System administrators |
+| Endpoint | Description |
+|----------|-------------|
+| `PUT /api/auth/api-keys/{keyId}/quota` | Update quota fields only (0 = unlimited; threshold 0.0–1.0) |
+| `POST .../quota/batch-reset` | Batch reset (body `{keyIds:[]}`) |
+| `POST .../quota/reset-all` | Reset all keys |
+| `GET .../quota` | Detail including `remainingRequests` / `remainingTokens` (-1 when unlimited) |
+
+Console: the **Quota** drawer in the action column of the API key list supports presets (unlimited / dev / standard / strict).
+
+See [Management API](../api-reference/management-api.md).
+
+### Gate 1: callable model categories (permissions)
+
+`permissions` is the set of model categories the key may call (see the 7 categories above), not the legacy read/write/delete:
+
+| Example | Meaning |
+|---------|---------|
+| `["chat"]` | Only the chat category |
+| `["chat","embedding"]` | Chat and embedding |
+| `["admin"]` (legacy) | All categories; skips gate-2 consistency validation |
+
+> At runtime the request category is derived from the URL endpoint; a category outside `permissions` returns 403.
 
 ## Environment Variable Configuration
 
@@ -201,7 +285,7 @@ set PROD_READONLY_KEY_EXPIRES=2027-12-31T23:59:59
 ```bash
 # Production Environment Docker Deployment
 docker run -d \
-  --name jairouter-prod \
+  --name trunkline-prod \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e PROD_ADMIN_API_KEY="your-production-admin-api-key-here" \
@@ -213,7 +297,7 @@ docker run -d \
   -e REDIS_PASSWORD="your-redis-password" \
   -v $(pwd)/config:/app/config:ro \
   -v $(pwd)/logs:/app/logs \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 ## Cache Configuration
@@ -221,7 +305,7 @@ docker run -d \
 ### Redis Cache
 
 ```yaml
-jairouter:
+trunkline:
   security:
     performance:
       cache:
@@ -236,7 +320,7 @@ jairouter:
 ### Local Cache
 
 ```yaml
-jairouter:
+trunkline:
   security:
     performance:
       cache:
@@ -251,10 +335,10 @@ jairouter:
 
 ### Enable API Key Persistence
 
-JAiRouter supports persistent storage of API Keys for enhanced management and monitoring:
+Trunkline supports persistent storage of API Keys for enhanced management and monitoring:
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       # API Key persistence configuration
@@ -391,7 +475,7 @@ The system automatically records usage statistics for each API Key:
 When audit functionality is enabled, the system records all authentication-related events:
 
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       enabled: true
@@ -406,22 +490,32 @@ jairouter:
 
 ### Monitoring Metrics
 
-The system provides the following Prometheus metrics:
+Security metrics are registered by `monitor/monitoring/security/SecurityMetrics.java` (Micrometer; Prometheus counters get the `_total` suffix):
 
-- `jairouter_security_authentication_attempts_total`: Total number of authentication attempts
-- `jairouter_security_authentication_successes_total`: Total number of successful authentications
-- `jairouter_security_authentication_failures_total`: Total number of failed authentications
-- `jairouter_security_authentication_duration_seconds`: Authentication duration
-- `jairouter_security_api_keys_created_total`: Total number of API Keys created
-- `jairouter_security_api_keys_used_total`: Total API Key usage
-- `jairouter_security_api_keys_revoked_total`: Total number of API Keys revoked
+| Metric (Micrometer / Prometheus) | Type | Description |
+|----------------------------------|------|-------------|
+| `trunkline.security.authentication.attempts(_total)` | Counter | Total auth attempts |
+| `trunkline.security.authentication.successes(_total)` | Counter | Total auth successes (tag: `auth_type`) |
+| `trunkline.security.authentication.failures(_total)` | Counter | Total auth failures (tags: `auth_type`, `failure_reason`) |
+| `trunkline.security.authentication.duration` | Timer | Auth processing time |
+| `trunkline.security.jwt.validations(_total)` | Counter | Total JWT validations (tag: `result`) |
+| `trunkline.security.jwt.refreshes(_total)` | Counter | Total JWT refreshes |
+| `trunkline.security.jwt.expired(_total)` | Counter | Total expired JWTs |
+| `trunkline.security.sanitization.operations(_total)` | Counter | Total sanitization operations |
+| `trunkline.security.sanitization.rule.matches(_total)` | Counter | Total sanitization rule matches |
+| `trunkline.security.violations(_total)` | Counter | Total security violations |
+| `trunkline.security.suspicious.activities(_total)` | Counter | Total suspicious activities |
+| `trunkline.security.active.users` | Gauge | Currently active authenticated users |
+| `trunkline.security.apikeys.active` | Gauge | API keys currently in use |
+
+> Note: earlier docs listed `trunkline_security_api_keys_created_total`, `_used_total`, `_revoked_total`, which are **not** registered in the current code. Query quota usage via the management API (`GET /api/auth/api-keys/{keyId}/quota`, `/quota/overview`).
 
 ## Security Auditing and Monitoring
 
 ### Enhanced Audit Configuration
 
 ```yaml
-jairouter:
+trunkline:
   security:
     # Enhanced audit configuration
     audit:
@@ -635,12 +729,195 @@ Check system health status:
 http://localhost:8080/actuator/health
 ```
 
+## Advanced Features
+
+### Bulk Import/Export (v1.6.2+)
+
+Trunkline supports bulk import/export of API keys for migration, backup and batch management.
+
+#### Export API Keys
+
+```bash
+# Export all API keys
+curl -X GET "http://localhost:8080/api/auth/api-keys/export" \
+     -H "Authorization: Bearer admin_token"
+```
+
+Response format:
+```json
+{
+  "keys": [
+    {
+      "keyId": "admin-key-001",
+      "description": "Administrator key",
+      "permissions": ["admin"],
+      "expiresAt": "2027-12-31T23:59:59",
+      "enabled": true,
+      "allowedIpAddresses": ["192.168.1.100"],
+      "dailyRequestLimit": 10000,
+      "rotationPeriodDays": 90
+    }
+  ],
+  "exportedAt": "2026-04-10T10:30:00Z",
+  "totalCount": 10
+}
+```
+
+#### Import API Keys
+
+```bash
+# Import keys (MERGE mode - keep existing keys)
+curl -X POST "http://localhost:8080/api/auth/api-keys/import" \
+     -H "Authorization: Bearer admin_token" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "mode": "MERGE",
+       "keys": [
+         {
+           "keyId": "new-key-001",
+           "description": "Newly imported key",
+           "permissions": ["chat"],
+           "expiresAt": "2026-12-31T23:59:59"
+         }
+       ]
+     }'
+
+# Import keys (REPLACE mode - replace all existing keys)
+curl -X POST "http://localhost:8080/api/auth/api-keys/import" \
+     -H "Authorization: Bearer admin_token" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "mode": "REPLACE",
+       "keys": [...]
+     }'
+```
+
+Import result:
+```json
+{
+  "success": true,
+  "importedCount": 5,
+  "skippedCount": 2,
+  "errorCount": 0,
+  "details": [
+    {"keyId": "new-key-001", "status": "IMPORTED", "message": "Imported"},
+    {"keyId": "existing-key", "status": "SKIPPED", "message": "Existing keys are skipped in MERGE mode"}
+  ]
+}
+```
+
+### Automatic Key Rotation (v1.6.2+)
+
+Configure a rotation period to issue new key values periodically and improve security.
+
+#### Configure the Rotation Period
+
+```yaml
+trunkline:
+  security:
+    api-key:
+      keys:
+        - key-id: "auto-rotate-key"
+          key-value: "${INITIAL_KEY_VALUE}"
+          rotation-period-days: 90  # auto-rotate every 90 days
+```
+
+#### How Rotation Works
+
+- **Automatic**: `ApiKeyRotationScheduler` checks keys due for rotation hourly
+- **Trigger**: keys whose last rotation is older than `rotationPeriodDays` are rotated automatically
+- **Key generation**: a new strong random key value is generated
+- **History**: rotation history is kept for audit
+
+#### Manual Rotation
+
+```bash
+# Manually reissue a key value
+curl -X POST "http://localhost:8080/api/auth/api-keys/{keyId}/reset" \
+     -H "Authorization: Bearer admin_token"
+```
+
+### IP Whitelist (v1.6.1+)
+
+Restrict a key to specific source IP addresses.
+
+#### Configure the IP Whitelist
+
+```yaml
+trunkline:
+  security:
+    api-key:
+      keys:
+        - key-id: "restricted-key"
+          key-value: "${KEY_VALUE}"
+          allowed-ip-addresses:
+            - "192.168.1.100"      # single IP
+            - "10.0.0.0/8"         # CIDR range
+            - "172.16.0.0-172.16.255.255"  # IP range
+```
+
+#### Endpoint Configuration
+
+```bash
+# Update the IP whitelist
+curl -X PUT "http://localhost:8080/api/auth/api-keys/{keyId}" \
+     -H "Authorization: Bearer admin_token" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "allowedIpAddresses": ["192.168.1.100", "10.0.0.0/8"]
+     }'
+```
+
+### Daily Request Limit (v1.6.1+)
+
+Cap the number of requests per day for each key to prevent abuse.
+
+#### Configure the Daily Limit
+
+```yaml
+trunkline:
+  security:
+    api-key:
+      keys:
+        - key-id: "limited-key"
+          key-value: "${KEY_VALUE}"
+          daily-request-limit: 10000  # at most 10000 requests per day
+```
+
+#### How the Limit Works
+
+- **Counting**: counted per UTC day, reset at 00:00
+- **On exceed**: returns 429 Too Many Requests
+- **Query**: current usage can be queried via the management API
+
+### Expired-Key Auto Cleanup (v1.6.2+)
+
+`ApiKeyExpirationScheduler` automatically disables expired API keys.
+
+#### Cleanup Behavior
+
+- **Frequency**: checked hourly
+- **Action**: expired keys are set to `enabled: false`
+- **Notification**: alerting can be configured for keys about to expire
+
+### Admin API Rate Limiting (v1.6.1+)
+
+To prevent abuse of the management API (`/api/auth/api-keys/**`), `AdminApiRateLimiter` limits by client IP (overridable via `trunkline.auth.admin-api-rate-limit.*`):
+
+| Operation | Per minute | Per hour |
+|-----------|-----------|----------|
+| Read (GET/HEAD) | 120 | 2000 |
+| Write (POST/PUT/PATCH/DELETE) | 30 | 200 |
+| Create key (POST) | — | 10 |
+
+On exceed it returns `429 Too Many Requests` (body `{"code":"RATE_LIMIT_EXCEEDED"}`).
+
 ## Example Configurations
 
 ### Development Environment
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -649,14 +926,14 @@ jairouter:
       keys:
         - key-id: "dev-admin"
           key-value: "dev-admin-key-12345"
-          permissions: ["admin", "read", "write", "delete"]
+          permissions: ["admin"]
           expires-at: "2027-12-31T23:59:59"
 ```
 
 ### Production Environment
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -665,11 +942,12 @@ jairouter:
       keys:
         - key-id: "prod-admin"
           key-value: "${PROD_ADMIN_API_KEY}"
-          permissions: ["admin", "read", "write", "delete"]
+          permissions: ["admin"]
           expires-at: "${PROD_ADMIN_KEY_EXPIRES}"
         - key-id: "prod-service"
           key-value: "${PROD_SERVICE_API_KEY}"
-          permissions: ["read", "write"]
+          permissions: ["chat"]
+          allowed-groups: ["prod-chat"]
           expires-at: "${PROD_SERVICE_KEY_EXPIRES}"
     performance:
       cache:

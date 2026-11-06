@@ -17,18 +17,18 @@ import java.util.Arrays;
  * 在应用启动时验证 JWT 密钥和密码的强度
  *
  * 启用条件：
- * - jairouter.security.startup-check.enabled=true（默认启用）
+ * - trunkline.security.startup-check.enabled=true（默认启用）
  * - 生产环境自动启用
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "jairouter.security.startup-check.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.security.startup-check.enabled", havingValue = "true", matchIfMissing = true)
 public class StartupSecretKeyChecker implements CommandLineRunner {
 
     private static final String ASCII_ART_BORDER = "\n"
             + "╔══════════════════════════════════════════════════════════════════════════════╗\n"
             + "║                                                                              ║\n"
-            + "║                            JAiRouter 安全密钥检查                             ║\n"
+            + "║                            Trunkline 安全密钥检查                             ║\n"
             + "║                                                                              ║\n"
             + "╚══════════════════════════════════════════════════════════════════════════════╝\n";
 
@@ -62,8 +62,8 @@ public class StartupSecretKeyChecker implements CommandLineRunner {
                 + "║  在生产环境使用之前，请务必：                                                ║\n"
                 + "║  1. 设置强密钥：export JWT_SECRET=\"<随机生成的 32+ 字节密钥>\"                    ║\n"
                 + "║  2. 设置强密码：export INITIAL_ADMIN_PASSWORD=\"<复杂密码>\"                     ║\n"
-                + "║  3. 启用 JWT 认证：jairouter.security.jwt.enabled=true                       ║\n"
-                + "║  4. 使用密钥生成工具：java -jar jairouter.jar --generate-key                 ║\n"
+                + "║  3. 启用 JWT 认证：trunkline.security.jwt.enabled=true                       ║\n"
+                + "║  4. 使用密钥生成工具：java -jar trunkline.jar --generate-key                 ║\n"
                 + "║                                                                              ║\n"
                 + "║  密钥生成工具使用说明：                                                      ║\n"
                 + "║  --generate-key              生成 Base64 编码的 JWT 密钥                          ║\n"
@@ -117,7 +117,7 @@ public class StartupSecretKeyChecker implements CommandLineRunner {
                 + "║  1. 启用 JWT 认证：                                                          ║\n"
                 + "║     export JWT_SECRET=\"<your-secret-key>\"                                   ║\n"
                 + "║     在 application-prod.yml 中设置：                                         ║\n"
-                + "║     jairouter.security.jwt.enabled: true                                     ║\n"
+                + "║     trunkline.security.jwt.enabled: true                                     ║\n"
                 + "║                                                                              ║\n"
                 + "║  2. 或配置其他认证方式（如 API Key、OAuth2）                                 ║\n"
                 + "║                                                                              ║\n"

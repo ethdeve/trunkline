@@ -11,7 +11,7 @@
 
 ## 欢迎贡献
 
-感谢您对 JAiRouter 项目的关注！我们欢迎各种形式的贡献，包括但不限于：
+感谢您对 Trunkline 项目的关注！我们欢迎各种形式的贡献，包括但不限于：
 
 - 🐛 Bug 报告和修复
 - ✨ 新功能开发
@@ -32,8 +32,8 @@
 
 1. **克隆项目**
    ```bash
-   git clone https://github.com/Lincoln-cn/JAiRouter.git
-   cd jairouter
+   git clone https://github.com/Lincoln-cn/Trunkline.git
+   cd trunkline
    ```
 
 2. **验证Java版本**
@@ -450,4 +450,4 @@ Closes #123
 - 创建新的 Issue
 - 参与社区讨论
 
-感谢您的贡献！每一个贡献都让 JAiRouter 变得更好。
+感谢您的贡献！每一个贡献都让 Trunkline 变得更好。

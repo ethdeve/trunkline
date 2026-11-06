@@ -11,7 +11,7 @@ model:
     hash-algorithm: "md5" # IP Hash 策略的哈希算法
 
   # 全局适配器配置 - 如果服务没有指定适配器，将使用此配置
-  adapter: gpustack # 支持: normal, gpustack, ollama, vllm, xinference, localai
+  adapter: normal # 支持: normal, gpustack, ollama, vllm, xinference, localai
 
   # 全局限流配置
   rate-limit:
@@ -39,7 +39,7 @@ model:
     chat:
       load-balance:
         type: least-connections
-      adapter: gpustack # 使用GPUStack适配器
+      adapter: normal # OpenAI 标准协议（OpenAI 兼容）
       # 服务级别限流配置
       rate-limit:
         enabled: true

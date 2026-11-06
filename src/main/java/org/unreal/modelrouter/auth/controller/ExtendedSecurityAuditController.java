@@ -36,7 +36,7 @@ import org.unreal.modelrouter.common.exception.ApiException;
 @RequestMapping("/api/security/audit/extended")
 @RequiredArgsConstructor
 @Tag(name = "扩展安全审计", description = "JWT和API Key审计查询接口")
-@ConditionalOnProperty(name = "jairouter.security.audit.extended.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.security.audit.extended.enabled", havingValue = "true", matchIfMissing = true)
 public class ExtendedSecurityAuditController {
 
     private final ExtendedSecurityAuditService extendedAuditService;

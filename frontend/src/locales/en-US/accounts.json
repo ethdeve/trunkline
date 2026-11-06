@@ -48,7 +48,8 @@
       "passwordMinLength": "Password must be at least 6 characters",
       "confirmPasswordRequired": "Please confirm the password",
       "passwordMismatch": "The two passwords do not match",
-      "rolesRequired": "Please select at least one role"
+      "rolesRequired": "Please select at least one role",
+      "departmentRequired": "Please select or enter a department"
     },
     "messages": {
       "fetchFailed": "Failed to fetch accounts",
@@ -65,6 +66,10 @@
       "confirmDelete": "Delete",
       "deleteSuccess": "Account deleted successfully",
       "deleteFailed": "Failed to delete account"
-    }
+    },
+    "department": "Department",
+    "departmentPlaceholder": "Select or type a department (e.g. R&D)",
+    "departmentHint": "Departments drive the by-department view in Team Usage; usage of the same department is aggregated together.",
+    "departmentUnassigned": "Unassigned"
   }
 }

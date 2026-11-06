@@ -561,6 +561,7 @@ public class ConfigurationValidator {
         }
         
         if (lowerServiceType.equals(org.unreal.modelrouter.common.constants.ServiceTypeConstants.IMG_EDIT)
+            || lowerServiceType.equals("imgedit")
             || lowerServiceType.equals("image-edit")
             || lowerServiceType.equals("image-editing")) {
             return true;

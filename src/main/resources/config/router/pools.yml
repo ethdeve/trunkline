@@ -7,9 +7,9 @@
 #
 # 资源池说明:
 #   - 一组同服务类型实例的命名集合
-#   - 请求 model 使用 poolName(如 auto-model)时,自动从池内健康实例中选择执行
-#   - 未配置任何池时,auto-model 回退为该服务全部健康实例
-#   - 默认为空列表:不配置时路由行为与之前完全一致
+#   - 请求 model 使用 poolName(如 company-chat)时,自动从池内健康实例中选择执行
+#   - 必须显式创建:没有对应的池时请求直接 404,不存在任何隐式的默认池/系统分组
+#   - 默认为空列表:不配置时所有模型名都不可调用
 #
 # 策略 (strategy):
 #   weighted-random（权重随机,默认）/ round-robin / least-connections / ip-hash
@@ -21,8 +21,8 @@
 # 示例:
 # model:
 #   pools:
-#     - pool-name: auto-model
-#       name: 默认自动分流池
+#     - pool-name: company-chat
+#       name: 公司通用对话
 #       service-type: chat
 #       enabled: true
 #       strategy: weighted-random

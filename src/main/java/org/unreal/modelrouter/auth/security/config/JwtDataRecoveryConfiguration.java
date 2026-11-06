@@ -16,7 +16,7 @@ import org.unreal.modelrouter.auth.security.service.DataSyncService;
 @Configuration
 @RequiredArgsConstructor
 @ConditionalOnProperty(
-        name = "jairouter.security.jwt.persistence.startup-recovery.enabled",
+        name = "trunkline.security.jwt.persistence.startup-recovery.enabled",
         havingValue = "true", matchIfMissing = true)
 public class JwtDataRecoveryConfiguration implements ApplicationRunner {
 

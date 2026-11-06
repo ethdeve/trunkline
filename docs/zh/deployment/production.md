@@ -9,7 +9,7 @@
 
 
 
-本文档详细介绍如何在生产环境中部署 JAiRouter，包括高可用架构、负载均衡配置、监控告警、备份恢复等企业级部署方案。
+本文档详细介绍如何在生产环境中部署 Trunkline，包括高可用架构、负载均衡配置、监控告警、备份恢复等企业级部署方案。
 
 ## 生产环境概述
 
@@ -36,10 +36,10 @@ graph TB
     end
     
     subgraph "应用层"
-        E[JAiRouter实例1]
-        F[JAiRouter实例2]
-        G[JAiRouter实例3]
-        H[JAiRouter实例N]
+        E[Trunkline实例1]
+        F[Trunkline实例2]
+        G[Trunkline实例3]
+        H[Trunkline实例N]
     end
     
     subgraph "AI服务层"
@@ -140,26 +140,26 @@ stats refresh 30s
 stats admin if TRUE
 
 # 前端配置
-frontend jairouter_frontend
+frontend trunkline_frontend
     bind *:80
-    bind *:443 ssl crt /etc/ssl/certs/jairouter.pem
+    bind *:443 ssl crt /etc/ssl/certs/trunkline.pem
     redirect scheme https if !{ ssl_fc }
     
     # 健康检查
     acl health_check path_beg /health
     use_backend health_backend if health_check
     
-    default_backend jairouter_backend
+    default_backend trunkline_backend
 
 # 后端配置
-backend jairouter_backend
+backend trunkline_backend
     balance roundrobin
     option httpchk GET /actuator/health
     http-check expect status 200
     
-    server jairouter1 10.0.1.10:8080 check inter 5s fall 3 rise 2
-    server jairouter2 10.0.1.11:8080 check inter 5s fall 3 rise 2
-    server jairouter3 10.0.1.12:8080 check inter 5s fall 3 rise 2
+    server trunkline1 10.0.1.10:8080 check inter 5s fall 3 rise 2
+    server trunkline2 10.0.1.11:8080 check inter 5s fall 3 rise 2
+    server trunkline3 10.0.1.12:8080 check inter 5s fall 3 rise 2
 
 backend health_backend
     server health 127.0.0.1:8080 check
@@ -167,10 +167,10 @@ backend health_backend
 
 #### Nginx 配置
 
-创建 `/etc/nginx/sites-available/jairouter`：
+创建 `/etc/nginx/sites-available/trunkline`：
 
 ```nginx
-upstream jairouter_backend {
+upstream trunkline_backend {
     least_conn;
     server 10.0.1.10:8080 max_fails=3 fail_timeout=30s;
     server 10.0.1.11:8080 max_fails=3 fail_timeout=30s;
@@ -180,11 +180,11 @@ upstream jairouter_backend {
 server {
     listen 80;
     listen 443 ssl http2;
-    server_name jairouter.example.com;
+    server_name trunkline.example.com;
     
     # SSL 配置
-    ssl_certificate /etc/ssl/certs/jairouter.crt;
-    ssl_certificate_key /etc/ssl/private/jairouter.key;
+    ssl_certificate /etc/ssl/certs/trunkline.crt;
+    ssl_certificate_key /etc/ssl/private/trunkline.key;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512;
     
@@ -194,12 +194,12 @@ server {
     add_header X-XSS-Protection "1; mode=block";
     
     # 日志配置
-    access_log /var/log/nginx/jairouter_access.log;
-    error_log /var/log/nginx/jairouter_error.log;
+    access_log /var/log/nginx/trunkline_access.log;
+    error_log /var/log/nginx/trunkline_error.log;
     
     # 代理配置
     location / {
-        proxy_pass http://jairouter_backend;
+        proxy_pass http://trunkline_backend;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -225,14 +225,14 @@ server {
     
     # 监控端点
     location /actuator {
-        proxy_pass http://jairouter_backend;
+        proxy_pass http://trunkline_backend;
         allow 10.0.0.0/8;
         deny all;
     }
 }
 ```
 
-> **⚠️ 反向代理部署必须配置 `jairouter.security.rate-limit.trusted-proxies`**
+> **⚠️ 反向代理部署必须配置 `trunkline.security.rate-limit.trusted-proxies`**
 > （把上面 `proxy_set_header X-Forwarded-For ...` 的来源代理写进可信列表），
 > 否则管理接口限流键会退化为代理 IP。详见
 > [可信代理与客户端 IP](../security/trusted-proxies.md)。
@@ -247,10 +247,10 @@ server {
 version: '3.8'
 
 services:
-  jairouter:
-    image: sodlinken/jairouter:latest
-    container_name: jairouter-${INSTANCE_ID:-1}
-    hostname: jairouter-${INSTANCE_ID:-1}
+  trunkline:
+    image: trunkline/trunkline:latest
+    container_name: trunkline-${INSTANCE_ID:-1}
+    hostname: trunkline-${INSTANCE_ID:-1}
     restart: unless-stopped
     
     ports:
@@ -261,9 +261,9 @@ services:
       - PROD_ADMIN_API_KEY=adminkey
       - PROD_SERVICE_API_KEY=serviceaoi
       - PROD_READONLY_API_KEY=readonly
-      - JAIROUTER_SECURITY_ENABLED=true
-      - JAIROUTER_SECURITY_API_KEY_ENABLED=true
-      - JAIROUTER_SECURITY_JWT_ENABLED=true
+      - TRUNKLINE_SECURITY_ENABLED=true
+      - TRUNKLINE_SECURITY_API_KEY_ENABLED=true
+      - TRUNKLINE_SECURITY_JWT_ENABLED=true
       - PROD_JWT_SECRET="your-very-strong-jwt-secret-key-at-least-32-characters-long"
       - JAVA_OPTS=-Xms1g -Xmx2g -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
       - INSTANCE_ID=${INSTANCE_ID:-1}
@@ -276,7 +276,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
     
     networks:
-      - jairouter-network
+      - trunkline-network
     
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
@@ -309,7 +309,7 @@ services:
         hard: 65536
 
 networks:
-  jairouter-network:
+  trunkline-network:
     driver: bridge
     ipam:
       config:
@@ -331,13 +331,13 @@ CLUSTER_NODES=""
 # 生成集群节点列表
 for i in $(seq 1 $INSTANCES); do
     if [ $i -eq 1 ]; then
-        CLUSTER_NODES="jairouter-$i:$((BASE_PORT + i - 1))"
+        CLUSTER_NODES="trunkline-$i:$((BASE_PORT + i - 1))"
     else
-        CLUSTER_NODES="$CLUSTER_NODES,jairouter-$i:$((BASE_PORT + i - 1))"
+        CLUSTER_NODES="$CLUSTER_NODES,trunkline-$i:$((BASE_PORT + i - 1))"
     fi
 done
 
-echo "部署 JAiRouter 集群，节点: $CLUSTER_NODES"
+echo "部署 Trunkline 集群，节点: $CLUSTER_NODES"
 
 # 部署各个实例
 for i in $(seq 1 $INSTANCES); do
@@ -384,12 +384,12 @@ server:
 
 spring:
   application:
-    name: jairouter
+    name: trunkline
   profiles:
     active: prod
 
 # 生产环境安全配置
-jairouter:
+trunkline:
   security:
     # 生产环境安全功能（默认关闭，需要显式启用）
     enabled: true
@@ -438,7 +438,7 @@ jairouter:
     jwt:
       enabled: true
       secret: "${PROD_JWT_SECRET:}"
-      issuer: "jairouter-prod"
+      issuer: "trunkline-prod"
       blacklist-cache:
         max-size: 50000  # 生产环境更大的黑名单缓存
     
@@ -552,7 +552,7 @@ management:
         descriptions: true
         step: 10s
     tags:
-      application: jairouter
+      application: trunkline
       environment: production
       instance: ${INSTANCE_ID:unknown}
 
@@ -565,7 +565,7 @@ logging:
   pattern:
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
   file:
-    name: /app/logs/jairouter.log
+    name: /app/logs/trunkline.log
     max-size: 500MB
     max-history: 30
     total-size-cap: 10GB
@@ -592,12 +592,12 @@ alerting:
           - alertmanager:9093
 
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
       - targets: 
-        - 'jairouter-1:8080'
-        - 'jairouter-2:8080'
-        - 'jairouter-3:8080'
+        - 'trunkline-1:8080'
+        - 'trunkline-2:8080'
+        - 'trunkline-3:8080'
     metrics_path: '/actuator/prometheus'
     scrape_interval: 10s
     scrape_timeout: 5s
@@ -621,71 +621,71 @@ scrape_configs:
 
 ### 2. 告警规则
 
-创建 `monitoring/rules/jairouter.yml`：
+创建 `monitoring/rules/trunkline.yml`：
 
 ```yaml
 groups:
-  - name: jairouter.rules
+  - name: trunkline.rules
     rules:
       # 服务可用性告警
-      - alert: JAiRouterDown
-        expr: up{job="jairouter"} == 0
+      - alert: TrunklineDown
+        expr: up{job="trunkline"} == 0
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: "JAiRouter 实例宕机"
-          description: "JAiRouter 实例 {{ $labels.instance }} 已宕机超过 1 分钟"
+          summary: "Trunkline 实例宕机"
+          description: "Trunkline 实例 {{ $labels.instance }} 已宕机超过 1 分钟"
       
       # 高错误率告警
-      - alert: JAiRouterHighErrorRate
+      - alert: TrunklineHighErrorRate
         expr: rate(http_server_requests_total{status=~"5.."}[5m]) / rate(http_server_requests_total[5m]) > 0.05
         for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "JAiRouter 错误率过高"
-          description: "JAiRouter 实例 {{ $labels.instance }} 错误率超过 5%"
+          summary: "Trunkline 错误率过高"
+          description: "Trunkline 实例 {{ $labels.instance }} 错误率超过 5%"
       
       # 响应时间告警
-      - alert: JAiRouterHighLatency
+      - alert: TrunklineHighLatency
         expr: histogram_quantile(0.95, rate(http_server_requests_seconds_bucket[5m])) > 2
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "JAiRouter 响应时间过长"
-          description: "JAiRouter 实例 {{ $labels.instance }} 95% 响应时间超过 2 秒"
+          summary: "Trunkline 响应时间过长"
+          description: "Trunkline 实例 {{ $labels.instance }} 95% 响应时间超过 2 秒"
       
       # 内存使用告警
-      - alert: JAiRouterHighMemoryUsage
+      - alert: TrunklineHighMemoryUsage
         expr: jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"} > 0.8
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "JAiRouter 内存使用率过高"
-          description: "JAiRouter 实例 {{ $labels.instance }} 堆内存使用率超过 80%"
+          summary: "Trunkline 内存使用率过高"
+          description: "Trunkline 实例 {{ $labels.instance }} 堆内存使用率超过 80%"
       
       # 限流告警
-      - alert: JAiRouterHighRateLimitRejection
-        expr: rate(jairouter_ratelimit_rejected_total[5m]) / rate(jairouter_ratelimit_requests_total[5m]) > 0.1
+      - alert: TrunklineHighRateLimitRejection
+        expr: rate(trunkline_ratelimit_rejected_total[5m]) / rate(trunkline_ratelimit_requests_total[5m]) > 0.1
         for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "JAiRouter 限流拒绝率过高"
-          description: "JAiRouter 实例 {{ $labels.instance }} 限流拒绝率超过 10%"
+          summary: "Trunkline 限流拒绝率过高"
+          description: "Trunkline 实例 {{ $labels.instance }} 限流拒绝率超过 10%"
       
       # 熔断器告警
-      - alert: JAiRouterCircuitBreakerOpen
-        expr: jairouter_circuitbreaker_state == 1
+      - alert: TrunklineCircuitBreakerOpen
+        expr: trunkline_circuitbreaker_state == 1
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: "JAiRouter 熔断器开启"
-          description: "JAiRouter 实例 {{ $labels.instance }} 服务 {{ $labels.service }} 熔断器已开启"
+          summary: "Trunkline 熔断器开启"
+          description: "Trunkline 实例 {{ $labels.instance }} 服务 {{ $labels.service }} 熔断器已开启"
 ```
 
 ### 3. AlertManager 配置
@@ -722,7 +722,7 @@ receivers:
   - name: 'critical-alerts'
     email_configs:
       - to: 'ops-team@example.com'
-        subject: '[CRITICAL] JAiRouter Alert'
+        subject: '[CRITICAL] Trunkline Alert'
         body: |
           {{ range .Alerts }}
           Alert: {{ .Annotations.summary }}
@@ -735,7 +735,7 @@ receivers:
   - name: 'warning-alerts'
     email_configs:
       - to: 'dev-team@example.com'
-        subject: '[WARNING] JAiRouter Alert'
+        subject: '[WARNING] Trunkline Alert'
         body: |
           {{ range .Alerts }}
           Alert: {{ .Annotations.summary }}
@@ -752,14 +752,14 @@ inhibit_rules:
 
 ### 4. Grafana 仪表板
 
-创建 `monitoring/grafana/dashboards/jairouter-overview.json`：
+创建 `monitoring/grafana/dashboards/trunkline-overview.json`：
 
 ```json
 {
   "dashboard": {
     "id": null,
-    "title": "JAiRouter Overview",
-    "tags": ["jairouter"],
+    "title": "Trunkline Overview",
+    "tags": ["trunkline"],
     "timezone": "browser",
     "panels": [
       {
@@ -871,11 +871,11 @@ firewall-cmd --reload
 ```bash
 # 生成自签名证书（测试用）
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout /etc/ssl/private/jairouter.key \
-  -out /etc/ssl/certs/jairouter.crt
+  -keyout /etc/ssl/private/trunkline.key \
+  -out /etc/ssl/certs/trunkline.crt
 
 # 或使用 Let's Encrypt
-certbot --nginx -d jairouter.example.com
+certbot --nginx -d trunkline.example.com
 ```
 
 ### 2. 应用安全
@@ -904,7 +904,7 @@ GRAFANA_ADMIN_PASSWORD=your-grafana-password
 ```yaml
 # docker-compose.prod.yml 安全配置
 services:
-  jairouter:
+  trunkline:
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -937,7 +937,7 @@ security:
     secret: ${JWT_SECRET:dev-jwt-secret-key-for-development-only-not-for-production}
     algorithm: HS256
     expiration-minutes: 60
-    issuer: jairouter
+    issuer: trunkline
     # 账户配置
     accounts:
       - username: admin
@@ -964,7 +964,7 @@ server:
     key-store: /app/config/keystore.p12
     key-store-password: ${SSL_KEYSTORE_PASSWORD:password}
     key-store-type: PKCS12
-    key-alias: jairouter
+    key-alias: trunkline
 ```
 
 创建 `config/api-keys.yml`：
@@ -1045,7 +1045,7 @@ logging:
   
   # 文件日志配置
   file:
-    name: /app/logs/jairouter.log
+    name: /app/logs/trunkline.log
     max-size: 500MB
     max-history: 30
     total-size-cap: 10GB
@@ -1073,7 +1073,7 @@ logging:
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
   
   file:
-    name: /app/logs/jairouter.log
+    name: /app/logs/trunkline.log
   
   # JSON 格式日志配置
   structured:
@@ -1098,82 +1098,82 @@ logging:
 #   "message": "Application started successfully",
 #   "thread": "main",
 #   "traceId": "abc123def456",
-#   "service": "jairouter",
-#   "instanceId": "jairouter-1"
+#   "service": "trunkline",
+#   "instanceId": "trunkline-1"
 # }
 ```
 
 ### 3. 日志轮转配置
 
-创建 `/etc/logrotate.d/jairouter`：
+创建 `/etc/logrotate.d/trunkline`：
 
 ```bash
 # 日志轮转配置
-/path/to/jairouter/logs/*.log {
+/path/to/trunkline/logs/*.log {
     daily
     rotate 30
     compress
     delaycompress
     missingok
     notifempty
-    create 0644 jairouter jairouter
+    create 0644 trunkline trunkline
     postrotate
-        docker exec jairouter-1 kill -USR1 1
-        docker exec jairouter-2 kill -USR1 1
-        docker exec jairouter-3 kill -USR1 1
+        docker exec trunkline-1 kill -USR1 1
+        docker exec trunkline-2 kill -USR1 1
+        docker exec trunkline-3 kill -USR1 1
     endscript
 }
 
 # 审计日志轮转配置
-/path/to/jairouter/logs/audit.log {
+/path/to/trunkline/logs/audit.log {
     daily
     rotate 90
     compress
     delaycompress
     missingok
     notifempty
-    create 0644 jairouter jairouter
+    create 0644 trunkline trunkline
 }
 ```
 
 ### 4. 日志监控与告警
 
-创建 `monitoring/rules/jairouter-logging.yml`：
+创建 `monitoring/rules/trunkline-logging.yml`：
 
 ```yaml
 # 日志监控告警规则
 groups:
-  - name: jairouter.logging.rules
+  - name: trunkline.logging.rules
     rules:
       # 错误日志告警
-      - alert: JAiRouterErrorLogs
-        expr: rate(jairouter_log_errors_total[5m]) > 10
+      - alert: TrunklineErrorLogs
+        expr: rate(trunkline_log_errors_total[5m]) > 10
         for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "JAiRouter 错误日志过多"
-          description: "JAiRouter 实例 {{ $labels.instance }} 错误日志速率超过 10 条/分钟"
+          summary: "Trunkline 错误日志过多"
+          description: "Trunkline 实例 {{ $labels.instance }} 错误日志速率超过 10 条/分钟"
       
       # 安全事件告警
-      - alert: JAiRouterSecurityEvents
-        expr: rate(jairouter_security_events_total[5m]) > 5
+      - alert: TrunklineSecurityEvents
+        expr: rate(trunkline_security_events_total[5m]) > 5
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: "JAiRouter 安全事件"
-          description: "JAiRouter 实例 {{ $labels.instance }} 安全事件速率超过 5 条/分钟"
+          summary: "Trunkline 安全事件"
+          description: "Trunkline 实例 {{ $labels.instance }} 安全事件速率超过 5 条/分钟"
       
       # 认证失败告警
-      - alert: JAiRouterAuthFailures
-        expr: rate(jairouter_auth_failures_total[5m]) > 20
+      - alert: TrunklineAuthFailures
+        expr: rate(trunkline_auth_failures_total[5m]) > 20
         for: 1m
         labels:
           severity: warning
         annotations:
-          summary: "JAiRouter 认证失败过多"
-          description: "JAiRouter 实例 {{ $labels.instance }} 认证失败速率超过 20 次/分钟"
+          summary: "Trunkline 认证失败过多"
+          description: "Trunkline 实例 {{ $labels.instance }} 认证失败速率超过 20 次/分钟"
 ```
 
 ## 备份和恢复
@@ -1185,9 +1185,9 @@ groups:
 ```bash
 #!/bin/bash
 
-BACKUP_DIR="/backup/jairouter"
+BACKUP_DIR="/backup/trunkline"
 DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="jairouter_config_$DATE.tar.gz"
+BACKUP_FILE="trunkline_config_$DATE.tar.gz"
 
 # 创建备份目录
 mkdir -p $BACKUP_DIR
@@ -1200,7 +1200,7 @@ tar -czf $BACKUP_DIR/$BACKUP_FILE \
   scripts/
 
 # 保留最近 30 天的备份
-find $BACKUP_DIR -name "jairouter_config_*.tar.gz" -mtime +30 -delete
+find $BACKUP_DIR -name "trunkline_config_*.tar.gz" -mtime +30 -delete
 
 echo "配置备份完成: $BACKUP_DIR/$BACKUP_FILE"
 ```
@@ -1212,11 +1212,11 @@ echo "配置备份完成: $BACKUP_DIR/$BACKUP_FILE"
 ```bash
 #!/bin/bash
 
-BACKUP_DIR="/backup/jairouter"
+BACKUP_DIR="/backup/trunkline"
 DATE=$(date +%Y%m%d_%H%M%S)
 
 # 备份配置存储
-docker exec jairouter-1 tar -czf - /app/config-store | \
+docker exec trunkline-1 tar -czf - /app/config-store | \
   cat > $BACKUP_DIR/config-store_$DATE.tar.gz
 
 # 备份日志（最近7天）
@@ -1251,7 +1251,7 @@ crontab -e
 #!/bin/bash
 
 BACKUP_FILE=$1
-RESTORE_DIR="/tmp/jairouter_restore"
+RESTORE_DIR="/tmp/trunkline_restore"
 
 if [ -z "$BACKUP_FILE" ]; then
     echo "用法: $0 <backup_file>"
@@ -1269,12 +1269,12 @@ cd $RESTORE_DIR
 tar -xzf $BACKUP_FILE
 
 # 恢复配置文件
-cp -r config/ /path/to/jairouter/
-cp docker-compose.prod.yml /path/to/jairouter/
-cp -r monitoring/ /path/to/jairouter/
+cp -r config/ /path/to/trunkline/
+cp docker-compose.prod.yml /path/to/trunkline/
+cp -r monitoring/ /path/to/trunkline/
 
 # 启动服务
-cd /path/to/jairouter
+cd /path/to/trunkline
 docker-compose -f docker-compose.prod.yml up -d
 
 echo "恢复完成"
@@ -1331,7 +1331,7 @@ sysctl -p
 ```yaml
 # docker-compose.prod.yml 性能优化
 services:
-  jairouter:
+  trunkline:
     ulimits:
       nofile:
         soft: 65536
@@ -1363,10 +1363,10 @@ services:
 ```bash
 #!/bin/bash
 
-INSTANCES=("jairouter-1:8080" "jairouter-2:8080" "jairouter-3:8080")
+INSTANCES=("trunkline-1:8080" "trunkline-2:8080" "trunkline-3:8080")
 FAILED=0
 
-echo "JAiRouter 集群健康检查 - $(date)"
+echo "Trunkline 集群健康检查 - $(date)"
 echo "=================================="
 
 for instance in "${INSTANCES[@]}"; do
@@ -1390,21 +1390,21 @@ fi
 
 ### 2. 日志轮转
 
-创建 `/etc/logrotate.d/jairouter`：
+创建 `/etc/logrotate.d/trunkline`：
 
 ```bash
-/path/to/jairouter/logs/*.log {
+/path/to/trunkline/logs/*.log {
     daily
     rotate 30
     compress
     delaycompress
     missingok
     notifempty
-    create 0644 jairouter jairouter
+    create 0644 trunkline trunkline
     postrotate
-        docker exec jairouter-1 kill -USR1 1
-        docker exec jairouter-2 kill -USR1 1
-        docker exec jairouter-3 kill -USR1 1
+        docker exec trunkline-1 kill -USR1 1
+        docker exec trunkline-2 kill -USR1 1
+        docker exec trunkline-3 kill -USR1 1
     endscript
 }
 ```
@@ -1418,7 +1418,7 @@ fi
 
 # 检查容器状态
 echo "容器状态:"
-docker ps --filter "name=jairouter" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+docker ps --filter "name=trunkline" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 # 检查资源使用
 echo -e "\n资源使用:"
@@ -1426,7 +1426,7 @@ docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\
 
 # 检查日志错误
 echo -e "\n最近错误日志:"
-docker logs --since="1h" jairouter-1 2>&1 | grep -i error | tail -5
+docker logs --since="1h" trunkline-1 2>&1 | grep -i error | tail -5
 ```
 
 ## 故障排查
@@ -1516,7 +1516,7 @@ docker-compose ps
 
 # 检查网络连通性
 curl -v http://localhost:8080/actuator/health
-telnet jairouter-1 8080
+telnet trunkline-1 8080
 
 # 检查资源使用
 top
@@ -1524,16 +1524,16 @@ free -h
 df -h
 
 # 检查日志
-docker logs jairouter-1 --tail 100
-tail -f logs/jairouter.log
+docker logs trunkline-1 --tail 100
+tail -f logs/trunkline.log
 ```
 
 ### 2. 性能问题排查
 
 ```bash
 # JVM 性能分析
-docker exec jairouter-1 jstack 1
-docker exec jairouter-1 jstat -gc 1 5s
+docker exec trunkline-1 jstack 1
+docker exec trunkline-1 jstat -gc 1 5s
 
 # 网络性能分析
 iftop

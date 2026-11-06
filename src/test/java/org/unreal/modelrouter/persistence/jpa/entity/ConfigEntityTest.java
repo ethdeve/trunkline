@@ -31,7 +31,7 @@ class ConfigEntityTest {
         LocalDateTime now = LocalDateTime.now();
         ConfigEntity entity = ConfigEntity.builder()
                 .id(1L)
-                .configKey("jairouter.tracing.enabled")
+                .configKey("trunkline.tracing.enabled")
                 .configValue("true")
                 .version(1)
                 .createdAt(now)
@@ -40,7 +40,7 @@ class ConfigEntityTest {
                 .build();
 
         assertEquals(1L, entity.getId());
-        assertEquals("jairouter.tracing.enabled", entity.getConfigKey());
+        assertEquals("trunkline.tracing.enabled", entity.getConfigKey());
         assertEquals("true", entity.getConfigValue());
         assertEquals(1, entity.getVersion());
         assertTrue(entity.getIsLatest());
@@ -52,13 +52,13 @@ class ConfigEntityTest {
         ConfigEntity entity = new ConfigEntity();
 
         entity.setId(2L);
-        entity.setConfigKey("jairouter.rateLimit.enabled");
+        entity.setConfigKey("trunkline.rateLimit.enabled");
         entity.setConfigValue("false");
         entity.setVersion(2);
         entity.setIsLatest(false);
 
         assertEquals(2L, entity.getId());
-        assertEquals("jairouter.rateLimit.enabled", entity.getConfigKey());
+        assertEquals("trunkline.rateLimit.enabled", entity.getConfigKey());
         assertEquals("false", entity.getConfigValue());
         assertEquals(2, entity.getVersion());
         assertFalse(entity.getIsLatest());

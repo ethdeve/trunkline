@@ -11,14 +11,14 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
 /**
  * 配额分布式计数（Redis）装配（v3.1 PR-3）。
  *
- * <p>仅在 {@code jairouter.quota.distributed.enabled=true} 时创建
+ * <p>仅在 {@code trunkline.quota.distributed.enabled=true} 时创建
  * {@link QuotaCounterBackend} Bean（{@link RedisCounterBackend}）；默认关闭时不注册任何 Bean，
  * 应用上下文与 v3.1 PR-1/PR-2 完全一致。</p>
  *
  * <p>Redis 客户端沿用 Spring Boot 自动装配的 {@link ReactiveRedisConnectionFactory}
  * （{@code spring-boot-starter-data-redis-reactive} 提供，或由既有 Redis 配置提供），
  * 不做连接探测：Redis 进程不可达时不在启动期失败，而是在热路径按
- * {@code jairouter.quota.distributed.degrade-to-local} 降级回本地计数并打告警日志。</p>
+ * {@code trunkline.quota.distributed.degrade-to-local} 降级回本地计数并打告警日志。</p>
  *
  * <p>注意：开启该开关后若上下文中不存在 {@link ReactiveRedisConnectionFactory}
  * （既未引入 Redis starter 也未自行提供），Spring 会在启动期报缺依赖错误——这属于配置错误，
@@ -26,10 +26,11 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @Configuration
-@ConditionalOnProperty(prefix = "jairouter.quota.distributed", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "trunkline.quota.distributed", name = "enabled", havingValue = "true")
 public class QuotaRedisConfiguration {
 
     /**
@@ -47,5 +48,42 @@ public class QuotaRedisConfiguration {
         log.info("配额分布式计数后端已装配: backend={}, keyPrefix={}", RedisCounterBackend.NAME,
             properties.distributedKeyPrefix());
         return new RedisCounterBackend(template, properties);
+    }
+
+    /**
+     * 装配旧前缀配额 key 迁移器（品牌清理：jairouter:quota → trunkline:quota）。
+     *
+     * @param connectionFactory Redis 连接工厂
+     * @param properties        账本配置
+     * @return 迁移器
+     */
+    @Bean
+    public QuotaRedisKeyMigrator quotaRedisKeyMigrator(final ReactiveRedisConnectionFactory connectionFactory,
+                                                       final QuotaProperties properties) {
+        final ReactiveRedisTemplate<String, String> template =
+            new ReactiveRedisTemplate<>(connectionFactory, RedisSerializationContext.string());
+        return new QuotaRedisKeyMigrator(template, properties);
+    }
+
+    /**
+     * 应用就绪前执行一次旧前缀迁移；Redis 不可用或迁移失败仅告警，不阻断启动（下次启动重试）。
+     *
+     * @param migrator 迁移器
+     * @return ApplicationRunner
+     */
+    @Bean
+    public org.springframework.boot.ApplicationRunner quotaLegacyKeyMigrationRunner(
+        final QuotaRedisKeyMigrator migrator) {
+        return args -> {
+            try {
+                final Long migrated = migrator.migrate().block(java.time.Duration.ofMinutes(2L));
+                if (migrated != null && migrated > 0) {
+                    log.info("配额旧前缀 key 迁移执行完毕，处理 {} 个 key", migrated);
+                }
+            } catch (RuntimeException e) {
+                log.warn("配额旧前缀 key 迁移未完成（Redis 不可用或超时），将在下次启动重试: {}",
+                    e.getMessage());
+            }
+        };
     }
 }

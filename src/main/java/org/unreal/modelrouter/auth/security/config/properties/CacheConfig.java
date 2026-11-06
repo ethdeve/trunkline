@@ -84,7 +84,7 @@ public class CacheConfig {
          * 缓存键前缀
          */
         @NotBlank
-        private String keyPrefix = "jairouter:security:";
+        private String keyPrefix = "trunkline:security:";
 
         /**
          * 默认过期时间（秒）

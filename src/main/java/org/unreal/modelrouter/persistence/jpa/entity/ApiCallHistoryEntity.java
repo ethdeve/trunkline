@@ -13,6 +13,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
@@ -23,6 +24,7 @@ import java.time.LocalDateTime;
  *
  * @author JAiRouter Team
  * @since 2.7.8
+ * @modified Trunkline Team
  */
 @Data
 @Builder
@@ -36,8 +38,12 @@ import java.time.LocalDateTime;
     @Index(name = "idx_call_history_api_key", columnList = "api_key_id"),
     @Index(name = "idx_call_history_service_type", columnList = "service_type"),
     @Index(name = "idx_call_history_status", columnList = "http_status_code"),
-    @Index(name = "idx_call_history_date", columnList = "request_date, request_hour")
+    @Index(name = "idx_call_history_date", columnList = "request_date, request_hour"),
+    @Index(name = "idx_call_history_virtual_model", columnList = "virtual_model"),
+    @Index(name = "idx_call_history_user", columnList = "user_id"),
+    @Index(name = "idx_call_history_tenant", columnList = "tenant_id")
 })
+@Filter(name = "tenantFilter")
 public class ApiCallHistoryEntity {
 
     @Id
@@ -95,6 +101,25 @@ public class ApiCallHistoryEntity {
      */
     @Column(name = "model_name", nullable = false, length = 255)
     private String modelName;
+
+    /**
+     * 虚拟模型名（模型分组 / 池名，如「公司主力」），v3.5 Trunkline 治理新增。
+     *
+     * <p><b>与 modelName / instanceName 的分工</b>：</p>
+     * <ul>
+     *   <li>{@code virtualModel} —— 请求命中的<b>虚拟模型</b>，是员工填进 AI 工具里的对外名字，
+     *       也是「调用观测」的归属维度（回答「谁在什么时候调了什么」）；</li>
+     *   <li>{@code modelName} —— 上游响应体回传的模型名（上游原样返回，可能带版本后缀）；</li>
+     *   <li>{@code instanceName} —— 实际路由到的<b>厂商模型实例</b>。</li>
+     * </ul>
+     *
+     * <p>一次请求只命中一个虚拟模型，故该值<b>无歧义</b>；不能用「实例 → 分组」反查代替
+     * （同一实例可能同时被多个虚拟模型引用）。</p>
+     *
+     * <p>历史数据为空（老版本落库时无此字段），展示时归入「未归类」而不丢数据。</p>
+     */
+    @Column(name = "virtual_model", length = 255)
+    private String virtualModel;
 
     /**
      * 适配器类型 (gpustack, ollama, vllm 等)
@@ -288,4 +313,10 @@ public class ApiCallHistoryEntity {
             requestHour = createdAt.getHour();
         }
     }
+
+    /** 归属租户（多租户预埋，S2 任务 35/36；社区版恒为 default） */
+    @Builder.Default
+    @Column(name = "tenant_id", nullable = false, length = 64)
+    private String tenantId = "default";
+
 }

@@ -9,7 +9,7 @@
 
 
 
-JAiRouter 提供多种部署方式，支持从开发环境到生产环境的完整部署方案。本指南将帮助您选择合适的部署方式并完成部署配置。
+Trunkline 提供多种部署方式，支持从开发环境到生产环境的完整部署方案。本指南将帮助您选择合适的部署方式并完成部署配置。
 
 ## 部署概述
 
@@ -31,9 +31,9 @@ graph TB
     end
     
     subgraph "应用层"
-        B[JAiRouter 实例 1]
-        C[JAiRouter 实例 2]
-        D[JAiRouter 实例 N]
+        B[Trunkline 实例 1]
+        C[Trunkline 实例 2]
+        D[Trunkline 实例 N]
     end
     
     subgraph "AI 服务层"
@@ -171,14 +171,14 @@ graph TB
 
 ```
 # 拉取镜像
-docker pull sodlinken/jairouter:latest
+docker pull trunkline/trunkline:latest
 
 # 启动容器
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -v $(pwd)/config:/app/config:ro \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 
 # 验证部署
 curl http://localhost:8080/actuator/health
@@ -188,7 +188,7 @@ curl http://localhost:8080/actuator/health
 
 ```
 # 下载配置文件
-wget https://raw.githubusercontent.com/your-org/jairouter/main/docker-compose.yml
+wget https://raw.githubusercontent.com/your-org/trunkline/main/docker-compose.yml
 
 # 启动服务
 docker-compose up -d
@@ -201,13 +201,13 @@ docker-compose ps
 
 ```
 # 使用中国优化镜像
-docker pull registry.cn-hangzhou.aliyuncs.com/sodlinken/jairouter:latest
+docker pull registry.cn-hangzhou.aliyuncs.com/trunkline/trunkline:latest
 
 # 启动容器
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
-  registry.cn-hangzhou.aliyuncs.com/sodlinken/jairouter:latest
+  registry.cn-hangzhou.aliyuncs.com/trunkline/trunkline:latest
 ```
 
 ## 部署检查清单
@@ -238,7 +238,7 @@ docker run -d \
 
 ## 安全配置指南
 
-JAiRouter 提供了多层次的安全防护机制，包括：
+Trunkline 提供了多层次的安全防护机制，包括：
 
 ### 认证与授权
 - **API Key 认证**：适用于服务间通信的简单认证机制
@@ -257,7 +257,7 @@ JAiRouter 提供了多层次的安全防护机制，包括：
 
 ## 日志配置指南
 
-JAiRouter 支持灵活的日志配置，包括：
+Trunkline 支持灵活的日志配置，包括：
 
 ### 日志级别
 - **TRACE**：最详细的日志信息，用于调试
@@ -286,7 +286,7 @@ JAiRouter 支持灵活的日志配置，包括：
    netstat -tulpn | grep 8080
    
    # 查看容器日志
-   docker logs jairouter
+   docker logs trunkline
    ```
 
 2. **健康检查失败**
@@ -295,13 +295,13 @@ JAiRouter 支持灵活的日志配置，包括：
    curl -v http://localhost:8080/actuator/health
    
    # 检查应用状态
-   docker ps --filter "name=jairouter"
+   docker ps --filter "name=trunkline"
    ```
 
 3. **性能问题**
    ```bash
    # 查看资源使用
-   docker stats jairouter
+   docker stats trunkline
    
    # 查看应用指标
    curl http://localhost:8080/actuator/metrics
@@ -311,13 +311,13 @@ JAiRouter 支持灵活的日志配置，包括：
 
 ```bash
 # 进入容器调试
-docker exec -it jairouter sh
+docker exec -it trunkline sh
 
 # 查看配置
-docker exec jairouter cat /app/config/application.yml
+docker exec trunkline cat /app/config/application.yml
 
 # 查看日志
-docker logs -f jairouter
+docker logs -f trunkline
 ```
 
 ## 最佳实践

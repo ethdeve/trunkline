@@ -1,12 +1,12 @@
 # 错误码对照表
 
 <!-- 版本信息 -->
-> **文档版本**: 1.0.3
-> **最后更新**: 2026-09-15
-> **适用版本**: v3.1.1
+> **文档版本**: 1.1.0
+> **最后更新**: 2026-10-28
+> **适用版本**: v3.3.1
 > **作者**: AI Assistant
 
-JAiRouter 使用标准化的错误码系统来标识各种错误情况，便于客户端进行错误处理。
+Trunkline 使用标准化的错误码系统来标识各种错误情况，便于客户端进行错误处理。
 
 > ⚠️ **响应形状按入口面不同**：`/api/**`（控制台面）用下面表格里的 `RouterResponse` 形状（`errorCode` 字段）；`/v1/**`（OpenAI 面）用嵌套的 `{"error":{"message","type","code"}}`（见 [统一 API 接口](universal-api.md)）。另有两个已知例外不走本表：管理面限流 429 返回`{"code":"RATE_LIMIT_EXCEEDED","message":...}`（`AdminApiRateLimiter`，**扁平体、没有 `error` 包裹**）；异常处理器兜底返回 `{"code":"500"}`（`ReactiveGlobalExceptionHandler`）。
 
@@ -53,12 +53,12 @@ JAiRouter 使用标准化的错误码系统来标识各种错误情况，便于�
 | `EMPTY_API_KEY` | 未携带 API Key | 请求头缺少 `X-API-Key` | 添加 `X-API-Key` 请求头 |
 | `API_KEY_DISABLED` | API Key 已被禁用 | 该 Key 被停用 | 启用或更换 Key |
 | `API_KEY_AUTH_FAILED` | API Key 认证失败 | Key 与账号不匹配 | 检查 Key 归属 |
+| `AUTH_FAILED` | 认证失败 | 通用认证失败 | 检查认证凭据 |
+| `AUTH_ERROR` | 认证错误 | 认证过程异常 | 检查认证服务状态 |
 
 > 原表里的 `INVALID_JWT_TOKEN` / `EXPIRED_JWT_TOKEN` / `BLACKLISTED_TOKEN` 在
 > `AuthenticationException` 中**只有常量声明**；认证链路实际发出的 401 码是上面这几个新增项
 > （`DefaultJwtTokenValidator.java:76,85,120`、`CustomReactiveAuthenticationManager.java:57,67,92,115`）。
-| `AUTH_FAILED` | 认证失败 | 通用认证失败 | 检查认证凭据 |
-| `AUTH_ERROR` | 认证错误 | 认证过程异常 | 检查认证服务状态 |
 
 **示例响应**:
 ```json
@@ -210,15 +210,15 @@ async function handleApiResponse(response) {
     switch (data.errorCode) {
       case 'INVALID_API_KEY':
       case 'EXPIRED_API_KEY':
-      case 'INVALID_JWT_TOKEN':
-      case 'EXPIRED_JWT_TOKEN':
+      case 'JWT_INVALID':
+      case 'JWT_EXPIRED':
         // 跳转到登录页面
         window.location.href = '/login';
         break;
       case 'RATE_LIMIT_EXCEEDED':
-        // 等待后重试
-        const resetTime = response.headers.get('X-RateLimit-Reset');
-        await sleep(resetTime * 1000);
+        // 等待后重试（响应头只有 Retry-After，没有 X-RateLimit-Reset）
+        const retryAfter = response.headers.get('Retry-After') || '5';
+        await sleep(parseInt(retryAfter, 10) * 1000);
         return retryRequest();
         break;
       default:
@@ -248,7 +248,7 @@ public class ErrorHandler {
     @ExceptionHandler(RateLimitExceededException.class)
     public ResponseEntity<ErrorResponse> handleRateLimit(RateLimitExceededException ex) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-            .header("X-RateLimit-Reset", ex.getResetTime())
+            .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
             .body(new ErrorResponse("请求过多", "RATE_LIMIT_EXCEEDED"));
     }
 }
@@ -266,18 +266,16 @@ log.error("认证失败: errorCode={}, message={}",
 
 ## 错误码快速查询
 
-### 按状态码分类
-
 | 状态码 | 错误码列表 |
 |--------|-----------|
-| 400 | `VALIDATION_ERROR`, `INVALID_PARAMETER`, `MISSING_PARAMETER`, `INVALID_FORMAT` |
-| 401 | `INVALID_API_KEY`, `EXPIRED_API_KEY`, `MISSING_API_KEY`, `INVALID_JWT_TOKEN`, `EXPIRED_JWT_TOKEN`, `BLACKLISTED_TOKEN` |
+| 400 | `INVALID_REQUEST`, `INVALID_PARAM` |
+| 401 | `INVALID_API_KEY`, `EXPIRED_API_KEY`, `MISSING_API_KEY`, `EMPTY_API_KEY`, `EMPTY_JWT_TOKEN`, `API_KEY_DISABLED`, `API_KEY_AUTH_FAILED`, `JWT_INVALID`, `JWT_EXPIRED`, `JWT_BLACKLISTED`, `AUTH_FAILED`, `AUTH_ERROR` |
 | 403 | `INSUFFICIENT_PERMISSIONS`, `ACCESS_DENIED`, `RESOURCE_FORBIDDEN`, `FORBIDDEN` |
-| 404 | `NOT_FOUND`, `SERVICE_NOT_FOUND`, `INSTANCE_NOT_FOUND`, `CONFIG_NOT_FOUND` |
-| 409 | `CONFLICT`, `DUPLICATE_RESOURCE` |
-| 429 | `RATE_LIMIT_EXCEEDED`, `GLOBAL_RATE_LIMIT`, `SERVICE_RATE_LIMIT`, `INSTANCE_RATE_LIMIT` |
-| 500 | `INTERNAL_ERROR`, `SANITIZATION_FAILED`, `CONFIGURATION_ERROR`, `DATABASE_ERROR`, `CACHE_ERROR` |
-| 502/503 | 下游服务错误码 |
+| 404 | `NOT_FOUND` |
+| 409 | `CONFLICT`（任何以 `CONFLICT` 开头的码都映射 409） |
+| 429 | `RATE_LIMIT_EXCEEDED` |
+| 500 | `INTERNAL_ERROR`, `SANITIZATION_FAILED`, `RESTART_REQUIRED` |
+| 502/503 | 下游服务错误码（503 含分组无健康成员的 `PoolUnavailableException`） |
 
 ---
 
@@ -285,9 +283,10 @@ log.error("认证失败: errorCode={}, message={}",
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| 1.1.0 | 2026-10-28 | 按 v3.3.1 代码核验：修复快速查询表残留的已删错误码；示例改用真实码 `JWT_INVALID`/`JWT_EXPIRED` 与 `Retry-After`；补 `AUTH_FAILED`/`AUTH_ERROR` 行归位 |
 | 1.0.1 | 2026-06-29 | 更新版本引用为 v2.7.5+，修正版本号错误 |
 | 1.0.0 | 2026-05-25 | 初始版本，包含所有错误码定义 |
 
 ---
 
-*最后更新: 2026-06-29*
+*最后更新: 2026-10-28*

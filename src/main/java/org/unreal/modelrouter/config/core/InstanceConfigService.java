@@ -1,5 +1,6 @@
 package org.unreal.modelrouter.config.core;
 
+import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,7 +33,7 @@ public class InstanceConfigService {
 
     private static final Logger logger = LoggerFactory.getLogger(InstanceConfigService.class);
 
-    private static final String CURRENT_KEY = "model-router-config";
+    private static final String CURRENT_KEY = ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY;
 
     private final StoreManager storeManager;
     private final ConfigConverterHelper configConverterHelper;

@@ -9,7 +9,7 @@
 
 ## Overview
 
-JAiRouter supports adding new adapters through configuration-driven approach, without writing code. This applies to all OpenAI-compatible APIs (such as DeepSeek, Zhipu, Moonshot, etc.).
+Trunkline supports adding new adapters through configuration-driven approach, without writing code. This applies to all OpenAI-compatible APIs (such as DeepSeek, Zhipu, Moonshot, etc.).
 
 ## Supported Providers
 
@@ -32,7 +32,7 @@ JAiRouter supports adding new adapters through configuration-driven approach, wi
 
 ### Step 1: Navigate to Adapter Management
 
-1. Login to JAiRouter Admin Panel
+1. Login to the Trunkline Admin Panel
 2. Click **Configuration → Adapter Management** in the left sidebar
 
 ### Step 2: Create New Adapter

@@ -598,7 +598,7 @@ defineExpose({
 }
 
 .vector-value {
-  font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-family: var(--ja-font-mono);
   font-size: 12px;
   color: var(--ja-text-regular);
   line-height: 1.6;

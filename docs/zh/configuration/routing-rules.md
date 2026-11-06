@@ -9,7 +9,7 @@
 
 ## 概述
 
-JAiRouter 提供**规则引擎**（v2.8.5），允许通过 Web 页面或 YAML 配置**条件路由规则**，实现按模型名、请求头、来源 IP 等条件进行灵活的路由控制，无需编写代码。
+Trunkline 提供**规则引擎**（v2.8.5），允许通过 Web 页面或 YAML 配置**条件路由规则**，实现按模型名、请求头、来源 IP 等条件进行灵活的路由控制，无需编写代码。
 
 规则引擎在**每次请求**时求值：请求到达后，按优先级从高到低匹配规则，首条命中的规则生效；无规则命中时走原有路由逻辑，**行为与未启用规则引擎时完全一致**。
 
@@ -84,7 +84,7 @@ JAiRouter 提供**规则引擎**（v2.8.5），允许通过 Web 页面或 YAML �
 
 ## Web 页面配置
 
-1. 登录 JAiRouter 管理后台
+1. 登录 Trunkline 管理后台
 2. 左侧菜单点击 **配置管理 → 路由规则**
 
 ### 新增规则
@@ -106,7 +106,7 @@ JAiRouter 提供**规则引擎**（v2.8.5），允许通过 Web 页面或 YAML �
 
 - **启停**：表格"启用"开关即时生效
 - **优先级拖拽**：拖动行首手柄按行序调整优先级（顶部最高），整批提交；YAML 规则显示 **YAML** 徽章且不可拖拽（其优先级不随拖拽改变）
-- **命中统计**：表格"命中"列展示各规则累计命中数（Prometheus 指标 `jairouter_rule_hits_total`），右上角刷新按钮同步刷新
+- **命中统计**：表格"命中"列展示各规则累计命中数（Prometheus 指标 `trunkline_rule_hits_total`），右上角刷新按钮同步刷新
 - **编辑/删除**：表格操作列
 
 > 规则增删改后**立即热生效**，无需重启应用。
@@ -269,7 +269,7 @@ curl -X POST http://localhost:8080/api/config/rules/validate \
 
 1. **YAML**(config/router/pools.yml):
 
-``yaml
+```yaml
 model:
   pools:
     - pool-name: auto-model
@@ -282,7 +282,7 @@ model:
           weight: 9
         - instance-id: inst-claude
           weight: 1
-``
+```
 
 2. **Web 界面**:配置管理 → 资源池(增删改 + 热生效,持久化到 StoreManager key=pool_definitions)
 
@@ -290,7 +290,8 @@ model:
 
 - **池名即虚拟模型名**:请求 model=auto-model(或任意已配置池名)命中池路由;未配置任何池时,uto-model 回退为该服务全部健康实例
 - **选择流程**:池成员(按实例 ID 引用)→ 状态/健康/熔断过滤 → 池级权重 → 池策略选择;成员实例被删时自动跳过
-- **策略**:weighted-random(默认)/ round-robin / least-connections / ip-hash / consistent-hash(注意:一致哈希忽略权重)
+- **策略**:weighted-random(默认)/ 
+round-robin / least-connections / ip-hash / consistent-hash(注意:一致哈希忽略权重)
 - **规则联动**:规则 TARGET_MODEL 目标可直接填池名,命中后走池路由
 - **响应回显**:池路由后响应与下游请求的 model 字段为实际实例模型名(非流式;流式出站请求同步改写)
 - **服务级/实例级限流、熔断**:池选出的实例继续走既有限流与熔断链路
@@ -352,13 +353,13 @@ model:
 不带规则时，可直接通过请求 header 圈选实例：
 
 ```
-X-JAiRouter-Tags: gpu_type=a100,region=cn-north
+X-Trunkline-Tags: gpu_type=a100,region=cn-north
 ```
 
 ```bash
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "X-JAiRouter-Tags: gpu_type=a100,region=cn-north" \
+  -H "X-Trunkline-Tags: gpu_type=a100,region=cn-north" \
   -d '{"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]}'
 ```
 
@@ -368,7 +369,7 @@ curl http://localhost:8080/v1/chat/completions \
 
 ### 优先级与空候选语义
 
-- **TARGET_TAGS 优先于请求 header**：命中 `TARGET_TAGS` 规则时以规则 tags 为准，忽略请求 header；无规则提供标签时才解析 `X-JAiRouter-Tags`
+- **TARGET_TAGS 优先于请求 header**：命中 `TARGET_TAGS` 规则时以规则 tags 为准，忽略请求 header；无规则提供标签时才解析 `X-Trunkline-Tags`
 - **TARGET_INSTANCE 锁定 > 标签过滤**：实例锁定先按 instanceId/name 圈定，标签过滤在其基础上进一步收窄（锁定动作本身不产生标签要求）
 - **空候选 404**：标签过滤后无匹配实例返回 `404 Not Found`（与 TARGET_INSTANCE 无目标实例时一致）
 - 未配置任何标签圈选时，行为与未启用该功能完全一致

@@ -27,7 +27,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Order(Ordered.LOWEST_PRECEDENCE)
-@ConditionalOnProperty(name = "jairouter.migration.exit-after-run", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.migration.exit-after-run", havingValue = "true")
 public class MigrationExitRunner {
 
     private final ConfigurableApplicationContext applicationContext;
@@ -38,7 +38,7 @@ public class MigrationExitRunner {
 
     @EventListener(ApplicationReadyEvent.class)
     public void exitAfterStartup() {
-        log.info("jairouter.migration.exit-after-run=true：启动与迁移已完成，主动退出进程");
+        log.info("trunkline.migration.exit-after-run=true：启动与迁移已完成，主动退出进程");
         System.exit(SpringApplication.exit(applicationContext, () -> 0));
     }
 }

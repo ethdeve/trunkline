@@ -4,12 +4,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.annotation.PostConstruct;
 import org.unreal.modelrouter.config.core.manager.ConfigVersionManager;
 import org.unreal.modelrouter.config.dependency.DependencyCheckService;
 import org.unreal.modelrouter.common.dto.ServiceInstanceDTO;
 import org.unreal.modelrouter.common.dto.InstanceRateLimitDTO;
 import org.unreal.modelrouter.common.dto.InstanceCircuitBreakerDTO;
 import org.unreal.modelrouter.config.dto.CreateServiceInstanceRequest;
+import org.unreal.modelrouter.config.dto.EmployeeServiceInstanceVO;
 import org.unreal.modelrouter.persistence.jpa.entity.InstanceCircuitBreakerEntity;
 import org.unreal.modelrouter.persistence.jpa.entity.InstanceRateLimitEntity;
 import org.unreal.modelrouter.persistence.jpa.entity.ServiceConfigEntity;
@@ -23,6 +25,7 @@ import org.unreal.modelrouter.persistence.jpa.repository.ServiceInstanceReposito
 import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 import org.unreal.modelrouter.router.circuitbreaker.CircuitBreakerManager;
 import org.unreal.modelrouter.common.util.SecurityUtils;
+import org.unreal.modelrouter.common.util.SensitiveHeaderSanitizer;
 import org.unreal.modelrouter.common.exception.ApiException;
 
 import java.util.ArrayList;
@@ -101,12 +104,135 @@ public class ServiceInstanceManager {
     }
 
     /**
-     * 获取所有实例
+     * 获取所有实例（员工自助面出参，敏感 header 已脱敏）
+     *
+     * <p><b>P0-L 凭据泄漏防护</b>：上游厂商的 API Key 以
+     * {@code Authorization: Bearer <key>} 形式存在于实例 headers
+     * （见 {@link #mergeProviderAuthorization}）。本方法供
+     * {@code GET /api/instance/mine}（{@code config:instances:self}）使用，
+     * 敏感 header 的值一律替换为 {@code "***"}，普通员工因此拿不到公司上游密钥。</p>
+     *
+     * <p><b>为什么管理面不脱敏</b>：管理面需要看到并编辑真实 Key ——
+     * 运维在「模型配置」页编辑实例时，前端 {@code UpstreamInstanceForm} 会把
+     * {@code headers.Authorization} 回填进表单并原样提交（{@code buildPayload}），
+     * 若此处统一脱敏，运维改任意字段都会把库中的真实 Key 覆盖成 {@code "***"}，
+     * 而真实 Key 只存在于上游厂商控制台，<b>无法恢复</b>。
+     * 管理面已有 {@code config:instances:read} 权限闸门兜底（USER 已撤销）。</p>
+     *
+     * <p><b>本类刻意不提供「全量实例（明文 headers）」的公开访问器</b>：
+     * 管理面走 {@link #getInstancesByServiceConfigId(Long)}（按服务类型取），
+     * 其权限码已随 P0-L 从 USER 撤销；留一个明文全量访问器只会成为
+     * 「哪天被接到员工可达路径上就重新泄漏」的隐患。</p>
+     *
+     * @return 脱敏后的实例列表（每次调用新建 DTO，不影响任何共享状态）
      */
-    public List<ServiceInstanceDTO> getAllInstances() {
+    public List<ServiceInstanceDTO> getAllInstancesSanitized() {
         return serviceInstanceRepository.findAll()
                 .stream()
                 .map(this::convertToDTO)
+                .map(dto -> {
+                    dto.setHeaders(SensitiveHeaderSanitizer.sanitize(dto.getHeaders()));
+                    return dto;
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 按服务类型（模型分类）查询实例（P0-L 员工端点 N+1 消除）。
+     *
+     * <p><b>为什么需要它</b>：员工端点 {@code GET /api/instance/mine} 此前
+     * {@code findAll()} 全表扫再内存过滤，每次进测试场触发一次全表扫。
+     * 本方法先按 {@code serviceType} 反查 service_config（取最新版本），
+     * 再按 {@code serviceConfigId} 查实例，避免全表扫。</p>
+     *
+     * <p><b>大小写归一化</b>：serviceType 由前端传入，大小写敏感会导致
+     * 「chat」与「CHAT」静默空白无提示，因此统一小写比较。</p>
+     *
+     * @param serviceType 服务类型（chat / embedding / …）；大小写无关
+     * @return 该服务类型下的实例列表（明文 headers，仅供管理面内部复用）
+     * @since P0-L
+     */
+    public List<ServiceInstanceDTO> findByServiceType(final String serviceType) {
+        if (serviceType == null || serviceType.trim().isEmpty()) {
+            return List.of();
+        }
+        final String wanted = serviceType.trim();
+        // serviceType 由 service_config 决定，先反查 config
+        final List<ServiceConfigEntity> configs = serviceConfigRepository
+                .findAllByIsLatestTrue();
+        final Long configId = configs.stream()
+                .filter(cfg -> cfg != null && cfg.getServiceType() != null
+                        && wanted.equalsIgnoreCase(cfg.getServiceType()))
+                .map(ServiceConfigEntity::getId)
+                .findFirst()
+                .orElse(null);
+        if (configId == null) {
+            return List.of();
+        }
+        return serviceInstanceRepository.findByServiceConfigId(configId)
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 获取所有实例（员工自助面出参，裁剪为员工可见字段）。
+     *
+     * <p><b>P0-L 凭据泄漏防护</b>：复用 {@link #convertToDTO} 后映射到
+     * {@link org.unreal.modelrouter.config.dto.EmployeeServiceInstanceVO}，
+     * 只保留前端试验场真正读取的字段（instanceId / name / serviceType /
+     * status / healthStatus / adapter / weight / tags），
+     * <b>剔除</b> headers / errorMessage / baseUrl / path / rateLimit /
+     * circuitBreaker / providerId / providerName / serviceConfigId /
+     * id / createdAt / updatedAt。</p>
+     *
+     * <p><b>为什么剔除 headers</b>：员工拿到 headers 后可直调上游厂商 API；
+     * 且前端编辑时若回填 {@code Authorization: "***"} 会覆盖真实 Key。
+     * 员工 VO 不含 headers → 前端无法覆盖 → 审查项4 后端部分由本方法完全覆盖。</p>
+     *
+     * @return 员工裁剪后的实例列表
+     * @since P0-L
+     */
+    public List<EmployeeServiceInstanceVO> getAllInstancesForEmployee() {
+        return serviceInstanceRepository.findAll()
+                .stream()
+                .map(this::convertToDTO)
+                .map(this::toEmployeeVO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * ServiceInstanceDTO → 员工 VO（裁剪字段）。
+     *
+     * @param dto 管理面全量 DTO
+     * @return 员工裁剪 VO
+     */
+    private EmployeeServiceInstanceVO toEmployeeVO(
+            final ServiceInstanceDTO dto) {
+        return EmployeeServiceInstanceVO.builder()
+                .instanceId(dto.getRuntimeInstanceId())
+                .name(dto.getName())
+                .serviceType(dto.getServiceType())
+                .status(dto.getStatus())
+                .healthStatus(dto.getHealthStatus())
+                .adapter(dto.getAdapter())
+                .weight(dto.getWeight())
+                .tags(dto.getTags())
+                .build();
+    }
+
+    /**
+     * 按服务类型获取员工可见实例（P0-L N+1 消除 + 大小写归一化）。
+     *
+     * @param serviceType 服务类型（大小写无关）
+     * @return 员工裁剪后的实例列表
+     * @since P0-L
+     */
+    public List<EmployeeServiceInstanceVO> findByServiceTypeForEmployee(
+            final String serviceType) {
+        return findByServiceType(serviceType)
+                .stream()
+                .map(this::toEmployeeVO)
                 .collect(Collectors.toList());
     }
 
@@ -448,6 +574,14 @@ public class ServiceInstanceManager {
         if (entity == null) {
             return;
         }
+        // B1: 实例生命周期淘汰——实例增删改时同步摘除其熔断器，避免已删除/已换址实例的
+        // 熔断状态残留在单一注册表里（键为 instanceId，重新创建同 ID 实例时继承旧熔断计数）。
+        // 与健康位重置同源：清除的只是陈旧状态，真实判定由下一轮调用结果重建。
+        final String cbInstanceId = entity.getInstanceId();
+        if (cbInstanceId != null && !cbInstanceId.isBlank()) {
+            final String cbInstanceUrl = entity.getBaseUrl() + (entity.getPath() != null ? entity.getPath() : "");
+            circuitBreakerManager.resetCircuitBreaker(cbInstanceId, cbInstanceUrl);
+        }
         // 服务级：失效该实例所属分类的快照（分类名从 service_config 反查）。
         // service_config.service_type 落库值与 ModelServiceRegistry.ServiceType 枚举名一致
         // （chat / embedding / rerank / tts / stt / imgGen / imgEdit），
@@ -674,13 +808,20 @@ public class ServiceInstanceManager {
         InstanceCircuitBreakerEntity saved = circuitBreakerRepository.save(entity);
         log.info("Saved circuit breaker config for instance: {}", instanceId);
 
-        // 重置内存中的熔断器状态
+        // 注入实例级配置到运行时熔断器（修复「配置→生效」断链），并重置内存状态使其按新阈值重新累积
         serviceInstanceRepository.findById(instanceId).ifPresent(inst -> {
-            // 使用 entity.getInstanceId()（UUID）而不是数据库 ID
-            String circuitBreakerKey = inst.getInstanceId() != null ? inst.getInstanceId() : String.valueOf(instanceId);
-            String instUrl = inst.getBaseUrl() + inst.getPath();
+            // 使用 inst.getInstanceId()（UUID）而不是数据库 ID
+            final String circuitBreakerKey = inst.getInstanceId() != null ? inst.getInstanceId() : String.valueOf(instanceId);
+            final String instUrl = inst.getBaseUrl() != null
+                    ? inst.getBaseUrl() + (inst.getPath() != null ? inst.getPath() : "") : null;
+            circuitBreakerManager.applyInstanceConfig(
+                    circuitBreakerKey, instUrl,
+                    saved.getEnabled() != null && saved.getEnabled(),
+                    saved.getFailureThreshold() != null ? saved.getFailureThreshold() : 5,
+                    saved.getTimeoutMs() != null ? saved.getTimeoutMs() : 60000L,
+                    saved.getSuccessThreshold() != null ? saved.getSuccessThreshold() : 2);
             circuitBreakerManager.resetCircuitBreaker(circuitBreakerKey, instUrl);
-            log.info("Reset circuit breaker state after config update: dbId={}, instanceId={}, url={}", 
+            log.info("Applied + reset circuit breaker after config update: dbId={}, instanceId={}, url={}",
                     instanceId, circuitBreakerKey, instUrl);
         });
 
@@ -693,7 +834,43 @@ public class ServiceInstanceManager {
     @Transactional
     public void deleteCircuitBreakerConfig(final Long instanceId) {
         circuitBreakerRepository.deleteByInstanceId(instanceId);
+        // 同步清除运行时实例级配置，回落全局默认阈值
+        serviceInstanceRepository.findById(instanceId).ifPresent(inst -> {
+            final String circuitBreakerKey = inst.getInstanceId() != null ? inst.getInstanceId() : String.valueOf(instanceId);
+            final String instUrl = inst.getBaseUrl() != null
+                    ? inst.getBaseUrl() + (inst.getPath() != null ? inst.getPath() : "") : null;
+            circuitBreakerManager.clearInstanceConfig(circuitBreakerKey, instUrl);
+        });
         log.info("Deleted circuit breaker config for instance: {}", instanceId);
+    }
+
+    /**
+     * 启动加载：将 {@code instance_circuit_breaker} 表中既有配置注入运行时熔断器管理器。
+     *
+     * <p>修复「配置→生效」断链——否则历史配置仅在保存后才生效，需重启才能见效。
+     * 包在 try/catch 中：若 Flyway 尚未完成迁移（表不存在），仅记录告警，待下次保存时再注入。</p>
+     */
+    @PostConstruct
+    public void loadCircuitBreakerConfigsIntoManager() {
+        try {
+            circuitBreakerRepository.findAll().forEach(entity ->
+                serviceInstanceRepository.findById(entity.getInstanceId()).ifPresent(inst -> {
+                    final String circuitBreakerKey = inst.getInstanceId() != null
+                            ? inst.getInstanceId() : String.valueOf(entity.getInstanceId());
+                    final String instUrl = inst.getBaseUrl() != null
+                            ? inst.getBaseUrl() + (inst.getPath() != null ? inst.getPath() : "") : null;
+                    circuitBreakerManager.applyInstanceConfig(
+                            circuitBreakerKey, instUrl,
+                            entity.getEnabled() != null && entity.getEnabled(),
+                            entity.getFailureThreshold() != null ? entity.getFailureThreshold() : 5,
+                            entity.getTimeoutMs() != null ? entity.getTimeoutMs() : 60000L,
+                            entity.getSuccessThreshold() != null ? entity.getSuccessThreshold() : 2);
+                }));
+            log.info("Loaded existing instance circuit breaker configs into runtime manager");
+        } catch (final Exception e) {
+            log.warn("Skipped loading circuit breaker configs at startup (will apply on next save): {}",
+                    e.getMessage());
+        }
     }
 
     // ==================== v2.11.0 供应商继承辅助 ====================
@@ -763,6 +940,12 @@ public class ServiceInstanceManager {
                 .healthStatus(entity.getHealthStatus())
                 .errorMessage(entity.getErrorMessage())
                 .adapter(entity.getAdapter())
+                // P0-L：本转换服务于「管理面」，headers 保留明文。
+                // 管理面仅对持 config:instances:read 的运维/管理员开放（USER 已撤销该码），
+                // 而运维的职责就是管理上游 Key —— 若在此统一脱敏，运维在「模型配置」页编辑实例时
+                // 会把真实 Key 覆盖成 "***"（UpstreamInstanceForm.vue 回填 → buildPayload 提交 → 落库），
+                // 真实 Key 只存在于上游厂商控制台，**无法恢复**。
+                // 员工侧走 GET /api/instance/mine（config:instances:self），该端点出参单独脱敏。
                 .headers(entity.getHeaders())
                 .tags(entity.getTags())
                 .createdAt(entity.getCreatedAt())

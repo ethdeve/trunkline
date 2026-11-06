@@ -17,7 +17,6 @@ import reactor.core.publisher.Mono;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -31,7 +30,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(
-        name = "jairouter.security.jwt.persistence.sync.enabled",
+        name = "trunkline.security.jwt.persistence.sync.enabled",
         havingValue = "true", matchIfMissing = true)
 public final class DataSyncServiceImpl implements DataSyncService {
     
@@ -43,8 +42,7 @@ public final class DataSyncServiceImpl implements DataSyncService {
     
     // Redis键前缀
     private static final String TOKEN_PREFIX = "jwt:token:";
-    private static final String BLACKLIST_PREFIX = "jwt:blacklist:";
-    private static final String SYNC_STATS_KEY = "jwt:sync:stats";
+    private static final String BLACKLIST_PREFIX = "jwt:blacklist:entry:";
     private static final String SYNC_LOCK_KEY = "jwt:sync:lock";
     
     // StoreManager键前缀
@@ -65,14 +63,14 @@ public final class DataSyncServiceImpl implements DataSyncService {
     @Override
     public Mono<SyncResult> recoverFromStoreManagerToRedis() {
         long startTime = System.currentTimeMillis();
-        
+
         return acquireSyncLock("recovery")
             .flatMap(lockAcquired -> {
                 if (!lockAcquired) {
-                    return Mono.just(new SyncResult(false, 0, 0, 0, 
+                    return Mono.just(new SyncResult(false, 0, 0, 0,
                         "Another sync operation is in progress", 0));
                 }
-                
+
                 return performRecoveryOperation(startTime)
                     .doFinally(signal -> releaseSyncLock("recovery").subscribe());
             })
@@ -86,135 +84,7 @@ public final class DataSyncServiceImpl implements DataSyncService {
                 lastSyncTime = System.currentTimeMillis();
             });
     }
-    
-    @Override
-    public Mono<SyncResult> syncFromRedisToStoreManager() {
-        long startTime = System.currentTimeMillis();
-        
-        return acquireSyncLock("sync_to_store")
-            .flatMap(lockAcquired -> {
-                if (!lockAcquired) {
-                    return Mono.just(new SyncResult(false, 0, 0, 0, 
-                        "Another sync operation is in progress", 0));
-                }
-                
-                return performSyncToStoreOperation(startTime)
-                    .doFinally(signal -> releaseSyncLock("sync_to_store").subscribe());
-            })
-            .doOnNext(result -> {
-                totalSyncOperations.incrementAndGet();
-                if (result.isSuccess()) {
-                    successfulSyncOperations.incrementAndGet();
-                } else {
-                    failedSyncOperations.incrementAndGet();
-                }
-                lastSyncTime = System.currentTimeMillis();
-            });
-    }
-    
-    @Override
-    public Mono<SyncResult> performBidirectionalSync() {
-        long startTime = System.currentTimeMillis();
-        
-        return acquireSyncLock("bidirectional")
-            .flatMap(lockAcquired -> {
-                if (!lockAcquired) {
-                    return Mono.just(new SyncResult(false, 0, 0, 0, 
-                        "Another sync operation is in progress", 0));
-                }
-                
-                return performBidirectionalSyncOperation(startTime)
-                    .doFinally(signal -> releaseSyncLock("bidirectional").subscribe());
-            })
-            .doOnNext(result -> {
-                totalSyncOperations.incrementAndGet();
-                if (result.isSuccess()) {
-                    successfulSyncOperations.incrementAndGet();
-                } else {
-                    failedSyncOperations.incrementAndGet();
-                }
-                lastSyncTime = System.currentTimeMillis();
-            });
-    }
-    
-    @Override
-    public Mono<ConsistencyCheckResult> checkDataConsistency() {
-        return Mono.zip(
-            countRedisTokens(),
-            countStoreManagerTokens(),
-            findMissingInRedis(),
-            findMissingInStoreManager(),
-            findConflicts()
-        ).map(tuple -> {
-            long redisCount = tuple.getT1();
-            long storeManagerCount = tuple.getT2();
-            long missingInRedis = tuple.getT3();
-            long missingInStoreManager = tuple.getT4();
-            long conflicts = tuple.getT5();
-            
-            boolean consistent = (missingInRedis == 0 && missingInStoreManager == 0 && conflicts == 0);
-            
-            String details = String.format(
-                "Redis: %d tokens, StoreManager: %d tokens, "
-                + "Missing in Redis: %d, Missing in StoreManager: %d, Conflicts: %d",
-                redisCount, storeManagerCount, missingInRedis, missingInStoreManager, conflicts
-            );
-            
-            return new ConsistencyCheckResult(consistent, redisCount, storeManagerCount,
-                missingInRedis, missingInStoreManager, conflicts, details);
-        })
-        .doOnNext(result -> log.info("Data consistency check completed: {}", result))
-        .doOnError(error -> log.error("Data consistency check failed: {}", error.getMessage(), error));
-    }
-    
-    @Override
-    public Mono<SyncResult> repairDataInconsistency(final ConsistencyCheckResult checkResult) {
-        if (checkResult.isConsistent()) {
-            return Mono.just(new SyncResult(true, 0, 0, 0, 
-                "Data is already consistent, no repair needed", 0));
-        }
-        
-        long startTime = System.currentTimeMillis();
-        
-        return acquireSyncLock("repair")
-            .flatMap(lockAcquired -> {
-                if (!lockAcquired) {
-                    return Mono.just(new SyncResult(false, 0, 0, 0, 
-                        "Another sync operation is in progress", 0));
-                }
-                
-                return performRepairOperation(checkResult, startTime)
-                    .doFinally(signal -> releaseSyncLock("repair").subscribe());
-            });
-    }
-    
-    @Override
-    public Mono<Map<String, Object>> getSyncStats() {
-        return Mono.fromCallable(() -> {
-            Map<String, Object> stats = new HashMap<>();
-            
-            stats.put("totalSyncOperations", totalSyncOperations.get());
-            stats.put("successfulSyncOperations", successfulSyncOperations.get());
-            stats.put("failedSyncOperations", failedSyncOperations.get());
-            stats.put("lastSyncTime", lastSyncTime);
-            
-            // 计算成功率
-            long total = totalSyncOperations.get();
-            if (total > 0) {
-                double successRate = (double) successfulSyncOperations.get() / total * 100;
-                stats.put("successRate", successRate);
-            } else {
-                stats.put("successRate", 0.0);
-            }
-            
-            // 添加配置信息
-            stats.put("batchSize", BATCH_SIZE);
-            stats.put("syncLockTtl", SYNC_LOCK_TTL.toMillis());
-            
-            return stats;
-        });
-    }
-    
+
     @Override
     public Mono<SyncResult> performStartupRecovery() {
         log.info("Starting startup recovery process...");
@@ -247,21 +117,8 @@ public final class DataSyncServiceImpl implements DataSyncService {
             });
     }
     
-    @Override
-    public Mono<Void> cleanupSyncData() {
-        return redisTemplate.delete(SYNC_STATS_KEY)
-            .then(redisTemplate.delete(SYNC_LOCK_KEY))
-            .then(Mono.fromRunnable(() -> {
-                totalSyncOperations.set(0);
-                successfulSyncOperations.set(0);
-                failedSyncOperations.set(0);
-                lastSyncTime = 0;
-                log.info("Sync data cleanup completed");
-            }));
-    }
-    
     // 私有方法
-    
+
     private Mono<Boolean> acquireSyncLock(final String operation) {
         String lockValue = operation + "_" + System.currentTimeMillis();
         return redisTemplate.opsForValue()
@@ -430,67 +287,7 @@ public final class DataSyncServiceImpl implements DataSyncService {
             })
             .then();
     }
-    
-    private Mono<SyncResult> performSyncToStoreOperation(final long startTime) {
-        // 实现从Redis同步到StoreManager的逻辑
-        // 这里简化实现，实际应该扫描Redis中的所有数据并同步到StoreManager
-        return Mono.just(new SyncResult(true, 0, 0, 0, 
-            "Sync to StoreManager not implemented yet", System.currentTimeMillis() - startTime));
-    }
-    
-    private Mono<SyncResult> performBidirectionalSyncOperation(final long startTime) {
-        // 实现双向同步逻辑
-        return checkDataConsistency()
-            .flatMap(checkResult -> {
-                if (checkResult.isConsistent()) {
-                    return Mono.just(new SyncResult(true, 0, 0, 0, 
-                        "Data is already consistent", System.currentTimeMillis() - startTime));
-                }
-                
-                return repairDataInconsistency(checkResult);
-            });
-    }
-    
-    private Mono<SyncResult> performRepairOperation(final ConsistencyCheckResult checkResult, final long startTime) {
-        // 实现数据修复逻辑
-        // 这里简化实现，实际应该根据一致性检查结果进行具体的修复操作
-        return Mono.just(new SyncResult(true, 0, 0, 0, 
-            "Data repair not fully implemented yet", System.currentTimeMillis() - startTime));
-    }
-    
-    private Mono<Long> countRedisTokens() {
-        return redisTemplate.scan()
-            .filter(key -> key.startsWith(TOKEN_PREFIX))
-            .count();
-    }
-    
-    private Mono<Long> countStoreManagerTokens() {
-        return Mono.fromCallable(() -> {
-            long count = 0;
-            for (String key : storeManager.getAllKeys()) {
-                if (key.startsWith(STORE_TOKEN_PREFIX)) {
-                    count++;
-                }
-            }
-            return count;
-        });
-    }
-    
-    private Mono<Long> findMissingInRedis() {
-        // 简化实现，实际应该比较StoreManager和Redis中的数据
-        return Mono.just(0L);
-    }
-    
-    private Mono<Long> findMissingInStoreManager() {
-        // 简化实现，实际应该比较Redis和StoreManager中的数据
-        return Mono.just(0L);
-    }
-    
-    private Mono<Long> findConflicts() {
-        // 简化实现，实际应该检查两个存储中相同键的数据是否一致
-        return Mono.just(0L);
-    }
-    
+
     private Duration calculateTokenTTL(final JwtTokenInfo tokenInfo) {
         if (tokenInfo.getExpiresAt() != null) {
             Duration ttl = Duration.between(LocalDateTime.now(), tokenInfo.getExpiresAt());

@@ -1,8 +1,18 @@
 # ========================================
-# JAiRouter 向后兼容性配置文件
+# Trunkline 向后兼容性配置文件（legacy profile）
 # ========================================
-# 此配置文件确保在升级到安全增强版本时，现有部署不会受到影响
+# 用途：给「从未开启认证」的老 JAiRouter 部署升级 Trunkline 时做过渡——
+#       该 profile 把全部安全功能（API Key / JWT / 脱敏 / 审计）整体关闭，
+#       保证升级后网关行为与老版本一致，不会因为新增认证导致调用方全部 401。
 # 使用方式: --spring.profiles.active=legacy 或 SPRING_PROFILES_ACTIVE=legacy
+#
+# ⚠️ 谁还需要它：仅「升级过渡期」的用户。新部署一律不要用这个 profile
+#    （等于裸奔上公网）。S1 已提供配置前缀 / Redis key / configKey 三层兼容
+#    （见 README「从旧版升级」），配置层面的兼容不再依赖本文件。
+#
+# 🗓️ 弃用计划：计划在 S3 阶段评估移除。届时会先在 CHANGELOG 与 README
+#    发出弃用公告，保留至少一个大版本周期。如你在使用本 profile，
+#    请到仓库提 issue 告知，以便评估移除时机。
 
 spring:
   profiles:
@@ -13,7 +23,7 @@ spring:
 # ========================================
 # 在向后兼容模式下，所有安全功能默认关闭
 # 这确保现有的部署在升级后能够正常工作，无需修改配置
-jairouter:
+trunkline:
   security:
     # 安全功能总开关 - 向后兼容模式下默认关闭
     enabled: false
@@ -101,7 +111,7 @@ jairouter:
         redis:
           enabled: false
           host: "localhost"
-          port: mvn 6379
+          port: 6379
           password: ""
           database: 0
           timeout: 2000
@@ -120,7 +130,7 @@ jairouter:
 # ========================================
 # 向后兼容性说明
 # ========================================
-# 此配置文件的目的是确保现有的JAiRouter部署在升级到安全增强版本时
+# 此配置文件的目的是确保现有的老 JAiRouter 部署在升级到 Trunkline 时
 # 能够无缝工作，不会因为新增的安全功能而导致服务中断或配置错误。
 #
 # 使用场景：

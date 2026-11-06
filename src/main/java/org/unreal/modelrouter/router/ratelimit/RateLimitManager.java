@@ -52,18 +52,18 @@ public class RateLimitManager {
     private final ClientIpRateLimiterCache clientIpRateLimiterCache = new ClientIpRateLimiterCache();
 
     /** 跨副本限流的 Redis key 前缀（#161） */
-    private static final String REDIS_KEY_PREFIX = "jairouter:ratelimit:";
+    private static final String REDIS_KEY_PREFIX = "trunkline:ratelimit:";
 
     /** 分布式限流的 Redis 模板；未配置 Redis 时为空，自动退回本地实现 */
     @Autowired
     private ObjectProvider<ReactiveRedisTemplate<String, String>> reactiveRedisTemplateProvider;
 
     /** 是否启用跨副本限流（#161）；默认关闭，行为与引入前一致 */
-    @Value("${jairouter.ratelimit.distributed.enabled:false}")
+    @Value("${trunkline.ratelimit.distributed.enabled:false}")
     private boolean distributedRateLimitEnabled;
 
     /** 分布式限流的单次 Redis 调用超时（ms）：超时按 fail-open 放行 */
-    @Value("${jairouter.ratelimit.distributed.timeout-ms:50}")
+    @Value("${trunkline.ratelimit.distributed.timeout-ms:50}")
     private long distributedRateLimitTimeoutMs;
 
     public RateLimitManager(final ComponentFactory componentFactory,
@@ -323,7 +323,7 @@ public class RateLimitManager {
                 return new RedisSlidingWindowRateLimiter(converted, REDIS_KEY_PREFIX + cacheKey,
                         redisTemplate, Duration.ofMillis(distributedRateLimitTimeoutMs));
             }
-            LOGGER.warn("jairouter.ratelimit.distributed.enabled=true 但没有可用的 Redis 模板，"
+            LOGGER.warn("trunkline.ratelimit.distributed.enabled=true 但没有可用的 Redis 模板，"
                     + "该维度退回本地限流（放行量将随副本数放大）");
         }
         return componentFactory.createScopedRateLimiter(converted);

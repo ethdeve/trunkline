@@ -38,6 +38,16 @@ public final class ApiKeyCreateRequest {
     private String description;
 
     /**
+     * 密钥持有人（分配给谁）。
+     *
+     * <p>为 null / 空时归属当前登录用户（服务端从 {@code Authentication#getName()} 解析，
+     * 不信任前端传参，避免越权）。ADMIN 显式指定时，服务端校验该账户存在后以其为归属，
+     * 使「我的密钥」视图（{@code createdBy == principal.name}）能查到该密钥。</p>
+     */
+    @Size(max = 64, message = "持有人长度不能超过64字符")
+    private String holder;
+
+    /**
      * 权限列表
      * 可选值：READ, WRITE, DELETE, ADMIN
      */

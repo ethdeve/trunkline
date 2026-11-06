@@ -46,6 +46,7 @@ import java.util.function.Consumer;
  *
  * @author JAiRouter Team
  * @since 2.7.0
+ * @modified Trunkline Team
  */
 @Component
 public class WebClientPool {
@@ -83,11 +84,11 @@ public class WebClientPool {
      */
     @Autowired
     public WebClientPool(
-            @Value("${jairouter.webclient.connect-timeout-ms:10000}") final int connectTimeoutMs,
-            @Value("${jairouter.webclient.response-timeout-seconds:60}") final int responseTimeoutSeconds,
-            @Value("${jairouter.webclient.max-connections:500}") final int maxConnections,
-            @Value("${jairouter.webclient.pending-acquire-timeout-ms:60000}") final long pendingAcquireTimeoutMs,
-            @Value("${jairouter.webclient.max-idle-time-seconds:60}") final int maxIdleTimeSeconds) {
+            @Value("${trunkline.webclient.connect-timeout-ms:10000}") final int connectTimeoutMs,
+            @Value("${trunkline.webclient.response-timeout-seconds:60}") final int responseTimeoutSeconds,
+            @Value("${trunkline.webclient.max-connections:500}") final int maxConnections,
+            @Value("${trunkline.webclient.pending-acquire-timeout-ms:60000}") final long pendingAcquireTimeoutMs,
+            @Value("${trunkline.webclient.max-idle-time-seconds:60}") final int maxIdleTimeSeconds) {
         this(connectTimeoutMs, responseTimeoutSeconds, maxConnections, pendingAcquireTimeoutMs, maxIdleTimeSeconds,
                 SsrfGuardedAddressResolverGroup.instance());
     }

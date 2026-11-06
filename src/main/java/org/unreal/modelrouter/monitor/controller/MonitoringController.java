@@ -24,6 +24,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.http.HttpStatus;
 import org.unreal.modelrouter.common.exception.ApiException;
 import org.unreal.modelrouter.common.exception.ApiExceptions;
 
@@ -206,23 +207,21 @@ public class MonitoringController {
 
     /**
      * 更新自定义标签
+     *
+     * <p><b>S2 代码清债（任务 20）</b>：customTags 是启动期配置（{@code MonitoringProperties} →
+     * MeterRegistry 全局 tag），运行时动态改写没有实现基础，且控制台无此调用方。
+     * 此前本端点记录日志后返回「已接收」的假成功——已改为诚实返回 501 NOT_IMPLEMENTED。
+     * 要支持运行时改写，应先实现指标 tag 的动态更新，再恢复本端点。</p>
      */
     @PutMapping("/config/custom-tags")
     public Mono<RouterResponse<Object>> updateCustomTags(@RequestBody final Map<String, Map<String, String>> request) {
-        return Mono.fromCallable(() -> {
-            Map<String, String> customTags = request.get("customTags");
-            if (customTags == null) {
-                throw ApiException.of("INVALID_REQUEST", "Missing 'customTags' parameter");
-            }
-
-            // 注意：DynamicMonitoringConfigUpdater 不支持直接更新 customTags，
-            // 因此我们只记录日志并返回成功消息
-            logger.info("自定义标签更新请求: {}", customTags);
-            return RouterResponse.<Object>success("自定义标签更新请求已接收（注意：此功能尚未实现）");
-        }).onErrorResume(e -> {
-            logger.error("更新自定义标签失败: {}", e.getMessage());
-            return Mono.error(ApiExceptions.wrap(e, "更新失败"));
-        });
+        if (request == null || request.get("customTags") == null) {
+            return Mono.error(ApiException.of("INVALID_REQUEST", "Missing 'customTags' parameter"));
+        }
+        logger.warn("Rejected custom-tags update request: runtime tag rewriting is not supported");
+        return Mono.error(ApiException.of("NOT_IMPLEMENTED",
+            "自定义标签为启动期配置，运行时动态更新暂不支持；请在配置文件中设置后重启",
+            HttpStatus.NOT_IMPLEMENTED));
     }
 
     /**

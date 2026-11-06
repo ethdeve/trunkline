@@ -4,14 +4,14 @@
 > **Document Version**: 2.0.0
 > **Last Updated**: 2026-06-15
 > **Git Commit**: 0f56b957
-> **Author**: JAiRouter Team
+> **Author**: Trunkline Team
 <!-- /版本信息 -->
 
-Welcome to the JAiRouter Development Guide! This guide provides developers with comprehensive information on setting up the development environment, coding standards, testing strategies, and contribution processes.
+Welcome to the Trunkline Development Guide! This guide provides developers with comprehensive information on setting up the development environment, coding standards, testing strategies, and contribution processes.
 
 ## Quick Start
 
-If you are new to JAiRouter development, it is recommended to read the following documents in order:
+If you are new to Trunkline development, it is recommended to read the following documents in order:
 
 1. **[Architecture Overview](architecture.md)** - Understand the overall system architecture and design principles
 2. **[Contribution Guide](contributing.md)** - Learn how to participate in project development
@@ -37,8 +37,8 @@ If you are new to JAiRouter development, it is recommended to read the following
 
 ```bash
 # Clone the project
-git clone https://github.com/Lincoln-cn/JAiRouter.git
-cd jairouter
+git clone https://github.com/Lincoln-cn/Trunkline.git
+cd trunkline
 
 # Build the project (recommended for China users)
 ./mvnw clean package -Pchina
@@ -79,7 +79,7 @@ git push origin feature/your-feature-name
 
 ## Project Architecture Overview
 
-JAiRouter adopts a modular design with the following core modules:
+Trunkline adopts a modular design with the following core modules:
 
 | Module | Package Path | Responsibility |
 |--------|--------------|----------------|
@@ -212,4 +212,4 @@ For detailed contribution processes, please refer to [Contribution Guide](contri
 
 ---
 
-Thank you for your contributions to the JAiRouter project!
+Thank you for your contributions to the Trunkline project!

@@ -156,7 +156,7 @@ class AuditMetricsServiceTest {
             metricsService.recordWriteDuration(150);
 
             // 验证计时器已注册
-            assertNotNull(meterRegistry.find("jairouter_audit_event_write_duration_seconds").timer());
+            assertNotNull(meterRegistry.find("trunkline_audit_event_write_duration_seconds").timer());
         }
     }
 

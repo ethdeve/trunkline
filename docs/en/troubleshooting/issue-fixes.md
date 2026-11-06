@@ -9,7 +9,7 @@
 
 ## Overview
 
-This document records key issues encountered during JAiRouter development and operations, along with their fixes, to help you quickly locate and resolve similar problems.
+This document records key issues encountered during Trunkline development and operations, along with their fixes, to help you quickly locate and resolve similar problems.
 
 ---
 

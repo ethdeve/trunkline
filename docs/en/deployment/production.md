@@ -9,7 +9,7 @@
 
 
 
-This document details how to deploy JAiRouter in a production environment, including enterprise-level deployment solutions such as high availability architecture, load balancing configuration, monitoring and alerting, backup and recovery.
+This document details how to deploy Trunkline in a production environment, including enterprise-level deployment solutions such as high availability architecture, load balancing configuration, monitoring and alerting, backup and recovery.
 
 ## Production Environment Overview
 
@@ -36,10 +36,10 @@ graph TB
     end
     
     subgraph "Application Layer"
-        E[JAiRouter Instance 1]
-        F[JAiRouter Instance 2]
-        G[JAiRouter Instance 3]
-        H[JAiRouter Instance N]
+        E[Trunkline Instance 1]
+        F[Trunkline Instance 2]
+        G[Trunkline Instance 3]
+        H[Trunkline Instance N]
     end
     
     subgraph "AI Service Layer"
@@ -140,26 +140,26 @@ stats refresh 30s
 stats admin if TRUE
 
 # Frontend configuration
-frontend jairouter_frontend
+frontend trunkline_frontend
     bind *:80
-    bind *:443 ssl crt /etc/ssl/certs/jairouter.pem
+    bind *:443 ssl crt /etc/ssl/certs/trunkline.pem
     redirect scheme https if !{ ssl_fc }
     
     # Health check
     acl health_check path_beg /health
     use_backend health_backend if health_check
     
-    default_backend jairouter_backend
+    default_backend trunkline_backend
 
 # Backend configuration
-backend jairouter_backend
+backend trunkline_backend
     balance roundrobin
     option httpchk GET /actuator/health
     http-check expect status 200
     
-    server jairouter1 10.0.1.10:8080 check inter 5s fall 3 rise 2
-    server jairouter2 10.0.1.11:8080 check inter 5s fall 3 rise 2
-    server jairouter3 10.0.1.12:8080 check inter 5s fall 3 rise 2
+    server trunkline1 10.0.1.10:8080 check inter 5s fall 3 rise 2
+    server trunkline2 10.0.1.11:8080 check inter 5s fall 3 rise 2
+    server trunkline3 10.0.1.12:8080 check inter 5s fall 3 rise 2
 
 backend health_backend
     server health 127.0.0.1:8080 check
@@ -167,10 +167,10 @@ backend health_backend
 
 #### Nginx Configuration
 
-Create `/etc/nginx/sites-available/jairouter`:
+Create `/etc/nginx/sites-available/trunkline`:
 
 ```nginx
-upstream jairouter_backend {
+upstream trunkline_backend {
     least_conn;
     server 10.0.1.10:8080 max_fails=3 fail_timeout=30s;
     server 10.0.1.11:8080 max_fails=3 fail_timeout=30s;
@@ -180,11 +180,11 @@ upstream jairouter_backend {
 server {
     listen 80;
     listen 443 ssl http2;
-    server_name jairouter.example.com;
+    server_name trunkline.example.com;
     
     # SSL configuration
-    ssl_certificate /etc/ssl/certs/jairouter.crt;
-    ssl_certificate_key /etc/ssl/private/jairouter.key;
+    ssl_certificate /etc/ssl/certs/trunkline.crt;
+    ssl_certificate_key /etc/ssl/private/trunkline.key;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512;
     
@@ -194,12 +194,12 @@ server {
     add_header X-XSS-Protection "1; mode=block";
     
     # Log configuration
-    access_log /var/log/nginx/jairouter_access.log;
-    error_log /var/log/nginx/jairouter_error.log;
+    access_log /var/log/nginx/trunkline_access.log;
+    error_log /var/log/nginx/trunkline_error.log;
     
     # Proxy configuration
     location / {
-        proxy_pass http://jairouter_backend;
+        proxy_pass http://trunkline_backend;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -225,7 +225,7 @@ server {
     
     # Monitoring endpoint
     location /actuator {
-        proxy_pass http://jairouter_backend;
+        proxy_pass http://trunkline_backend;
         allow 10.0.0.0/8;
         deny all;
     }
@@ -233,7 +233,7 @@ server {
 ```
 
 > **⚠️ Reverse-proxy deployments MUST configure
-> `jairouter.security.rate-limit.trusted-proxies`** (list the proxy that sends
+> `trunkline.security.rate-limit.trusted-proxies`** (list the proxy that sends
 > `proxy_set_header X-Forwarded-For ...` above), or the management-API
 > rate-limit key degrades to the proxy IP. See
 > [Trusted Proxies and Client IP](../security/trusted-proxies.md).
@@ -248,10 +248,10 @@ Create `docker-compose.prod.yml`:
 version: '3.8'
 
 services:
-  jairouter:
-    image: sodlinken/jairouter:latest
-    container_name: jairouter-${INSTANCE_ID:-1}
-    hostname: jairouter-${INSTANCE_ID:-1}
+  trunkline:
+    image: trunkline/trunkline:latest
+    container_name: trunkline-${INSTANCE_ID:-1}
+    hostname: trunkline-${INSTANCE_ID:-1}
     restart: unless-stopped
     
     ports:
@@ -270,7 +270,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
     
     networks:
-      - jairouter-network
+      - trunkline-network
     
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
@@ -303,7 +303,7 @@ services:
         hard: 65536
 
 networks:
-  jairouter-network:
+  trunkline-network:
     driver: bridge
     ipam:
       config:
@@ -325,13 +325,13 @@ CLUSTER_NODES=""
 # Generate cluster node list
 for i in $(seq 1 $INSTANCES); do
     if [ $i -eq 1 ]; then
-        CLUSTER_NODES="jairouter-$i:$((BASE_PORT + i - 1))"
+        CLUSTER_NODES="trunkline-$i:$((BASE_PORT + i - 1))"
     else
-        CLUSTER_NODES="$CLUSTER_NODES,jairouter-$i:$((BASE_PORT + i - 1))"
+        CLUSTER_NODES="$CLUSTER_NODES,trunkline-$i:$((BASE_PORT + i - 1))"
     fi
 done
 
-echo "Deploying JAiRouter cluster, nodes: $CLUSTER_NODES"
+echo "Deploying Trunkline cluster, nodes: $CLUSTER_NODES"
 
 # Deploy each instance
 for i in $(seq 1 $INSTANCES); do
@@ -378,7 +378,7 @@ server:
 
 spring:
   application:
-    name: jairouter
+    name: trunkline
   profiles:
     active: prod
 
@@ -481,7 +481,7 @@ management:
         descriptions: true
         step: 10s
     tags:
-      application: jairouter
+      application: trunkline
       environment: production
       instance: ${INSTANCE_ID:unknown}
 
@@ -494,7 +494,7 @@ logging:
   pattern:
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
   file:
-    name: /app/logs/jairouter.log
+    name: /app/logs/trunkline.log
     max-size: 500MB
     max-history: 30
     total-size-cap: 10GB
@@ -521,12 +521,12 @@ alerting:
           - alertmanager:9093
 
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
       - targets: 
-        - 'jairouter-1:8080'
-        - 'jairouter-2:8080'
-        - 'jairouter-3:8080'
+        - 'trunkline-1:8080'
+        - 'trunkline-2:8080'
+        - 'trunkline-3:8080'
     metrics_path: '/actuator/prometheus'
     scrape_interval: 10s
     scrape_timeout: 5s
@@ -550,71 +550,71 @@ scrape_configs:
 
 ### 2. Alert Rules
 
-Create `monitoring/rules/jairouter.yml`:
+Create `monitoring/rules/trunkline.yml`:
 
 ```yaml
 groups:
-  - name: jairouter.rules
+  - name: trunkline.rules
     rules:
       # Service availability alert
-      - alert: JAiRouterDown
-        expr: up{job="jairouter"} == 0
+      - alert: TrunklineDown
+        expr: up{job="trunkline"} == 0
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: "JAiRouter instance down"
-          description: "JAiRouter instance {{ $labels.instance }} has been down for more than 1 minute"
+          summary: "Trunkline instance down"
+          description: "Trunkline instance {{ $labels.instance }} has been down for more than 1 minute"
       
       # High error rate alert
-      - alert: JAiRouterHighErrorRate
+      - alert: TrunklineHighErrorRate
         expr: rate(http_server_requests_total{status=~"5.."}[5m]) / rate(http_server_requests_total[5m]) > 0.05
         for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "JAiRouter high error rate"
-          description: "JAiRouter instance {{ $labels.instance }} error rate exceeds 5%"
+          summary: "Trunkline high error rate"
+          description: "Trunkline instance {{ $labels.instance }} error rate exceeds 5%"
       
       # Response time alert
-      - alert: JAiRouterHighLatency
+      - alert: TrunklineHighLatency
         expr: histogram_quantile(0.95, rate(http_server_requests_seconds_bucket[5m])) > 2
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "JAiRouter high latency"
-          description: "JAiRouter instance {{ $labels.instance }} 95th percentile response time exceeds 2 seconds"
+          summary: "Trunkline high latency"
+          description: "Trunkline instance {{ $labels.instance }} 95th percentile response time exceeds 2 seconds"
       
       # Memory usage alert
-      - alert: JAiRouterHighMemoryUsage
+      - alert: TrunklineHighMemoryUsage
         expr: jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"} > 0.8
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "JAiRouter high memory usage"
-          description: "JAiRouter instance {{ $labels.instance }} heap memory usage exceeds 80%"
+          summary: "Trunkline high memory usage"
+          description: "Trunkline instance {{ $labels.instance }} heap memory usage exceeds 80%"
       
       # Rate limit alert
-      - alert: JAiRouterHighRateLimitRejection
-        expr: rate(jairouter_ratelimit_rejected_total[5m]) / rate(jairouter_ratelimit_requests_total[5m]) > 0.1
+      - alert: TrunklineHighRateLimitRejection
+        expr: rate(trunkline_ratelimit_rejected_total[5m]) / rate(trunkline_ratelimit_requests_total[5m]) > 0.1
         for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "JAiRouter high rate limit rejection"
-          description: "JAiRouter instance {{ $labels.instance }} rate limit rejection rate exceeds 10%"
+          summary: "Trunkline high rate limit rejection"
+          description: "Trunkline instance {{ $labels.instance }} rate limit rejection rate exceeds 10%"
       
       # Circuit breaker alert
-      - alert: JAiRouterCircuitBreakerOpen
-        expr: jairouter_circuitbreaker_state == 1
+      - alert: TrunklineCircuitBreakerOpen
+        expr: trunkline_circuitbreaker_state == 1
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: "JAiRouter circuit breaker open"
-          description: "JAiRouter instance {{ $labels.instance }} service {{ $labels.service }} circuit breaker is open"
+          summary: "Trunkline circuit breaker open"
+          description: "Trunkline instance {{ $labels.instance }} service {{ $labels.service }} circuit breaker is open"
 ```
 
 ### 3. AlertManager Configuration
@@ -651,7 +651,7 @@ receivers:
   - name: 'critical-alerts'
     email_configs:
       - to: 'ops-team@example.com'
-        subject: '[CRITICAL] JAiRouter Alert'
+        subject: '[CRITICAL] Trunkline Alert'
         body: |
           {{ range .Alerts }}
           Alert: {{ .Annotations.summary }}
@@ -664,7 +664,7 @@ receivers:
   - name: 'warning-alerts'
     email_configs:
       - to: 'dev-team@example.com'
-        subject: '[WARNING] JAiRouter Alert'
+        subject: '[WARNING] Trunkline Alert'
         body: |
           {{ range .Alerts }}
           Alert: {{ .Annotations.summary }}
@@ -681,14 +681,14 @@ inhibit_rules:
 
 ### 4. Grafana Dashboard
 
-Create `monitoring/grafana/dashboards/jairouter-overview.json`:
+Create `monitoring/grafana/dashboards/trunkline-overview.json`:
 
 ```json
 {
   "dashboard": {
     "id": null,
-    "title": "JAiRouter Overview",
-    "tags": ["jairouter"],
+    "title": "Trunkline Overview",
+    "tags": ["trunkline"],
     "timezone": "browser",
     "panels": [
       {
@@ -816,7 +816,7 @@ security:
     algorithm: HS256
     expiration-minutes: 15  # Short-lived tokens for production
     refresh-expiration-days: 30
-    issuer: jairouter-production
+    issuer: trunkline-production
     
     # JWT Token Persistence Configuration
     persistence:
@@ -996,11 +996,11 @@ Configure HTTPS for secure communication:
 # Nginx SSL configuration
 server {
     listen 443 ssl http2;
-    server_name jairouter.example.com;
+    server_name trunkline.example.com;
     
     # SSL certificate configuration
-    ssl_certificate /etc/ssl/certs/jairouter.crt;
-    ssl_certificate_key /etc/ssl/private/jairouter.key;
+    ssl_certificate /etc/ssl/certs/trunkline.crt;
+    ssl_certificate_key /etc/ssl/private/trunkline.key;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512;
     ssl_prefer_server_ciphers on;
@@ -1012,7 +1012,7 @@ server {
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     
     location / {
-        proxy_pass http://jairouter_backend;
+        proxy_pass http://trunkline_backend;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -1047,8 +1047,8 @@ security:
     # Configure CORS
     cors:
       allowed-origins:
-        - "https://jairouter.example.com"
-        - "https://admin.jairouter.example.com"
+        - "https://trunkline.example.com"
+        - "https://admin.trunkline.example.com"
       allowed-methods:
         - GET
         - POST
@@ -1134,7 +1134,7 @@ logging:
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
   
   file:
-    name: /app/logs/jairouter.log
+    name: /app/logs/trunkline.log
   
   # JSON format log configuration
   structured:
@@ -1161,7 +1161,7 @@ Configure log rotation to manage disk space:
 <configuration>
     <!-- Define log file path -->
     <property name="LOG_PATH" value="/app/logs"/>
-    <property name="APP_NAME" value="jairouter"/>
+    <property name="APP_NAME" value="trunkline"/>
     
     <!-- File output - all logs -->
     <appender name="FILE_ALL" class="ch.qos.logback.core.rolling.RollingFileAppender">
@@ -1207,7 +1207,7 @@ Configure log monitoring and alerting:
 ```yaml
 # prometheus-alerts.yml
 groups:
-- name: jairouter-logs
+- name: trunkline-logs
   rules:
   - alert: HighErrorRate
     expr: rate(logback_events_total{level="ERROR"}[5m]) > 1
@@ -1215,17 +1215,17 @@ groups:
     labels:
       severity: warning
     annotations:
-      summary: "High error rate in JAiRouter logs"
-      description: "JAiRouter is logging errors at a rate of {{ $value }} per second"
+      summary: "High error rate in Trunkline logs"
+      description: "Trunkline is logging errors at a rate of {{ $value }} per second"
       
   - alert: SecurityViolation
-    expr: rate(jairouter_security_events_total{result="denied"}[5m]) > 0
+    expr: rate(trunkline_security_events_total{result="denied"}[5m]) > 0
     for: 1m
     labels:
       severity: critical
     annotations:
       summary: "Security violation detected"
-      description: "JAiRouter has denied {{ $value }} security requests in the last 5 minutes"
+      description: "Trunkline has denied {{ $value }} security requests in the last 5 minutes"
 ```
 
 ## Backup and Recovery
@@ -1238,7 +1238,7 @@ Implement regular configuration backups:
 #!/bin/bash
 # backup-config.sh
 
-BACKUP_DIR="/backup/jairouter"
+BACKUP_DIR="/backup/trunkline"
 DATE=$(date +%Y%m%d_%H%M%S)
 CONFIG_DIR="/app/config"
 
@@ -1279,11 +1279,11 @@ Create a disaster recovery plan:
 # 4. Verify functionality
 
 RECOVERY_DATE="20240115_100000"  # Date of backup to restore
-BACKUP_DIR="/backup/jairouter"
+BACKUP_DIR="/backup/trunkline"
 CONFIG_DIR="/app/config"
 
 # Stop services
-systemctl stop jairouter
+systemctl stop trunkline
 
 # Restore configuration
 tar -xzf $BACKUP_DIR/config-$RECOVERY_DATE.tar.gz -C $CONFIG_DIR
@@ -1292,7 +1292,7 @@ tar -xzf $BACKUP_DIR/config-$RECOVERY_DATE.tar.gz -C $CONFIG_DIR
 # tar -xzf $BACKUP_DIR/logs-$RECOVERY_DATE.tar.gz -C /app/logs
 
 # Start services
-systemctl start jairouter
+systemctl start trunkline
 
 # Verify services
 sleep 10
@@ -1350,7 +1350,7 @@ sysctl -p
 ```yaml
 # docker-compose.prod.yml performance optimization
 services:
-  jairouter:
+  trunkline:
     ulimits:
       nofile:
         soft: 65536
@@ -1382,10 +1382,10 @@ Create `health-check.sh`:
 ```bash
 #!/bin/bash
 
-INSTANCES=("jairouter-1:8080" "jairouter-2:8080" "jairouter-3:8080")
+INSTANCES=("trunkline-1:8080" "trunkline-2:8080" "trunkline-3:8080")
 FAILED=0
 
-echo "JAiRouter Cluster Health Check - $(date)"
+echo "Trunkline Cluster Health Check - $(date)"
 echo "=================================="
 
 for instance in "${INSTANCES[@]}"; do
@@ -1409,21 +1409,21 @@ fi
 
 ### 2. Log Rotation
 
-Create `/etc/logrotate.d/jairouter`:
+Create `/etc/logrotate.d/trunkline`:
 
 ```bash
-/path/to/jairouter/logs/*.log {
+/path/to/trunkline/logs/*.log {
     daily
     rotate 30
     compress
     delaycompress
     missingok
     notifempty
-    create 0644 jairouter jairouter
+    create 0644 trunkline trunkline
     postrotate
-        docker exec jairouter-1 kill -USR1 1
-        docker exec jairouter-2 kill -USR1 1
-        docker exec jairouter-3 kill -USR1 1
+        docker exec trunkline-1 kill -USR1 1
+        docker exec trunkline-2 kill -USR1 1
+        docker exec trunkline-3 kill -USR1 1
     endscript
 }
 ```
@@ -1437,7 +1437,7 @@ Create `monitor.sh`:
 
 # Check container status
 echo "Container status:"
-docker ps --filter "name=jairouter" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+docker ps --filter "name=trunkline" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 # Check resource usage
 echo -e "\nResource usage:"
@@ -1445,7 +1445,7 @@ docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\
 
 # Check error logs
 echo -e "\nRecent error logs:"
-docker logs --since="1h" jairouter-1 2>&1 | grep -i error | tail -5
+docker logs --since="1h" trunkline-1 2>&1 | grep -i error | tail -5
 ```
 
 ## Troubleshooting
@@ -1535,7 +1535,7 @@ docker-compose ps
 
 # Check network connectivity
 curl -v http://localhost:8080/actuator/health
-telnet jairouter-1 8080
+telnet trunkline-1 8080
 
 # Check resource usage
 top
@@ -1543,16 +1543,16 @@ free -h
 df -h
 
 # Check logs
-docker logs jairouter-1 --tail 100
-tail -f logs/jairouter.log
+docker logs trunkline-1 --tail 100
+tail -f logs/trunkline.log
 ```
 
 ### 2. Performance Issue Troubleshooting
 
 ```bash
 # JVM performance analysis
-docker exec jairouter-1 jstack 1
-docker exec jairouter-1 jstat -gc 1 5s
+docker exec trunkline-1 jstack 1
+docker exec trunkline-1 jstat -gc 1 5s
 
 # Network performance analysis
 iftop

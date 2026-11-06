@@ -1,4 +1,4 @@
-# JAiRouter
+# Trunkline
 
 <!-- 版本信息 -->
 > **文档版本**: 1.0.0
@@ -6,6 +6,8 @@
 > **Git 提交**: b1088a7e
 > **作者**: Lincoln
 <!-- /版本信息 -->
+
+> **Trunkline** 是基于 [Trunkline](https://github.com/Lincoln-cn/Trunkline) 二次开发的企业治理网关，遵循 Apache License 2.0 发布，保留上游版权声明与署名。
 
 <p align="center">
   <strong>AI 模型服务统一网关</strong><br>
@@ -19,7 +21,7 @@
   <a href="configuration/index.md">
     <img src="https://img.shields.io/badge/配置指南-📖-green?style=for-the-badge" alt="配置指南">
   </a>
-  <a href="https://github.com/Lincoln-cn/JAiRouter">
+  <a href="https://github.com/Lincoln-cn/Trunkline">
     <img src="https://img.shields.io/badge/GitHub-🐙-black?style=for-the-badge" alt="GitHub">
   </a>
 </p>
@@ -48,7 +50,7 @@
 
 ```
 ┌─────────────────┐     ┌─────────────────────┐     ┌─────────────────┐
-│   OpenAI SDK    │────▶│     JAiRouter       │────▶│    Ollama       │
+│   OpenAI SDK    │────▶│     Trunkline      │────▶│    Ollama       │
 │   Langchain     │     │  • 负载均衡          │     │    vLLM         │
 │   HTTP Client   │     │  • 限流熔断          │     │    GPUStack     │
 └─────────────────┘     │  • 认证鉴权          │     │    Xinference   │
@@ -61,7 +63,7 @@
 
 ```bash
 # 启动服务（开发模式，零配置）
-docker run -d --name jairouter -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev sodlinken/jairouter:latest
+docker run -d --name trunkline -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev trunkline/trunkline:latest
 
 # 生产环境请提供 JWT 密钥：-e JWT_SECRET=<至少32字符>
 
@@ -86,11 +88,11 @@ open http://localhost:8080
 
 ## 📈 项目状态
 
-[![GitHub stars](https://img.shields.io/github/stars/Lincoln-cn/JAiRouter?style=social)](https://github.com/Lincoln-cn/JAiRouter)
-[![Docker Pulls](https://img.shields.io/docker/pulls/sodlinken/jairouter)](https://hub.docker.com/r/sodlinken/jairouter)
-[![License](https://img.shields.io/github/license/Lincoln-cn/JAiRouter)](https://github.com/Lincoln-cn/JAiRouter/blob/master/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/Lincoln-cn/Trunkline?style=social)](https://github.com/Lincoln-cn/Trunkline)
+[![Docker Pulls](https://img.shields.io/docker/pulls/trunkline/trunkline)](https://hub.docker.com/r/trunkline/trunkline)
+[![License](https://img.shields.io/github/license/Lincoln-cn/Trunkline)](https://github.com/Lincoln-cn/Trunkline/blob/master/LICENSE)
 
-> **当前版本**: v3.1.2 (2026-09-18)
+> **当前版本**: v3.3.1 (2026-10-14)
 
 ---
 
@@ -109,12 +111,12 @@ open http://localhost:8080
 
 ## 🤝 社区支持
 
-- [GitHub Issues](https://github.com/Lincoln-cn/JAiRouter/issues) - 问题反馈
-- [GitHub Discussions](https://github.com/Lincoln-cn/JAiRouter/discussions) - 讨论交流
+- [GitHub Issues](https://github.com/Lincoln-cn/Trunkline/issues) - 问题反馈
+- [GitHub Discussions](https://github.com/Lincoln-cn/Trunkline/discussions) - 讨论交流
 - [贡献指南](development/contributing.md) - 参与开发
 
 ---
 
 <p align="center">
-如果 JAiRouter 对您有帮助，请给个 ⭐️ <a href="https://github.com/Lincoln-cn/JAiRouter">Star</a> 支持一下！
+如果 Trunkline 对您有帮助，请给个 ⭐️ <a href="https://github.com/Lincoln-cn/Trunkline">Star</a> 支持一下！
 </p>

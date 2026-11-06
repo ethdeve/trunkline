@@ -1,7 +1,7 @@
 {
   "providerTemplate": {
     "title": "模型供应商模板",
-    "tip": "维护「接入厂商预设目录」与「新增适配器 → 从模板创建」共用的供应商模板；内置模板不可修改，自定义模板保存后立即在两处生效",
+    "tip": "这里是各厂商的预设信息：接入管理选厂商、适配器向导「从模板创建」都用它。内置预设不可修改，自定义预设保存后两处立即生效",
     "create": "添加模板",
     "refresh": "刷新",
     "name": "供应商名称",
@@ -9,7 +9,7 @@
     "description": "描述",
     "categoryLabel": "分类",
     "type": "类型",
-    "baseUrl": "默认地址",
+    "baseUrl": "接口地址",
     "models": "常用模型",
     "modelsPlaceholder": "每行一个模型名称，也可用逗号分隔，如：\ndeepseek-chat\ndeepseek-reasoner",
     "sortOrder": "排序",
@@ -28,7 +28,7 @@
     "descPlaceholder": "模板描述，如：DeepSeek Chat/Code API",
     "authHeader": "认证 Header",
     "headerPrefix": "Header 前缀",
-    "capabilities": "能力配置",
+    "capabilities": "支持哪些功能",
     "typeOpenai": "OpenAI 兼容",
     "typeOllama": "Ollama 兼容",
     "category": {
@@ -44,8 +44,9 @@
       "nameRequired": "请输入供应商名称",
       "categoryRequired": "请选择分类",
       "typeRequired": "请选择类型",
-      "baseUrlRequired": "请输入默认地址",
-      "baseUrlInvalid": "请输入有效的 URL（以 http:// 或 https:// 开头）"
+      "baseUrlRequired": "请输入接口地址",
+      "baseUrlInvalid": "请输入有效的 URL（以 http:// 或 https:// 开头）",
+      "fixErrors": "表单还有未通过校验的字段，请检查后重试"
     },
     "fetchFailed": "获取模板列表失败: {error}",
     "deleteConfirm": "确定要删除模板「{name}」吗？删除后预设目录与适配器向导将不再展示该供应商。",
@@ -80,6 +81,8 @@
     "hideUnavailable": "一键隐藏不可用",
     "hideUnavailableConfirm": "即将隐藏 {count} 个检测为不可用的默认供应商模板，确定继续？",
     "hideUnavailableDone": "已隐藏 {count} 个不可用模板",
-    "detectDone": "检测完成：{total} 家，可用 {ok} 家，不可用 {bad} 家"
+    "detectDone": "检测完成：{total} 家，可用 {ok} 家，不可用 {bad} 家",
+    "advancedTitle": "高级设置（一般不用改）",
+    "templateIdNote": "模板的技术编号，创建后不可改；不改也不影响使用"
   }
 }

@@ -1,4 +1,4 @@
-﻿# JAiRouter Slow Query Alert Feature
+﻿# Trunkline Slow Query Alert Feature
 
 <!-- 版本信息 -->
 > **Doc Version**: 1.0.0
@@ -9,11 +9,11 @@
 
 ## Overview
 
-JAiRouter's slow query alert feature is a complete performance monitoring and alerting system that can automatically detect slow operations in the system and send alert notifications based on configured strategies. This feature integrates distributed tracing, structured logging, and Prometheus metric export.
+Trunkline's slow query alert feature is a complete performance monitoring and alerting system that can automatically detect slow operations in the system and send alert notifications based on configured strategies. This feature integrates distributed tracing, structured logging, and Prometheus metric export.
 
 ## Configuration File Structure
 
-JAiRouter uses a modular configuration management approach, with slow query alert configuration located in a separate configuration file:
+Trunkline uses a modular configuration management approach, with slow query alert configuration located in a separate configuration file:
 
 - **Main Configuration File**: `src/main/resources/application.yml`
 - **Slow Query Alert Configuration File**: `src/main/resources/config/monitor/slow-query-alerts.yml`
@@ -60,7 +60,7 @@ spring:
 Configure in `slow-query-alerts.yml`:
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       enabled: true
@@ -75,7 +75,7 @@ jairouter:
 ### 2. Configure Operation-Specific Thresholds
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       operations:
@@ -181,9 +181,9 @@ Configure alert rules in Prometheus:
 
 ```yaml
 groups:
-  - name: jairouter.slow-query-alerts
+  - name: trunkline.slow-query-alerts
     rules:
-      - alert: JAiRouterSlowQueryDetected
+      - alert: TrunklineSlowQueryDetected
         expr: increase(slow_query_total[5m]) > 0
         for: 0m
         labels:
@@ -249,7 +249,7 @@ Different environments can override slow query alert configuration through corre
 ### Development Environment (application-dev.yml)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       enabled: true
@@ -261,7 +261,7 @@ jairouter:
 ### Production Environment (application-prod.yml)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       enabled: true

@@ -27,6 +27,7 @@ import org.unreal.modelrouter.common.dto.TokenStatus;
 import org.unreal.modelrouter.common.dto.TokenValidationRequest;
 import org.unreal.modelrouter.common.dto.TokenValidationResponse;
 import org.unreal.modelrouter.auth.security.authentication.JwtTokenValidator;
+import org.unreal.modelrouter.auth.security.service.JwtTokenOwnershipValidator;
 import org.unreal.modelrouter.auth.security.service.JwtTokenRefreshService;
 import org.unreal.modelrouter.auth.security.service.JwtPersistenceService;
 import org.unreal.modelrouter.auth.security.service.JwtCleanupService;
@@ -49,7 +50,7 @@ import org.unreal.modelrouter.common.exception.ApiException;
 @RequestMapping("/api/auth/jwt")
 @RequiredArgsConstructor
 @Tag(name = "JWT Token Management", description = "JWT令牌管理API")
-@ConditionalOnProperty(name = "jairouter.security.jwt.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.jwt.enabled", havingValue = "true")
 public class JwtTokenController {
 
     private final JwtTokenRefreshService tokenRefreshService;
@@ -77,6 +78,17 @@ public class JwtTokenController {
 
     /**
      * 撤销JWT令牌
+     *
+     * <p><b>授权语义（P0-L 安全修复）</b>：ADMIN 可撤销任意令牌；普通用户只能撤销
+     * <b>自己</b>的令牌。
+     *
+     * <p>原实现用 {@code @PreAuthorize("hasRole('ADMIN') or authentication.name == #request.userId")}
+     * 判定，但 {@code userId} 来自<b>请求体</b>（调用方可任意填写），且前端/脚本调用时
+     * 通常只传 {@code token} 不传 {@code userId} → SpEL 求值为 null → 普通用户恒 403，
+     * 「用户自助吊销自己的令牌」这个功能实际不可用（实测 403 Access Denied）。
+     *
+     * <p>现改为：方法级只要求已认证（{@code isAuthenticated()}），真正的归属判定在方法体内
+     * 用<b>令牌自身的 subject</b> 完成 —— 不采信任何请求体字段，从根上消除伪造空间。
      */
     @PostMapping("/revoke")
     @Operation(summary = "撤销JWT令牌", description = "将指定的JWT令牌加入黑名单")
@@ -85,7 +97,7 @@ public class JwtTokenController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "权限不足")
     })
-    @PreAuthorize("hasRole('ADMIN') or authentication.name == #request.userId")
+    @PreAuthorize("isAuthenticated()")
     public Mono<RouterResponse<JwtApiResponse>> revokeToken(
             @Parameter(description = "令牌撤销请求") @RequestBody final TokenRevokeRequest request,
             final Authentication authentication) {
@@ -96,16 +108,38 @@ public class JwtTokenController {
                         ? request.getToken().substring(0, Math.min(10, request.getToken().length())) + "..."
                         : "tokenHash");
 
+        final String currentUser = authentication != null ? authentication.getName() : null;
+        final boolean isAdmin = authentication != null
+                && authentication.getAuthorities() != null
+                && authentication.getAuthorities().stream()
+                        .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
+
+        // 非 ADMIN 只能撤销自己的令牌 —— 归属以「令牌自身的 subject」为准，
+        // 不采信请求体里的 userId（可伪造）。
+        return tokenRefreshService.subjectOf(request.getToken())
+                .flatMap(tokenSubject -> {
+                    if (!isAdmin) {
+                        final JwtTokenOwnershipValidator.Result ownership =
+                                JwtTokenOwnershipValidator.check(tokenSubject, currentUser);
+                        if (ownership != JwtTokenOwnershipValidator.Result.ALLOWED) {
+                            return Mono.error(ApiException.of(
+                                    "TOKEN_REVOKE_FORBIDDEN", "只能撤销属于自己的令牌",
+                                    org.springframework.http.HttpStatus.FORBIDDEN));
+                        }
+                    }
+                    return Mono.just(Boolean.TRUE);
+                })
+                .then(Mono.defer(() -> {
         // 检查是否是tokenHash（通常是Base64编码，长度较短）还是完整token
         String tokenToRevoke = request.getToken();
         boolean isTokenHash = tokenToRevoke != null && !tokenToRevoke.contains(".") && tokenToRevoke.length() < 100;
-        
+
         Mono<Void> revokeMono;
         if (isTokenHash) {
             // 直接使用tokenHash进行撤销
             revokeMono = jwtTokenManagementService != null
                     ? jwtTokenManagementService.revokeTokenByHash(tokenToRevoke, request.getReason(),
-                            authentication != null ? authentication.getName() : "system")
+                            currentUser != null ? currentUser : "system")
                     : Mono.empty();
         } else {
             // 使用完整token进行撤销
@@ -113,7 +147,7 @@ public class JwtTokenController {
                     .then(jwtTokenManagementService != null
                             ? jwtTokenManagementService.updateTokenStatus(tokenToRevoke, TokenStatus.REVOKED,
                                     request.getReason() != null ? request.getReason() : "手动撤销",
-                                    authentication != null ? authentication.getName() : "system")
+                                    currentUser != null ? currentUser : "system")
                             : Mono.empty());
         }
 
@@ -136,6 +170,7 @@ public class JwtTokenController {
 
                     return Mono.error(ApiException.of("TOKEN_REVOKE_FAILED", "令牌撤销失败: " + ex.getMessage()));
                 });
+                }));
     }
 
     /**

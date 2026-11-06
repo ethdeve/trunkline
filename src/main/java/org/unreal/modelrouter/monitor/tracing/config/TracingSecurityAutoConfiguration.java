@@ -24,11 +24,12 @@ import org.unreal.modelrouter.monitor.tracing.security.TracingSecurityManager;
  * 
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @Configuration
 @EnableConfigurationProperties(TracingConfiguration.class)
-@ConditionalOnProperty(name = "jairouter.tracing.security.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.tracing.security.enabled", havingValue = "true", matchIfMissing = true)
 @Import({TracingSecurityConfiguration.class})
 public class TracingSecurityAutoConfiguration {
 
@@ -37,7 +38,7 @@ public class TracingSecurityAutoConfiguration {
      */
     @Bean
     @ConditionalOnProperty(
-            name = "jairouter.tracing.security.sanitization.enabled",
+            name = "trunkline.tracing.security.sanitization.enabled",
             havingValue = "true", matchIfMissing = true)
     public TracingSanitizationService tracingSanitizationService(
             final SanitizationService sanitizationService,
@@ -56,7 +57,7 @@ public class TracingSecurityAutoConfiguration {
      */
     @Bean
     @ConditionalOnProperty(
-            name = "jairouter.tracing.security.access-control.enabled",
+            name = "trunkline.tracing.security.access-control.enabled",
             havingValue = "true", matchIfMissing = true)
     public TracingSecurityManager tracingSecurityManager(
             final TracingConfiguration tracingConfiguration,
@@ -73,7 +74,7 @@ public class TracingSecurityAutoConfiguration {
      */
     @Bean
     @ConditionalOnProperty(
-            name = "jairouter.tracing.security.encryption.enabled",
+            name = "trunkline.tracing.security.encryption.enabled",
             havingValue = "true", matchIfMissing = true)
     public TracingEncryptionService tracingEncryptionService(
             final TracingConfiguration tracingConfiguration,

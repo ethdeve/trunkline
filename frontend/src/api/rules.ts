@@ -76,7 +76,10 @@ export interface RuleStat {
   ruleId: string
   ruleName: string
   actionType: string
+  /** 进程生命周期内累计命中次数 */
   hits: number
+  /** 本自然月命中次数（跨月归零） */
+  monthHits?: number
 }
 
 // 规则场景模板

@@ -10,7 +10,7 @@
 # 于是 K8s Job 的成败可以直接判读，不再需要 activeDeadlineSeconds 兜底
 # （见 deploy/k8s/base/migration-job.yaml）。
 #
-# 保持向后兼容：显式传 `--jairouter.migration.exit-after-run=true` 仍照旧生效，
+# 保持向后兼容：显式传 `--trunkline.migration.exit-after-run=true` 仍照旧生效，
 # 本 profile 只是把「非 Web + 跑完退出」这两件事收成一个可复用的入口。
 
 spring:
@@ -18,7 +18,7 @@ spring:
     # 迁移不需要监听端口，也不该占用端口
     web-application-type: none
 
-jairouter:
+trunkline:
   migration:
     # 启动与迁移完成后主动退出进程（MigrationExitRunner）
     exit-after-run: true

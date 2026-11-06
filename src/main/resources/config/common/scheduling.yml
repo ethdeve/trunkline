@@ -3,7 +3,7 @@
 # ========================================
 # 位置：org.unreal.modelrouter.common.scheduling
 
-jairouter:
+trunkline:
   scheduling:
     # 定时任务的跨副本排他锁。
     #

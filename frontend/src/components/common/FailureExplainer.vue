@@ -11,6 +11,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { isStaff } from '@/constants/employeeTerms'
 
 const props = withDefaults(
   defineProps<{
@@ -45,34 +46,37 @@ const explanation = computed<Explanation | null>(() => {
   const err = (props.errorCode || '').toUpperCase()
 
   if (props.circuitBroken) {
-    return { key: 'circuitBroken', target: 'circuit', route: '/strategy?tab=circuit' }
+    // 熔断配置的真实落点是「全局配置 → 熔断阈值」tab（原 /strategy?tab=circuit 已随策略中心收敛而失效）
+    return { key: 'circuitBroken', target: 'circuit', route: '/settings/global?tab=circuit' }
   }
   if (err === 'RATE_LIMITED_API_KEY') {
-    return { key: 'rateLimited', target: 'rate', route: '/observe?tab=rate' }
+    // 限流在「接入管理 → 模型配置」表内配置（原 /observe?tab=rate 已随观测中心瘦身而无此 tab）
+    return { key: 'rateLimited', target: 'rate', route: '/providers?tab=models' }
   }
   if (err === 'DAILY_QUOTA_EXCEEDED') {
-    return { key: 'dailyQuota', target: 'keys', route: '/keys' }
+    return { key: 'dailyQuota', target: 'keys', route: '/all-keys' }
   }
   if (err === 'TOKEN_QUOTA_EXCEEDED') {
-    return { key: 'tokenQuota', target: 'keys', route: '/keys' }
+    return { key: 'tokenQuota', target: 'keys', route: '/all-keys' }
   }
   if (code === 429 || props.rateLimited) {
-    return { key: 'throttled', target: 'rate', route: '/observe?tab=rate' }
+    return { key: 'throttled', target: 'rate', route: '/providers?tab=models' }
   }
   if (code === 401) {
-    return { key: 'unauthorized', target: 'keys', route: '/keys' }
+    return { key: 'unauthorized', target: 'keys', route: '/all-keys' }
   }
   if (code === 403) {
-    return { key: 'forbidden', target: 'keys', route: '/keys' }
+    return { key: 'forbidden', target: 'keys', route: '/all-keys' }
   }
   if (code === 404) {
-    return { key: 'notFound', target: 'instances', route: '/models' }
+    // 实例排查入口随 P0-0 迁入「接入管理」，现落在「模型配置」tab（原 /models 已下线）
+    return { key: 'notFound', target: 'instances', route: '/providers?tab=models' }
   }
   if (code >= 500) {
-    return { key: 'upstreamError', target: 'instances', route: '/models' }
+    return { key: 'upstreamError', target: 'instances', route: '/providers?tab=models' }
   }
   if (code === 408 || (props.responseTimeMs ?? 0) >= 60_000) {
-    return { key: 'timeout', target: 'instances', route: '/models' }
+    return { key: 'timeout', target: 'instances', route: '/providers?tab=models' }
   }
   if (code >= 400) {
     return { key: 'badRequest', target: 'none', route: '' }
@@ -80,13 +84,34 @@ const explanation = computed<Explanation | null>(() => {
   return null
 })
 
-const text = computed(() =>
-  explanation.value ? t(`callHistory.failureExplain.${explanation.value.key}`) : ''
-)
+/**
+ * 取词：员工侧走人话，运维侧保留技术词。
+ *
+ * 命名空间约定：`failureExplain.<key>` = 运维侧文案（技术精确）；
+ * `failureExplain.staff.<key>` = 员工侧人话。员工侧文案必须避开 STAFF_ONLY_TERMS
+ * 黑名单（实例 / 熔断 / 令牌桶 / 适配器 …），否则违反员工侧术语验收。
+ */
+const text = computed(() => {
+  if (!explanation.value) return ''
+  const key = explanation.value.key
+  if (!isStaff()) {
+    const spoken = t(`failureExplain.staff.${key}`)
+    // 员工侧文案缺失时回退到运维侧文案，避免显示原始 key
+    return spoken === `failureExplain.staff.${key}` ? t(`failureExplain.${key}`) : spoken
+  }
+  return t(`failureExplain.${key}`)
+})
 
 const actionText = computed(() => {
   if (!explanation.value || explanation.value.target === 'none') return ''
-  return t(`callHistory.failureExplain.actions.${explanation.value.target}`)
+  const target = explanation.value.target
+  if (!isStaff()) {
+    const spoken = t(`failureExplain.staff.actions.${target}`)
+    return spoken === `failureExplain.staff.actions.${target}`
+      ? t(`failureExplain.actions.${target}`)
+      : spoken
+  }
+  return t(`failureExplain.actions.${target}`)
 })
 
 function goFix() {

@@ -20,6 +20,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
@@ -39,15 +41,15 @@ import java.util.function.Supplier;
  *       以 Redis 为准（见 {@link #usageStrict(QuotaDimension, QuotaWindow)}）。</li>
  *   <li><b>冷启动续算</b>：本地槽位首次被访问时从数据库读取基线（该维度的历史累计值），
  *       使重启后用量连续；读取失败会抛异常，由 {@link #reserve(QuotaRequest)} 捕获并按 fail-open 处理。</li>
- *   <li><b>分布式计数与降级</b>（v3.1 PR-3）：{@code jairouter.quota.distributed.enabled=true} 且
+ *   <li><b>分布式计数与降级</b>（v3.1 PR-3）：{@code trunkline.quota.distributed.enabled=true} 且
  *       装配了 {@link QuotaCounterBackend} 时，Redis 为权威计数，本地后端退化为“镜像 + 降级兜底”：
  *       <ul>
  *         <li>写入路径：先记本地镜像（保证降级视图与快照完整），再以 Lua 原子累加写 Redis；
  *             Redis 失败时把增量登记为“待补写”，下一次成功写入时合并补写，保证降级期间计数不丢；</li>
  *         <li>读取路径：优先读 Redis（跨实例一致），Redis 不可用时按
- *             {@code jairouter.quota.distributed.degrade-to-local} 决定是否回退到本地视图 / 数据库快照；</li>
+ *             {@code trunkline.quota.distributed.degrade-to-local} 决定是否回退到本地视图 / 数据库快照；</li>
  *         <li>任何 Redis 异常都不会抛给调用方：只打告警日志、累加降级指标并标记
- *             {@link #isDegraded() degraded}，放行/拒绝仍由 {@code jairouter.quota.fail-open} 决定；</li>
+ *             {@link #isDegraded() degraded}，放行/拒绝仍由 {@code trunkline.quota.fail-open} 决定；</li>
  *         <li>超时属“结果未知”（命令可能已生效）：不重试同一增量，宁可少计也不重复计——
  *             少计偏向放行，与默认 {@code fail-open=true} 的安全取向一致。</li>
  *       </ul>
@@ -73,17 +75,18 @@ import java.util.function.Supplier;
  *       它们要求调用方已在可阻塞线程上（生产入口均满足）。</li>
  *   <li><b>绝不抛出</b>：{@link #reserve(QuotaRequest)} / {@link #settle(QuotaSettlement)} /
  *       查询 / 清理接口都不会把异常抛给调用方；账本不可用时按
- *       {@code jairouter.quota.fail-open}（默认 true）放行并标记 {@code degraded=true}。
+ *       {@code trunkline.quota.fail-open}（默认 true）放行并标记 {@code degraded=true}。
  *       唯一例外是 {@link #usageStrict(QuotaDimension, QuotaWindow)}（v3.1 PR-2 新增，供限额判定
  *       区分“零用量”与“读不到用量”），它把读取异常抛给调用方，由调用方按 fail-open 处理。</li>
  *   <li><b>多实例语义</b>：默认（{@code distributed.enabled=false}）仅保证单实例内计数精确；
  *       开启分布式计数后额度由 Redis 共享，本地计数仅在降级期间作为兜底视图。</li>
  * </ul>
  *
- * <p>{@code jairouter.quota.enabled=false}（默认）时所有方法立即返回、不访问数据库与 Redis。</p>
+ * <p>{@code trunkline.quota.enabled=false}（默认）时所有方法立即返回、不访问数据库与 Redis。</p>
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @Service
@@ -91,6 +94,12 @@ public class QuotaLedgerService {
 
     /** 过期行清理调度表达式：每小时第 23 分钟执行（避开整点高峰） */
     private static final String CLEANUP_CRON = "0 23 * * * ?";
+
+    /** 结算 Redis 补写重试队列容量（超出后丢弃并计 dropped 指标；pending 仍保留在本地后端） */
+    private static final int SETTLE_RETRY_QUEUE_CAPACITY = 4096;
+
+    /** 单次重试调度最多处理的键数（避免单次任务阻塞过久） */
+    private static final int SETTLE_RETRY_BATCH = 512;
 
     /** Redis 计数后端不可用（连接失败 / 命令错误），已降级为本地计数 */
     public static final String REASON_REDIS_UNAVAILABLE = "quota-counter-redis-unavailable";
@@ -123,13 +132,21 @@ public class QuotaLedgerService {
     private volatile String degradedReason = "";
 
     /**
+     * 结算 Redis 补写重试队列：存放“结算时 Redis 补写失败”的计数键。
+     * 本地增量已写入本地后端，失败的 Redis 增量也已转入该键的 pending，由后台调度重试补写，
+     * 避免 fire-and-forget 的 settlement 在 Redis 抖动后静默丢失跨实例权威计数。
+     */
+    private final BlockingQueue<QuotaCounterKey> settleRetryQueue =
+            new LinkedBlockingQueue<>(SETTLE_RETRY_QUEUE_CAPACITY);
+
+    /**
      * Spring 使用的主构造器。
      *
      * @param repository         账本仓库
      * @param properties         账本配置
      * @param metrics            配额计数指标（记录后端类型 / 降级次数 / Redis 命令耗时）
      * @param distributedBackends 分布式计数后端提供者（仅在
-     *                            {@code jairouter.quota.distributed.enabled=true} 时存在 Bean）
+     *                            {@code trunkline.quota.distributed.enabled=true} 时存在 Bean）
      */
     @Autowired
     public QuotaLedgerService(final QuotaLedgerRepository repository,
@@ -169,6 +186,7 @@ public class QuotaLedgerService {
                 REASON_REDIS_NOT_CONFIGURED);
         }
         this.metrics.recordBackend(this.distributed);
+        this.metrics.registerSettleRetryQueueGauge(settleRetryQueue::size);
         log.info("配额账本初始化: enabled={}, backend={}, failOpen={}, windows={}", properties.isEnabled(),
             backendName(), properties.isFailOpen(), properties.enabledWindows());
     }
@@ -199,7 +217,7 @@ public class QuotaLedgerService {
     /**
      * 账本是否启用。
      *
-     * @return {@code jairouter.quota.enabled} 的值，默认 {@code false}
+     * @return {@code trunkline.quota.enabled} 的值，默认 {@code false}
      */
     public boolean isEnabled() {
         return properties.isEnabled();
@@ -245,7 +263,7 @@ public class QuotaLedgerService {
      * 预留一次配额：对全部已启用窗口原子累加请求数（+1）与预估 token。
      *
      * <p>本方法不会抛出异常：账本未启用时直接返回“未启用”决策；账本读写异常时按
-     * {@code jairouter.quota.fail-open} 返回放行（默认）或拒绝（fail-closed）并标记 {@code degraded=true}；
+     * {@code trunkline.quota.fail-open} 返回放行（默认）或拒绝（fail-closed）并标记 {@code degraded=true}；
      * 分布式计数不可用时降级为本地计数，原因见 {@link #degradedReason()}。</p>
      *
      * @param request 预留请求，可为 {@code null}
@@ -575,6 +593,9 @@ public class QuotaLedgerService {
                     failure = classify(e);
                     log.warn("Redis 计数结算补写失败，降级为本地计数: apiKeyId={}, window={}, reason={}, error={}",
                         dimension.apiKeyId(), window, failure, e.toString());
+                    // 本地增量已写入；失败的 Redis 增量已转入该键 pending，入重试队列后台补写
+                    metrics.recordSettlePublishFailure();
+                    enqueueSettleRetry(key);
                 }
             }
             if (failure != null) {
@@ -584,6 +605,74 @@ public class QuotaLedgerService {
         } catch (Exception e) {
             log.warn("配额账本 settle 异常（忽略，不影响请求结果）: apiKeyId={}, error={}",
                 settlement.dimension().apiKeyId(), e.toString());
+        }
+    }
+
+    /**
+     * 把结算补写失败的计数键加入重试队列（队列满则丢弃并计 dropped 指标；
+     * 失败的 Redis 增量仍保留在该键的本地 pending，待下次流量或重试补写）。
+     *
+     * @param key 失败的计数键
+     */
+    private void enqueueSettleRetry(final QuotaCounterKey key) {
+        if (!settleRetryQueue.offer(key)) {
+            metrics.recordSettleRetryDropped();
+            log.warn("配额结算重试队列已满，丢弃重试（pending 仍保留在本地后端）: apiKeyId={}, window={}",
+                key.dimension().apiKeyId(), key.window());
+        }
+    }
+
+    /**
+     * 结算补写后台重试（定时调度，仅分布式模式生效）。
+     *
+     * <p>只做 Redis 补写：取出失败的计数键，按 {@code publish(key, 0, 0, false)} 把该键在本地后端
+     * 累积的 pending（含此前失败的结算增量）一次性刷到 Redis；本地增量在结算时已写入，这里<b>不</b>
+     * 重复累加。仍失败则重新入队（受队列容量约束），直到 Redis 恢复或队列溢出。</p>
+     *
+     * @return 本轮成功补写的键数
+     */
+    @Scheduled(fixedDelayString = "${trunkline.quota.settle-retry-interval-seconds:5}", timeUnit = TimeUnit.SECONDS)
+    public int retrySettlements() {
+        if (!isEnabled() || !distributed) {
+            return 0;
+        }
+        int processed = 0;
+        // 失败键先收集、批次结束后统一回插：避免“出队即重入队”在同一批次内自我循环（Redis 持续不可用时会打转刷爆日志）
+        final List<QuotaCounterKey> failed = new ArrayList<>();
+        QuotaCounterKey key;
+        while (processed < SETTLE_RETRY_BATCH && (key = settleRetryQueue.poll()) != null) {
+            try {
+                publish(key, 0L, 0L, false);
+                processed++;
+            } catch (Exception e) {
+                metrics.recordSettleRetryFailure();
+                log.warn("配额结算重试仍失败（批次结束后重新入队）: apiKeyId={}, window={}, error={}",
+                    key.dimension().apiKeyId(), key.window(), e.toString());
+                failed.add(key);
+            }
+        }
+        for (final QuotaCounterKey retryKey : failed) {
+            enqueueSettleRetry(retryKey);
+        }
+        return processed;
+    }
+
+    /**
+     * 应用关闭前尽力把重试队列中的 pending 补写一遍（不阻塞过久：队列为空或无 pending 时立即返回）。
+     */
+    private void drainSettleRetries() {
+        if (!distributed) {
+            settleRetryQueue.clear();
+            return;
+        }
+        QuotaCounterKey key;
+        while ((key = settleRetryQueue.poll()) != null) {
+            try {
+                publish(key, 0L, 0L, false);
+            } catch (Exception e) {
+                log.warn("配额结算关闭前补写失败（pending 随进程退出丢弃）: apiKeyId={}, window={}, error={}",
+                    key.dimension().apiKeyId(), key.window(), e.toString());
+            }
         }
     }
 
@@ -1073,7 +1162,7 @@ public class QuotaLedgerService {
      *
      * @return 成功落库的槽位数
      */
-    @Scheduled(fixedDelayString = "${jairouter.quota.flush-interval-seconds:60}", timeUnit = TimeUnit.SECONDS)
+    @Scheduled(fixedDelayString = "${trunkline.quota.flush-interval-seconds:60}", timeUnit = TimeUnit.SECONDS)
     public int flush() {
         if (!isEnabled()) {
             return 0;
@@ -1105,6 +1194,7 @@ public class QuotaLedgerService {
         } catch (Exception e) {
             log.warn("配额账本关闭前落库失败: {}", e.toString());
         }
+        drainSettleRetries();
         localBackend.clear();
     }
 

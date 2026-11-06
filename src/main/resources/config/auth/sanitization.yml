@@ -4,7 +4,7 @@
 # 此文件包含响应数据脱敏配置
 # 位置：org.unreal.modelrouter.auth.security
 
-jairouter:
+trunkline:
   security:
     sanitization:
       response:

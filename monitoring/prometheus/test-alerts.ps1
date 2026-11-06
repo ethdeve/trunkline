@@ -1,4 +1,4 @@
-# JAiRouter Prometheus告警规则测试脚本 (PowerShell版本)
+# Trunkline Prometheus告警规则测试脚本 (PowerShell版本)
 # 用于验证告警规则的语法和逻辑正确性
 
 param(
@@ -10,7 +10,7 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RulesDir = Join-Path $ScriptDir "rules"
 
-Write-Host "=== JAiRouter告警规则测试 ===" -ForegroundColor Green
+Write-Host "=== Trunkline告警规则测试 ===" -ForegroundColor Green
 Write-Host "规则目录: $RulesDir"
 Write-Host "Prometheus地址: $PrometheusUrl"
 Write-Host
@@ -54,20 +54,20 @@ Write-Host "2. 验证告警规则查询表达式..." -ForegroundColor Cyan
 # 定义测试查询列表
 $testQueries = @(
     # 基础服务告警查询
-    'up{job="jairouter"}',
-    'sum(rate(jairouter_requests_total{status=~"4..|5.."}[5m])) by (instance) / sum(rate(jairouter_requests_total[5m])) by (instance)',
+    'up{job="trunkline"}',
+    'sum(rate(trunkline_requests_total{status=~"4..|5.."}[5m])) by (instance) / sum(rate(trunkline_requests_total[5m])) by (instance)',
     
     # 性能告警查询
-    'histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le, service))',
-    'sum(rate(jairouter_requests_total[5m])) by (instance)',
+    'histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le, service))',
+    'sum(rate(trunkline_requests_total[5m])) by (instance)',
     
     # 后端服务告警查询
-    'jairouter_backend_health',
-    'histogram_quantile(0.95, sum(rate(jairouter_backend_call_duration_seconds_bucket[5m])) by (le, adapter))',
+    'trunkline_backend_health',
+    'histogram_quantile(0.95, sum(rate(trunkline_backend_call_duration_seconds_bucket[5m])) by (le, adapter))',
     
     # 基础设施告警查询
-    'jairouter_circuit_breaker_state',
-    'sum(rate(jairouter_rate_limit_events_total{result="rejected"}[5m])) by (service)',
+    'trunkline_circuit_breaker_state',
+    'sum(rate(trunkline_rate_limit_events_total{result="rejected"}[5m])) by (service)',
     
     # 资源告警查询
     'jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"}',
@@ -113,20 +113,20 @@ Write-Host
 # 3. 告警规则覆盖率检查
 Write-Host "3. 检查告警规则覆盖率..." -ForegroundColor Cyan
 
-$alertsFile = Join-Path $RulesDir "jairouter-alerts.yml"
+$alertsFile = Join-Path $RulesDir "trunkline-alerts.yml"
 if (Test-Path $alertsFile) {
     $content = Get-Content $alertsFile -Raw
     
     # 统计各类告警数量
-    $basicAlerts = ([regex]::Matches($content, "name: jairouter\.basic")).Count
-    $performanceAlerts = ([regex]::Matches($content, "name: jairouter\.performance")).Count
-    $backendAlerts = ([regex]::Matches($content, "name: jairouter\.backend")).Count
-    $infrastructureAlerts = ([regex]::Matches($content, "name: jairouter\.infrastructure")).Count
-    $resourceAlerts = ([regex]::Matches($content, "name: jairouter\.resources")).Count
-    $businessAlerts = ([regex]::Matches($content, "name: jairouter\.business")).Count
-    $securityAlerts = ([regex]::Matches($content, "name: jairouter\.security")).Count
-    $capacityAlerts = ([regex]::Matches($content, "name: jairouter\.capacity")).Count
-    $dependencyAlerts = ([regex]::Matches($content, "name: jairouter\.dependencies")).Count
+    $basicAlerts = ([regex]::Matches($content, "name: trunkline\.basic")).Count
+    $performanceAlerts = ([regex]::Matches($content, "name: trunkline\.performance")).Count
+    $backendAlerts = ([regex]::Matches($content, "name: trunkline\.backend")).Count
+    $infrastructureAlerts = ([regex]::Matches($content, "name: trunkline\.infrastructure")).Count
+    $resourceAlerts = ([regex]::Matches($content, "name: trunkline\.resources")).Count
+    $businessAlerts = ([regex]::Matches($content, "name: trunkline\.business")).Count
+    $securityAlerts = ([regex]::Matches($content, "name: trunkline\.security")).Count
+    $capacityAlerts = ([regex]::Matches($content, "name: trunkline\.capacity")).Count
+    $dependencyAlerts = ([regex]::Matches($content, "name: trunkline\.dependencies")).Count
     
     $totalAlertRules = ([regex]::Matches($content, "- alert:")).Count
     
@@ -168,11 +168,11 @@ Write-Host "5. 生成测试报告..." -ForegroundColor Cyan
 
 $reportPath = Join-Path $ScriptDir "alert-test-report.md"
 $reportContent = @"
-# JAiRouter告警规则测试报告
+# Trunkline告警规则测试报告
 
 ## 测试概要
 - 测试时间: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-- 规则文件: jairouter-alerts.yml
+- 规则文件: trunkline-alerts.yml
 - Prometheus地址: $PrometheusUrl
 - 测试平台: Windows PowerShell
 
@@ -208,10 +208,10 @@ $reportContent = @"
 ## 测试命令
 ``````powershell
 # 语法检查
-promtool check rules monitoring/prometheus/rules/jairouter-alerts.yml
+promtool check rules monitoring/prometheus/rules/trunkline-alerts.yml
 
 # 查询验证
-Invoke-RestMethod -Uri "$PrometheusUrl/api/v1/query?query=up{job=`"jairouter`"}"
+Invoke-RestMethod -Uri "$PrometheusUrl/api/v1/query?query=up{job=`"trunkline`"}"
 ``````
 
 ## Windows平台说明

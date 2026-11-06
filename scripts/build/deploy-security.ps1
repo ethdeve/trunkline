@@ -1,5 +1,5 @@
-# JAiRouter 安全功能部署脚本 (PowerShell)
-# 用于部署启用安全功能的 JAiRouter 实例
+# Trunkline 安全功能部署脚本 (PowerShell)
+# 用于部署启用安全功能的 Trunkline 实例
 
 param(
     [switch]$Help,
@@ -60,7 +60,7 @@ function Log-Error {
 # 显示帮助信息
 function Show-Help {
     @"
-JAiRouter 安全功能部署脚本 (PowerShell)
+Trunkline 安全功能部署脚本 (PowerShell)
 
 用法: .\deploy-security.ps1 [选项]
 
@@ -115,7 +115,7 @@ function New-DefaultEnvFile {
         Log-Info "创建默认环境变量文件: $EnvFilePath"
         
         $envContent = @'
-# JAiRouter 安全功能环境变量配置
+# Trunkline 安全功能环境变量配置
 
 # 安全功能总开关
 JAIROUTER_SECURITY_ENABLED=true
@@ -144,7 +144,7 @@ REDIS_DATABASE=0
 REDIS_TIMEOUT=2000
 
 # 其他配置
-COMPOSE_PROJECT_NAME=jairouter-security
+COMPOSE_PROJECT_NAME=trunkline-security
 '@
         
         Set-Content -Path $EnvFilePath -Value $envContent -Encoding UTF8
@@ -221,7 +221,7 @@ function Test-EnvVariables {
 function Build-Images {
     param([bool]$ForceBuild, [string]$DockerComposeCmd)
     
-    Log-Info "构建 JAiRouter 镜像..."
+    Log-Info "构建 Trunkline 镜像..."
     
     Push-Location $ProjectRoot
     try {
@@ -246,12 +246,12 @@ function Build-Images {
 function Deploy-Services {
     param([bool]$EnableMonitoring, [string]$DockerComposeCmd)
     
-    Log-Info "部署 JAiRouter 安全功能服务..."
+    Log-Info "部署 Trunkline 安全功能服务..."
     
     Push-Location $ProjectRoot
     try {
         # 基础服务
-        $services = @("jairouter", "redis")
+        $services = @("trunkline", "redis")
         
         # 如果启用监控，添加监控服务
         if ($EnableMonitoring) {
@@ -277,7 +277,7 @@ function Deploy-Services {
 function Stop-Services {
     param([string]$DockerComposeCmd)
     
-    Log-Info "停止 JAiRouter 服务..."
+    Log-Info "停止 Trunkline 服务..."
     
     Push-Location $ProjectRoot
     try {
@@ -298,7 +298,7 @@ function Stop-Services {
 function Restart-Services {
     param([string]$DockerComposeCmd)
     
-    Log-Info "重启 JAiRouter 服务..."
+    Log-Info "重启 Trunkline 服务..."
     
     Push-Location $ProjectRoot
     try {
@@ -369,9 +369,9 @@ function Test-Health {
         
         try {
             $response = Invoke-WebRequest -Uri "http://localhost:8080/actuator/health" -TimeoutSec 5 -UseBasicParsing
-            Log-Success "JAiRouter 健康检查端点可访问"
+            Log-Success "Trunkline 健康检查端点可访问"
         } catch {
-            Log-Error "JAiRouter 健康检查端点不可访问"
+            Log-Error "Trunkline 健康检查端点不可访问"
         }
         
         try {
@@ -426,9 +426,9 @@ function Main {
             Build-Images $Force $dockerComposeCmd
             Deploy-Services $EnableMonitoring $dockerComposeCmd
             
-            Log-Success "JAiRouter 安全功能部署完成!"
+            Log-Success "Trunkline 安全功能部署完成!"
             Log-Info "服务访问地址:"
-            Log-Info "  - JAiRouter API: http://localhost:8080"
+            Log-Info "  - Trunkline API: http://localhost:8080"
             Log-Info "  - 健康检查: http://localhost:8080/actuator/health"
             Log-Info "  - API 文档: http://localhost:8080/swagger-ui/index.html"
             

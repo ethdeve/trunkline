@@ -1,12 +1,14 @@
 ﻿# Error Codes Reference
 
 <!-- 版本信息 -->
-> **Document Version**: 1.0.2
-> **Last Updated**: 2026-06-30
-> **Applicable Version**: v2.7.6+
+> **Document Version**: 1.1.0
+> **Last Updated**: 2026-10-28
+> **Applicable Version**: v3.3.1
 > **Author**: AI Assistant
 
-JAiRouter uses a standardized error code system to identify various error conditions. All error responses include an error code field for client-side error handling.
+Trunkline uses a standardized error code system to identify various error conditions. All error responses include an error code field for client-side error handling.
+
+> ⚠️ **Response shape differs by entry surface**: `/api/**` (console surface) uses the `RouterResponse` shape in this table (`errorCode` field); `/v1/**` (OpenAI surface) uses the nested `{"error":{"message","type","code"}}` shape (see [Universal API](universal-api.md)). Two known exceptions do not follow this table: the management-plane rate-limit 429 returns `{"code":"RATE_LIMIT_EXCEEDED","message":...}` (`AdminApiRateLimiter`, **flat body, no `error` wrapper**); the exception-handler fallback returns `{"code":"500"}` (`ReactiveGlobalExceptionHandler`).
 
 ## Error Response Format
 
@@ -44,12 +46,18 @@ JAiRouter uses a standardized error code system to identify various error condit
 | `INVALID_API_KEY` | Invalid API Key | API Key format error or not found | Check API Key correctness |
 | `EXPIRED_API_KEY` | API Key expired | API Key exceeded validity period | Regenerate API Key |
 | `MISSING_API_KEY` | Missing API Key | Request header missing API Key | Add `X-API-Key` header |
-| `INVALID_JWT_TOKEN` | Invalid JWT token | JWT format error or invalid signature | Check JWT format and signature |
-| `EXPIRED_JWT_TOKEN` | JWT token expired | JWT exceeded validity period | Refresh or obtain new JWT |
-| `BLACKLISTED_TOKEN` | Token blacklisted | JWT has been revoked | Re-login to obtain new token |
+| `JWT_INVALID` | Invalid JWT token | JWT format error or invalid signature | Check JWT format and signature |
+| `JWT_EXPIRED` | JWT token expired | JWT exceeded validity period | Refresh or obtain new JWT |
+| `JWT_BLACKLISTED` | Token blacklisted | JWT has been revoked | Re-login to obtain new token |
+| `EMPTY_JWT_TOKEN` | No JWT provided | Request header missing `Jairouter_Token` | Add `Jairouter_Token` header |
+| `EMPTY_API_KEY` | No API Key provided | Request header missing `X-API-Key` | Add `X-API-Key` header |
+| `API_KEY_DISABLED` | API Key disabled | The key has been deactivated | Enable or replace the key |
+| `API_KEY_AUTH_FAILED` | API Key authentication failed | Key does not match its account | Check key ownership |
 | `AUTH_FAILED` | Authentication failed | Generic authentication failure | Check authentication credentials |
-| `TOKEN_EXPIRED` | Token expired | JWT token expired | Refresh token |
 | `AUTH_ERROR` | Authentication error | Authentication process exception | Check authentication service status |
+
+> The old rows `INVALID_JWT_TOKEN` / `EXPIRED_JWT_TOKEN` / `BLACKLISTED_TOKEN` exist only as constant declarations in `AuthenticationException`; the 401 codes actually emitted by the authentication chain are the rows above
+> (`DefaultJwtTokenValidator.java:76,85,120`, `CustomReactiveAuthenticationManager.java:57,67,92,115`).
 
 **Example Response**:
 ```json
@@ -115,10 +123,7 @@ JAiRouter uses a standardized error code system to identify various error condit
 
 | Error Code | Description | Common Cause | Solution |
 |------------|-------------|--------------|----------|
-| `NOT_FOUND` | Resource not found | Requested resource doesn't exist | Check resource ID or path |
-| `SERVICE_NOT_FOUND` | Service not found | Service type doesn't exist | Check service type name |
-| `INSTANCE_NOT_FOUND` | Instance not found | Instance ID doesn't exist | Check instance ID |
-| `CONFIG_NOT_FOUND` | Configuration not found | Config item doesn't exist | Check config key |
+| `NOT_FOUND` | Resource not found | Requested resource doesn't exist (e.g. `model` is not a configured model group) | Check resource ID or path |
 
 ---
 
@@ -128,10 +133,10 @@ JAiRouter uses a standardized error code system to identify various error condit
 
 | Error Code | Description | Common Cause | Solution |
 |------------|-------------|--------------|----------|
-| `VALIDATION_ERROR` | Invalid request data | Parameter format or value error | Check request parameters |
-| `INVALID_PARAMETER` | Invalid parameter | Parameter value out of range | Check parameter constraints |
-| `MISSING_PARAMETER` | Missing parameter | Required parameter not provided | Add required parameter |
-| `INVALID_FORMAT` | Invalid format | Data format error | Check data format |
+| `INVALID_REQUEST` | Invalid request | Parameter format or value error | Check request parameters |
+| `INVALID_PARAM` | Invalid parameter | Parameter value out of range | Check parameter constraints |
+
+> The old `VALIDATION_ERROR` (only an enum value of `ValidationFailureType`, never emitted as a response code, see `ApiKeyValidator.java:344`) and `INVALID_PARAMETER` / `MISSING_PARAMETER` / `INVALID_FORMAT` (no matches anywhere in the codebase) have been removed.
 
 ---
 
@@ -139,9 +144,7 @@ JAiRouter uses a standardized error code system to identify various error condit
 
 | Error Code | Description | HTTP Status | Solution |
 |------------|-------------|-------------|----------|
-| `CONFLICT_STATE` | Resource conflict | 409 | Check resource state |
-| `DUPLICATE_RESOURCE` | Duplicate resource | 409 | Use different identifier |
-| `OPERATION_FAILED` | Operation failed | 500 | Check logs for details |
+| `CONFLICT` | Resource conflict | 409 | Check resource state |
 | `RATE_LIMIT_EXCEEDED` | Rate limit triggered | 429 | Reduce request frequency |
 
 ---
@@ -165,20 +168,21 @@ JAiRouter uses a standardized error code system to identify various error condit
 
 | Error Code | Description | Response Header | Solution |
 |------------|-------------|-----------------|----------|
-| `RATE_LIMIT_EXCEEDED` | Rate limit exceeded | `X-RateLimit-Reset` | Wait for token recovery |
-| `GLOBAL_RATE_LIMIT` | Global rate limit triggered | `Retry-After` | Reduce global request frequency |
-| `SERVICE_RATE_LIMIT` | Service rate limit triggered | `X-RateLimit-Remaining` | Reduce service request frequency |
-| `INSTANCE_RATE_LIMIT` | Instance rate limit triggered | `X-RateLimit-Remaining` | Switch instance or wait |
+| `RATE_LIMIT_EXCEEDED` | Rate limit exceeded | `Retry-After` / `X-Quota-*` | Wait for token recovery |
+
+> There are **no** `X-RateLimit-Reset` / `X-RateLimit-Remaining` headers (no such headers anywhere in the repo); quota over-limit actually writes
+> `Retry-After` and `X-Quota-*` (limit / remaining / window), see `ServiceRequestHandler.java:692-695`.
+> The old rows `GLOBAL_RATE_LIMIT` / `SERVICE_RATE_LIMIT` / `INSTANCE_RATE_LIMIT` have no matches in the codebase (the last one is only the JPA table name `instance_rate_limit`, see `InstanceRateLimitEntity.java:26`) and have been removed.
 
 ---
 
 ## Circuit Breaker Error Codes
 
-| Error Code | Description | State | Solution |
-|------------|-------------|-------|----------|
-| `CIRCUIT_BREAKER_OPEN` | Circuit breaker open | OPEN | Wait for half-open state |
-| `CIRCUIT_BREAKER_HALF_OPEN` | Circuit breaker half-open | HALF_OPEN | Limited requests allowed |
-| `SERVICE_DEGRADED` | Service degraded | - | Use fallback strategy |
+**The circuit breaker has no dedicated error code.** Circuit-breaker state is exposed via tracing span attributes (lowercase `circuit_breaker_open`, see
+`CircuitBreakerTracingDelegate.java:132`) and the monitoring endpoint `GET /api/monitoring/circuit-breaker/stats`;
+when the breaker is open, the request is handled as downstream unavailable.
+
+> The old rows `CIRCUIT_BREAKER_OPEN` / `CIRCUIT_BREAKER_HALF_OPEN` / `SERVICE_DEGRADED` as **error codes** have no matches in the codebase and have been removed.
 
 ---
 
@@ -189,9 +193,6 @@ JAiRouter uses a standardized error code system to identify various error condit
 | Error Code | Description | Common Cause | Solution |
 |------------|-------------|--------------|----------|
 | `INTERNAL_ERROR` | Internal server error | Unexpected exception | Check service logs |
-| `CONFIGURATION_ERROR` | Configuration error | Config file format error | Check config files |
-| `DATABASE_ERROR` | Database error | Database connection failed | Check database status |
-| `CACHE_ERROR` | Cache error | Redis connection failed | Check Redis status |
 
 ---
 
@@ -203,20 +204,20 @@ JAiRouter uses a standardized error code system to identify various error condit
 // JavaScript Example
 async function handleApiResponse(response) {
   const data = await response.json();
-  
+
   if (!data.success) {
     switch (data.errorCode) {
       case 'INVALID_API_KEY':
       case 'EXPIRED_API_KEY':
-      case 'INVALID_JWT_TOKEN':
-      case 'EXPIRED_JWT_TOKEN':
+      case 'JWT_INVALID':
+      case 'JWT_EXPIRED':
         // Redirect to login page
         window.location.href = '/login';
         break;
       case 'RATE_LIMIT_EXCEEDED':
-        // Wait and retry
-        const resetTime = response.headers.get('X-RateLimit-Reset');
-        await sleep(resetTime * 1000);
+        // Wait and retry (only Retry-After exists, not X-RateLimit-Reset)
+        const retryAfter = response.headers.get('Retry-After') || '5';
+        await sleep(parseInt(retryAfter, 10) * 1000);
         return retryRequest();
         break;
       default:
@@ -225,7 +226,7 @@ async function handleApiResponse(response) {
     }
     return;
   }
-  
+
   return data.data;
 }
 ```
@@ -236,17 +237,17 @@ async function handleApiResponse(response) {
 // Java Example
 @RestControllerAdvice
 public class ErrorHandler {
-    
+
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponse> handleAuthException(AuthenticationException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
             .body(new ErrorResponse(ex.getMessage(), ex.getErrorCode()));
     }
-    
+
     @ExceptionHandler(RateLimitExceededException.class)
     public ResponseEntity<ErrorResponse> handleRateLimit(RateLimitExceededException ex) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-            .header("X-RateLimit-Reset", ex.getResetTime())
+            .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
             .body(new ErrorResponse("Too many requests", "RATE_LIMIT_EXCEEDED"));
     }
 }
@@ -256,7 +257,7 @@ public class ErrorHandler {
 
 ```java
 // Log error information
-log.error("Authentication failed: errorCode={}, message={}", 
+log.error("Authentication failed: errorCode={}, message={}",
     ex.getErrorCode(), ex.getMessage());
 ```
 
@@ -266,14 +267,14 @@ log.error("Authentication failed: errorCode={}, message={}",
 
 | Status | Error Codes |
 |--------|-------------|
-| 400 | `VALIDATION_ERROR`, `INVALID_PARAMETER`, `MISSING_PARAMETER`, `INVALID_FORMAT` |
-| 401 | `INVALID_API_KEY`, `EXPIRED_API_KEY`, `MISSING_API_KEY`, `INVALID_JWT_TOKEN`, `EXPIRED_JWT_TOKEN`, `BLACKLISTED_TOKEN` |
+| 400 | `INVALID_REQUEST`, `INVALID_PARAM` |
+| 401 | `INVALID_API_KEY`, `EXPIRED_API_KEY`, `MISSING_API_KEY`, `EMPTY_API_KEY`, `EMPTY_JWT_TOKEN`, `API_KEY_DISABLED`, `API_KEY_AUTH_FAILED`, `JWT_INVALID`, `JWT_EXPIRED`, `JWT_BLACKLISTED`, `AUTH_FAILED`, `AUTH_ERROR` |
 | 403 | `INSUFFICIENT_PERMISSIONS`, `ACCESS_DENIED`, `RESOURCE_FORBIDDEN`, `FORBIDDEN` |
-| 404 | `NOT_FOUND`, `SERVICE_NOT_FOUND`, `INSTANCE_NOT_FOUND`, `CONFIG_NOT_FOUND` |
-| 409 | `CONFLICT_STATE`, `DUPLICATE_RESOURCE` |
-| 429 | `RATE_LIMIT_EXCEEDED`, `GLOBAL_RATE_LIMIT`, `SERVICE_RATE_LIMIT`, `INSTANCE_RATE_LIMIT` |
-| 500 | `INTERNAL_ERROR`, `SANITIZATION_FAILED`, `CONFIGURATION_ERROR`, `DATABASE_ERROR`, `CACHE_ERROR` |
-| 502/503 | Downstream service errors |
+| 404 | `NOT_FOUND` |
+| 409 | `CONFLICT` (any code starting with `CONFLICT` maps to 409) |
+| 429 | `RATE_LIMIT_EXCEEDED` |
+| 500 | `INTERNAL_ERROR`, `SANITIZATION_FAILED`, `RESTART_REQUIRED` |
+| 502/503 | Downstream service errors (503 also covers `PoolUnavailableException` when a group has no healthy member) |
 
 ---
 
@@ -281,9 +282,10 @@ log.error("Authentication failed: errorCode={}, message={}",
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1.0 | 2026-10-28 | Verified against v3.3.1 code: fixed the quick-reference table that still listed removed codes; examples now use the real codes `JWT_INVALID`/`JWT_EXPIRED` and `Retry-After`; re-placed the `AUTH_FAILED`/`AUTH_ERROR` rows inside the table |
 | 1.0.1 | 2026-06-29 | Update version reference to v2.7.5+, fix incorrect version number |
 | 1.0.0 | 2026-05-25 | Initial version with all error code definitions |
 
 ---
 
-*Last updated: 2026-06-29*
+*Last updated: 2026-10-28*

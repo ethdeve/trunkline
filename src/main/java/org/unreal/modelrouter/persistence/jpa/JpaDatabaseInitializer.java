@@ -1,6 +1,8 @@
 package org.unreal.modelrouter.persistence.jpa;
 
+import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ import org.unreal.modelrouter.common.util.JacksonHelper;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -114,7 +117,97 @@ public class JpaDatabaseInitializer {
         } else {
             log.info("Database already initialized with {} config records, {} service configs",
                     configCount, serviceConfigCount);
+            // 自愈：分类目录（config_data.services / YAML）已有分类，但实例归属外键表
+            // service_config 为空 —— 历史上初始化条件是「两者都为空」才灌数据，
+            // 于是这类库接入厂商时按分类查服务配置必然落空（报「服务配置不存在」）。
+            if (serviceConfigCount == 0) {
+                ensureServiceConfigRows();
+            }
         }
+    }
+
+    /**
+     * 按已有分类目录补建 service_config 行（实例归属外键）。
+     *
+     * <p>分类目录优先取持久化配置（{@code config_data} 里 {@code model-router-config}
+     * 的 {@code services} 映射），取不到时回退 YAML 的 services 配置。
+     * 幂等：已存在的分类直接跳过。</p>
+     */
+    private void ensureServiceConfigRows() {
+        final Map<String, Map<String, Object>> catalog = readPersistedServiceCatalog();
+        if (catalog.isEmpty()) {
+            log.warn("service_config 为空且未找到分类目录，跳过自愈补建");
+            return;
+        }
+        final String defaultAdapter = modelRouterProperties.getAdapter();
+        final String defaultLoadBalance = modelRouterProperties.getLoadBalance() != null
+                ? modelRouterProperties.getLoadBalance().getType()
+                : null;
+        int created = 0;
+        for (final Map.Entry<String, Map<String, Object>> entry : catalog.entrySet()) {
+            final String serviceType = entry.getKey();
+            if (serviceConfigRepository.findFirstByServiceTypeAndIsLatestTrue(serviceType).isPresent()) {
+                continue;
+            }
+            final Map<String, Object> config = entry.getValue() == null ? Map.of() : entry.getValue();
+            final Object adapter = config.get("adapter");
+            final Object loadBalance = config.get("loadBalance");
+            final String loadBalanceType = loadBalance instanceof Map<?, ?> lb
+                    ? String.valueOf(lb.get("type"))
+                    : defaultLoadBalance;
+            serviceConfigRepository.save(ServiceConfigEntity.builder()
+                    .configKey(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY)
+                    .serviceType(serviceType)
+                    .adapter(adapter != null ? String.valueOf(adapter) : defaultAdapter)
+                    .loadBalanceType(loadBalanceType)
+                    .version(1)
+                    .isLatest(true)
+                    .build());
+            created++;
+        }
+        log.info("自愈补建模型分类配置（service_config 原为空）：新建 {} 个，分类目录 {} 个",
+                created, catalog.size());
+    }
+
+    /**
+     * 读取已有分类目录及其配置：持久化配置（config_data）优先，YAML 兜底。
+     *
+     * @return 分类 → 该分类配置（adapter / loadBalance 等）
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Map<String, Object>> readPersistedServiceCatalog() {
+        final Map<String, Map<String, Object>> fromPersisted = new LinkedHashMap<>();
+        try {
+            configRepository.findFirstByConfigKeyAndIsLatestTrue(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY)
+                    .ifPresent(entity -> {
+                        try {
+                            final JsonNode root = objectMapper.readTree(entity.getConfigValue());
+                            final JsonNode services = root.get("services");
+                            if (services != null && services.isObject()) {
+                                services.fields().forEachRemaining(field -> {
+                                    final Map<String, Object> value = field.getValue().isObject()
+                                            ? objectMapper.convertValue(field.getValue(), Map.class)
+                                            : Map.of();
+                                    fromPersisted.put(field.getKey(), value);
+                                });
+                            }
+                        } catch (Exception e) {
+                            log.warn("解析持久化分类目录失败：error={}", e.getMessage());
+                        }
+                    });
+        } catch (Exception e) {
+            log.warn("读取持久化分类目录失败（回退 YAML）：error={}", e.getMessage());
+        }
+        if (!fromPersisted.isEmpty()) {
+            return fromPersisted;
+        }
+        final Map<String, ModelRouterProperties.ServiceConfig> services = modelRouterProperties.getServices();
+        if (services != null) {
+            final Map<String, Map<String, Object>> fallback = new LinkedHashMap<>();
+            services.keySet().forEach(type -> fallback.put(type, Map.of()));
+            return fallback;
+        }
+        return fromPersisted;
     }
 
     /**
@@ -158,7 +251,7 @@ public class JpaDatabaseInitializer {
         }
 
         ConfigEntity configEntity = ConfigEntity.builder()
-                .configKey("model-router-config")
+                .configKey(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY)
                 .configValue(configValue)
                 .version(1)
                 .isLatest(true)
@@ -190,7 +283,7 @@ public class JpaDatabaseInitializer {
 
             // 创建服务配置实体
             ServiceConfigEntity configEntity = ServiceConfigEntity.builder()
-                    .configKey("model-router-config")
+                    .configKey(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY)
                     .serviceType(serviceType)
                     .adapter(serviceConfig.getAdapter() != null
                             ? serviceConfig.getAdapter()

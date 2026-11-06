@@ -8,11 +8,11 @@ import org.springframework.validation.annotation.Validated;
 
 /**
  * 安全配置属性类
- * 映射application.yml中的jairouter.security配置
+ * 映射application.yml中的trunkline.security配置
  */
 @Component
 @Validated
-@ConfigurationProperties(prefix = "jairouter.security")
+@ConfigurationProperties(prefix = "trunkline.security")
 public class SecurityProperties {
 
     /**

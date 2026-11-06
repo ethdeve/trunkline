@@ -5,7 +5,7 @@ package org.unreal.modelrouter.auth.security.quota;
  *
  * <p>账本异常时默认 fail-open：{@link #allowed()} 为 {@code true}（放行请求）、
  * {@link #degraded()} 为 {@code true}（标记本次决策发生在降级状态，便于观测与后续补偿），
- * 并同时携带 {@link #reason()} 便于日志定位。当 {@code jairouter.quota.fail-open=false}
+ * 并同时携带 {@link #reason()} 便于日志定位。当 {@code trunkline.quota.fail-open=false}
  * 时异常改为 fail-closed（{@link #allowed()} 为 {@code false}）。</p>
  *
  * @param allowed  是否放行本次请求
@@ -13,6 +13,7 @@ package org.unreal.modelrouter.auth.security.quota;
  * @param reason   决策原因，未设置时为空串（不会为 {@code null}）
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 public record QuotaDecision(boolean allowed, boolean degraded, String reason) {
 

@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 PROJECT_NAME="model-router"
-IMAGE_NAME="sodlinken/jairouter"
+IMAGE_NAME="trunkline/trunkline"
 
 # Get version from pom.xml
 VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)

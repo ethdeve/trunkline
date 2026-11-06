@@ -1,0 +1,1043 @@
+# Management API
+
+<!-- 版本信息 -->
+> **Doc Version**: 2.1.0
+> **Last Updated**: 2026-10-28
+> **Git Commit**: 61384b4a
+> **Author**: Lincoln
+<!-- /版本信息 -->
+
+Trunkline provides a complete set of management APIs for dynamic configuration management, service instance management, monitoring configuration, and more. All management APIs use the `/api` prefix.
+
+## Table of Contents
+
+- [Service Type Management](#service-type-management)
+- [Authentication Management](#authentication-management)
+- [Security Management](#security-management)
+- [Monitoring Management](#monitoring-management)
+- [Tracing Management](#tracing-management)
+- [Load Balancer Management](#load-balancer-management)
+- [Circuit Breaker & Rate Limit](#circuit-breaker-rate-limit)
+- [Model Statistics](#model-statistics)
+- [Token Usage](#token-usage)
+- [Configuration Version Management](#configuration-version-management)
+- [Quota Management](#quota-management)
+- [API Key Quota Ops](#apikey-quota-ops)
+- [PII / Sanitization Management](#sanitization-mgmt)
+- [Other Management Endpoints](#other-mgmt)
+
+---
+
+## Service Type Management
+
+### Base Path: `/api/config/type`
+
+Manage service types and their models.
+
+#### `GET /api/config/type`
+Get all service type configurations.
+
+#### `GET /api/config/type/services`
+Get all available service types.
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "message": "操作成功",
+  "data": ["chat", "embedding", "rerank", "tts", "stt", "imgGen", "imgEdit"]
+}
+```
+
+> This endpoint returns a `RouterResponse<Set<String>>` wrapper, **not** a bare array.
+
+#### `GET /api/config/type/services/batch`
+Batch-fetch service type configurations (`ServiceTypeController.java:145`).
+
+#### `GET /api/config/type/services/{serviceType}`
+Get configuration for a specific service type.
+
+#### `POST /api/config/type/services/{serviceType}`
+Create a new service type configuration.
+
+#### `PUT /api/config/type/services/{serviceType}`
+Update a service type configuration.
+
+#### `DELETE /api/config/type/services/{serviceType}`
+Delete a service type configuration.
+
+#### `GET /api/config/type/{serviceType}/models`
+Get all models under a service type.
+
+#### `POST /api/config/type/reset`
+Reset all configurations to default values.
+
+---
+
+## Authentication Management
+
+### JWT Token Management
+
+#### Base Path: `/api/auth/jwt`
+
+#### `POST /api/auth/jwt/login`
+Login and obtain JWT token.
+
+**Request Body Example:**
+```json
+{
+  "username": "admin",
+  "password": "your-password"
+}
+```
+
+**Response Example:**
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
+  "expiresIn": 3600
+}
+```
+
+#### `POST /api/auth/jwt/refresh`
+Refresh access token using refresh token.
+
+#### `POST /api/auth/jwt/revoke`
+Revoke current token.
+
+#### `POST /api/auth/jwt/revoke/batch`
+Revoke multiple tokens in batch.
+
+#### `POST /api/auth/jwt/validate`
+Validate a JWT token.
+
+#### `GET /api/auth/jwt/blacklist/stats`
+Get JWT blacklist statistics.
+
+#### `GET /api/auth/jwt/tokens`
+Get all JWT tokens with pagination.
+
+#### `GET /api/auth/jwt/tokens/{tokenId}`
+Get details of a specific token.
+
+#### `POST /api/auth/jwt/cleanup`
+Trigger cleanup of expired tokens.
+
+#### `GET /api/auth/jwt/cleanup/stats`
+Get cleanup statistics.
+
+### API Key Management
+
+#### Base Path: `/api/auth/api-keys`
+
+#### `GET /api/auth/api-keys`
+List all API keys.
+
+#### `GET /api/auth/api-keys/{keyId}`
+Get details of a specific API key.
+
+#### `POST /api/auth/api-keys`
+Create a new API key.
+
+**Request Body Example:**
+```json
+{
+  "name": "my-api-key",
+  "permissions": ["read", "write"],
+  "expiresAt": "2026-12-31T23:59:59Z"
+}
+```
+
+#### `PUT /api/auth/api-keys/{keyId}`
+Update an API key.
+
+#### `DELETE /api/auth/api-keys/{keyId}`
+Delete an API key.
+
+#### `PATCH /api/auth/api-keys/{keyId}/disable`
+Disable an API key.
+
+#### `PATCH /api/auth/api-keys/{keyId}/enable`
+Enable an API key.
+
+#### `POST /api/auth/api-keys/{keyId}/reset`
+Reset an API key (generate new key value).
+
+#### `POST /api/auth/api-keys/{keyId}/rotate`
+Rotate an API key.
+
+#### `GET /api/auth/api-keys/export`
+Export API keys.
+
+#### `POST /api/auth/api-keys/import`
+Import API keys.
+
+### JWT Account Management
+
+#### Base Path: `/api/security/jwt/accounts`
+
+#### `GET /api/security/jwt/accounts`
+List all JWT accounts.
+
+#### `GET /api/security/jwt/accounts/{username}`
+Get details of a specific account.
+
+#### `POST /api/security/jwt/accounts`
+Create a new JWT account.
+
+#### `PUT /api/security/jwt/accounts/{username}`
+Update a JWT account.
+
+#### `DELETE /api/security/jwt/accounts/{username}`
+Delete a JWT account.
+
+#### `POST /api/security/jwt/accounts/{username}/verify`
+Verify account credentials.
+
+#### `PATCH /api/security/jwt/accounts/{username}/status`
+Update account status.
+
+---
+
+## Security Management
+
+### Extended Security Audit
+
+#### Base Path: `/api/security/audit/extended`
+
+#### `GET /api/security/audit/extended/jwt-tokens`
+Get JWT token audit records.
+
+#### `GET /api/security/audit/extended/api-keys`
+Get API key audit records.
+
+#### `GET /api/security/audit/extended/security-events`
+Get security events.
+
+#### `POST /api/security/audit/extended/query`
+Query extended audit data.
+
+#### `GET /api/security/audit/extended/reports/security`
+Get security reports.
+
+#### `GET /api/security/audit/extended/users/{userId}/events`
+Get events for a specific user.
+
+#### `GET /api/security/audit/extended/ip-addresses/{ipAddress}/events`
+Get events for a specific IP address.
+
+#### `POST /api/security/audit/extended/events/batch`
+Batch query events.
+
+#### `POST /api/security/audit/extended/test-data/generate`
+Generate test audit data.
+
+#### `GET /api/security/audit/extended/statistics/extended`
+Get extended statistics.
+
+### Security Blacklist
+
+#### Base Path: `/api/security/blacklist`
+
+#### `GET /api/security/blacklist/list`
+Get blacklist entries.
+
+#### `GET /api/security/blacklist/stats`
+Get blacklist statistics.
+
+#### `GET /api/security/blacklist/{id}`
+Get a specific blacklist entry.
+
+#### `POST /api/security/blacklist/add`
+Add entry to blacklist.
+
+#### `POST /api/security/blacklist/batch-add`
+Batch add entries to blacklist.
+
+#### `DELETE /api/security/blacklist/{id}`
+Remove entry from blacklist.
+
+#### `GET /api/security/blacklist/check`
+Check if an entry is blacklisted.
+
+#### `POST /api/security/blacklist/cleanup`
+Cleanup expired blacklist entries.
+
+---
+
+## Monitoring Management
+
+### Base Path: `/api/monitoring`
+
+#### `GET /api/monitoring/config`
+Get current monitoring configuration.
+
+**Response Example:**
+```json
+{
+  "enabled": true,
+  "prefix": "jairouter",
+  "collectionInterval": "PT30S",
+  "enabledCategories": ["request", "system", "custom"],
+  "sampling": {
+    "enabled": true,
+    "rate": 0.1
+  }
+}
+```
+
+#### `PUT /api/monitoring/config/enabled`
+Enable or disable monitoring.
+
+#### `PUT /api/monitoring/config/prefix`
+Update metric prefix.
+
+#### `PUT /api/monitoring/config/collection-interval`
+Update collection interval.
+
+#### `PUT /api/monitoring/config/categories`
+Update enabled categories.
+
+#### `PUT /api/monitoring/config/custom-tags`
+Update custom tags.
+
+#### `GET /api/monitoring/config/snapshot`
+Get configuration snapshot.
+
+#### `GET /api/monitoring/health`
+Get monitoring system health.
+
+#### `GET /api/monitoring/errors/stats`
+Get error statistics.
+
+#### `POST /api/monitoring/errors/reset`
+Reset error status.
+
+#### `GET /api/monitoring/degradation/status`
+Get degradation status.
+
+#### `POST /api/monitoring/degradation/level`
+Set degradation level.
+
+**Request Body Example:**
+```json
+{
+  "level": "PARTIAL"
+}
+```
+
+**Available Levels:** `NORMAL`, `PARTIAL`, `MINIMAL`, `DISABLED`
+
+#### `POST /api/monitoring/degradation/auto-mode`
+Enable/disable auto degradation mode.
+
+#### `POST /api/monitoring/degradation/force-recovery`
+Force recovery to normal mode.
+
+#### `GET /api/monitoring/cache/stats`
+Get cache statistics.
+
+#### `POST /api/monitoring/cache/clear`
+Clear cache.
+
+#### `GET /api/monitoring/circuit-breaker/stats`
+Get circuit breaker statistics.
+
+#### `POST /api/monitoring/circuit-breaker/force-open`
+Force open circuit breaker.
+
+#### `POST /api/monitoring/circuit-breaker/force-close`
+Force close circuit breaker.
+
+---
+
+## Tracing Management
+
+### Tracing Actuator
+
+#### Base Path: `/api/tracing/actuator`
+
+#### `GET /api/tracing/actuator/status`
+Get tracing status.
+
+#### `GET /api/tracing/actuator/health`
+Get tracing health.
+
+#### `GET /api/tracing/actuator/config`
+Get tracing configuration.
+
+#### `PUT /api/tracing/actuator/config`
+Update tracing configuration.
+
+#### `POST /api/tracing/actuator/sampling/refresh`
+Refresh sampling configuration.
+
+#### `GET /api/tracing/actuator/stats`
+Get tracing statistics.
+
+#### `POST /api/tracing/actuator/enable`
+Enable tracing.
+
+#### `POST /api/tracing/actuator/disable`
+Disable tracing.
+
+#### `GET /api/tracing/actuator/export`
+Export tracing data.
+
+#### `POST /api/tracing/actuator/clear-cache`
+Clear tracing cache.
+
+### Tracing Query
+
+#### Base Path: `/api/tracing/query`
+
+#### `GET /api/tracing/query/trace/{traceId}`
+Get trace by ID.
+
+#### `GET /api/tracing/query/search`
+Search traces.
+
+#### `GET /api/tracing/query/recent`
+Get recent traces.
+
+#### `GET /api/tracing/query/services`
+Get traced services.
+
+#### `GET /api/tracing/query/statistics`
+Get tracing statistics.
+
+#### `POST /api/tracing/query/export`
+Export trace data.
+
+#### `POST /api/tracing/query/cleanup`
+Cleanup old traces.
+
+#### `GET /api/tracing/query/operations`
+Get operation list.
+
+#### `GET /api/tracing/query/health`
+Get query health.
+
+#### `GET /api/tracing/query/performance/stats`
+Get performance statistics.
+
+#### `GET /api/tracing/query/performance/latency`
+Get latency metrics.
+
+#### `GET /api/tracing/query/performance/errors`
+Get error metrics.
+
+#### `GET /api/tracing/query/performance/throughput`
+Get throughput metrics.
+
+### Tracing Performance
+
+#### Base Path: `/api/tracing/performance`
+
+#### `GET /api/tracing/performance/stats`
+Get performance stats.
+
+#### `GET /api/tracing/performance/processing-stats`
+Get processing statistics.
+
+#### `GET /api/tracing/performance/memory-stats`
+Get memory statistics.
+
+#### `GET /api/tracing/performance/health`
+Get performance health.
+
+#### `GET /api/tracing/performance/bottlenecks`
+Identify bottlenecks.
+
+#### `GET /api/tracing/performance/suggestions`
+Get optimization suggestions.
+
+#### `GET /api/tracing/performance/report`
+Get performance report.
+
+#### `POST /api/tracing/performance/optimize`
+Trigger optimization.
+
+#### `POST /api/tracing/performance/tuning`
+Apply performance tuning.
+
+#### `POST /api/tracing/performance/memory/gc`
+Trigger garbage collection.
+
+#### `POST /api/tracing/performance/memory/check`
+Check memory status.
+
+#### `POST /api/tracing/performance/processing/flush`
+Flush processing buffers.
+
+#### `GET /api/tracing/performance/metrics/dashboard`
+Get dashboard metrics.
+
+#### `GET /api/tracing/performance/alerts/active`
+Get active alerts.
+
+### Tracing Security
+
+#### Base Path: `/api/config/tracing/security`
+
+#### `GET /api/config/tracing/security/sanitization/sensitive-fields`
+Get sensitive fields for sanitization.
+
+#### `POST /api/config/tracing/security/sanitization/sensitive-fields`
+Add sensitive field.
+
+#### `DELETE /api/config/tracing/security/sanitization/sensitive-fields`
+Remove sensitive field.
+
+#### `GET /api/config/tracing/security/access/history/{username}`
+Get access history for a user.
+
+#### `DELETE /api/config/tracing/security/access/cache/{username}`
+Clear access cache for a user.
+
+#### `DELETE /api/config/tracing/security/access/cache`
+Clear all access cache.
+
+#### `POST /api/config/tracing/security/encryption/rotate-key/{traceId}`
+Rotate encryption key for a trace.
+
+#### `POST /api/config/tracing/security/encryption/cleanup`
+Cleanup encryption data.
+
+#### `DELETE /api/config/tracing/security/encryption/data/{traceId}`
+Delete encryption data for a trace.
+
+#### `GET /api/config/tracing/security/overview`
+Get security overview.
+
+---
+
+## Load Balancer Management
+
+### Base Path: `/api/loadbalancer`
+
+#### `GET /api/loadbalancer/status`
+Get load balancer status for all services.
+
+#### `GET /api/loadbalancer/status/{serviceType}`
+Get load balancer status for a specific service.
+
+#### `GET /api/loadbalancer/config/global`
+Get global load balancer configuration.
+
+#### `GET /api/loadbalancer/config/{serviceType}`
+Get load balancer configuration for a service.
+
+#### `PUT /api/loadbalancer/config/{serviceType}`
+Update load balancer configuration.
+
+**Request Body Example:**
+```json
+{
+  "strategy": "round_robin",
+  "weights": {
+    "instance1": 2,
+    "instance2": 1
+  }
+}
+```
+
+#### `GET /api/loadbalancer/strategies`
+Get available load balancing strategies.
+
+**Response Example:**
+```json
+["random", "round_robin", "weighted", "least_connections"]
+```
+
+#### `GET /api/loadbalancer/stats`
+Get load balancer statistics.
+
+---
+
+## Circuit Breaker & Rate Limit {#circuit-breaker-rate-limit}
+
+### Circuit Breaker
+
+#### Base Path: `/api/services/{serviceType}/circuitbreaker`
+
+#### `GET /api/services/{serviceType}/circuitbreaker`
+Get circuit breaker configuration for a service.
+
+**Response Example:**
+```json
+{
+  "enabled": true,
+  "failureThreshold": 5,
+  "successThreshold": 3,
+  "timeout": 30000,
+  "state": "CLOSED"
+}
+```
+
+#### `PUT /api/services/{serviceType}/circuitbreaker`
+Update circuit breaker configuration.
+
+### Rate Limit
+
+#### Base Path: `/api/services/{serviceType}/ratelimit`
+
+#### `GET /api/services/{serviceType}/ratelimit`
+Get rate limit configuration for a service.
+
+**Response Example:**
+```json
+{
+  "enabled": true,
+  "algorithm": "token_bucket",
+  "capacity": 100,
+  "refillRate": 10
+}
+```
+
+#### `PUT /api/services/{serviceType}/ratelimit`
+Update rate limit configuration.
+
+---
+
+## Model Statistics
+
+### Base Path: `/api/model-stats`
+
+#### `GET /api/model-stats/summary`
+Get model statistics summary.
+
+#### `GET /api/model-stats/models`
+Get all model statistics.
+
+#### `GET /api/model-stats/service-types/{serviceType}`
+Get statistics for a service type.
+
+#### `GET /api/model-stats/models/{serviceType}/{modelName}`
+Get statistics for a specific model.
+
+#### `GET /api/model-stats/top/active`
+Get top active models.
+
+#### `GET /api/model-stats/unhealthy`
+Get unhealthy models.
+
+#### `GET /api/model-stats/grouped-by-service-type`
+Get statistics grouped by service type.
+
+#### `GET /api/model-stats/trend`
+Get usage trend.
+
+#### `POST /api/model-stats/refresh`
+Refresh statistics.
+
+#### `DELETE /api/model-stats/clear`
+Clear all statistics.
+
+---
+
+## Token Usage
+
+### Base Path: `/api/token-usage`
+
+#### `POST /api/token-usage/record`
+Record token usage.
+
+**Request Body Example:**
+```json
+{
+  "modelName": "qwen2:7b",
+  "serviceType": "chat",
+  "inputTokens": 100,
+  "outputTokens": 50,
+  "requestId": "req-123"
+}
+```
+
+#### `POST /api/token-usage/record/batch`
+Batch record token usage.
+
+#### `GET /api/token-usage/statistics`
+Get token usage statistics.
+
+#### `GET /api/token-usage/recent`
+Get recent token usage.
+
+---
+
+## Configuration Version Management
+
+### Base Path: `/api/config/version`
+
+#### `GET /api/config/version`
+Get all configuration versions.
+
+#### `GET /api/config/version/{version}`
+Get a specific version.
+
+#### `DELETE /api/config/version/{version}`
+Delete a version.
+
+#### `GET /api/config/version/current`
+Get current version.
+
+#### `POST /api/config/version/apply/{version}`
+Apply a specific version.
+
+#### `GET /api/config/version/info`
+Get version information.
+
+#### `GET /api/config/version/compare/{sourceVersion}/{targetVersion}`
+Compare two versions.
+
+#### `GET /api/config/version/compare/{version}`
+Compare a version with current.
+
+---
+
+## Configuration Validation
+
+### Base Path: `/api/config`
+
+#### `GET /api/config/sources`
+Get configuration sources.
+
+#### `GET /api/config/validation-rules`
+Get validation rules.
+
+#### `GET /api/config/environment-variables`
+Get environment variable configuration.
+
+---
+
+## Quota Management
+
+### Base Paths: `/api/config/quota`, `/api/monitoring/quota`
+
+Manage the quota ledger's runtime configuration and observe quota status.
+
+#### `GET /api/config/quota`
+
+Get the current quota configuration snapshot (including runtime overrides).
+
+**Permission:** `config:quota:read`
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "data": {
+    "enabled": true,
+    "failOpen": true,
+    "windows": ["MINUTE", "HOUR", "DAY", "MONTH"],
+    "flushIntervalSeconds": 60,
+    "retention": {
+      "minute": "1d",
+      "hour": "2d",
+      "day": "35d",
+      "month": "13mo"
+    },
+    "distributed": {
+      "enabled": false,
+      "keyPrefix": "jairouter:quota",
+      "timeoutMs": 50,
+      "degradeToLocal": true
+    },
+    "backendName": "local",
+    "hotEditableFields": ["enabled", "failOpen", "windows"],
+    "restartRequiredFields": ["distributed.enabled", "distributed.keyPrefix", "distributed.timeoutMs", "distributed.degradeToLocal", "retention.*", "flushIntervalSeconds"]
+  }
+}
+```
+
+#### `PUT /api/config/quota`
+
+Update quota configuration at runtime (partial update; only non-null fields take effect).
+
+**Permission:** `config:quota:write`
+
+**Request Body:**
+```json
+{
+  "enabled": true,
+  "failOpen": true,
+  "windows": ["MINUTE", "HOUR", "DAY"],
+  "flushIntervalSeconds": null,
+  "distributedEnabled": null,
+  "distributedKeyPrefix": null,
+  "distributedTimeoutMs": null,
+  "distributedDegradeToLocal": null,
+  "retention": null
+}
+```
+
+- Hot-editable fields: `enabled`, `failOpen`, `windows`
+- Restart-required fields (`distributedEnabled` / `distributedKeyPrefix` / `distributedTimeoutMs` / `distributedDegradeToLocal` / `retention` / `flushIntervalSeconds`): if any non-null value is sent, the request returns HTTP 400 + `errorCode=RESTART_REQUIRED` with the specific field names in the message
+- All-null body → HTTP 400 + `errorCode=INVALID_REQUEST`
+
+**Error Response Example:**
+```json
+{
+  "success": false,
+  "message": "以下字段需重启生效，不支持热改: distributed.enabled, retention.*；请移除这些字段后重试",
+  "errorCode": "RESTART_REQUIRED"
+}
+```
+
+#### `GET /api/monitoring/quota/status`
+
+Query the quota ledger runtime status.
+
+**Permission:** `monitoring:quota:read`
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "data": {
+    "enabled": true,
+    "backendName": "local",
+    "degraded": false,
+    "degradedReason": "",
+    "failOpen": true,
+    "windows": ["MINUTE", "HOUR", "DAY", "MONTH"],
+    "distributed": {
+      "enabled": false,
+      "keyPrefix": "jairouter:quota",
+      "timeoutMs": 50,
+      "degradeToLocal": true
+    }
+  }
+}
+```
+
+`redisProbe` and `counterMetrics` are present only when `distributed.enabled=true`.
+
+#### `GET /api/monitoring/quota/usage`
+
+Query quota usage (read-only, no write side effects).
+
+**Permission:** `monitoring:quota:read`
+
+**Query Parameters:** `tenantId`, `apiKeyId`, `userId`, `serviceType`, `model`, `window` (all optional)
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "dimensions": {
+        "tenantId": "",
+        "apiKeyId": "key-abc",
+        "userId": "",
+        "serviceType": "chat",
+        "model": "gpt-4o"
+      },
+      "window": "DAY",
+      "windowStart": "2026-09-06T00:00:00",
+      "requestCount": 42,
+      "tokenCount": 15000
+    }
+  ]
+}
+```
+
+When the quota ledger is disabled, `data=[]` and message=`配额账本未启用`.
+
+---
+
+## API Key Quota Ops {#apikey-quota-ops}
+
+### Base Path: `/api/auth/api-keys`
+
+**Permission:** ADMIN (`security:apikeys:manage`)
+
+Limit semantics: **0 = unlimited**; `quotaAlertThreshold` is a ratio **0.0–1.0** (e.g. 0.8 = 80%).
+
+#### `GET /api/auth/api-keys/{keyId}/quota`
+
+Quota detail for one key (usage, percents, `remainingRequests` / `remainingTokens`; unlimited → remaining = -1).
+
+#### `PUT /api/auth/api-keys/{keyId}/quota`
+
+Update **quota fields only** (partial; null fields unchanged).
+
+**Request body:**
+```json
+{
+  "dailyRequestLimit": 1000,
+  "dailyTokenLimit": 100000,
+  "rateLimitPerMinute": 60,
+  "quotaAlertThreshold": 0.8
+}
+```
+
+#### `GET /api/auth/api-keys/quota/alerts`
+
+Keys that crossed the alert threshold.
+
+#### `GET /api/auth/api-keys/quota/overview`
+
+Quota overview for all keys.
+
+#### `POST /api/auth/api-keys/{keyId}/quota/reset`
+
+Reset one key's daily counters and rate limit.
+
+#### `POST /api/auth/api-keys/quota/batch-reset`
+
+**Request body:** `{ "keyIds": ["key-a", "key-b"] }` → `{ "requested": 2, "reset": 2 }`
+
+#### `POST /api/auth/api-keys/quota/reset-all`
+
+Reset all keys' daily quotas and rate limits.
+
+---
+
+## PII / Sanitization Management {#sanitization-mgmt}
+
+### Base Path: `/api/config/sanitization`
+
+**Permission:** `security:sanitization:manage` (ADMIN)
+
+Primary path is **record-side** `sanitizeForStorage` for chat call-history/logs. The gateway response filter is off by default and excludes `/api/**` and AI realtime paths.
+
+#### `GET /api/config/sanitization`
+
+Snapshot of request/response sub-config, `ruleCount`, and design notes.
+
+#### `PUT /api/config/sanitization`
+
+Hot-update request/response (non-null fields) and rebuild in-memory rules.
+
+**Request body example:**
+```json
+{
+  "request": {
+    "enabled": true,
+    "piiPatterns": ["\\d{11}"],
+    "sensitiveWords": ["password"],
+    "maskingChar": "*"
+  }
+}
+```
+
+#### `GET /api/config/sanitization/rules`
+
+List active rules.
+
+#### `POST /api/config/sanitization/test`
+
+Dry-run. If `contentType` is missing/`application/json` but the sample **does not look like JSON**, masking runs as `text/plain`.
+
+**Request:** `{ "sample": "phone 13800138000", "contentType": "text/plain" }`
+
+**Response:** `{ "before", "after", "matchedRuleIds", "contentType" }`
+
+See [Data Sanitization](../security/data-sanitization.md).
+
+---
+
+## Adapter Configuration
+
+### Base Path: `/api/config/adapter`
+
+#### `GET /api/config/adapter`
+Get adapter configuration and capabilities.
+
+---
+
+> ⚠️ **Removed during the v3.3.1 review**: this section previously documented a legacy
+> `/api/instance-configs/**` group (GET/POST/PUT/DELETE). No such paths exist anywhere in the
+> codebase (zero matches for `instance-configs`). Real service-instance CRUD lives under
+> `/api/config/instance` (see [Other Management Endpoints](#other-mgmt)).
+
+---
+
+## Other Management Endpoints {#other-mgmt}
+
+The following endpoint groups exist in code (`@RestController`) but do not yet have dedicated chapters; they are summarized by base path for reference.
+
+| Base Path | Controller (package) | Endpoint inventory |
+|---|---|---|
+| `/api/config/pools` | `router/controller/PoolConfigController` | `GET /list`, `GET /{poolName}`, `POST` (create group), `PUT /{poolName}`, `DELETE /{poolName}` |
+| `/api/config/pools/{poolName}/quota` | `router/controller/PoolQuotaController` | `GET /usage`, `POST /reset` |
+| `/api/config/providers` | `config/controller/ModelProviderController` | `GET` (provider list), `POST` (create provider) |
+| `/api/config/instance` | `router/serviceinstance/ServiceTypeInstanceController` | Service instance CRUD and paged list (`?page=&size=`); sub-path details to be confirmed |
+| `/api/config/rules` | `router/controller/RuleConfigController` | `GET /list`, `GET /{id}`, `POST` (create rule), `PUT /{id}`, `DELETE /{id}`, `POST /{id}/enable`, `POST /{id}/disable`, `PUT /{id}/priority`, `POST /validate`, `GET /stats` |
+| `/api/config/rules/templates` | `router/controller/RuleTemplateController` | `GET /list`, `GET /{id}`, `POST /{id}/create` (generate a rule from a template) |
+| `/api/config/adapter/templates` | `router/controller/AdapterTemplateController` | `GET` (template list), `GET /{id}`, `POST /{id}`, `PUT /{id}`, `DELETE /{id}`, `POST /{id}/hide`, `POST /{id}/restore`, `GET /hidden/list` |
+| `/api/config/adapter` (test) | `router/controller/AdapterTestController` | `POST /{name}/test`, `POST /test` (adapter connectivity test) |
+| `/api` (permissions) | `auth/controller/PermissionManagementController` | `GET /security/permissions`, `GET /security/permissions/roles`, `PUT /security/permissions/roles/{roleName}`, `GET /auth/permissions` |
+| `/api/config/dependencies` | `config/controller/DependencyController` | Configuration dependency checks |
+| `/api/config/cache` | `router/controller/ResponseCacheController` | `GET` (cache config/status), `PUT` (update config), `DELETE` (clear cache) |
+| `/api/config/circuit-breaker` | `config/controller/CircuitBreakerConfigController` | Global circuit-breaker configuration read/write |
+| `/api/config/call-history` | `monitor/callhistory/controller/CallHistoryConfigController` | `GET` / `PUT` call-history recording configuration |
+| `/api/call-history` | `monitor/callhistory/ApiCallHistoryController` | `GET` (paged call-history query); query-param details to be confirmed |
+| `/api/models/stats` | `monitor/controller/ModelStatsController` | `GET` (config stats: total services / instances / models / per-service distribution) |
+| `/api/exceptions` | `monitor/controller/ExceptionManagementController` | Exception record query and management |
+| `/api/dashboard/metrics` | `monitor/controller/DashboardMetricsController` | Console dashboard aggregate metrics |
+| `/api/state-persistence` | `persistence/controller/StatePersistenceManagementController` | State persistence management |
+
+> `DebugMultipartController` (`/v1/debug/**`) is a development-only debug endpoint and is not exposed in production, so it is not listed in the formal API.
+
+---
+
+## Error Responses
+
+All API endpoints follow a consistent error response format:
+
+```json
+{
+  "success": false,
+  "message": "Error description",
+  "errorCode": "ERROR_CODE",
+  "data": null
+}
+```
+
+### Common Error Codes
+
+| Code | Description | HTTP Status |
+|------|-------------|-------------|
+| `NOT_FOUND` | Resource not found | 404 |
+| `INVALID_REQUEST` | Invalid request data | 400 |
+| `INVALID_API_KEY` | Authentication required | 401 |
+| `FORBIDDEN` | Permission denied | 403 |
+| `CONFLICT` | Resource conflict | 409 |
+| `RATE_LIMIT_EXCEEDED` | Too many requests | 429 |
+| `INTERNAL_ERROR` | Server error | 500 |
+
+**Authentication-related error codes** (per the actual constants in `AuthenticationException` / `DefaultJwtTokenValidator` / `CustomReactiveAuthenticationManager`):
+| Code | Description |
+|------|-------------|
+| `INVALID_API_KEY` | Invalid API Key |
+| `EXPIRED_API_KEY` | API Key expired |
+| `MISSING_API_KEY` | Missing API Key |
+| `EMPTY_API_KEY` / `API_KEY_DISABLED` / `API_KEY_AUTH_FAILED` | Empty key / key disabled / key authentication failed |
+| `JWT_INVALID` / `JWT_EXPIRED` / `JWT_BLACKLISTED` | JWT invalid / expired / blacklisted |
+| `EMPTY_JWT_TOKEN` | Empty JWT token |
+
+> Note: `INVALID_JWT_TOKEN` / `EXPIRED_JWT_TOKEN` seen in older docs are **not** the codes actually emitted by the codebase; they were removed during the v3.3.x verification. The old `VALIDATION_ERROR` / `UNAUTHORIZED` rows above are likewise not real codes.
+
+---
+
+## Authentication
+
+All management APIs require authentication. Use one of the following methods:
+
+### JWT Token
+```
+Header: Jairouter_Token: <your-jwt-token>
+```
+
+### API Key
+```
+Header: X-API-Key: <your-api-key>
+```
+
+---
+
+*Last updated: 2026-10-28*

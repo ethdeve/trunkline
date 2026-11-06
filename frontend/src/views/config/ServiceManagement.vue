@@ -74,14 +74,17 @@
 
     <el-skeleton :loading="loading && services.length === 0" :rows="6" animated>
       <template #template>
-        <el-skeleton-item variant="h2" style="width: 40%; margin-bottom: 12px;" />
+        <!-- variant 无 h2（合法值见 Element Plus 文档），标题占位用 h1，消除 prop 校验告警 -->
+        <el-skeleton-item variant="h1" style="width: 40%; margin-bottom: 12px;" />
         <el-skeleton-item style="height: 42px; margin-bottom: 12px;" />
         <el-skeleton-item style="height: 300px" />
       </template>
 
       <template #default>
         <el-table
+          ref="servicesTableRef"
           :data="paginatedServices"
+          :max-height="servicesMaxHeight"
           style="width: 100%"
           v-loading="loading"
           :element-loading-text="t('service.loading')"
@@ -93,8 +96,10 @@
         >
           <el-table-column prop="type" :label="t('service.table.serviceType')" sortable>
             <template #default="scope">
+              <!-- 旧 /models 路由已下线（只剩重定向、无 name），此处必须用 path 跳转；
+                   用 name: 'models' 会在 router-link 解析时抛 No match，把整页渲染打断 -->
               <router-link
-                :to="{ name: 'models', query: { serviceType: scope.row.type } }"
+                :to="{ path: '/providers', query: { tab: 'models', serviceType: scope.row.type } }"
                 class="cell-link"
                 @click.stop
               >
@@ -147,11 +152,9 @@
         </el-table>
 
         <div v-if="filteredServices.length === 0 && !loading" class="empty-wrap">
-          <el-empty :description="t('service.table.notFound')">
-            <template #image>
-              <img src="https://static-element.eleme.cn/e/element-ui/empty.svg" alt="empty" />
-            </template>
-          </el-empty>
+          <!-- 默认内联 SVG 即可：此前的 #image 插槽引用了 static-element.eleme.cn 外链（域名已失效，
+               离线/内网环境每个空状态都报 ERR_NAME_NOT_RESOLVED），Element Plus 自带图是打包内的 SVG -->
+          <el-empty :description="t('service.table.notFound')" />
         </div>
       </template>
     </el-skeleton>
@@ -166,8 +169,8 @@
             v-model:current-page="currentPage"
             :page-size="pageSize"
             :total="filteredServices.length"
-            layout="prev, pager, next, sizes, jumper"
-            :page-sizes="[5, 10, 20, 50]"
+            layout="total, sizes, prev, pager, next, jumper"
+            :page-sizes="[10, 20, 50, 100]"
             @size-change="handleSizeChange"
             @current-change="handlePageChange"
           />
@@ -180,7 +183,7 @@
   <el-dialog
     v-model="dialogVisible"
     :title="dialogTitle"
-    width="600px"
+    width="min(640px, 92vw)"
     :before-close="handleDialogClose"
     class="service-dialog"
   >
@@ -252,87 +255,94 @@
         />
       </el-form-item>
       
-      <!-- 服务级别限流配置 -->
-      <el-divider content-position="left">{{ t('service.rateLimit.section') }}</el-divider>
-      <el-form-item :label="t('service.rateLimit.enable')">
-        <el-switch v-model="form.rateLimit.enabled" :active-text="t('service.enabled')" :inactive-text="t('service.disabled')" />
-      </el-form-item>
-      
-      <div v-if="form.rateLimit.enabled">
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="t('service.rateLimit.algorithm')">
-              <el-select v-model="form.rateLimit.algorithm" :placeholder="t('service.rateLimit.selectAlgorithm')">
-                <el-option :label="t('service.rateLimit.tokenBucket')" value="token-bucket" />
-                <el-option :label="t('service.rateLimit.leakyBucket')" value="leaky-bucket" />
-                <el-option :label="t('service.rateLimit.slidingWindow')" value="sliding-window" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('service.rateLimit.scope')">
-              <el-select v-model="form.rateLimit.scope" :placeholder="t('service.rateLimit.selectScope')" disabled>
-                <el-option :label="t('service.rateLimit.serviceScope')" value="service" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="t('service.rateLimit.capacity')">
-              <el-input-number v-model="form.rateLimit.capacity" :min="1" :max="10000" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('service.rateLimit.rate')">
-              <el-input-number v-model="form.rateLimit.rate" :min="1" :max="10000" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="t('service.rateLimit.key')">
-              <el-input v-model="form.rateLimit.key" :placeholder="t('service.rateLimit.keyPlaceholder')" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('service.rateLimit.clientIp')">
-              <el-switch v-model="form.rateLimit.clientIpEnable" :active-text="t('service.enabled')" :inactive-text="t('service.disabled')" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </div>
-      
-      <!-- 服务级别熔断器配置 -->
-      <el-divider content-position="left">{{ t('service.circuitBreaker.section') }}</el-divider>
-      <el-form-item :label="t('service.circuitBreaker.enable')">
-        <el-switch v-model="form.circuitBreaker.enabled" :active-text="t('service.enabled')" :inactive-text="t('service.disabled')" />
-      </el-form-item>
-      
-      <div v-if="form.circuitBreaker.enabled">
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="t('service.circuitBreaker.failureThreshold')">
-              <el-input-number v-model="form.circuitBreaker.failureThreshold" :min="1" :max="100" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('service.circuitBreaker.timeoutMs')">
-              <el-input-number v-model="form.circuitBreaker.timeout" :min="1000" :max="300000" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="t('service.circuitBreaker.successThreshold')">
-              <el-input-number v-model="form.circuitBreaker.successThreshold" :min="1" :max="100" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </div>
+      <!-- 限流/熔断属于「覆盖全局默认」的高级设置：默认收起，不填就用全局配置 -->
+      <el-collapse v-model="advancedExpanded" class="advanced-collapse">
+        <el-collapse-item :title="t('service.advancedTitle')" name="advanced">
+          <div class="advanced-hint">{{ t('service.advancedHint') }}</div>
+
+          <!-- 服务级别限流配置 -->
+          <el-divider content-position="left">{{ t('service.rateLimit.section') }}</el-divider>
+          <el-form-item :label="t('service.rateLimit.enable')">
+            <el-switch v-model="form.rateLimit.enabled" :active-text="t('service.enabled')" :inactive-text="t('service.disabled')" />
+          </el-form-item>
+
+          <div v-if="form.rateLimit.enabled">
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item :label="t('service.rateLimit.algorithm')">
+                  <el-select v-model="form.rateLimit.algorithm" :placeholder="t('service.rateLimit.selectAlgorithm')">
+                    <el-option :label="t('service.rateLimit.tokenBucket')" value="token-bucket" />
+                    <el-option :label="t('service.rateLimit.leakyBucket')" value="leaky-bucket" />
+                    <el-option :label="t('service.rateLimit.slidingWindow')" value="sliding-window" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item :label="t('service.rateLimit.scope')">
+                  <el-select v-model="form.rateLimit.scope" :placeholder="t('service.rateLimit.selectScope')" disabled>
+                    <el-option :label="t('service.rateLimit.serviceScope')" value="service" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item :label="t('service.rateLimit.capacity')">
+                  <el-input-number v-model="form.rateLimit.capacity" :min="1" :max="10000" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item :label="t('service.rateLimit.rate')">
+                  <el-input-number v-model="form.rateLimit.rate" :min="1" :max="10000" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item :label="t('service.rateLimit.key')">
+                  <el-input v-model="form.rateLimit.key" :placeholder="t('service.rateLimit.keyPlaceholder')" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item :label="t('service.rateLimit.clientIp')">
+                  <el-switch v-model="form.rateLimit.clientIpEnable" :active-text="t('service.enabled')" :inactive-text="t('service.disabled')" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </div>
+
+          <!-- 服务级别熔断器配置 -->
+          <el-divider content-position="left">{{ t('service.circuitBreaker.section') }}</el-divider>
+          <el-form-item :label="t('service.circuitBreaker.enable')">
+            <el-switch v-model="form.circuitBreaker.enabled" :active-text="t('service.enabled')" :inactive-text="t('service.disabled')" />
+          </el-form-item>
+
+          <div v-if="form.circuitBreaker.enabled">
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item :label="t('service.circuitBreaker.failureThreshold')">
+                  <el-input-number v-model="form.circuitBreaker.failureThreshold" :min="1" :max="100" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item :label="t('service.circuitBreaker.timeoutMs')">
+                  <el-input-number v-model="form.circuitBreaker.timeout" :min="1000" :max="300000" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item :label="t('service.circuitBreaker.successThreshold')">
+                  <el-input-number v-model="form.circuitBreaker.successThreshold" :min="1" :max="100" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
     </el-form>
 
     <template #footer>
@@ -349,7 +359,9 @@ import { ref, onMounted, reactive, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
-import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
+import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
+import { ElMessage, ElNotification } from 'element-plus'
+import { confirmDanger } from '@/utils/dangerConfirm'
 import { SERVICE_TYPE_LABELS, COMMON_SERVICE_TYPES } from '@/constants/serviceTypes'
 import type { FormInstance, FormRules } from 'element-plus'
 import { 
@@ -413,9 +425,14 @@ interface ServiceForm {
 // 状态管理
 const services = ref<Service[]>([])
 const loading = ref(false)
+
+const servicesTableRef = ref()
+const { maxHeight: servicesMaxHeight } = useTableMaxHeight(servicesTableRef)
 const dialogLoading = ref(false)
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
+/** 高级折叠（限流/熔断覆盖项）：新建默认收起；编辑时若已启用任一项则自动展开 */
+const advancedExpanded = ref<string[]>([])
 const isEdit = ref(false)
 const errorMessage = ref('')
 const formRef = ref<FormInstance>()
@@ -670,6 +687,7 @@ const handleAddService = () => {
   form.adapter = ''
   form.loadBalance.type = 'random'
   form.description = ''
+  advancedExpanded.value = []
   dialogVisible.value = true
 }
 
@@ -716,6 +734,7 @@ const handleEdit = async (row: Service) => {
         }
       }
       dialogVisible.value = true
+      advancedExpanded.value = form.rateLimit.enabled || form.circuitBreaker.enabled ? ['advanced'] : []
     } else {
       ElMessage.error(response.data?.message || t('service.messages.fetchConfigFailed'))
     }
@@ -728,27 +747,28 @@ const handleEdit = async (row: Service) => {
 }
 
 // 删除
-const handleDelete = (row: Service) => {
-  ElMessageBox.confirm(
-    t('service.deleteDialog.message', { type: row.type }),
-    t('service.deleteDialog.title'),
-    { confirmButtonText: t('service.confirm'), cancelButtonText: t('service.cancel'), type: 'warning' }
-  ).then(async () => {
-    try {
-      const response = await deleteService(row.type)
-      if (response.data?.success) {
-        ElMessage.success(t('service.messages.deleteSuccess'))
-        await fetchServices()
-      } else {
-        ElMessage.error(response.data?.message || t('service.messages.deleteFailed'))
-      }
-    } catch (error: any) {
-      console.error('删除服务失败:', error)
-      ElMessage.error(error?.message || t('service.messages.networkError'))
-    }
-  }).catch(() => {
-    ElMessage.info(t('service.messages.deleteCancelled'))
+const handleDelete = async (row: Service) => {
+  const confirmed = await confirmDanger({
+    title: t('service.deleteDialog.title'),
+    target: row.type,
+    type: 'warning'
   })
+  if (!confirmed) {
+    ElMessage.info(t('service.messages.deleteCancelled'))
+    return
+  }
+  try {
+    const response = await deleteService(row.type)
+    if (response.data?.success) {
+      ElMessage.success(t('service.messages.deleteSuccess'))
+      await fetchServices()
+    } else {
+      ElMessage.error(response.data?.message || t('service.messages.deleteFailed'))
+    }
+  } catch (error: any) {
+    console.error('删除服务失败:', error)
+    ElMessage.error(error?.message || t('service.messages.networkError'))
+  }
 }
 
 const handleDialogClose = () => {
@@ -958,5 +978,28 @@ onMounted(() => { fetchServices() })
 .service-dialog :deep(.el-input__inner),
 .service-dialog :deep(.el-select) {
   font-size: 14px;
+}
+
+/* 覆盖默认设置折叠：弱化视觉权重，与表单主体区分 */
+.advanced-collapse {
+  width: 100%;
+  border-top: 1px dashed var(--el-border-color-lighter);
+  border-bottom: none;
+}
+
+.advanced-collapse :deep(.el-collapse-item__header) {
+  font-size: 13px;
+  color: var(--ja-text-secondary);
+  border-bottom: none;
+}
+
+.advanced-collapse :deep(.el-collapse-item__wrap) {
+  border-bottom: none;
+}
+
+.advanced-hint {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+  margin-bottom: 8px;
 }
 </style>

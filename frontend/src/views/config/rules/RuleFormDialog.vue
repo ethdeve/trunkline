@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="visible" :title="isEdit ? t('rule.editRule') : t('rule.addRule')" width="720px" destroy-on-close>
+  <el-dialog v-model="visible" :title="isEdit ? t('rule.editRule') : t('rule.addRule')" width="min(800px, 92vw)" destroy-on-close>
     <el-form ref="formRef" :model="form" :rules="formRules" label-width="90px">
       <el-form-item :label="t('rule.name')" prop="name">
         <el-input v-model="form.name" :placeholder="t('rule.form.namePlaceholder')" />
@@ -197,54 +197,7 @@
       <el-button type="primary" :loading="saving" @click="handleSave">{{ t('rule.save') }}</el-button>
     </template>
 
-    <!-- 模拟测试面板 -->
-    <el-dialog v-model="testVisible" :title="t('rule.test.title')" width="560px" append-to-body>
-      <el-form label-width="90px">
-        <el-form-item :label="t('rule.test.serviceType')">
-          <el-select v-model="testForm.serviceType" style="width: 200px">
-            <el-option v-for="s in SERVICE_TYPES" :key="s" :label="s" :value="s" />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="t('rule.test.modelName')">
-          <el-input v-model="testForm.modelName" :placeholder="t('rule.test.modelNamePlaceholder')" />
-        </el-form-item>
-        <el-form-item :label="t('rule.test.clientIp')">
-          <el-input v-model="testForm.clientIp" :placeholder="t('rule.test.clientIpPlaceholder')" />
-        </el-form-item>
-        <el-form-item :label="t('rule.test.headers')">
-          <div class="test-header-list">
-            <div v-for="(h, idx) in testForm.headers" :key="idx" class="test-header-row">
-              <el-input v-model="h.key" :placeholder="t('rule.form.headerNamePlaceholder')" style="width: 160px" />
-              <el-input v-model="h.value" :placeholder="t('rule.form.valuePlaceholder')" style="width: 160px; margin-left: 8px" />
-              <el-button type="danger" :icon="Delete" circle size="small" style="margin-left: 8px"
-                @click="removeTestHeader(idx)" />
-            </div>
-            <el-button type="primary" plain size="small" :icon="Plus" @click="addTestHeader">{{ t('rule.test.addHeader') }}</el-button>
-          </div>
-        </el-form-item>
-      </el-form>
-
-      <el-alert
-        v-if="testResult"
-        :type="testResult.matched ? 'success' : 'info'"
-        :title="testResult.message"
-        :closable="false"
-        style="margin-top: 8px"
-      >
-        <template v-if="testResult.matched && testResult.action" #default>
-          <div style="margin-top: 6px">
-            {{ t('rule.test.hitRule') }} <b>{{ testResult.ruleName }}</b> {{ t('rule.test.hitPriority', { priority: testResult.priority }) }}<br />
-            {{ t('rule.test.actionLabel') }} {{ testResult.action.type }}
-            <template v-if="testResult.action.target"> → {{ testResult.action.target }}</template>
-          </div>
-        </template>
-      </el-alert>
-
-      <template #footer>
-        <el-button @click="testVisible = false">{{ t('rule.close') }}</el-button>
-        <el-button type="primary" :loading="testLoading" @click="runTest">{{ t('rule.runTest') }}</el-button>
-      </template>
-    </el-dialog>
+    <RuleSimulateDialog v-model="testVisible" :prefill="testPrefill" />
   </el-dialog>
 </template>
 
@@ -256,14 +209,14 @@ import { Delete, Plus, MagicStick } from '@element-plus/icons-vue'
 import {
   createRule,
   updateRule,
-  validateRule,
   type RuleCondition,
-  type RuleDefinition,
-  type RuleValidateResult
+  type RuleDefinition
 } from '@/api/rules'
 import { getAdapterList, type AdapterInfo } from '@/api/adapter'
 import { getServiceInstances, type InstanceConfig } from '@/api/instance'
 import { getPoolList, type PoolDefinition } from '@/api/pools'
+import RuleSimulateDialog, { type RuleSimulatePrefill } from './RuleSimulateDialog.vue'
+import { effectMessage } from '@/utils/effectScope'
 
 const props = defineProps<{
   rule: RuleDefinition | null
@@ -431,65 +384,21 @@ watch(currentServiceType, val => {
 
 // ==================== 模拟测试(dry-run) ====================
 const testVisible = ref(false)
-const testForm = reactive<{
-  serviceType: string
-  modelName: string
-  clientIp: string
-  headers: Array<{ key: string; value: string }>
-}>({
-  serviceType: 'chat',
-  modelName: '',
-  clientIp: '127.0.0.1',
-  headers: [{ key: '', value: '' }]
-})
-const testLoading = ref(false)
-const testResult = ref<RuleValidateResult | null>(null)
+/** 传给共享模拟测试弹窗的预填值：把当前规则条件反推成一次示例请求 */
+const testPrefill = ref<RuleSimulatePrefill | null>(null)
 
 const openTestPanel = () => {
   // 预填:取条件中的 SERVICE_TYPE / MODEL_NAME / HEADER / CLIENT_IP 作为测试输入
-  testForm.serviceType = currentServiceType.value
-  testForm.modelName = form.conditions.find(c => c.type === 'MODEL_NAME')?.value || ''
-  testForm.clientIp = form.conditions.find(c => c.type === 'CLIENT_IP')?.value || '127.0.0.1'
   const headerConds = form.conditions.filter(c => c.type === 'HEADER')
-  testForm.headers = headerConds.length
-    ? headerConds.map(c => ({ key: c.field || '', value: c.value || '' }))
-    : [{ key: '', value: '' }]
-  testResult.value = null
+  testPrefill.value = {
+    serviceType: currentServiceType.value,
+    modelName: form.conditions.find(c => c.type === 'MODEL_NAME')?.value || '',
+    clientIp: form.conditions.find(c => c.type === 'CLIENT_IP')?.value || '127.0.0.1',
+    headers: headerConds.length
+      ? headerConds.map(c => ({ key: c.field || '', value: c.value || '' }))
+      : [{ key: '', value: '' }]
+  }
   testVisible.value = true
-}
-
-const addTestHeader = () => {
-  testForm.headers.push({ key: '', value: '' })
-}
-
-const removeTestHeader = (index: number) => {
-  if (testForm.headers.length <= 1) return
-  testForm.headers.splice(index, 1)
-}
-
-const runTest = async () => {
-  if (!testForm.modelName.trim()) {
-    ElMessage.warning(t('rule.test.modelNameRequired'))
-    return
-  }
-  testLoading.value = true
-  try {
-    const headers: Record<string, string> = {}
-    testForm.headers.forEach(h => {
-      if (h.key.trim()) headers[h.key.trim()] = h.value
-    })
-    const res = await validateRule({
-      serviceType: testForm.serviceType,
-      modelName: testForm.modelName.trim(),
-      clientIp: testForm.clientIp.trim() || '127.0.0.1',
-      headers
-    })
-    testResult.value = res.data?.data || null
-  } catch (e) {
-    ElMessage.error(t('rule.test.runFailed'))
-  } finally {
-    testLoading.value = false
-  }
 }
 
 // v2.9.7: TARGET_TAGS 标签编辑
@@ -652,10 +561,10 @@ const handleSave = async () => {
   try {
     if (isEdit.value && props.rule?.id) {
       await updateRule(props.rule.id, payload)
-      ElMessage.success(t('rule.ruleUpdated'))
+      ElMessage.success(effectMessage(t('rule.ruleUpdated'), 'config'))
     } else {
       await createRule(payload)
-      ElMessage.success(t('rule.ruleCreated'))
+      ElMessage.success(effectMessage(t('rule.ruleCreated'), 'config'))
     }
     visible.value = false
     emit('saved')

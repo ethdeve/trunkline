@@ -1,4 +1,4 @@
-﻿# JAiRouter 慢查询告警功能
+﻿# Trunkline 慢查询告警功能
 
 <!-- 版本信息 -->
 > **文档版本**: 1.0.0
@@ -9,11 +9,11 @@
 
 ## 概述
 
-JAiRouter 的慢查询告警功能是一个完整的性能监控和告警系统，能够自动检测系统中的慢操作，并根据配置的策略发送告警通知。该功能集成了分布式追踪、结构化日志记录和 Prometheus 指标导出。
+Trunkline 的慢查询告警功能是一个完整的性能监控和告警系统，能够自动检测系统中的慢操作，并根据配置的策略发送告警通知。该功能集成了分布式追踪、结构化日志记录和 Prometheus 指标导出。
 
 ## 配置文件结构
 
-JAiRouter 使用模块化的配置管理方式，慢查询告警配置位于独立的配置文件中：
+Trunkline 使用模块化的配置管理方式，慢查询告警配置位于独立的配置文件中：
 
 - **主配置文件**: `src/main/resources/application.yml`
 - **慢查询告警配置文件**: `src/main/resources/config/monitor/slow-query-alerts.yml`
@@ -60,7 +60,7 @@ spring:
 在 `slow-query-alerts.yml` 中配置：
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       enabled: true
@@ -75,7 +75,7 @@ jairouter:
 ### 2. 配置操作特定阈值
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       operations:
@@ -181,9 +181,9 @@ slow_query_alert_active{operation="chat_request", severity="warning"}
 
 ```yaml
 groups:
-  - name: jairouter.slow-query-alerts
+  - name: trunkline.slow-query-alerts
     rules:
-      - alert: JAiRouterSlowQueryDetected
+      - alert: TrunklineSlowQueryDetected
         expr: increase(slow_query_total[5m]) > 0
         for: 0m
         labels:
@@ -249,7 +249,7 @@ GET /api/monitoring/slow-queries/alerts/status
 ### 开发环境 (application-dev.yml)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       enabled: true
@@ -261,7 +261,7 @@ jairouter:
 ### 生产环境 (application-prod.yml)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       enabled: true

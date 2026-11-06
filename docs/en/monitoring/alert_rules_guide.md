@@ -1,4 +1,4 @@
-# JAiRouter Alert Rules Guide
+# Trunkline Alert Rules Guide
 
 <!-- Version Information -->
 > **Version**: 1.1.1
@@ -10,25 +10,25 @@
 
 ## Overview
 
-This document details the Prometheus alert rules configuration for the JAiRouter project, including alert types, trigger conditions, and handling recommendations.
+This document details the Prometheus alert rules configuration for the Trunkline project, including alert types, trigger conditions, and handling recommendations.
 
 ## Alert Rule Categories
 
-### 1. Basic Service Alerts (jairouter.basic)
+### 1. Basic Service Alerts (trunkline.basic)
 
-#### JAiRouterServiceDown
-- **Description**: JAiRouter service unavailable
-- **Trigger Condition**: `up{job="jairouter"} == 0`
+#### TrunklineServiceDown
+- **Description**: Trunkline service unavailable
+- **Trigger Condition**: `up{job="trunkline"} == 0`
 - **Duration**: 1 minute
 - **Severity**: Critical
 - **Handling Recommendations**:
-  1. Check JAiRouter service process status
+  1. Check Trunkline service process status
   2. Review application startup logs
   3. Verify port usage
   4. Check system resources availability
 
-#### JAiRouterHighErrorRate
-- **Description**: JAiRouter error rate too high
+#### TrunklineHighErrorRate
+- **Description**: Trunkline error rate too high
 - **Trigger Condition**: 4xx/5xx error rate exceeds 10%
 - **Duration**: 2 minutes
 - **Severity**: Warning
@@ -38,8 +38,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Check network connectivity
   4. Analyze error type distribution
 
-#### JAiRouterCriticalErrorRate
-- **Description**: JAiRouter critical error rate too high
+#### TrunklineCriticalErrorRate
+- **Description**: Trunkline critical error rate too high
 - **Trigger Condition**: 5xx error rate exceeds 5%
 - **Duration**: 1 minute
 - **Severity**: Critical
@@ -49,10 +49,10 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Check database connections
   4. Verify dependency service availability
 
-### 2. Performance Alerts (jairouter.performance)
+### 2. Performance Alerts (trunkline.performance)
 
-#### JAiRouterHighLatency
-- **Description**: JAiRouter response time too high
+#### TrunklineHighLatency
+- **Description**: Trunkline response time too high
 - **Trigger Condition**: 95th percentile response time exceeds 2 seconds
 - **Duration**: 3 minutes
 - **Severity**: Warning
@@ -62,8 +62,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Verify backend service response times
   4. Check network latency
 
-#### JAiRouterCriticalLatency
-- **Description**: JAiRouter response time critically high
+#### TrunklineCriticalLatency
+- **Description**: Trunkline response time critically high
 - **Trigger Condition**: 95th percentile response time exceeds 5 seconds
 - **Duration**: 1 minute
 - **Severity**: Critical
@@ -73,8 +73,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Consider temporary rate limiting
   4. Check if scaling is needed
 
-#### JAiRouterLowRequestVolume
-- **Description**: JAiRouter request volume abnormally low
+#### TrunklineLowRequestVolume
+- **Description**: Trunkline request volume abnormally low
 - **Trigger Condition**: Request rate below 0.1 req/s
 - **Duration**: 5 minutes
 - **Severity**: Warning
@@ -84,8 +84,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Check network routing
   4. Confirm if it's normal business low period
 
-#### JAiRouterSlowQueriesDetected
-- **Description**: JAiRouter detected slow queries
+#### TrunklineSlowQueriesDetected
+- **Description**: Trunkline detected slow queries
 - **Trigger Condition**: More than 5 slow queries in 5 minutes
 - **Duration**: 1 minute
 - **Severity**: Warning
@@ -95,8 +95,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Optimize related queries or operations
   4. Consider adding indexes or caching
 
-#### JAiRouterHighSlowQueryRate
-- **Description**: JAiRouter slow query rate too high
+#### TrunklineHighSlowQueryRate
+- **Description**: Trunkline slow query rate too high
 - **Trigger Condition**: Slow query rate exceeds 1/second
 - **Duration**: 2 minutes
 - **Severity**: Critical
@@ -106,11 +106,11 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Evaluate if resource scaling is needed
   4. Consider temporary rate limiting measures
 
-### 3. Backend Service Alerts (jairouter.backend)
+### 3. Backend Service Alerts (trunkline.backend)
 
-#### JAiRouterBackendDown
-- **Description**: JAiRouter backend service unavailable
-- **Trigger Condition**: `jairouter_backend_health == 0`
+#### TrunklineBackendDown
+- **Description**: Trunkline backend service unavailable
+- **Trigger Condition**: `trunkline_backend_health == 0`
 - **Duration**: 1 minute
 - **Severity**: Critical
 - **Handling Recommendations**:
@@ -119,8 +119,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Check service configuration
   4. Review health check logs
 
-#### JAiRouterBackendHighLatency
-- **Description**: JAiRouter backend service responding slowly
+#### TrunklineBackendHighLatency
+- **Description**: Trunkline backend service responding slowly
 - **Trigger Condition**: Backend 95th percentile response time exceeds 3 seconds
 - **Duration**: 2 minutes
 - **Severity**: Warning
@@ -130,8 +130,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Verify backend resource usage
   4. Consider adjusting timeout configuration
 
-#### JAiRouterBackendHighErrorRate
-- **Description**: JAiRouter backend service error rate high
+#### TrunklineBackendHighErrorRate
+- **Description**: Trunkline backend service error rate high
 - **Trigger Condition**: Backend error rate exceeds 15%
 - **Duration**: 2 minutes
 - **Severity**: Warning
@@ -141,11 +141,11 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Check authentication configuration
   4. Analyze error types
 
-### 4. Infrastructure Alerts (jairouter.infrastructure)
+### 4. Infrastructure Alerts (trunkline.infrastructure)
 
-#### JAiRouterCircuitBreakerOpen
-- **Description**: JAiRouter circuit breaker opened
-- **Trigger Condition**: `jairouter_circuit_breaker_state == 1`
+#### TrunklineCircuitBreakerOpen
+- **Description**: Trunkline circuit breaker opened
+- **Trigger Condition**: `trunkline_circuit_breaker_state == 1`
 - **Duration**: 30 seconds
 - **Severity**: Warning
 - **Handling Recommendations**:
@@ -154,8 +154,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Verify circuit breaker configuration
   4. Consider manual recovery
 
-#### JAiRouterRateLimitTriggered
-- **Description**: JAiRouter rate limiter frequently triggered
+#### TrunklineRateLimitTriggered
+- **Description**: Trunkline rate limiter frequently triggered
 - **Trigger Condition**: Rate limit rejection rate exceeds 10 req/s
 - **Duration**: 1 minute
 - **Severity**: Warning
@@ -165,8 +165,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Evaluate if threshold adjustment needed
   4. Consider capacity increase
 
-#### JAiRouterLoadBalancerImbalance
-- **Description**: JAiRouter load balancing uneven
+#### TrunklineLoadBalancerImbalance
+- **Description**: Trunkline load balancing uneven
 - **Trigger Condition**: Instance request volume difference exceeds 50%
 - **Duration**: 5 minutes
 - **Severity**: Warning
@@ -176,10 +176,10 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Analyze instance performance differences
   4. Consider adjusting weight configuration
 
-### 5. Resource Alerts (jairouter.resources)
+### 5. Resource Alerts (trunkline.resources)
 
-#### JAiRouterHighMemoryUsage
-- **Description**: JAiRouter memory usage high
+#### TrunklineHighMemoryUsage
+- **Description**: Trunkline memory usage high
 - **Trigger Condition**: JVM heap memory usage exceeds 80%
 - **Duration**: 2 minutes
 - **Severity**: Warning
@@ -189,8 +189,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Consider adjusting JVM parameters
   4. Evaluate if scaling needed
 
-#### JAiRouterCriticalMemoryUsage
-- **Description**: JAiRouter memory usage critically high
+#### TrunklineCriticalMemoryUsage
+- **Description**: Trunkline memory usage critically high
 - **Trigger Condition**: JVM heap memory usage exceeds 90%
 - **Duration**: 1 minute
 - **Severity**: Critical
@@ -200,8 +200,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Increase memory configuration
   4. Analyze memory leak causes
 
-#### JAiRouterHighGCRate
-- **Description**: JAiRouter GC frequency too high
+#### TrunklineHighGCRate
+- **Description**: Trunkline GC frequency too high
 - **Trigger Condition**: GC frequency exceeds 0.2/second
 - **Duration**: 3 minutes
 - **Severity**: Warning
@@ -211,8 +211,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Check memory allocation patterns
   4. Consider adjusting heap size
 
-#### JAiRouterHighThreadCount
-- **Description**: JAiRouter thread count too high
+#### TrunklineHighThreadCount
+- **Description**: Trunkline thread count too high
 - **Trigger Condition**: Current thread count exceeds 200
 - **Duration**: 2 minutes
 - **Severity**: Warning
@@ -222,10 +222,10 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Find thread leaks
   4. Optimize concurrent handling
 
-### 6. Business Metric Alerts (jairouter.business)
+### 6. Business Metric Alerts (trunkline.business)
 
-#### JAiRouterModelCallFailureRate
-- **Description**: JAiRouter model call failure rate high
+#### TrunklineModelCallFailureRate
+- **Description**: Trunkline model call failure rate high
 - **Trigger Condition**: Model call failure rate exceeds 20%
 - **Duration**: 2 minutes
 - **Severity**: Warning
@@ -235,8 +235,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Analyze failure causes
   4. Check network connectivity
 
-#### JAiRouterLargeRequestSize
-- **Description**: JAiRouter request size abnormal
+#### TrunklineLargeRequestSize
+- **Description**: Trunkline request size abnormal
 - **Trigger Condition**: 95th percentile request size exceeds 1MB
 - **Duration**: 3 minutes
 - **Severity**: Warning
@@ -246,8 +246,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Consider adding size limits
   4. Optimize data transfer
 
-#### JAiRouterLargeResponseSize
-- **Description**: JAiRouter response size abnormal
+#### TrunklineLargeResponseSize
+- **Description**: Trunkline response size abnormal
 - **Trigger Condition**: 95th percentile response size exceeds 5MB
 - **Duration**: 3 minutes
 - **Severity**: Warning
@@ -257,10 +257,10 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Consider pagination handling
   4. Check for data leaks
 
-### 7. Security Alerts (jairouter.security)
+### 7. Security Alerts (trunkline.security)
 
-#### JAiRouterSuspiciousIPActivity
-- **Description**: JAiRouter detected suspicious IP activity
+#### TrunklineSuspiciousIPActivity
+- **Description**: Trunkline detected suspicious IP activity
 - **Trigger Condition**: Single IP request rate exceeds 100 req/s
 - **Duration**: 2 minutes
 - **Severity**: Warning
@@ -270,8 +270,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Consider temporary blocking
   4. Strengthen access controls
 
-#### JAiRouterHighAuthFailureRate
-- **Description**: JAiRouter authentication failure rate high
+#### TrunklineHighAuthFailureRate
+- **Description**: Trunkline authentication failure rate high
 - **Trigger Condition**: 401 error rate exceeds 5%
 - **Duration**: 2 minutes
 - **Severity**: Warning
@@ -281,8 +281,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Verify key configuration
   4. Check for brute force attempts
 
-#### JAiRouterHighClientErrorRate
-- **Description**: JAiRouter client error rate high
+#### TrunklineHighClientErrorRate
+- **Description**: Trunkline client error rate high
 - **Trigger Condition**: 4xx error rate exceeds 20%
 - **Duration**: 3 minutes
 - **Severity**: Warning
@@ -292,10 +292,10 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Verify parameter validation logic
   4. Provide better error information
 
-### 8. Capacity Planning Alerts (jairouter.capacity)
+### 8. Capacity Planning Alerts (trunkline.capacity)
 
-#### JAiRouterRequestVolumeGrowth
-- **Description**: JAiRouter request volume significant growth
+#### TrunklineRequestVolumeGrowth
+- **Description**: Trunkline request volume significant growth
 - **Trigger Condition**: Growth exceeds 50% compared to 24 hours ago
 - **Duration**: 5 minutes
 - **Severity**: Info
@@ -305,8 +305,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Consider scaling plans
   4. Monitor resource usage
 
-#### JAiRouterLowDiskSpace
-- **Description**: JAiRouter server disk space insufficient
+#### TrunklineLowDiskSpace
+- **Description**: Trunkline server disk space insufficient
 - **Trigger Condition**: Available disk space below 20%
 - **Duration**: 5 minutes
 - **Severity**: Warning
@@ -316,8 +316,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Check disk usage
   4. Consider expansion
 
-#### JAiRouterHighCPUUsage
-- **Description**: JAiRouter server CPU usage high
+#### TrunklineHighCPUUsage
+- **Description**: Trunkline server CPU usage high
 - **Trigger Condition**: CPU usage exceeds 80%
 - **Duration**: 3 minutes
 - **Severity**: Warning
@@ -327,10 +327,10 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Optimize performance bottlenecks
   4. Consider scaling
 
-### 9. Dependency Service Alerts (jairouter.dependencies)
+### 9. Dependency Service Alerts (trunkline.dependencies)
 
-#### JAiRouterDatabaseConnectionIssue
-- **Description**: JAiRouter database connection pool usage high
+#### TrunklineDatabaseConnectionIssue
+- **Description**: Trunkline database connection pool usage high
 - **Trigger Condition**: Connection pool usage exceeds 80%
 - **Duration**: 2 minutes
 - **Severity**: Warning
@@ -340,8 +340,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Optimize connection pool configuration
   4. Check slow queries
 
-#### JAiRouterLowCacheHitRate
-- **Description**: JAiRouter cache hit rate low
+#### TrunklineLowCacheHitRate
+- **Description**: Trunkline cache hit rate low
 - **Trigger Condition**: Cache hit rate below 70%
 - **Duration**: 5 minutes
 - **Severity**: Warning
@@ -351,8 +351,8 @@ This document details the Prometheus alert rules configuration for the JAiRouter
   3. Optimize cache key design
   4. Consider cache warming
 
-#### JAiRouterExternalAPITimeout
-- **Description**: JAiRouter external API call timeout frequent
+#### TrunklineExternalAPITimeout
+- **Description**: Trunkline external API call timeout frequent
 - **Trigger Condition**: Timeout frequency exceeds 5/second
 - **Duration**: 2 minutes
 - **Severity**: Warning
@@ -435,12 +435,12 @@ This document details the Prometheus alert rules configuration for the JAiRouter
 
 - [Prometheus Alert Rules Documentation](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/)
 - [AlertManager Configuration Documentation](https://prometheus.io/docs/alerting/latest/configuration/)
-- [Grafana Dashboards](http://localhost:3000/d/jairouter-overview)
+- [Grafana Dashboards](http://localhost:3000/d/trunkline-overview)
 - [Prometheus Web Interface](http://localhost:9090/alerts)
 
 ## Contact Information
 
 For questions or suggestions, contact:
-- Operations Team: https://github.com/Lincoln-cn/JAiRouter/issues
-- Development Team: https://github.com/Lincoln-cn/JAiRouter/issues
-- JAiRouter Team: https://github.com/Lincoln-cn/JAiRouter/issues
+- Operations Team: https://github.com/Lincoln-cn/Trunkline/issues
+- Development Team: https://github.com/Lincoln-cn/Trunkline/issues
+- Trunkline Team: https://github.com/Lincoln-cn/Trunkline/issues

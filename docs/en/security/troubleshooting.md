@@ -11,7 +11,7 @@
 
 ## Overview
 
-This document provides diagnosis and solutions for common JAiRouter security feature issues, including authentication failures, sanitization problems, performance issues, and more.
+This document provides diagnosis and solutions for common Trunkline security feature issues, including authentication failures, sanitization problems, performance issues, and more.
 
 ## Quick Diagnosis
 
@@ -30,13 +30,13 @@ curl -H "Authorization: Bearer admin-token" \
 
 ```bash
 # View application logs
-tail -f logs/jairouter.log
+tail -f logs/trunkline.log
 
 # View security audit logs
 tail -f logs/security-audit.log
 
 # View error logs
-grep ERROR logs/jairouter.log
+grep ERROR logs/trunkline.log
 ```
 
 ### 3. Check Monitoring Metrics
@@ -88,7 +88,7 @@ curl -H "Authorization: Bearer admin-token" \
 1. **Check API Key value**
 ```yaml
 # Ensure configuration is correct
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
@@ -148,7 +148,7 @@ curl -H "Authorization: Bearer admin-token" \
 
 1. **Check JWT configuration**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: true
@@ -233,7 +233,7 @@ curl -H "Authorization: Bearer admin-token" \
 
 1. **Enable sanitization feature**
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -244,7 +244,7 @@ jairouter:
 
 2. **Fix regular expression**
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -290,7 +290,7 @@ pii-patterns:
 
 2. **Adjust rule priority**
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -301,7 +301,7 @@ jairouter:
 
 3. **Add exception rules**
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -334,7 +334,7 @@ curl http://localhost:8080/actuator/prometheus | grep thread_pool
 
 1. **Enable caching**
 ```yaml
-jairouter:
+trunkline:
   security:
     performance:
       cache:
@@ -346,7 +346,7 @@ jairouter:
 
 2. **Optimize thread pool**
 ```yaml
-jairouter:
+trunkline:
   security:
     performance:
       authentication:
@@ -385,7 +385,7 @@ curl http://localhost:8080/actuator/prometheus | grep regex_cache
 
 1. **Enable parallel processing**
 ```yaml
-jairouter:
+trunkline:
   security:
     performance:
       sanitization:
@@ -403,7 +403,7 @@ pii-patterns:
 
 3. **Enable streaming processing**
 ```yaml
-jairouter:
+trunkline:
   security:
     performance:
       sanitization:
@@ -498,7 +498,7 @@ source ~/.profile
 
 1. **Enable monitoring feature**
 ```yaml
-jairouter:
+trunkline:
   security:
     monitoring:
       enabled: true
@@ -533,7 +533,7 @@ curl http://localhost:8080/actuator/prometheus
 
 1. **Confirm alerts are enabled** (on by default; when set to `false` neither alert bean is created)
 ```yaml
-jairouter:
+trunkline:
   security:
     monitoring:
       alerts:
@@ -551,7 +551,7 @@ jairouter:
    Counting happens in the store, so it is not limited by how many rows are fetched; if the audit table holds no events of the relevant type (e.g. sanitization events not stored as `DATA_SANITIZATION`), the criterion stays at 0.
 
 3. **Confirm the outlet** — alerts only reach **metrics and logs**; there is no in-repo email/webhook delivery:
-   - metric `jairouter.security.violations` (tags `violationType` / `severity`), scrape `GET /actuator/prometheus`;
+   - metric `trunkline.security.violations` (tags `violationType` / `severity`), scrape `GET /actuator/prometheus`;
    - log line `安全告警触发: type=..., severity=...` (WARN level).
 
    Repeated hits of the same alert type are suppressed by `cooldown-minutes` (default 15).
@@ -592,7 +592,7 @@ curl -H "Authorization: Bearer admin-token" \
 #!/bin/bash
 # security-log-analyzer.sh
 
-LOG_FILE="logs/jairouter.log"
+LOG_FILE="logs/trunkline.log"
 AUDIT_FILE="logs/security-audit.log"
 
 echo "=== Authentication Failure Statistics ==="
@@ -626,11 +626,11 @@ curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \
 
 echo "=== Authentication Performance Metrics ==="
 curl -s "$BASE_URL/actuator/prometheus" | \
-     grep "jairouter_security_authentication_duration_seconds"
+     grep "trunkline_security_authentication_duration_seconds"
 
 echo "=== Sanitization Performance Metrics ==="
 curl -s "$BASE_URL/actuator/prometheus" | \
-     grep "jairouter_security_sanitization_duration_seconds"
+     grep "trunkline_security_sanitization_duration_seconds"
 ```
 
 ## Common Commands Reference
@@ -685,9 +685,9 @@ curl -H "Authorization: Bearer admin-token" \
 
 If the above solutions cannot resolve your issue, please contact technical support:
 
-- **GitHub Issues**: https://github.com/Lincoln-cn/JAiRouter/issues
-- **Email Support**: support@jairouter.com
-- **Documentation Center**: https://jairouter.com
+- **GitHub Issues**: https://github.com/Lincoln-cn/Trunkline/issues
+- **Email Support**: support@trunkline.com
+- **Documentation Center**: https://trunkline.com
 
 When submitting an issue, please include the following information:
 1. Detailed description of the problem

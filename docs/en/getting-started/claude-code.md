@@ -10,8 +10,8 @@
 
 ## Overview
 
-Since **v3.1**, JAiRouter exposes an **Anthropic Messages protocol endpoint** (`POST /v1/messages`).
-Claude Code only needs `ANTHROPIC_BASE_URL` pointed at JAiRouter to connect **with zero code changes**:
+Since **v3.1**, Trunkline exposes an **Anthropic Messages protocol endpoint** (`POST /v1/messages`).
+Claude Code only needs `ANTHROPIC_BASE_URL` pointed at Trunkline to connect **with zero code changes**:
 the request goes through API Key authentication → quota → rate limiting / circuit breaking →
 load balancing to any downstream instance (OpenAI / DeepSeek / vLLM / Ollama / Claude …), and the
 response is translated back into Anthropic shape.
@@ -26,11 +26,11 @@ response is translated back into Anthropic shape.
 
 > **In one sentence**: `/api/v1/**` (console surface) returns `RouterResponse` envelopes;
 > `/v1/**` (native surface) returns **downstream-native / protocol-native** shapes so that clients
-> such as Claude Code and the OpenAI SDK can use JAiRouter directly.
+> such as Claude Code and the OpenAI SDK can use Trunkline directly.
 
 ## Prerequisites
 
-1. JAiRouter is running (default `http://localhost:8080`).
+1. Trunkline is running (default `http://localhost:8080`).
 2. An **API Key** has been created in the console (it authenticates both `/api/**` and `/v1/**`).
 3. The target model is registered as an **instance or pool** (service type `chat`),
    e.g. `deepseek-chat` or `qwen2:7b`.
@@ -42,10 +42,10 @@ response is translated back into Anthropic shape.
 # 1) Gateway URL: ANTHROPIC_BASE_URL=http://<host>:8080 (no /v1 suffix; replace <host> with the gateway host/IP)
 export ANTHROPIC_BASE_URL=http://localhost:8080
 
-# 2) Gateway credential (API Key created in the JAiRouter console)
-export ANTHROPIC_API_KEY=<JAiRouter API Key>
+# 2) Gateway credential (API Key created in the Trunkline console)
+export ANTHROPIC_API_KEY=<Trunkline API Key>
 
-# 3) A model name registered in JAiRouter (must match the instance/pool name exactly; no aliases)
+# 3) A model name registered in Trunkline (must match the instance/pool name exactly; no aliases)
 export ANTHROPIC_MODEL=deepseek-chat
 
 # 4) Start Claude Code
@@ -56,7 +56,7 @@ PowerShell:
 
 ```powershell
 $env:ANTHROPIC_BASE_URL = "http://localhost:8080"
-$env:ANTHROPIC_API_KEY  = "<JAiRouter API Key>"
+$env:ANTHROPIC_API_KEY  = "<Trunkline API Key>"
 $env:ANTHROPIC_MODEL    = "deepseek-chat"
 claude
 ```
@@ -64,7 +64,7 @@ claude
 Claude Code sends `ANTHROPIC_API_KEY` in the **`x-api-key`** request header. HTTP header names are
 case-insensitive, so `x-api-key` and `X-API-Key` are **equivalent** (both verified against the gateway).
 
-> **Important**: inside JAiRouter, `x-api-key` is a **gateway credential**. It is consumed by the
+> **Important**: inside Trunkline, `x-api-key` is a **gateway credential**. It is consumed by the
 > security layer and **never forwarded downstream**. Downstream AI service keys must be configured
 > separately — see the next section.
 
@@ -75,7 +75,7 @@ different purposes:
 
 | Header | Belongs to | Forwarded downstream | Notes |
 |--------|-----------|----------------------|-------|
-| `x-api-key` (`X-API-Key` is equivalent) | **Gateway credential** | ❌ **No** | API Key created in the JAiRouter console; used for gateway auth + service permission (`ROLE_CHAT`) |
+| `x-api-key` (`X-API-Key` is equivalent) | **Gateway credential** | ❌ **No** | API Key created in the Trunkline console; used for gateway auth + service permission (`ROLE_CHAT`) |
 | `Jairouter_Token` | **Gateway credential (JWT)** | ❌ No | JWT issued by the console/login endpoint; **takes precedence** when both are present |
 | `Authorization` | **Downstream credential** | ✅ **Yes** | e.g. `Bearer sk-xxx` (OpenAI/DeepSeek), `Bearer <token>`; the gateway **never consumes** it |
 | Instance `headers` | **Downstream credential** | ✅ Injected by gateway | Custom request headers from instance config, used to pass `Authorization` / `x-api-key` etc. downstream |
@@ -92,7 +92,7 @@ Three rules to remember:
 
 > **Native-surface authentication note**: `/v1/**` accepts both `X-API-Key` (API Key) and
 > `Jairouter_Token` (JWT). When both are present, **JWT takes precedence**. JWT must be enabled
-> (`jairouter.security.jwt.enabled`) and the token must not be expired or revoked.
+> (`trunkline.security.jwt.enabled`) and the token must not be expired or revoked.
 > For Claude Code, using `ANTHROPIC_API_KEY` (i.e. `x-api-key`) is the simplest approach; if you
 > prefer JWT, make sure the above conditions are met. The console surface `/api/**` is not affected.
 
@@ -110,7 +110,7 @@ Three rules to remember:
 # DeepSeek example: the downstream key lives in the instance headers (injected by the gateway)
 curl -X POST "http://localhost:8080/api/config/instance/add/chat" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: <JAiRouter API Key>" \
+  -H "X-API-Key: <Trunkline API Key>" \
   -d '{
     "name": "deepseek-chat",
     "baseUrl": "https://api.deepseek.com",
@@ -122,7 +122,7 @@ curl -X POST "http://localhost:8080/api/config/instance/add/chat" \
   }'
 ```
 
-Claude Code then only needs `ANTHROPIC_API_KEY=<JAiRouter API Key>`; the client neither stores nor
+Claude Code then only needs `ANTHROPIC_API_KEY=<Trunkline API Key>`; the client neither stores nor
 sends the downstream key.
 
 ### Option B: send the downstream key per request (pass-through `Authorization`)
@@ -132,7 +132,7 @@ Leave the instance config untouched and let the client carry the downstream key:
 ```bash
 curl -N -X POST "http://localhost:8080/v1/messages" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: <JAiRouter API Key>" \
+  -H "x-api-key: <Trunkline API Key>" \
   -H "Authorization: Bearer <DeepSeek API Key>" \
   -d '{"model":"deepseek-chat","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}'
 ```
@@ -145,7 +145,7 @@ header is overridden).
 ```bash
 curl -X POST "http://localhost:8080/api/config/instance/add/chat" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: <JAiRouter API Key>" \
+  -H "X-API-Key: <Trunkline API Key>" \
   -d '{
     "name": "claude-sonnet",
     "baseUrl": "https://api.anthropic.com",
@@ -163,14 +163,14 @@ curl -X POST "http://localhost:8080/api/config/instance/add/chat" \
 
 ## Endpoint Examples
 
-All examples use `x-api-key: <JAiRouter API Key>` as the gateway credential.
+All examples use `x-api-key: <Trunkline API Key>` as the gateway credential.
 
 ### Non-streaming messages
 
 ```bash
 curl -X POST "http://localhost:8080/v1/messages" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: <JAiRouter API Key>" \
+  -H "x-api-key: <Trunkline API Key>" \
   -H "anthropic-version: 2023-06-01" \
   -d '{
     "model": "deepseek-chat",
@@ -203,7 +203,7 @@ downstream does not provide it.
 ```bash
 curl -N -X POST "http://localhost:8080/v1/messages" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: <JAiRouter API Key>" \
+  -H "x-api-key: <Trunkline API Key>" \
   -H "anthropic-version: 2023-06-01" \
   -d '{
     "model": "deepseek-chat",
@@ -295,7 +295,7 @@ Ordering rules:
 ```bash
 curl -X POST "http://localhost:8080/v1/messages" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: <JAiRouter API Key>" \
+  -H "x-api-key: <Trunkline API Key>" \
   -H "anthropic-version: 2023-06-01" \
   -d '{
     "model": "deepseek-chat",
@@ -414,7 +414,7 @@ estimated from the accumulated text **plus tool `arguments` fragments**.
 # 1) Point at the gateway (the model must be a registered instance/pool whose downstream supports
 #    function calling, e.g. deepseek-chat)
 export ANTHROPIC_BASE_URL=http://localhost:8080
-export ANTHROPIC_API_KEY=<JAiRouter API Key>
+export ANTHROPIC_API_KEY=<Trunkline API Key>
 export ANTHROPIC_MODEL=deepseek-chat
 
 # 2) Trigger one tool call non-interactively (Claude Code attaches its Read/Bash tool definitions)
@@ -437,7 +437,7 @@ Two places to confirm the path end to end:
 ```bash
 curl -X POST "http://localhost:8080/v1/messages/count_tokens" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: <JAiRouter API Key>" \
+  -H "x-api-key: <Trunkline API Key>" \
   -d '{
     "model": "deepseek-chat",
     "system": "You are a concise assistant",
@@ -459,7 +459,7 @@ curl -X POST "http://localhost:8080/v1/messages/count_tokens" \
 ### Model catalog
 
 ```bash
-curl -H "x-api-key: <JAiRouter API Key>" "http://localhost:8080/v1/models"
+curl -H "x-api-key: <Trunkline API Key>" "http://localhost:8080/v1/models"
 ```
 
 Returns the OpenAI shape `{"object":"list","data":[{"id":"deepseek-chat","object":"model",…}]}`;
@@ -477,14 +477,14 @@ each `id` can be used as the `model` field.
 | **Streaming `message_start.id` / `model` come from the gateway** | `id` is a gateway-generated `msg_*` (the event is emitted before the first downstream chunk, so the downstream id is unknown yet); `model` is the **requested** model | Use the non-streaming endpoint when the real downstream `id` matters (it is passed through) |
 | **Streaming emits text blocks plus `tool_use` blocks** | The text block is always `index: 0` and tool blocks increment in order of appearance; no `thinking` / `redacted_thinking` blocks are emitted (a request `thinking` field is accepted but not consumed) | Connect to Anthropic directly when thinking is required |
 | **`tool_choice:"none"` omits `tools`** | Per protocol that value disables tools, so the gateway forwards neither `tools` nor `tool_choice` (instead of sending `"none"`) | Use it whenever you want "no tools at all" |
-| **Response-cache hit (non-streaming)** | With `jairouter.response-cache.enabled=true`, a cache hit on the native surface (`/v1/**`) returns **native JSON** (fixed in v3.1 — no console envelope); the cache key now includes `tools` / `tool_choice` / tool-conversation messages (PR-5), so different tool rounds never collide | Streaming requests skip the cache by default (`skip-streaming: true`); with `false`, a hit is replayed chunk-by-chunk into the event sequence |
+| **Response-cache hit (non-streaming)** | With `trunkline.response-cache.enabled=true`, a cache hit on the native surface (`/v1/**`) returns **native JSON** (fixed in v3.1 — no console envelope); the cache key now includes `tools` / `tool_choice` / tool-conversation messages (PR-5), so different tool rounds never collide | Streaming requests skip the cache by default (`skip-streaming: true`); with `false`, a hit is replayed chunk-by-chunk into the event sequence |
 | **`count_tokens` is an estimate** | It excludes the `tools` JSON Schema, `tool_use` / `tool_result` block bodies, image blocks, and downstream tokenizer differences | Treat it as an upper-bound reference |
 
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `401 Unauthorized` | `x-api-key` is not a valid JAiRouter API Key, or a **downstream** key was put in `x-api-key` | Create/copy the console API Key; move the downstream key to instance `headers` or `Authorization` |
+| `401 Unauthorized` | `x-api-key` is not a valid Trunkline API Key, or a **downstream** key was put in `x-api-key` | Create/copy the console API Key; move the downstream key to instance `headers` or `Authorization` |
 | Request succeeds but downstream returns 401/403 | Downstream key missing or expired (`x-api-key` is not forwarded) | Check the instance `headers`; verify with `/api/config/instance/type/chat` |
 | `404` / `503` (model unavailable) | `model` not registered, instance unhealthy, or service circuit-broken | Cross-check the model name with `GET /v1/models`; check instance health and circuit breaker |
 | Claude Code reports an "empty response" / no output | `x-api-key` is invalid or missing, and `Jairouter_Token` is not enabled / expired / revoked | Set a valid `ANTHROPIC_API_KEY`, or confirm JWT is enabled and the token is valid |

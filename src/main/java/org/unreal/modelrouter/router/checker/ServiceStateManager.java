@@ -33,10 +33,10 @@ public class ServiceStateManager {
     private final Map<String, Boolean> serviceHealthStatus = new ConcurrentHashMap<>();
 
     // v2.7.11: 使用 BitSet 存储实例健康状态，提升性能
+    // R8（2026-10-28）：已删除与之并行的遗留 Map<String, Boolean> 双存储——
+    // 此前写入侧要同时维护两份，读视图 getAllInstanceHealthStatus() 走 Map，
+    // 判定走 BitSet，两者可能漂移。现在读视图由 BitSet 快照派生（snapshotKnownStates）。
     private final HealthStateBitSet instanceHealthBits = new HealthStateBitSet();
-
-    // 兼容性：保留旧 Map 用于 getAllInstanceHealthStatus()
-    private final Map<String, Boolean> instanceHealthStatus = new ConcurrentHashMap<>();
 
     /**
      * 获取特定服务类型的健康状态
@@ -67,8 +67,12 @@ public class ServiceStateManager {
      */
     public boolean isInstanceHealthyByKey(final String instanceKey) {
         // v2.7.11: 使用 BitSet 查询
+        // R7（2026-10-28）：默认值统一为 fail-open（未知=健康）。健康语义三处读路径
+        // （isServiceHealthy / isInstanceHealthy / 本方法）必须同口径——未知实例先放行，
+        // 由探活（ServerChecker 每 30s 预热）给出结论后再收紧；此前本方法默认 false，
+        // 与另两处相悖，未探活过的实例会被误判为不健康。
         Boolean status = instanceHealthBits.getHealth(instanceKey);
-        return status != null ? status : false;
+        return status != null ? status : true;
     }
 
     /**
@@ -145,9 +149,8 @@ public class ServiceStateManager {
 
         // 只有状态发生变化时才更新
         if (previousStatus == null || previousStatus != isHealthy) {
-            // v2.7.11: 同时更新 BitSet 和 Map（兼容性）
+            // R8: 只写 BitSet（遗留 Map 双存储已删除，读视图由快照派生）
             instanceHealthBits.setHealth(instanceKey, isHealthy);
-            instanceHealthStatus.put(instanceKey, isHealthy);
             log.debug("实例健康状态更新: {} -> {}", instanceKey, isHealthy);
             
             // 通知SSE控制器推送更新
@@ -221,7 +224,6 @@ public class ServiceStateManager {
      */
     private void clearHealthByKey(final String instanceKey) {
         instanceHealthBits.clearHealth(instanceKey);
-        instanceHealthStatus.remove(instanceKey);
         log.info("已重置实例健康状态（配置变更后需重新探活）: {}", instanceKey);
     }
 
@@ -240,11 +242,10 @@ public class ServiceStateManager {
             return;
         }
         final String instanceKey = serviceType + ":" + instanceId;
-        final Boolean removed = instanceHealthStatus.remove(instanceKey);
+        // R8: 位图里该键位被清除后，快照视图（snapshotKnownStates）不再包含它，
+        // 与原「Map 移除键」语义一致
         instanceHealthBits.removeInstance(instanceKey);
-        if (removed != null) {
-            log.info("已清理实例健康状态记录: {}", instanceKey);
-        }
+        log.info("已清理实例健康状态记录: {}", instanceKey);
     }
 
     /**
@@ -255,20 +256,20 @@ public class ServiceStateManager {
     }
 
     /**
-     * 获取所有实例的健康状态
+     * 获取所有实例的健康状态（R8：由 BitSet 快照派生，不再维护独立 Map）
      */
     public Map<String, Boolean> getAllInstanceHealthStatus() {
-        return new ConcurrentHashMap<>(instanceHealthStatus);
+        return new ConcurrentHashMap<>(instanceHealthBits.snapshotKnownStates());
     }
-    
+
     /**
      * 清理过期的实例健康状态
      */
     public void clearExpiredInstanceHealthStatus() {
-        log.info("清理过期的实例健康状态，清理前缓存大小: {}", instanceHealthStatus.size());
-        // v2.7.11: 同时清理 BitSet 和 Map
+        HealthStateBitSet.Stats stats = instanceHealthBits.getStats();
+        log.info("清理过期的实例健康状态，清理前已知实例数: {}", stats.getKnownCount());
+        // R8: 遗留 Map 已删除，只需清位图（连带索引表，全部归零）
         instanceHealthBits.clear();
-        instanceHealthStatus.clear();
         log.info("实例健康状态缓存清理完成");
     }
 

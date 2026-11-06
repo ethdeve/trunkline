@@ -9,17 +9,17 @@
 
 
 
-This document defines the professional terms and concepts used in the JAiRouter project.
+This document defines the professional terms and concepts used in the Trunkline project.
 
 ## A
 
 ### Adapter
 A component that converts API formats of different backend AI services into a unified interface. Each adapter is responsible for handling request/response format conversion, error handling, and protocol adaptation for specific services.
 
-**Example**: GPUStackAdapter converts JAiRouter requests into a format that GPUStack service can understand.
+**Example**: GPUStackAdapter converts Trunkline requests into a format that GPUStack service can understand.
 
 ### API Gateway
-A service that acts as a unified entry point for all client requests, providing functions such as routing, authentication, rate limiting, and monitoring. JAiRouter is an API gateway specifically designed for AI model services.
+A service that acts as a unified entry point for all client requests, providing functions such as routing, authentication, rate limiting, and monitoring. Trunkline is an API gateway specifically designed for AI model services.
 
 ### Actuator
 Production-ready features provided by Spring Boot, including health checks, metrics collection, configuration information, and other monitoring and management endpoints.
@@ -27,7 +27,7 @@ Production-ready features provided by Spring Boot, including health checks, metr
 ## B
 
 ### Backpressure
-A flow control mechanism in reactive programming when the data production speed exceeds the consumption speed. JAiRouter uses the Reactor framework to handle backpressure.
+A flow control mechanism in reactive programming when the data production speed exceeds the consumption speed. Trunkline uses the Reactor framework to handle backpressure.
 
 ### Base URL
 The root address of a backend service, used to construct complete request URLs.
@@ -48,7 +48,7 @@ A storage backend for persisting configuration data, supporting both in-memory s
 ## D
 
 ### Dynamic Configuration
-Configuration that can be modified at runtime without restarting the service. JAiRouter supports dynamically updating service instance configurations via REST API.
+Configuration that can be modified at runtime without restarting the service. Trunkline supports dynamically updating service instance configurations via REST API.
 
 ## E
 
@@ -97,12 +97,12 @@ A load balancing strategy that uses hash calculations based on the client's IP a
 ## J
 
 ### JVM (Java Virtual Machine)
-The runtime environment for running Java applications. JAiRouter runs on the JVM and requires Java 17 or higher.
+The runtime environment for running Java applications. Trunkline runs on the JVM and requires Java 17 or higher.
 
 ## L
 
 ### Load Balancer
-A component that distributes requests among multiple backend instances. JAiRouter supports strategies such as random, round-robin, least connections, and IP hash.
+A component that distributes requests among multiple backend instances. Trunkline supports strategies such as random, round-robin, least connections, and IP hash.
 
 ### Least Connections
 A load balancing strategy that selects the instance with the fewest active connections, suitable for requests with significant processing time differences.
@@ -124,7 +124,7 @@ A specific model in AI services, such as GPT-3.5, LLaMA-2, etc. Each model may h
 ## O
 
 ### OpenAI Compatible
-An interface design that follows the OpenAI API format and specifications, allowing clients to seamlessly switch to JAiRouter.
+An interface design that follows the OpenAI API format and specifications, allowing clients to seamlessly switch to Trunkline.
 
 ## P
 
@@ -134,7 +134,7 @@ The URL path part of an API endpoint, combined with the base URL to form the com
 **Example**: `/v1/chat/completions` is the path for the chat completion API.
 
 ### Prometheus
-An open-source monitoring system and time-series database used to collect and store JAiRouter's operational metrics.
+An open-source monitoring system and time-series database used to collect and store Trunkline's operational metrics.
 
 ## R
 
@@ -142,7 +142,7 @@ An open-source monitoring system and time-series database used to collect and st
 A component that controls request frequency to prevent system overload. It supports algorithms such as token bucket, leaky bucket, and sliding window.
 
 ### Reactive Programming
-A programming paradigm based on asynchronous data streams. JAiRouter implements reactive programming using Spring WebFlux and Reactor.
+A programming paradigm based on asynchronous data streams. Trunkline implements reactive programming using Spring WebFlux and Reactor.
 
 ### Round Robin
 A load balancing strategy that selects backend instances in a cyclic order to ensure even distribution of requests.
@@ -159,7 +159,7 @@ A component that manages information about all backend service instances, respon
 A rate-limiting algorithm that limits the number of requests within a fixed time window, with the window sliding over time.
 
 ### Spring Boot
-A Java application framework. JAiRouter is built on Spring Boot 3.5.x.
+A Java application framework. Trunkline is built on Spring Boot 3.5.x.
 
 ### Spring WebFlux
 Spring framework's reactive web module that supports non-blocking I/O and high-concurrency processing.
@@ -175,7 +175,7 @@ The maximum time limit for a request to wait for a response. Exceeding this time
 ## W
 
 ### WebClient
-A non-blocking, reactive HTTP client provided by Spring WebFlux. JAiRouter uses it to communicate with backend services.
+A non-blocking, reactive HTTP client provided by Spring WebFlux. Trunkline uses it to communicate with backend services.
 
 ### Weight
 The weight value of a service instance used for weighted load balancing. Instances with higher weights receive more requests.
@@ -271,4 +271,4 @@ It is recommended to learn the following concepts in order:
 
 ---
 
-**Note**: This glossary will be continuously updated as the project develops. If you find missing terms or concepts that need to be added, please provide feedback through [GitHub Issues](https://github.com/Lincoln-cn/JAiRouter/issues).
+**Note**: This glossary will be continuously updated as the project develops. If you find missing terms or concepts that need to be added, please provide feedback through [GitHub Issues](https://github.com/Lincoln-cn/Trunkline/issues).

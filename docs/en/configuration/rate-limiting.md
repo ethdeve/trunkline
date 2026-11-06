@@ -7,16 +7,16 @@
 > **Author**: Lincoln
 <!-- /版本信息 -->
 
-JAiRouter provides multiple rate limiting algorithms, supporting global, service-level, and instance-level rate limiting configurations, as well as independent rate limiting based on client IP. This document details the configuration and usage of various rate limiting strategies.
+Trunkline provides multiple rate limiting algorithms, supporting global, service-level, and instance-level rate limiting configurations, as well as independent rate limiting based on client IP. This document details the configuration and usage of various rate limiting strategies.
 
 ## Modular Configuration Overview
 
-Starting from v1.0.0, JAiRouter adopts a modular configuration structure with rate limiting related configurations moved to separate configuration files:
+Since v2.8.x, Trunkline uses a modular configuration structure:
 
 - Main configuration file: `application.yml`
-- Model services base configuration: `config/base/model-services-base.yml`
+- Rate limit configuration: `config/router/ratelimit.yml`
 
-You can find all rate limiting related configurations in the `config/base/model-services-base.yml` file, including global configurations, service type configurations, and instance configurations.
+Global rate limit settings live in `model.rate-limit.*` (in `config/router/ratelimit.yml`), along with the distributed toggle `trunkline.ratelimit.distributed.*`. Per-service settings live in `model.services.<serviceType>.rate-limit` (in `config/router/services.yml`).
 
 ## Rate Limiting Overview
 
@@ -77,10 +77,10 @@ Service-level limits can be configured **dynamically and hot-applied** from the 
 
 ### Basic Configuration
 
-Configure global rate limiting in the `config/base/model-services-base.yml` file:
+Configure global rate limiting in `config/router/ratelimit.yml`:
 
 ```yaml
-# config/base/model-services-base.yml
+# config/router/ratelimit.yml
 model:
   # Global rate limiting configuration
   rate-limit:
@@ -139,7 +139,7 @@ graph LR
 
 #### Configuration Example
 
-Configure the token bucket algorithm in the `config/base/model-services-base.yml` file:
+Configure the token bucket algorithm in `config/router/ratelimit.yml` or `config/router/services.yml`:
 
 ```yaml
 model:
@@ -156,7 +156,7 @@ model:
 
 #### JSON Configuration
 
-JAiRouter also supports updating rate limiting configurations via the dynamic configuration API:
+Trunkline also supports updating rate limiting configurations via the dynamic configuration API:
 
 ```json
 {
@@ -220,7 +220,7 @@ graph TB
 
 #### Configuration Example
 
-Configure the leaky bucket algorithm in the `config/base/model-services-base.yml` file:
+Configure the leaky bucket algorithm in `config/router/services.yml`:
 
 ```yaml
 model:
@@ -237,7 +237,7 @@ model:
 
 #### JSON Configuration
 
-JAiRouter also supports updating rate limiting configurations via the dynamic configuration API:
+Trunkline also supports updating rate limiting configurations via the dynamic configuration API:
 
 ```json
 {
@@ -284,7 +284,7 @@ graph LR
 
 #### Configuration Example
 
-Configure the sliding window algorithm in the `config/base/model-services-base.yml` file:
+Configure the sliding window algorithm in `config/router/services.yml`:
 
 ```yaml
 model:
@@ -301,7 +301,7 @@ model:
 
 #### JSON Configuration
 
-JAiRouter also supports updating rate limiting configurations via the dynamic configuration API:
+Trunkline also supports updating rate limiting configurations via the dynamic configuration API:
 
 ```json
 {
@@ -351,7 +351,7 @@ graph LR
 
 #### Configuration Example
 
-Configure the warm-up algorithm in the `config/base/model-services-base.yml` file:
+Configure the warm-up algorithm in `config/router/services.yml`:
 
 ```yaml
 model:
@@ -362,13 +362,12 @@ model:
         algorithm: "warm-up"
         capacity: 100           # Final capacity
         rate: 10               # Final rate
-        warm-up-period: 300    # Warm-up time (seconds)
         scope: "service"
 ```
 
 #### JSON Configuration
 
-JAiRouter also supports updating rate limiting configurations via the dynamic configuration API:
+Trunkline also supports updating rate limiting configurations via the dynamic configuration API:
 
 ```json
 {
@@ -378,7 +377,6 @@ JAiRouter also supports updating rate limiting configurations via the dynamic co
         "algorithm": "warm-up",
         "capacity": 100,
         "rate": 10,
-        "warmUpPeriod": 300,
         "clientIpEnable": true
       }
     }
@@ -392,7 +390,8 @@ JAiRouter also supports updating rate limiting configurations via the dynamic co
 |-----------|------|-------------|---------------|
 | `capacity` | Integer | Final capacity | 100 |
 | `rate` | Integer | Final rate (per second) | 10 |
-| `warmUpPeriod` | Integer | Warm-up time (seconds) | 600 |
+
+> `warm-up-period` / `warmUpPeriod` is not a configurable key; the warm-up limiter ramps from zero to the configured `rate`/`capacity`.
 
 #### Use Cases
 
@@ -404,7 +403,7 @@ JAiRouter also supports updating rate limiting configurations via the dynamic co
 
 ### Basic Configuration
 
-Enable client IP rate limiting via `client-ip-enable` in `config/base/model-services-base.yml`:
+Enable client IP rate limiting via `client-ip-enable` in `config/router/ratelimit.yml`:
 
 ```yaml
 model:
@@ -461,11 +460,41 @@ curl "http://localhost:8080/api/rate-limiter/status"
 curl "http://localhost:8080/api/rate-limiter/metrics"
 ```
 
+## Rate Limit Dimensions and Distributed Rate Limiting
+
+Beyond `enabled/algorithm/capacity/rate/scope/client-ip-enable`, `model.rate-limit` supports (per `config/router/ratelimit.yml`):
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `scope` | `service` | `global` / `service` / `instance` |
+| `key-dimension` | `client-ip` | `client-ip` / `api-key` / `tenant` |
+| `key` | empty | custom rate-limit key (overrides key-dimension) |
+
+For multi-instance deployments, the distributed toggle lives under `trunkline.ratelimit.distributed`:
+
+```yaml
+trunkline:
+  ratelimit:
+    distributed:
+      enabled: false        # default off (in-memory per instance)
+      timeout-ms: 50        # Redis operation timeout (ms)
+```
+
+## Pool (Model Group) Rate Limiting
+
+Service-level rate limits are managed via the admin UI and take effect immediately:
+
+- **API**: `PUT /api/services/{serviceType}/ratelimit` (persist + live), `GET /api/services/{serviceType}/ratelimit`
+- Format: `{enabled, algorithm, capacity, rate, scope, key}`; `enabled=false` removes the limiter; `capacity`/`rate` must be > 0 else 400
+- Persisted limits auto-reload on restart
+
+Requests hitting a model pool continue through the existing service/instance-level rate limit chain. The pool's own **quota budget** (minute/hour/day/month windows) is managed via `/api/config/pools` and `/api/config/pools/{poolName}/quota/*` — see [Model Pools](model-pools.md) and [Quota Ledger](quota.md).
+
 ## Multi-Layer Rate Limiting Configuration
 
 ### Layered Rate Limiting Strategy
 
-Configure multi-layer rate limiting in the `config/base/model-services-base.yml` file:
+Configure multi-layer rate limiting in `config/router/ratelimit.yml` and `config/router/services.yml`:
 
 ```yaml
 model:
@@ -509,7 +538,7 @@ model:
 
 ### Dynamic Adjustment via Configuration Files
 
-JAiRouter also supports updating rate limiting configurations via the dynamic configuration API:
+Trunkline also supports updating rate limiting configurations via the dynamic configuration API:
 
 ```json
 {
@@ -554,29 +583,29 @@ curl "http://localhost:8080/api/rate-limiter/summary"
 
 ```bash
 # Rate limiting events (allowed / denied)
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_events_total"
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_events_total"
 
 # Remaining capacity per limiter
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_remaining"
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_remaining"
 
 # Usage ratio per limiter
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_usage_ratio"
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_usage_ratio"
 ```
 
 ### Prometheus Metrics
 
 ```prometheus
 # Rate limiting request rate
-rate(jairouter_rate_limit_events_total[5m])
+rate(trunkline_rate_limit_events_total[5m])
 
 # Rate limiting rejection rate
-rate(jairouter_rate_limit_events_total{result="denied"}[5m]) / rate(jairouter_rate_limit_events_total[5m])
+rate(trunkline_rate_limit_events_total{result="denied"}[5m]) / rate(trunkline_rate_limit_events_total[5m])
 
 # Remaining capacity per limiter
-jairouter_rate_limit_remaining
+trunkline_rate_limit_remaining
 
 # Usage ratio per limiter
-jairouter_rate_limit_usage_ratio
+trunkline_rate_limit_usage_ratio
 ```
 
 ### Alert Rules
@@ -584,10 +613,10 @@ jairouter_rate_limit_usage_ratio
 ```yaml
 # Prometheus alert rules
 groups:
-  - name: jairouter_ratelimit
+  - name: trunkline_ratelimit
     rules:
       - alert: HighRateLimitRejection
-        expr: rate(jairouter_rate_limit_events_total{result="denied"}[5m]) / rate(jairouter_rate_limit_events_total[5m]) > 0.1
+        expr: rate(trunkline_rate_limit_events_total{result="denied"}[5m]) / rate(trunkline_rate_limit_events_total[5m]) > 0.1
         for: 2m
         labels:
           severity: warning

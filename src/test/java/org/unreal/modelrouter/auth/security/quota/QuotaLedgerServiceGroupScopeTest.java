@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * @author JAiRouter Team
  * @since 3.5.0
+ * @modified Trunkline Team
  */
 @DisplayName("QuotaLedgerService 分组聚合/组内明细口径测试")
 class QuotaLedgerServiceGroupScopeTest {

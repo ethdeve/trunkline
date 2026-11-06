@@ -297,6 +297,46 @@ Gemini 兼容 OpenAI API 格式，使用 `normal` 适配器。
 
 ---
 
+## 内置预设上游
+
+Web 管理端「服务商预设」内置以下上游（以 `frontend/src/constants/providerPresets.ts` 为准），新增实例/上游时可一键带入基础 URL 与默认模型：
+
+### 国内服务商（OpenAI 兼容）
+
+| 预设名 | 基础 URL | 说明 |
+|--------|----------|------|
+| DeepSeek | `https://api.deepseek.com` | deepseek-chat / deepseek-reasoner |
+| 智谱 AI（GLM） | `https://open.bigmodel.cn/api/paas/v4` | GLM 系列 |
+| 月之暗面（Kimi） | `https://api.moonshot.cn/v1` | moonshot 系列 |
+| 百川智能 | `https://api.baichuan-ai.com/v1` | Baichuan 系列 |
+| 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | Qwen 系列 |
+| MiniMax | `https://api.minimaxi.com/v1` | MiniMax 系列 |
+| 阶跃星辰 | `https://api.stepfun.com/v1` | Step 系列 |
+| 硅基流动 | `https://api.siliconflow.cn/v1` | 多模型聚合 |
+
+### 国际服务商（OpenAI 兼容）
+
+| 预设名 | 基础 URL | 说明 |
+|--------|----------|------|
+| Groq | `https://api.groq.com/openai/v1` | 高速推理 |
+| OpenRouter | `https://openrouter.ai/api/v1` | 多模型路由聚合 |
+| Together AI | `https://api.together.xyz/v1` | 开源模型托管 |
+
+### 本地推理
+
+| 预设名 | 基础 URL | 适配器 |
+|--------|----------|--------|
+| 本地 Ollama | `http://localhost:11434` | `ollama` |
+
+## 自定义上游
+
+预设之外的 OpenAI 兼容上游通过两种方式接入：
+
+1. **管理 API 注册服务商**：`/api/config/providers`（`ModelProviderController`）注册自定义服务商与默认模型清单，再在实例管理中引用。
+2. **配置驱动适配器**：通过 `adapter-definitions` 定义 OpenAI 兼容适配器（自定义认证头/前缀），然后添加实例指向你的上游地址——详见 [Adapter配置](adapter-config.md)。
+
+---
+
 ## 常见问题
 
 ### Q: 如何同时配置多个 OpenAI 实例？
@@ -311,7 +351,7 @@ A: 添加多个实例，设置不同的名称和权重即可。例如：
 
 ### Q: 请求头中的 API Key 会暴露吗？
 
-A: API Key 在页面上以密码形式显示，在传输过程中使用 HTTPS 加密。JAiRouter 内部存储时会进行脱敏处理。
+A: API Key 在页面上以密码形式显示，在传输过程中使用 HTTPS 加密。Trunkline 内部存储时会进行脱敏处理。
 
 ### Q: Claude 适配器的 `anthropic-version` 头需要手动配置吗？
 

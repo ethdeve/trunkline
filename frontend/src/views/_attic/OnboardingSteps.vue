@@ -46,7 +46,7 @@ interface StepItem {
 const steps = computed<StepItem[]>(() => [
   { index: 1, label: t('onboarding.configureAdapter'), route: '/protocol-adapters' },
   { index: 2, label: t('onboarding.createService'), route: '/model-categories' },
-  { index: 3, label: t('onboarding.addInstance'), route: '/models' },
+  { index: 3, label: t('onboarding.addInstance'), route: '/providers?tab=models' },
   { index: 4, label: t('onboarding.tryPlayground'), route: '/playground' }
 ])
 

@@ -24,7 +24,7 @@ class ResponseCacheMetricsTest {
     void setUp() {
         meterRegistry = new SimpleMeterRegistry();
         monitoringProperties = new MonitoringProperties();
-        monitoringProperties.setPrefix("jairouter");
+        monitoringProperties.setPrefix("trunkline");
         collector = new DefaultMetricsCollector(meterRegistry, monitoringProperties);
     }
 
@@ -33,12 +33,12 @@ class ResponseCacheMetricsTest {
     void recordResponseCacheHit() {
         collector.recordResponseCacheHit("chat", "gpt-4");
 
-        assertNotNull(meterRegistry.find("jairouter_response_cache_hits_total")
+        assertNotNull(meterRegistry.find("trunkline_response_cache_hits_total")
                 .tag("service", "chat")
                 .tag("model", "gpt-4")
                 .counter());
         assertEquals(1.0,
-                meterRegistry.find("jairouter_response_cache_hits_total")
+                meterRegistry.find("trunkline_response_cache_hits_total")
                         .tag("service", "chat")
                         .tag("model", "gpt-4")
                         .counter()
@@ -50,12 +50,12 @@ class ResponseCacheMetricsTest {
     void recordResponseCacheMiss() {
         collector.recordResponseCacheMiss("embedding", "text-embedding");
 
-        assertNotNull(meterRegistry.find("jairouter_response_cache_misses_total")
+        assertNotNull(meterRegistry.find("trunkline_response_cache_misses_total")
                 .tag("service", "embedding")
                 .tag("model", "text-embedding")
                 .counter());
         assertEquals(1.0,
-                meterRegistry.find("jairouter_response_cache_misses_total")
+                meterRegistry.find("trunkline_response_cache_misses_total")
                         .tag("service", "embedding")
                         .tag("model", "text-embedding")
                         .counter()
@@ -68,12 +68,12 @@ class ResponseCacheMetricsTest {
         collector.recordResponseCacheHit("rerank", "rerank-model");
         collector.recordResponseCacheMiss("rerank", "rerank-model");
 
-        assertNotNull(meterRegistry.find("jairouter_response_cache_hit_ratio")
+        assertNotNull(meterRegistry.find("trunkline_response_cache_hit_ratio")
                 .tag("service", "rerank")
                 .tag("model", "rerank-model")
                 .gauge());
         assertEquals(0.5,
-                meterRegistry.find("jairouter_response_cache_hit_ratio")
+                meterRegistry.find("trunkline_response_cache_hit_ratio")
                         .tag("service", "rerank")
                         .tag("model", "rerank-model")
                         .gauge()

@@ -158,10 +158,16 @@ class JwtAuthControllerIntegrationTest {
 
             String newToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.newtoken";
 
+            // P0-L 归属校验：先解析待刷新令牌的 subject，与认证主体比对一致才放行
+            when(tokenRefreshService.subjectOf(VALID_TOKEN))
+                    .thenReturn(Mono.just(VALID_USERNAME));
             when(tokenRefreshService.refreshToken(anyString(), any(), any()))
                     .thenReturn(Mono.just(newToken));
+            lenient().when(tokenRefreshService.saveTokenOnRefreshWithContext(
+                    anyString(), anyString(), any(), any(), any()))
+                    .thenReturn(Mono.empty());
 
-            when(authentication.getName()).thenReturn("admin");
+            when(authentication.getName()).thenReturn(VALID_USERNAME);
 
             Mono<RouterResponse<JwtTokenInfo>> result = controller.refreshToken(request, authentication, null);
 
@@ -180,10 +186,12 @@ class JwtAuthControllerIntegrationTest {
             TokenRefreshRequest request = new TokenRefreshRequest();
             request.setToken("expired.token.here");
 
+            when(tokenRefreshService.subjectOf("expired.token.here"))
+                    .thenReturn(Mono.just(VALID_USERNAME));
             when(tokenRefreshService.refreshToken(anyString(), any(), any()))
                     .thenReturn(Mono.error(new RuntimeException("Token expired")));
 
-            when(authentication.getName()).thenReturn("admin");
+            when(authentication.getName()).thenReturn(VALID_USERNAME);
 
             Mono<RouterResponse<JwtTokenInfo>> result = controller.refreshToken(request, authentication, null);
 
@@ -203,10 +211,12 @@ class JwtAuthControllerIntegrationTest {
             TokenRefreshRequest request = new TokenRefreshRequest();
             request.setToken("invalid-token");
 
+            when(tokenRefreshService.subjectOf("invalid-token"))
+                    .thenReturn(Mono.just(VALID_USERNAME));
             when(tokenRefreshService.refreshToken(anyString(), any(), any()))
                     .thenReturn(Mono.error(new RuntimeException("Invalid token")));
 
-            when(authentication.getName()).thenReturn("admin");
+            when(authentication.getName()).thenReturn(VALID_USERNAME);
 
             Mono<RouterResponse<JwtTokenInfo>> result = controller.refreshToken(request, authentication, null);
 

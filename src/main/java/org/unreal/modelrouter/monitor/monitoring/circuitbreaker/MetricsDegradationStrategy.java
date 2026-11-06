@@ -84,15 +84,15 @@ public class MetricsDegradationStrategy {
     
     public MetricsDegradationStrategy(final MeterRegistry meterRegistry) {
         this.meterRegistry = meterRegistry;
-        this.degradationActivations = Counter.builder("jairouter.metrics.degradation.activations")
+        this.degradationActivations = Counter.builder("trunkline.metrics.degradation.activations")
             .description("降级策略激活次数")
             .register(meterRegistry);
-        this.degradationDeactivations = Counter.builder("jairouter.metrics.degradation.deactivations")
+        this.degradationDeactivations = Counter.builder("trunkline.metrics.degradation.deactivations")
             .description("降级策略停用次数")
             .register(meterRegistry);
         
         // 注册降级级别指标
-        Gauge.builder("jairouter.metrics.degradation.level", currentDegradationLevel, AtomicInteger::doubleValue)
+        Gauge.builder("trunkline.metrics.degradation.level", currentDegradationLevel, AtomicInteger::doubleValue)
             .description("当前降级级别")
             .register(meterRegistry);
     }

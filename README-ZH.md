@@ -1,8 +1,10 @@
-# JAiRouter
+# Trunkline
 
 <p align="center">
-  <img src="logo/JAiRouterLogo.png" alt="JAiRouter — AI 模型网关" width="180">
+  <img src="logo/brand-mark.svg" alt="Trunkline — 企业 AI 治理网关" width="180">
 </p>
+
+> **Trunkline** 是一个面向企业团队的 **AI 治理网关**，基于 [JAiRouter](https://github.com/Lincoln-cn/JAiRouter)（Apache License 2.0）二次开发。遵循 [Apache License 2.0](LICENSE) 发布，保留上游 [JAiRouter](https://github.com/Lincoln-cn/JAiRouter) 项目的版权声明与署名，感谢原作者 [Lincoln-cn](https://github.com/Lincoln-cn) 的杰出工作。
 
 <p align="center">
   <strong>把您的所有 LLM 后端，收敛到一个 OpenAI 兼容入口。</strong>
@@ -14,35 +16,30 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Lincoln-cn/JAiRouter/releases">
-    <img src="https://img.shields.io/github/v/release/Lincoln-cn/JAiRouter?style=flat-square" alt="最新版本">
-  </a>
-  <a href="https://hub.docker.com/r/sodlinken/jairouter">
-    <img src="https://img.shields.io/docker/pulls/sodlinken/jairouter?style=flat-square&logo=docker" alt="Docker Pulls">
-  </a>
-  <a href="https://github.com/Lincoln-cn/JAiRouter/blob/master/LICENSE">
-    <img src="https://img.shields.io/github/license/Lincoln-cn/JAiRouter?style=flat-square" alt="License">
-  </a>
+  <img src="https://img.shields.io/badge/version-0.1.0-blue?style=flat-square" alt="版本 0.1.0">
+  <img src="https://img.shields.io/badge/upstream-JAiRouter%20%7C%20Apache--2.0-green?style=flat-square" alt="基于 JAiRouter">
+  <img src="https://img.shields.io/badge/license-Apache--2.0-green?style=flat-square" alt="License">
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> •
-  <a href="https://jairouter.com">文档</a> •
-  <a href="https://github.com/Lincoln-cn/JAiRouter/issues">问题反馈</a> •
-  <a href="https://github.com/Lincoln-cn/JAiRouter/discussions">讨论</a>
+  <a href="README-ZH.md">简体中文</a> •
+  <a href="https://trunkline.com">文档</a> •
+  <a href="https://github.com/Lincoln-cn/trunkline/issues">问题反馈</a> •
+  <a href="https://github.com/Lincoln-cn/trunkline/discussions">讨论</a>
 </p>
 
 - **一个入口调用所有模型** —— 把对 Ollama、vLLM、GPUStack、OpenAI、Claude、Gemini 的直接调用统一为一个 OpenAI 兼容 `base_url`，现有 OpenAI SDK、LangChain、LlamaIndex 代码零改造即可切换。
 - **为本地推理集群而生** —— 多实例负载均衡（含延迟感知、标签路由）、熔断降级，以及实例故障时**自动换到健康实例重试**的请求级故障转移。
 - **为企业团队打造** —— Web 控制台热更新、配置版本管理与回滚、RBAC、审计日志、加密调用记录与完整可观测性。调整路由无需重启服务。
+- **为非技术用户设计** —— 三角色视图（使用者 / 运维 / 管理员）+ 极简配置向导，控制台说人话，技术细节收进高级项。
 
 ## 3 分钟快速体验
 
 ```bash
 # 启动网关 —— dev 方式启动，无需配置密钥（内置开发密钥）
-docker run -d --name jairouter -p 8080:8080 \
+docker run -d --name trunkline -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=dev \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 
 # Web 控制台：http://localhost:8080/admin
 # 默认账号：admin / ChangeMeOnFirstStartup123456
@@ -51,9 +48,9 @@ docker run -d --name jairouter -p 8080:8080 \
 生产环境请改用默认的 `prod` 方式启动，并配置你自己的密钥 —— prod 模式刻意不内置默认密钥：
 
 ```bash
-docker run -d --name jairouter -p 8080:8080 \
+docker run -d --name trunkline -p 8080:8080 \
   -e JWT_SECRET="<至少32字符的密钥>" \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 任意 OpenAI 兼容客户端即可接入：
@@ -76,8 +73,21 @@ print(response.choices[0].message.content)
 
 在控制台「实例管理」中添加您自己的后端——Ollama、vLLM、GPUStack 或任意云端提供商。配置热更新即时生效，无需重启。
 
+<details>
+<summary><b>从旧版 JAiRouter 升级？</b></summary>
+
+Trunkline 提供自动兼容层，存量配置**无需手工迁移**：
+
+- 配置前缀 `jairouter.*` → `trunkline.*`：旧前缀配置自动映射生效（日志中会有弃用提示）；
+- Redis 配额计数 key `jairouter:quota:*` → `trunkline:quota:*`：启动期一次性迁移，已用额度不清零；
+- 主配置存储 key `model-router-config` → `trunkline-config`：旧 key 读回落，写入自然迁移。
+
+认证请求头默认值 `Jairouter_Token` 暂保持不变（API 契约兼容）；`~/.jairouter` 密钥目录亦未变更。
+
+</details>
+
 <p align="center">
-  <img src="screenshots/dashboard-zh-CN-light.png" alt="JAiRouter 控制台" width="720">
+  <img src="screenshots/dashboard-zh-CN-light.png" alt="Trunkline 控制台" width="720">
   <br/>
   <em>管理控制台 — 服务/实例/系统指标实时总览</em>
 </p>
@@ -111,33 +121,15 @@ print(response.choices[0].message.content)
 </p>
 
 <p align="center">
-  <img src="screenshots/extra-slow-query-analysis-zh-CN-light.png" alt="慢查询分析" width="720">
-  <br/>
-  <em>慢查询分析 — 性能热点、告警状态与操作分布</em>
-</p>
-
-<p align="center">
   <img src="screenshots/playground-chat-zh-CN-light.png" alt="AI 试验场" width="720">
   <br/>
   <em>AI 试验场 — 对话/向量/重排序/语音/图像 五类能力在线调试</em>
 </p>
 
 <p align="center">
-  <img src="screenshots/quota-config-zh-CN-light.png" alt="配额运行时配置" width="720">
-  <br/>
-  <em>配额运行时配置 — 可热改开关/窗口/放行策略，需重启字段置为只读并带"需重启"标识</em>
-</p>
-
-<p align="center">
   <img src="screenshots/quota-monitoring-zh-CN-light.png" alt="配额用量监控" width="720">
   <br/>
   <em>配额用量监控 — 后端类型/降级状态卡片 + 多维筛选（租户/Key/用户/服务/模型 × 窗口）</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/client-access-zh-CN-light.png" alt="客户端接入指南" width="720">
-  <br/>
-  <em>客户端接入指南 — OpenAI 兼容面与 Anthropic 面的 base URL、凭据头与可复制代码片段</em>
 </p>
 
 <p align="center">
@@ -148,32 +140,34 @@ print(response.choices[0].message.content)
 
 </details>
 
-## JAiRouter 是什么？
+## Trunkline 是什么？
 
-JAiRouter 是一个 **生产级 AI 模型网关**，面向自建推理基础设施（Ollama、vLLM、GPUStack、Xinference）并与云端模型混用的团队。它把全部后端收敛为一个统一的 OpenAI 兼容 API，并补齐您本需自行搭建的弹性与治理能力：负载均衡、限流、熔断、故障转移、RBAC、审计日志与可观测性。
+Trunkline 是一个 **生产级 AI 模型网关**，面向自建推理基础设施（Ollama、vLLM、GPUStack、Xinference）并与云端模型混用的团队。它把全部后端收敛为一个统一的 OpenAI 兼容 API，并补齐您本需自行搭建的弹性与治理能力：负载均衡、限流、熔断、故障转移、RBAC、审计日志与可观测性。
 
-| 问题 | JAiRouter 解决方案 |
+| 问题 | Trunkline 解决方案 |
 |------|-------------------|
 | 多个模型端点需要管理 | 统一的 API 入口 |
 | 服务故障时手动切换 | 自动熔断故障转移 |
 | 每个服务单独实现认证 | 内置 JWT + API Key |
 | 分散的日志和监控指标 | 统一可观测性 |
 | 修改配置需重启服务 | Web 控制台热更新 |
+| 员工不会配模型 | 三角色视图 + 极简配置界面 |
 
 ### 核心功能
 
-- **🔌 OpenAI 兼容 API** — 直接替换 OpenAI SDK、LangChain、LlamaIndex
+- **🔌 OpenAI 兼容 API** — 直接替换 OpenAI SDK、LangChain、LlamaIndex（另提供 Anthropic `/v1/messages` 原生面）
 - **🔧 可配置 Adapter** — 通过配置或 Web 页面添加新 AI 提供商（DeepSeek、智谱等），无需编码
 - **⚖️ 智能负载均衡** — 轮询、加权、最少连接、IP Hash、一致性哈希、EWMA 延迟感知
 - **🎯 规则引擎与标签路由** — 可视化条件路由（模型名、服务类型、请求头、来源 IP、权重、实例标签）
 - **🛡️ 流量控制** — 令牌桶、漏桶、滑动窗口算法
 - **🔥 熔断降级** — 自动故障转移、可配置阈值与恢复策略，支持请求级故障转移（换健康实例重试）
-- **🔐 认证与 RBAC** — JWT + API Key 双重认证 + 审计日志 + 数据驱动 RBAC（44 权限码 + 4 角色模板 + 菜单与 URL 权限）
+- **🔐 认证与 RBAC** — JWT + API Key 双重认证 + 审计日志 + 数据驱动 RBAC（权限码 + 角色模板 + 菜单与 URL 权限）
 - **📊 可观测性** — Prometheus 指标、OpenTelemetry 追踪、实时仪表盘、调用历史分析
 - **🔒 记录治理** — 三档记录级别（仅元数据 / 脱敏摘要 / AES-256-GCM 加密全文）
+- **💰 配额账本** — Token 配额多维多窗管理（MINUTE/HOUR/DAY/MONTH）、Redis 分布式计数与断连自动降级
 - **⚡ 响应缓存** — 确定性请求直接复用下游响应、跳过后端（可选开启，租户隔离键）
 - **💾 状态持久化** — Redis / H2 / 文件存储，支持分布式部署
-- **🎛️ Web 控制台** — 可视化管理、版本控制、配置回滚、亮/暗主题
+- **🎛️ Web 控制台** — 可视化管理、版本控制、配置回滚、亮/暗主题、中英双语
 
 ## 支持的 AI 后端
 
@@ -205,27 +199,16 @@ JAiRouter 是一个 **生产级 AI 模型网关**，面向自建推理基础设�
 | **百川** | `adapter-definitions: baichuan: type: openai-compatible` |
 | **Minimax** | `adapter-definitions: minimax: type: openai-compatible` |
 
-> 📖 详见 [Adapter 配置指南](https://jairouter.com/configuration/adapter-config/)
+> 📖 详见 [Adapter 配置指南](https://trunkline.com/configuration/adapter-config/)
 
 </details>
 
-## 为什么选择 JAiRouter？
+## 为什么选择 Trunkline？
 
-- **对比直连后端** —— 没有统一弹性、没有集中密钥、没有调用可见性。JAiRouter 提供单一入口、自动故障转移与完整审计链路。
-- **对比 One-API / new-api** —— 它们侧重 API Key 的分发与计费（适合账号共享/中转服务）；JAiRouter 定位在**自建本地推理集群**的网关：多实例负载均衡、熔断、规则路由、RBAC 与可观测性，两者可以互补。
-- **对比 Nginx** —— Nginx 是通用 Web 服务器；JAiRouter **专为 AI/LLM 工作负载设计**，提供 OpenAI 兼容路由、熔断与模型感知的负载均衡。
-- **对比 LangChain** —— LangChain 是应用框架；JAiRouter 是**其下的基础设施层**，提供路由、故障转移与监控。
-
-| 功能 | JAiRouter | Nginx | One-API | LangChain |
-|------|:---------:|:-----:|:-------:|:---------:|
-| OpenAI 兼容 | ✅ | ❌ | ✅ | ✅ |
-| 负载均衡 | ✅ | ✅ | ✅ | ❌ |
-| 熔断降级 | ✅ | ❌ | ❌ | ❌ |
-| 限流 | ✅ | ✅ | ✅ | ❌ |
-| Web 控制台 | ✅ | ❌ | ✅ | ❌ |
-| 配置热更新 | ✅ | ❌ | ✅ | ❌ |
-| 版本控制 | ✅ | ❌ | ❌ | ❌ |
-| OpenTelemetry | ✅ | ❌ | ❌ | ✅ |
+- **对比直连后端** —— 没有统一弹性、没有集中密钥、没有调用可见性。Trunkline 提供单一入口、自动故障转移与完整审计链路。
+- **对比 One-API / new-api** —— 它们侧重 API Key 的分发与计费（适合账号共享/中转服务）；Trunkline 定位在**自建本地推理集群**的企业治理网关：多实例负载均衡、熔断、规则路由、RBAC 与可观测性，两者可以互补。
+- **对比 Nginx** —— Nginx 是通用 Web 服务器；Trunkline **专为 AI/LLM 工作负载设计**，提供 OpenAI 兼容路由、熔断与模型感知的负载均衡。
+- **对比 LangChain** —— LangChain 是应用框架；Trunkline 是**其下的基础设施层**，提供路由、故障转移与监控。
 
 ## 系统架构
 
@@ -240,7 +223,7 @@ JAiRouter 是一个 **生产级 AI 模型网关**，面向自建推理基础设�
                                   │
                                   ▼ OpenAI 兼容 API
 ┌─────────────────────────────────────────────────────────────────┐
-│                        JAiRouter 网关                            │
+│                       Trunkline 网关                             │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐   │
 │  │  路由   │ │负载均衡 │ │  限流   │ │  熔断   │ │  认证   │   │
 │  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘   │
@@ -262,62 +245,41 @@ JAiRouter 是一个 **生产级 AI 模型网关**，面向自建推理基础设�
 
 | 资源 | 链接 |
 |------|------|
-| 完整文档 | https://jairouter.com |
-| 部署指南 | https://jairouter.com/deployment/ |
-| 配置说明 | https://jairouter.com/configuration/ |
-| 监控配置 | https://jairouter.com/monitoring/ |
+| 完整文档 | https://trunkline.com |
+| 部署指南 | https://trunkline.com/deployment/ |
+| 配置说明 | https://trunkline.com/configuration/ |
+| 监控配置 | https://trunkline.com/monitoring/ |
 | API 参考 | http://localhost:8080/swagger-ui |
 
 ## 发展路线
 
-**已发布**（最新：v3.1.2）
+**当前版本：0.1.0**（版本号冻结中——社区版完善后一次性升版，见[迭代计划](docs/product/Trunkline-产品迭代计划.md)）
 
-- [x] 核心网关 + OpenAI 兼容 API
-- [x] 内置 + 可配置适配器（Ollama、vLLM、GPUStack、Xinference、LocalAI、OpenAI、Claude、Gemini 等）
-- [x] 多策略负载均衡（轮询、加权、最少连接、IP Hash、一致性哈希、EWMA 延迟感知）
-- [x] 多算法限流（令牌桶、漏桶、滑动窗口）
-- [x] 熔断降级 + 请求级故障转移（自动换健康实例重试）
-- [x] 可视化规则引擎：条件路由、服务级动态限流、标签路由
-- [x] JWT + API Key 认证与审计日志
-- [x] 数据驱动 RBAC（44 权限码 + 4 角色模板 + 菜单与 URL 权限）
-- [x] 调用历史与记录治理（仅元数据 / 脱敏摘要 / AES-256-GCM 全文）+ 分析仪表盘
-- [x] 响应缓存（确定性请求复用；可选开启、租户隔离）
-- [x] Prometheus 指标 + OpenTelemetry 分布式追踪
-- [x] 配置版本管理与回滚
-- [x] Web 控制台热更新 + 亮/暗主题
-- [x] Docker 镜像优化（Alpine/Distroless）
+0.1.0 继承了上游 JAiRouter v3.1.2 的全部能力，并新增 Trunkline 品牌体系与平滑兼容层（旧配置前缀 / Redis key / 配置存储 key 自动迁移）。
 
-**近期已发布**
+**社区版阶段计划**（阶段名不代表发布版本号）：
 
-- [x] Token 配额与多维多窗限流：MINUTE/HOUR/DAY/MONTH 账本、JPA 持久化、Redis 分布式计数与断连自动降级（默认关闭 `jairouter.quota.enabled=false`，v3.1.0）
-- [x] 配额运行时配置与观测：`GET/PUT /api/config/quota`、配额状态/用量监控端点、控制台新增 3 页（配额配置、用量监控、客户端接入指南）、新增权限码 `config:quota:read/write`、`monitoring:quota:read`（v3.1.0）
-- [x] OpenAI 原生面 `/v1/models` 端点（v3.1.0）
-- [x] Anthropic `/v1/messages` 入口：非流式 + 流式 SSE + `count_tokens` + 工具调用（`tools`/`tool_choice`/`tool_use`/`tool_result`），Claude Code 可直连（v3.1.0）
-- [x] 响应缓存 P1：流式 SSE 拼接缓存、失效 API、限流提前短路（`DELETE /api/config/cache/response`，v2.9.10 —— 随 v3.0.3 发布）
-- [x] Web 管理台重构系列：设计令牌、暗色主题、治理指挥台、中英双语、慢查询分析（v2.10.x）
-- [x] Web 完整流程系列：Onboarding 预选闭环、跨页治理入口、PageSkeleton 覆盖（v3.0.1–v3.0.3）
+- **S1 品牌与基线** —— 品牌前缀全量清理 + 旧前缀兼容映射、NOTICE/许可证归属、测试绿基线
+- **S2 清债与稳定** —— 代码清理（孤儿页面归档、配置收敛）、压测报告、安全审计
+- **S3 生产就绪** —— 部署体验优化、TTV（部署到首句对话）度量、文档站重构
+- **S4 配置减负与员工激活** —— 接入向导化、表格瘦身、员工侧术语人话化
 
-**开发中**
-
-- [ ] 语义缓存评估（向量相似度复用）—— 另立项
-- [ ] 高可用地基（多节点 / Redis 分布式 / 配置回滚）—— v3.1.x 后评估
-
-> **当前版本**：v3.1.2
+**商业版（规划中）** —— SSO 单点登录、内容安全、不可篡改审计、K8s 高可用交付等，边界见[版本对照表](docs/product/editions.md)。
 
 ## 参与贡献
 
-欢迎参与贡献，请查看 [贡献指南](https://jairouter.com/development/contributing/)。
+欢迎参与贡献，请查看 [贡献指南](https://trunkline.com/development/contributing/)。
 
 ```bash
-git clone https://github.com/Lincoln-cn/JAiRouter.git
-cd JAiRouter
-mvn clean package -DskipTests
+git clone https://github.com/Lincoln-cn/trunkline.git
+cd trunkline
+./mvnw clean package -DskipTests
 java -jar target/model-router-*.jar
 ```
 
 ## 获取支持
 
-- **文档**：https://jairouter.com
+- **文档**：https://trunkline.com
 
 ### Issues 还是 Discussions —— 我该发哪里？
 
@@ -325,36 +287,25 @@ GitHub 提供了两个入口，我们刻意把它们分开，让每一条反馈�
 
 | 你手上的东西 | 发到哪里 | 我们怎么处理 |
 |--------------|----------|--------------|
-| **可复现的缺陷** —— 崩溃、结果错误、回归、文档错误 | [**Issues**](https://github.com/Lincoln-cn/JAiRouter/issues) | **快速跟进** —— 尽快分诊与回复，确认的缺陷会修复或排期 |
-| **需求或想法** —— 新功能、新适配器、方案讨论、使用提问、反馈建议 | [**Discussions**](https://github.com/Lincoln-cn/JAiRouter/discussions) | **定期整理** —— 归纳、投票，并纳入[发展路线](#发展路线) |
+| **可复现的缺陷** —— 崩溃、结果错误、回归、文档错误 | [**Issues**](https://github.com/Lincoln-cn/trunkline/issues) | **快速跟进** —— 尽快分诊与回复，确认的缺陷会修复或排期 |
+| **需求或想法** —— 新功能、新适配器、方案讨论、使用提问、反馈建议 | [**Discussions**](https://github.com/Lincoln-cn/trunkline/discussions) | **定期整理** —— 归纳、投票，并纳入[发展路线](#发展路线) |
 
 **一句话**：缺陷发 **Issues**，需求或提问发 **Discussions**。
 
 > 拿不准发哪里？先发 Discussions —— 若确认是可复现的缺陷，我们会帮你转到 Issues。
 
-Discussions 按分类组织：
-
-| 分类 | 用来做什么 |
-|------|------------|
-| 💡 Ideas | 新功能与改进建议 |
-| 🗳 Polls | 就方向发起投票 |
-| 🙏 Q&A | 使用类问题，向社区求助 |
-| 🙌 Show and tell | 分享你基于 JAiRouter 做出的东西 |
-| 💬 General | 其他一切话题 |
-| 📣 Announcements | 维护者发布更新说明 |
-
 ## 许可证
 
-JAiRouter 基于 [Apache 2.0 License](LICENSE) 开源。
+本项目基于 [Apache 2.0 License](LICENSE) 开源，二次开发自 [JAiRouter](https://github.com/Lincoln-cn/JAiRouter)（原作者 Lincoln-cn，同样遵循 Apache-2.0）。上游项目的版权声明已在 [NOTICE](NOTICE) 中完整保留。
 
 ---
 
 <p align="center">
-  <strong>如果 JAiRouter 帮到了您，欢迎在 GitHub 上点个 <a href="https://github.com/Lincoln-cn/JAiRouter/stargazers">Star</a> ⭐</strong>
+  <strong>如果 Trunkline 帮到了您，欢迎在 GitHub 上点个 <a href="https://github.com/Lincoln-cn/trunkline/stargazers">Star</a> ⭐</strong>
   <br/>
   <em>遇到缺陷？提 Issue。有需求或想法？发 Discussion —— 我们都会跟进。</em>
 </p>
 
 <p align="center">
-  由 Lincoln-cn 维护 · Apache-2.0
+  Trunkline Team · 基于 JAiRouter 二次开发 · Apache-2.0
 </p>

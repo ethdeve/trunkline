@@ -4,18 +4,23 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.unreal.modelrouter.auth.security.audit.SecurityAuditService;
+import org.unreal.modelrouter.auth.security.model.JwtAuthentication;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.monitor.callhistory.config.RecordLevel;
 import org.unreal.modelrouter.monitor.callhistory.dto.CallHistoryQueryDTO;
 import org.unreal.modelrouter.monitor.callhistory.dto.CallHistoryStatisticsDTO;
 import org.unreal.modelrouter.persistence.jpa.entity.ApiCallHistoryEntity;
 
+import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -32,6 +37,7 @@ import static org.mockito.Mockito.*;
  *
  * @author JAiRouter Team
  * @since 2.9.2
+ * @modified Trunkline Team
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ApiCallHistoryController RBAC 与详情端点测试")
@@ -164,6 +170,50 @@ class ApiCallHistoryControllerRbacTest {
             assertNotNull(response.getBody());
             assertTrue(response.getBody().isSuccess());
             verifyNoInteractions(securityAuditService);
+        }
+    }
+
+    // ==================== 员工自助端点 ====================
+
+    @Nested
+    @DisplayName("GET /mine - 员工自助端点（服务端强制归属）")
+    class QueryMineTests {
+
+        @Test
+        @DisplayName("userId 一律取 principal，keyword 为空——客户端传参无从生效")
+        void userIdForcedFromPrincipal() {
+            org.springframework.data.domain.Page<ApiCallHistoryEntity> mockPage =
+                    mock(org.springframework.data.domain.Page.class);
+            when(callHistoryService.query(any(CallHistoryQueryDTO.class))).thenReturn(mockPage);
+
+            JwtAuthentication auth = new JwtAuthentication("alice", "token", List.of("USER"));
+            auth.setAuthenticated(true);
+
+            ResponseEntity<RouterResponse<org.springframework.data.domain.Page<ApiCallHistoryEntity>>> response =
+                    controller.queryMine(auth, 0, 5).block();
+
+            assertNotNull(response);
+            assertTrue(response.getBody().isSuccess());
+
+            ArgumentCaptor<CallHistoryQueryDTO> captor = ArgumentCaptor.forClass(CallHistoryQueryDTO.class);
+            verify(callHistoryService).query(captor.capture());
+            CallHistoryQueryDTO captured = captor.getValue();
+            assertEquals("alice", captured.getUserId(), "归属必须来自 principal");
+            assertNull(captured.getKeyword(), "自助端点不接受 keyword（可命中他人记录）");
+            assertEquals(0, captured.getPage());
+            assertEquals(5, captured.getSize());
+        }
+
+        @Test
+        @DisplayName("方法级 @PreAuthorize 存在且约束到 USER/OPERATOR/ADMIN")
+        void methodLevelPreAuthorizePresent() throws NoSuchMethodException {
+            Method method = ApiCallHistoryController.class.getMethod(
+                    "queryMine", Authentication.class, Integer.class, Integer.class);
+            PreAuthorize annotation = method.getAnnotation(PreAuthorize.class);
+
+            assertNotNull(annotation, "/mine 必须挂方法级 @PreAuthorize（普通员工不得看别人的调用记录）");
+            assertTrue(annotation.value().contains("hasAnyRole('USER','OPERATOR','ADMIN')"),
+                    "角色约束不符: " + annotation.value());
         }
     }
 

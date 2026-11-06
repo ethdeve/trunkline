@@ -8,11 +8,11 @@
 
 <!-- /版本信息 -->
 
-本文档记录了 JAiRouter 项目的版本更新历史和重要变更。
+本文档记录了 Trunkline 项目的版本更新历史和重要变更。
 
 ## 版本规范
 
-JAiRouter 遵循 [语义化版本](https://semver.org/lang/zh-CN/) 规范：
+Trunkline 遵循 [语义化版本](https://semver.org/lang/zh-CN/) 规范：
 
 * **主版本号 (MAJOR)**: 不兼容的 API 变更
 
@@ -890,7 +890,7 @@ JAiRouter 遵循 [语义化版本](https://semver.org/lang/zh-CN/) 规范：
 
 #### Anthropic Claude 适配器
 
-新增 Anthropic Claude 适配器支持，使 JAiRouter 可以统一网关承载 Claude API 负载，与现有 OpenAI 兼容后端并存。
+新增 Anthropic Claude 适配器支持，使 Trunkline 可以统一网关承载 Claude API 负载，与现有 OpenAI 兼容后端并存。
 
 - **ClaudeAdapter**：Claude 适配器实现（+295 行）
 - **ClaudeAdapterTest**：适配器测试（+404 行，覆盖请求转换、响应解析、错误处理）

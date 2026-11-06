@@ -9,7 +9,7 @@
 
 ## 概述
 
-JAiRouter 支持通过配置驱动的方式添加新的 adapter，无需编写代码。适用于所有 OpenAI 兼容的 API（如 DeepSeek、智谱、月之暗面等）。
+Trunkline 支持通过配置驱动的方式添加新的 adapter，无需编写代码。适用于所有 OpenAI 兼容的 API（如 DeepSeek、智谱、月之暗面等）。
 
 ## 适用场景
 
@@ -32,7 +32,7 @@ JAiRouter 支持通过配置驱动的方式添加新的 adapter，无需编写�
 
 ### 步骤1：进入Adapter管理页面
 
-1. 登录 JAiRouter 管理后台
+1. 登录 Trunkline 管理后台
 2. 左侧菜单点击 **配置管理 → Adapter管理**
 
 ### 步骤2：新增Adapter

@@ -316,7 +316,7 @@ class SpringSecurityAuthenticationFilterTest {
 
             MockServerHttpRequest request = MockServerHttpRequest
                     .post("/v1/chat/completions")
-                    .header("Jairouter_Token", "valid-jwt")
+                    .header("Trunkline_Token", "valid-jwt")
                     .build();
             MockServerWebExchange exchange = MockServerWebExchange.from(request);
             WebFilterChain chain = mock(WebFilterChain.class);
@@ -346,7 +346,7 @@ class SpringSecurityAuthenticationFilterTest {
             MockServerHttpRequest request = MockServerHttpRequest
                     .post("/api/v1/audio/transcriptions")
                     .contentType(MediaType.MULTIPART_FORM_DATA)
-                    .header("Jairouter_Token", "valid-jwt")
+                    .header("Trunkline_Token", "valid-jwt")
                     .build();
             MockServerWebExchange exchange = MockServerWebExchange.from(request);
             WebFilterChain chain = mock(WebFilterChain.class);

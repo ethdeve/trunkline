@@ -59,6 +59,7 @@
     "unsupportedTag": "Unsupported",
     "emptyModels": "No available models found. Check the upstream URL and key, or try another provider.",
     "importSuccess": "Successfully imported {count} models",
+    "importSkipped": "{count} model(s) skipped: {detail}",
     "needImport": "Please import at least one model before continuing.",
 
     "doneTitle": "You're All Set",

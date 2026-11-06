@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
  *
  * @author JAiRouter Team
  * @since 1.9.5
+ * @modified Trunkline Team
  */
 @Data
 @Builder
@@ -34,6 +35,14 @@ public final class TokenUsageRecordDTO {
      * 模型名称
      */
     private String modelName;
+
+    /**
+     * 虚拟模型名（模型分组 / 池名，如「公司主力」），v3.5 Trunkline 治理新增。
+     *
+     * <p>请求命中的虚拟模型，是「团队用量」的归属维度；为空表示未命中任何分组
+     * （历史数据或规则锁定实例等内部路径），聚合时归入「未归类」。</p>
+     */
+    private String virtualModel;
 
     /**
      * 模型提供商/适配器类型

@@ -9,11 +9,11 @@
 
 
 
-本节提供了 JAiRouter 常见问题的解决方案和故障排查指南，帮助用户快速定位和解决系统运行中遇到的各种问题。
+本节提供了 Trunkline 常见问题的解决方案和故障排查指南，帮助用户快速定位和解决系统运行中遇到的各种问题。
 
 ## 故障排查概述
 
-当 JAiRouter 出现问题时，建议按照以下系统化的方法进行排查：
+当 Trunkline 出现问题时，建议按照以下系统化的方法进行排查：
 
 ### 排查流程
 1. **快速诊断** - 检查服务基本状态和连通性
@@ -26,7 +26,7 @@
 - **健康检查端点**: `/actuator/health`
 - **监控指标端点**: `/actuator/metrics`
 - **配置信息端点**: `/actuator/configprops`
-- **日志文件**: `logs/jairouter-debug.log`
+- **日志文件**: `logs/trunkline-debug.log`
 
 ## 问题分类
 
@@ -100,10 +100,10 @@
 curl http://localhost:8080/actuator/health
 
 # 请求统计
-curl http://localhost:8080/actuator/metrics/jairouter.requests.total
+curl http://localhost:8080/actuator/metrics/trunkline.requests.total
 
 # 响应时间
-curl http://localhost:8080/actuator/metrics/jairouter.request.duration
+curl http://localhost:8080/actuator/metrics/trunkline.request.duration
 
 # JVM 内存使用
 curl http://localhost:8080/actuator/metrics/jvm.memory.used
@@ -172,7 +172,7 @@ curl http://localhost:8080/actuator/metrics/system.cpu.usage
 如果按照本指南仍无法解决问题，可以通过以下方式获得帮助：
 
 ### 社区支持
-- 查看 [GitHub Issues](https://github.com/Lincoln-cn/JAiRouter/issues) 中的已知问题
+- 查看 [GitHub Issues](https://github.com/Lincoln-cn/Trunkline/issues) 中的已知问题
 - 搜索相关的讨论和解决方案
 - 参与社区讨论获得建议
 

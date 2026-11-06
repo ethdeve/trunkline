@@ -100,7 +100,7 @@ const avatarIcon = computed(() => {
 })
 
 const avatarColor = computed(() => {
-  return props.role === 'user' ? '#409eff' : '#67c23a'
+  return props.role === 'user' ? '#176C6B' : '#2e7d32'
 })
 
 const formatTime = (time: string) => {

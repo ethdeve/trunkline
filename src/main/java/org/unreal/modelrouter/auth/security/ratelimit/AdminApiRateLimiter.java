@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *   <li>POST 创建：额外 10 次/小时（防误刷创建）</li>
  * </ul>
  *
- * <p>限额可通过 {@code jairouter.auth.admin-api-rate-limit.*} 配置覆盖；
+ * <p>限额可通过 {@code trunkline.auth.admin-api-rate-limit.*} 配置覆盖；
  * 无 Spring 注入时（单测 {@code new AdminApiRateLimiter()}）使用字段默认值。</p>
  *
  * <p>v3.1 PR-4d.1：429 错误体（含中文提示）显式按 {@link StandardCharsets#UTF_8} 编码写出。</p>
@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>#124：X-Forwarded-For / X-Real-IP 仅在直连对端属于可信代理集合时才采用，
  * 且 XFF 取最后一跳（由可信代理追加）。默认可信代理为空 = 一律使用 remoteAddress。
  * <strong>行为变更</strong>：部署在反向代理之后时，必须把代理地址配置到
- * {@code jairouter.security.rate-limit.trusted-proxies}，否则限流键将是对端代理 IP。</p>
+ * {@code trunkline.security.rate-limit.trusted-proxies}，否则限流键将是对端代理 IP。</p>
  */
 @Slf4j
 @Component
@@ -46,23 +46,23 @@ public class AdminApiRateLimiter implements WebFilter {
     private static final String ADMIN_API_PREFIX = "/api/auth/api-keys";
 
     /** 读操作（GET/HEAD）每分钟上限 */
-    @Value("${jairouter.auth.admin-api-rate-limit.get-per-minute:120}")
+    @Value("${trunkline.auth.admin-api-rate-limit.get-per-minute:120}")
     private int getLimitPerMinute = 120;
 
     /** 读操作每小时上限 */
-    @Value("${jairouter.auth.admin-api-rate-limit.get-per-hour:2000}")
+    @Value("${trunkline.auth.admin-api-rate-limit.get-per-hour:2000}")
     private int getLimitPerHour = 2000;
 
     /** 写操作（POST/PUT/PATCH/DELETE）每分钟上限 */
-    @Value("${jairouter.auth.admin-api-rate-limit.mutate-per-minute:30}")
+    @Value("${trunkline.auth.admin-api-rate-limit.mutate-per-minute:30}")
     private int mutateLimitPerMinute = 30;
 
     /** 写操作每小时上限 */
-    @Value("${jairouter.auth.admin-api-rate-limit.mutate-per-hour:200}")
+    @Value("${trunkline.auth.admin-api-rate-limit.mutate-per-hour:200}")
     private int mutateLimitPerHour = 200;
 
     /** 创建（POST）每小时上限 */
-    @Value("${jairouter.auth.admin-api-rate-limit.create-per-hour:10}")
+    @Value("${trunkline.auth.admin-api-rate-limit.create-per-hour:10}")
     private int createLimitPerHour = 10;
 
     private final Map<String, RequestCounter> counters = new ConcurrentHashMap<>();

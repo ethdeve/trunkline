@@ -9,12 +9,12 @@
   "links": [
     {
       "icon": "info",
-      "tags": ["jairouter"],
+      "tags": ["trunkline"],
       "targetBlank": true,
-      "title": "JAiRouter 文档",
-      "tooltip": "查看 JAiRouter 文档",
+      "title": "Trunkline 文档",
+      "tooltip": "查看 Trunkline 文档",
       "type": "link",
-      "url": "https://jairouter.com"
+      "url": "https://trunkline.com"
     }
   ],
   "liveNow": false,
@@ -69,7 +69,7 @@
       "pluginVersion": "10.1.0",
       "targets": [
         {
-          "expr": "sum(jairouter_errors_total)",
+          "expr": "sum(trunkline_errors_total)",
           "legendFormat": "总错误数",
           "refId": "A"
         }
@@ -131,7 +131,7 @@
       "pluginVersion": "10.1.0",
       "targets": [
         {
-          "expr": "sum(jairouter_errors_by_severity{severity=\"FATAL\"})",
+          "expr": "sum(trunkline_errors_by_severity{severity=\"FATAL\"})",
           "legendFormat": "致命错误",
           "refId": "A"
         }
@@ -193,7 +193,7 @@
       "pluginVersion": "10.1.0",
       "targets": [
         {
-          "expr": "sum(jairouter_errors_by_severity{severity=\"ERROR\"})",
+          "expr": "sum(trunkline_errors_by_severity{severity=\"ERROR\"})",
           "legendFormat": "严重错误",
           "refId": "A"
         }
@@ -255,7 +255,7 @@
       "pluginVersion": "10.1.0",
       "targets": [
         {
-          "expr": "sum(jairouter_errors_by_severity{severity=\"WARN\"})",
+          "expr": "sum(trunkline_errors_by_severity{severity=\"WARN\"})",
           "legendFormat": "警告",
           "refId": "A"
         }
@@ -338,12 +338,12 @@
       "pluginVersion": "10.1.0",
       "targets": [
         {
-          "expr": "sum(rate(jairouter_errors_total[5m]))",
+          "expr": "sum(rate(trunkline_errors_total[5m]))",
           "legendFormat": "错误率 (5m)",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(jairouter_errors_by_severity{severity=\"ERROR\"}[5m]))",
+          "expr": "sum(rate(trunkline_errors_by_severity{severity=\"ERROR\"}[5m]))",
           "legendFormat": "严重错误率 (5m)",
           "refId": "B"
         }
@@ -402,7 +402,7 @@
       "pluginVersion": "10.1.0",
       "targets": [
         {
-          "expr": "sum(jairouter_errors_by_severity) by (severity)",
+          "expr": "sum(trunkline_errors_by_severity) by (severity)",
           "legendFormat": "{{severity}}",
           "refId": "A"
         }
@@ -492,7 +492,7 @@
       "pluginVersion": "10.1.0",
       "targets": [
         {
-          "expr": "topk(10, sum(jairouter_errors_by_error_code) by (error_code))",
+          "expr": "topk(10, sum(trunkline_errors_by_error_code) by (error_code))",
           "legendFormat": "{{error_code}}",
           "refId": "A"
         }
@@ -582,7 +582,7 @@
       "pluginVersion": "10.1.0",
       "targets": [
         {
-          "expr": "topk(10, sum(jairouter_errors_by_module) by (module))",
+          "expr": "topk(10, sum(trunkline_errors_by_module) by (module))",
           "legendFormat": "{{module}}",
           "refId": "A"
         }
@@ -672,7 +672,7 @@
       "pluginVersion": "10.1.0",
       "targets": [
         {
-          "expr": "topk(15, sum(jairouter_errors_by_model) by (model))",
+          "expr": "topk(15, sum(trunkline_errors_by_model) by (model))",
           "legendFormat": "{{model}}",
           "refId": "A"
         }
@@ -684,7 +684,7 @@
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["jairouter", "exception", "error"],
+  "tags": ["trunkline", "exception", "error"],
   "templating": {
     "list": [
       {
@@ -697,14 +697,14 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values(jairouter_errors_by_module, module)",
+        "definition": "label_values(trunkline_errors_by_module, module)",
         "hide": 0,
         "includeAll": true,
         "multi": true,
         "name": "module",
         "options": [],
         "query": {
-          "query": "label_values(jairouter_errors_by_module, module)",
+          "query": "label_values(trunkline_errors_by_module, module)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -723,14 +723,14 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values(jairouter_errors_by_model, model)",
+        "definition": "label_values(trunkline_errors_by_model, model)",
         "hide": 0,
         "includeAll": true,
         "multi": true,
         "name": "model",
         "options": [],
         "query": {
-          "query": "label_values(jairouter_errors_by_model, model)",
+          "query": "label_values(trunkline_errors_by_model, model)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -749,14 +749,14 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values(jairouter_errors_by_severity, severity)",
+        "definition": "label_values(trunkline_errors_by_severity, severity)",
         "hide": 0,
         "includeAll": true,
         "multi": true,
         "name": "severity",
         "options": [],
         "query": {
-          "query": "label_values(jairouter_errors_by_severity, severity)",
+          "query": "label_values(trunkline_errors_by_severity, severity)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -786,8 +786,8 @@
     ]
   },
   "timezone": "browser",
-  "title": "JAiRouter 异常管理仪表盘",
-  "uid": "jairouter-exception-dashboard",
+  "title": "Trunkline 异常管理仪表盘",
+  "uid": "trunkline-exception-dashboard",
   "version": 1,
   "weekStart": ""
 }

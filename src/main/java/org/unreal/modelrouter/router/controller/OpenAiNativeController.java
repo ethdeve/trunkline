@@ -45,7 +45,7 @@ import java.util.Map;
  * 因此 {@code http://localhost:8080/v1} 可直接作为 OpenAI SDK / LangChain / LlamaIndex 的
  * {@code base_url}。</p>
  *
- * <p>鉴权说明：网关侧认证使用 {@code X-API-Key}（API Key）或 {@code Jairouter_Token}（JWT）；
+ * <p>鉴权说明：网关侧认证使用 {@code X-API-Key}（API Key）或 {@code Trunkline_Token}（JWT）；
  * {@code Authorization} 请求头保留并透传给下游 AI 服务，且<b>实例级 headers 优先</b>（详见
  * {@code StreamingRequestProcessor}/{@code NonStreamingRequestProcessor}）。安全策略由
  * {@code SecurityConfiguration} 的 {@code /v1/** authenticated()} 规则与
@@ -54,6 +54,7 @@ import java.util.Map;
  *
  * @author JAiRouter Team
  * @since v3.1
+ * @modified Trunkline Team
  */
 @RestController
 @RequestMapping("/v1")

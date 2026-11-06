@@ -9,7 +9,7 @@
 
 
 
-JAiRouter supports deployment in Kubernetes clusters, providing rolling updates and other enterprise-grade features. This document details how to deploy JAiRouter in a K8s environment.
+Trunkline supports deployment in Kubernetes clusters, providing rolling updates and other enterprise-grade features. This document details how to deploy Trunkline in a K8s environment.
 
 > **Multi-replica requires a shared database and shared-state switches first**: with an external
 > database in place multi-replica is usable (see `docs/en/deployment/database.md`), but the
@@ -57,18 +57,18 @@ single instance:
 
 **Two things you must do before deploying**:
 
-1. **Create the `jairouter-secrets` Secret** — the repository deliberately ships no Secret entity, so
+1. **Create the `trunkline-secrets` Secret** — the repository deliberately ships no Secret entity, so
    that credentials never land in git:
 
    ```bash
-   kubectl create secret generic jairouter-secrets -n jairouter \
+   kubectl create secret generic trunkline-secrets -n trunkline \
      --from-literal=JWT_SECRET="$(openssl rand -base64 48)" \
      --from-literal=INITIAL_ADMIN_PASSWORD='<strong password>' \
      --from-literal=REDIS_PASSWORD='<redis password>'
    ```
 
 2. **If you expose the service through Ingress, configure client-IP trust** — trusted proxies on the
-   controller side *and* `jairouter.security.trusted-proxies.*` on the application side are both
+   controller side *and* `trunkline.security.trusted-proxies.*` on the application side are both
    required. Otherwise the `clientIp` the application sees is the gateway IP, and rate limiting and
    auditing are both distorted (in that case switch the limiting dimension to `api-key` / `tenant`).
 
@@ -107,7 +107,7 @@ still per replica; enable the shared-state switches described in
 
 Earlier versions supported only the H2 embedded single-file database; sharing one data volume made the
 second and third Pods unable to open it, entering a crash loop. Verified: two JVM processes opening
-`jdbc:h2:file:./data/jairouter` concurrently causes the second to fail with
+`jdbc:h2:file:./data/trunkline` concurrently causes the second to fail with
 `Database may be already in use` (H2 error 90020). External shared database support is tracked in
 issue #160.
 
@@ -118,12 +118,12 @@ with a Redis fixture:
 
 - **The migration Job completes**: `Complete 1/1` in 82 seconds, exit code 0 — the migration really
   runs, and the process exits by itself afterwards. (The manifest passed
-  `jairouter.migration.exit-after-run=true` back then; see #195. Since #193 this is handled by the
+  `trunkline.migration.exit-after-run=true` back then; see #195. Since #193 this is handled by the
   `migrate` entry point, which also makes the exit code reflect the outcome.)
 - **A three-replica Deployment reaches `3/3 Available`** (pods `READY`, zero restarts). Three
   prerequisites are required, each fatal if missing:
   1. a Service named `redis` in the namespace (the ConfigMap points `REDIS_HOST` at it);
-  2. `jairouter-secrets` must hold **strong** values: `JWT_SECRET` at least 32 bytes *after* base64
+  2. `trunkline-secrets` must hold **strong** values: `JWT_SECRET` at least 32 bytes *after* base64
      decoding (e.g. `openssl rand -base64 48`) and a strong `INITIAL_ADMIN_PASSWORD`, otherwise the
      production startup check fails fast;
   3. the probe paths `/actuator/health/liveness` and `/actuator/health/readiness` must be reachable
@@ -131,7 +131,7 @@ with a Redis fixture:
 
 Not verified yet (do not treat as established): cross-replica **state consistency** (each replica gets its
 own emptyDir at `/app/data`, and a correct multi-replica setup still needs a shared database), PDB
-eviction, and the published image `sodlinken/jairouter:latest` itself (an image built from the same jar was
+eviction, and the published image `trunkline/trunkline:latest` itself (an image built from the same jar was
 used instead).
 
 ### Remaining Work for Horizontal Scaling
@@ -159,11 +159,11 @@ The repository already ships Redis shared-state implementations (quota `RedisCou
 
 | Config key | Purpose | Default |
 |------------|---------|---------|
-| `jairouter.persistence.redis.enabled` | State persistence Tier1 (circuit-breaker / load-balancer state shared across nodes) | `false` |
-| `jairouter.quota.distributed.enabled` | Quota Redis atomic counting | `false` |
-| `jairouter.security.jwt.persistence.redis.enabled` | JWT token persistence | `false` |
-| `jairouter.security.jwt.blacklist.redis.enabled` | JWT blacklist across nodes | `false` |
-| `jairouter.security.cache.redis.enabled` | API-Key distributed cache | `false` |
+| `trunkline.persistence.redis.enabled` | State persistence Tier1 (circuit-breaker / load-balancer state shared across nodes) | `false` |
+| `trunkline.quota.distributed.enabled` | Quota Redis atomic counting | `false` |
+| `trunkline.security.jwt.persistence.redis.enabled` | JWT token persistence | `false` |
+| `trunkline.security.jwt.blacklist.redis.enabled` | JWT blacklist across nodes | `false` |
+| `trunkline.security.cache.redis.enabled` | API-Key distributed cache | `false` |
 
 ## Kubernetes Deployment Overview
 
@@ -186,13 +186,13 @@ graph TB
         end
         
         subgraph "Service Layer"
-            B[JAiRouter Service]
+            B[Trunkline Service]
         end
         
         subgraph "Application Layer"
-            C[JAiRouter Pod 1]
-            D[JAiRouter Pod 2]
-            E[JAiRouter Pod N]
+            C[Trunkline Pod 1]
+            D[Trunkline Pod 2]
+            E[Trunkline Pod N]
         end
         
         subgraph "Storage Layer"
@@ -270,9 +270,9 @@ kubectl patch storageclass <storage-class-name> -p '{"metadata": {"annotations":
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: jairouter
+  name: trunkline
   labels:
-    name: jairouter
+    name: trunkline
 ```
 
 ```bash
@@ -286,8 +286,8 @@ kubectl apply -f namespace.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: jairouter-config
-  namespace: jairouter
+  name: trunkline-config
+  namespace: trunkline
 data:
   application.yml: |
     server:
@@ -323,7 +323,7 @@ data:
       level:
         org.unreal.modelrouter: INFO
       file:
-        name: /app/logs/jairouter.log
+        name: /app/logs/trunkline.log
 ```
 
 ```bash
@@ -337,8 +337,8 @@ kubectl apply -f configmap.yaml
 apiVersion: v1
 kind: Secret
 metadata:
-  name: jairouter-secret
-  namespace: jairouter
+  name: trunkline-secret
+  namespace: trunkline
 type: Opaque
 data:
   # Base64 encoded keys
@@ -358,8 +358,8 @@ kubectl apply -f secret.yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: jairouter-config-pvc
-  namespace: jairouter
+  name: trunkline-config-pvc
+  namespace: trunkline
 spec:
   accessModes:
     - ReadWriteMany
@@ -372,8 +372,8 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: jairouter-logs-pvc
-  namespace: jairouter
+  name: trunkline-logs-pvc
+  namespace: trunkline
 spec:
   accessModes:
     - ReadWriteMany
@@ -390,8 +390,8 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: jairouter-data-pvc
-  namespace: jairouter
+  name: trunkline-data-pvc
+  namespace: trunkline
 spec:
   accessModes:
     - ReadWriteOnce
@@ -418,28 +418,28 @@ kubectl apply -f pvc.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: jairouter
-  namespace: jairouter
+  name: trunkline
+  namespace: trunkline
   labels:
-    app: jairouter
+    app: trunkline
 spec:
   # Must be 1: the H2 embedded single-file database does not support multi-replica (see warning above and issue #160)
   replicas: 1
   selector:
     matchLabels:
-      app: jairouter
+      app: trunkline
   template:
     metadata:
       labels:
-        app: jairouter
+        app: trunkline
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
         prometheus.io/path: "/actuator/prometheus"
     spec:
       containers:
-      - name: jairouter
-        image: sodlinken/jairouter:latest
+      - name: trunkline
+        image: trunkline/trunkline:latest
         ports:
         - containerPort: 8080
           name: http
@@ -448,11 +448,11 @@ spec:
           value: "prod"
         - name: JAVA_OPTS
           value: "-Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
-        # Secret name/key must match the Secret created above (jairouter-secret)
+        # Secret name/key must match the Secret created above (trunkline-secret)
         - name: API_KEY
           valueFrom:
             secretKeyRef:
-              name: jairouter-secret
+              name: trunkline-secret
               key: api-key
         # Redis environment variables: optional for single replica, required for multi-replica
         - name: REDIS_HOST
@@ -462,7 +462,7 @@ spec:
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: jairouter-secret
+              name: trunkline-secret
               key: redis-password
         volumeMounts:
         - name: config-volume
@@ -508,16 +508,16 @@ spec:
       volumes:
       - name: config-volume
         configMap:
-          name: jairouter-config
+          name: trunkline-config
       - name: logs-volume
         persistentVolumeClaim:
-          claimName: jairouter-logs-pvc
+          claimName: trunkline-logs-pvc
       - name: config-store-volume
         persistentVolumeClaim:
-          claimName: jairouter-config-pvc
+          claimName: trunkline-config-pvc
       - name: data-volume
         persistentVolumeClaim:
-          claimName: jairouter-data-pvc
+          claimName: trunkline-data-pvc
       restartPolicy: Always
 ```
 
@@ -532,13 +532,13 @@ kubectl apply -f deployment.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: jairouter-service
-  namespace: jairouter
+  name: trunkline-service
+  namespace: trunkline
   labels:
-    app: jairouter
+    app: trunkline
 spec:
   selector:
-    app: jairouter
+    app: trunkline
   ports:
   - name: http
     port: 80
@@ -551,13 +551,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: jairouter-nodeport
-  namespace: jairouter
+  name: trunkline-nodeport
+  namespace: trunkline
   labels:
-    app: jairouter
+    app: trunkline
 spec:
   selector:
-    app: jairouter
+    app: trunkline
   ports:
   - name: http
     port: 80
@@ -578,8 +578,8 @@ kubectl apply -f service.yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: jairouter-ingress
-  namespace: jairouter
+  name: trunkline-ingress
+  namespace: trunkline
   annotations:
     kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/rewrite-target: /
@@ -589,21 +589,21 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
 spec:
   rules:
-  - host: jairouter.example.com
+  - host: trunkline.example.com
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: jairouter-service
+            name: trunkline-service
             port:
               number: 80
   # If TLS certificate is available
   # tls:
   # - hosts:
-  #   - jairouter.example.com
-  #   secretName: jairouter-tls
+  #   - trunkline.example.com
+  #   secretName: trunkline-tls
 ```
 
 ```bash
@@ -619,13 +619,13 @@ kubectl apply -f ingress.yaml
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: jairouter-hpa
-  namespace: jairouter
+  name: trunkline-hpa
+  namespace: trunkline
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: jairouter
+    name: trunkline
   minReplicas: 3
   maxReplicas: 10
   metrics:
@@ -675,18 +675,18 @@ kubectl apply -f hpa.yaml
 apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
 metadata:
-  name: jairouter-vpa
-  namespace: jairouter
+  name: trunkline-vpa
+  namespace: trunkline
 spec:
   targetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: jairouter
+    name: trunkline
   updatePolicy:
     updateMode: "Auto"  # Or "Off", "Initial", "Recreation"
   resourcePolicy:
     containerPolicies:
-    - containerName: jairouter
+    - containerName: trunkline
       minAllowed:
         cpu: 100m
         memory: 128Mi
@@ -709,14 +709,14 @@ kubectl apply -f vpa.yaml
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: jairouter-monitor
-  namespace: jairouter
+  name: trunkline-monitor
+  namespace: trunkline
   labels:
-    app: jairouter
+    app: trunkline
 spec:
   selector:
     matchLabels:
-      app: jairouter
+      app: trunkline
   endpoints:
   - port: http
     path: /actuator/prometheus
@@ -735,40 +735,40 @@ kubectl apply -f servicemonitor.yaml
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: jairouter-rules
-  namespace: jairouter
+  name: trunkline-rules
+  namespace: trunkline
   labels:
-    app: jairouter
+    app: trunkline
 spec:
   groups:
-  - name: jairouter.rules
+  - name: trunkline.rules
     rules:
-    - alert: JAiRouterDown
-      expr: up{job="jairouter-service"} == 0
+    - alert: TrunklineDown
+      expr: up{job="trunkline-service"} == 0
       for: 1m
       labels:
         severity: critical
       annotations:
-        summary: "JAiRouter instance is down"
-        description: "JAiRouter instance {{ $labels.instance }} has been down for more than 1 minute."
+        summary: "Trunkline instance is down"
+        description: "Trunkline instance {{ $labels.instance }} has been down for more than 1 minute."
     
-    - alert: JAiRouterHighErrorRate
+    - alert: TrunklineHighErrorRate
       expr: rate(http_server_requests_total{status=~"5.."}[5m]) / rate(http_server_requests_total[5m]) > 0.1
       for: 2m
       labels:
         severity: warning
       annotations:
-        summary: "JAiRouter high error rate"
-        description: "JAiRouter error rate is above 10% for more than 2 minutes."
+        summary: "Trunkline high error rate"
+        description: "Trunkline error rate is above 10% for more than 2 minutes."
     
-    - alert: JAiRouterHighMemoryUsage
-      expr: container_memory_usage_bytes{pod=~"jairouter-.*"} / container_spec_memory_limit_bytes > 0.9
+    - alert: TrunklineHighMemoryUsage
+      expr: container_memory_usage_bytes{pod=~"trunkline-.*"} / container_spec_memory_limit_bytes > 0.9
       for: 5m
       labels:
         severity: warning
       annotations:
-        summary: "JAiRouter high memory usage"
-        description: "JAiRouter memory usage is above 90% for more than 5 minutes."
+        summary: "Trunkline high memory usage"
+        description: "Trunkline memory usage is above 90% for more than 5 minutes."
 ```
 
 ```bash
@@ -781,8 +781,8 @@ kubectl apply -f prometheusrule.yaml
 
 ```bash
 # Create Chart directory structure
-mkdir -p jairouter-chart/{templates,charts}
-cd jairouter-chart
+mkdir -p trunkline-chart/{templates,charts}
+cd trunkline-chart
 ```
 
 ### 2. Chart.yaml
@@ -790,8 +790,8 @@ cd jairouter-chart
 ```yaml
 # Chart.yaml
 apiVersion: v2
-name: jairouter
-description: A Helm chart for JAiRouter AI model routing gateway
+name: trunkline
+description: A Helm chart for Trunkline AI model routing gateway
 type: application
 version: 3.1.1
 appVersion: "3.1.1"
@@ -800,12 +800,12 @@ keywords:
   - router
   - gateway
   - load-balancer
-home: https://github.com/Lincoln-cn/JAiRouter
+home: https://github.com/Lincoln-cn/Trunkline
 sources:
-  - https://github.com/Lincoln-cn/JAiRouter
+  - https://github.com/Lincoln-cn/Trunkline
 maintainers:
-  - name: JAiRouter Team
-    email: team@jairouter.com
+  - name: Trunkline Team
+    email: team@trunkline.com
 ```
 
 ### 3. values.yaml
@@ -816,7 +816,7 @@ maintainers:
 replicaCount: 1
 
 image:
-  repository: sodlinken/jairouter
+  repository: trunkline/trunkline
   pullPolicy: IfNotPresent
   tag: "latest"
 
@@ -856,7 +856,7 @@ ingress:
     nginx.ingress.kubernetes.io/rewrite-target: /
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
   hosts:
-    - host: jairouter.local
+    - host: trunkline.local
       paths:
         - path: /
           pathType: Prefix
@@ -921,16 +921,16 @@ Create `templates/deployment.yaml`:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "jairouter.fullname" . }}
+  name: {{ include "trunkline.fullname" . }}
   labels:
-    {{- include "jairouter.labels" . | nindent 4 }}
+    {{- include "trunkline.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "jairouter.selectorLabels" . | nindent 6 }}
+      {{- include "trunkline.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -938,13 +938,13 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "jairouter.selectorLabels" . | nindent 8 }}
+        {{- include "trunkline.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "jairouter.serviceAccountName" . }}
+      serviceAccountName: {{ include "trunkline.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -984,14 +984,14 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ include "jairouter.fullname" . }}-config
+            name: {{ include "trunkline.fullname" . }}-config
         - name: data
           persistentVolumeClaim:
-            claimName: {{ include "jairouter.fullname" . }}-data
+            claimName: {{ include "trunkline.fullname" . }}-data
         {{- if .Values.persistence.enabled }}
         - name: logs
           persistentVolumeClaim:
-            claimName: {{ include "jairouter.fullname" . }}-logs
+            claimName: {{ include "trunkline.fullname" . }}-logs
         {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
@@ -1011,16 +1011,16 @@ spec:
 
 ```bash
 # Install Chart
-helm install jairouter ./jairouter-chart -n jairouter --create-namespace
+helm install trunkline ./trunkline-chart -n trunkline --create-namespace
 
 # Upgrade Chart
-helm upgrade jairouter ./jairouter-chart -n jairouter
+helm upgrade trunkline ./trunkline-chart -n trunkline
 
 # View status
-helm status jairouter -n jairouter
+helm status trunkline -n trunkline
 
 # Uninstall Chart
-helm uninstall jairouter -n jairouter
+helm uninstall trunkline -n trunkline
 ```
 
 ## Advanced Configuration
@@ -1042,7 +1042,7 @@ spec:
                 - key: app
                   operator: In
                   values:
-                  - jairouter
+                  - trunkline
               topologyKey: kubernetes.io/hostname
 ```
 
@@ -1053,13 +1053,13 @@ spec:
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: jairouter-pdb
-  namespace: jairouter
+  name: trunkline-pdb
+  namespace: trunkline
 spec:
   minAvailable: 2
   selector:
     matchLabels:
-      app: jairouter
+      app: trunkline
 ```
 
 ### 3. Network Policy
@@ -1069,12 +1069,12 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: jairouter-netpol
-  namespace: jairouter
+  name: trunkline-netpol
+  namespace: trunkline
 spec:
   podSelector:
     matchLabels:
-      app: jairouter
+      app: trunkline
   policyTypes:
   - Ingress
   - Egress
@@ -1107,51 +1107,51 @@ spec:
 
 ```bash
 # View Pod status
-kubectl get pods -n jairouter
+kubectl get pods -n trunkline
 
 # View Deployment status
-kubectl get deployment -n jairouter
+kubectl get deployment -n trunkline
 
 # View Service status
-kubectl get service -n jairouter
+kubectl get service -n trunkline
 
 # View Ingress status
-kubectl get ingress -n jairouter
+kubectl get ingress -n trunkline
 
 # View HPA status
-kubectl get hpa -n jairouter
+kubectl get hpa -n trunkline
 ```
 
 ### 2. View Logs
 
 ```bash
 # View Pod logs
-kubectl logs -f deployment/jairouter -n jairouter
+kubectl logs -f deployment/trunkline -n trunkline
 
 # View specific Pod logs
-kubectl logs -f jairouter-xxx-yyy -n jairouter
+kubectl logs -f trunkline-xxx-yyy -n trunkline
 
 # View all Pod logs
-kubectl logs -f -l app=jairouter -n jairouter --max-log-requests=10
+kubectl logs -f -l app=trunkline -n trunkline --max-log-requests=10
 ```
 
 ### 3. Rolling Updates
 
 ```bash
 # Update image
-kubectl set image deployment/jairouter jairouter=sodlinken/jairouter:v1.1.0 -n jairouter
+kubectl set image deployment/trunkline trunkline=trunkline/trunkline:v1.1.0 -n trunkline
 
 # View update status
-kubectl rollout status deployment/jairouter -n jairouter
+kubectl rollout status deployment/trunkline -n trunkline
 
 # View update history
-kubectl rollout history deployment/jairouter -n jairouter
+kubectl rollout history deployment/trunkline -n trunkline
 
 # Rollback to previous version
-kubectl rollout undo deployment/jairouter -n jairouter
+kubectl rollout undo deployment/trunkline -n trunkline
 
 # Rollback to specific version
-kubectl rollout undo deployment/jairouter --to-revision=2 -n jairouter
+kubectl rollout undo deployment/trunkline --to-revision=2 -n trunkline
 ```
 
 ### 4. Scaling
@@ -1160,13 +1160,13 @@ kubectl rollout undo deployment/jairouter --to-revision=2 -n jairouter
 
 ```bash
 # Manual scaling (not available today, see warning above)
-# kubectl scale deployment jairouter --replicas=5 -n jairouter
+# kubectl scale deployment trunkline --replicas=5 -n trunkline
 
 # View HPA status
-kubectl describe hpa jairouter-hpa -n jairouter
+kubectl describe hpa trunkline-hpa -n trunkline
 
 # Temporarily disable HPA
-kubectl patch hpa jairouter-hpa -n jairouter -p '{"spec":{"minReplicas":0,"maxReplicas":0}}'
+kubectl patch hpa trunkline-hpa -n trunkline -p '{"spec":{"minReplicas":0,"maxReplicas":0}}'
 ```
 
 ## Troubleshooting
@@ -1175,16 +1175,16 @@ kubectl patch hpa jairouter-hpa -n jairouter -p '{"spec":{"minReplicas":0,"maxRe
 
 ```bash
 # View Pod details
-kubectl describe pod jairouter-xxx-yyy -n jairouter
+kubectl describe pod trunkline-xxx-yyy -n trunkline
 
 # View Pod events
-kubectl get events --sort-by=.metadata.creationTimestamp -n jairouter
+kubectl get events --sort-by=.metadata.creationTimestamp -n trunkline
 
 # Debug into Pod
-kubectl exec -it jairouter-xxx-yyy -n jairouter -- sh
+kubectl exec -it trunkline-xxx-yyy -n trunkline -- sh
 
 # View Pod resource usage
-kubectl top pod -n jairouter
+kubectl top pod -n trunkline
 ```
 
 ### 2. Network Troubleshooting
@@ -1193,21 +1193,21 @@ kubectl top pod -n jairouter
 # Test Service connectivity
 kubectl run test-pod --image=busybox -it --rm -- sh
 # Execute inside Pod
-nslookup jairouter-service.jairouter.svc.cluster.local
-wget -qO- http://jairouter-service.jairouter.svc.cluster.local/actuator/health
+nslookup trunkline-service.trunkline.svc.cluster.local
+wget -qO- http://trunkline-service.trunkline.svc.cluster.local/actuator/health
 
 # View Endpoints
-kubectl get endpoints -n jairouter
+kubectl get endpoints -n trunkline
 
 # View Ingress status
-kubectl describe ingress jairouter-ingress -n jairouter
+kubectl describe ingress trunkline-ingress -n trunkline
 ```
 
 ### 3. Storage Troubleshooting
 
 ```bash
 # View PVC status
-kubectl get pvc -n jairouter
+kubectl get pvc -n trunkline
 
 # View PV status
 kubectl get pv
@@ -1216,7 +1216,7 @@ kubectl get pv
 kubectl get storageclass
 
 # View Pod mount details
-kubectl describe pod jairouter-xxx-yyy -n jairouter | grep -A 10 Volumes
+kubectl describe pod trunkline-xxx-yyy -n trunkline | grep -A 10 Volumes
 ```
 
 ## Best Practices
@@ -1239,12 +1239,12 @@ Create `networkpolicy.yaml`:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: jairouter-netpol
-  namespace: jairouter
+  name: trunkline-netpol
+  namespace: trunkline
 spec:
   podSelector:
     matchLabels:
-      app: jairouter
+      app: trunkline
   policyTypes:
   - Ingress
   - Egress
@@ -1294,20 +1294,20 @@ Update `deployment.yaml`:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: jairouter
-  namespace: jairouter
+  name: trunkline
+  namespace: trunkline
   labels:
-    app: jairouter
+    app: trunkline
 spec:
   # Must be 1: the H2 embedded single-file database does not support multi-replica (issue #160)
   replicas: 1
   selector:
     matchLabels:
-      app: jairouter
+      app: trunkline
   template:
     metadata:
       labels:
-        app: jairouter
+        app: trunkline
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
@@ -1320,8 +1320,8 @@ spec:
         runAsGroup: 1001
         fsGroup: 10010
       containers:
-      - name: jairouter
-        image: sodlinken/jairouter:latest
+      - name: trunkline
+        image: trunkline/trunkline:latest
         ports:
         - containerPort: 8080
           name: http
@@ -1333,7 +1333,7 @@ spec:
         - name: API_KEY
           valueFrom:
             secretKeyRef:
-              name: jairouter-secret
+              name: trunkline-secret
               key: api-key
         - name: REDIS_HOST
           value: "your-redis-host"
@@ -1342,7 +1342,7 @@ spec:
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: jairouter-secret
+              name: trunkline-secret
               key: redis-password
         volumeMounts:
         - name: config-volume
@@ -1387,16 +1387,16 @@ spec:
       volumes:
       - name: config-volume
         configMap:
-          name: jairouter-config
+          name: trunkline-config
       - name: logs-volume
         persistentVolumeClaim:
-          claimName: jairouter-logs-pvc
+          claimName: trunkline-logs-pvc
       - name: config-store-volume
         persistentVolumeClaim:
-          claimName: jairouter-config-pvc
+          claimName: trunkline-config-pvc
       - name: data-volume
         persistentVolumeClaim:
-          claimName: jairouter-data-pvc
+          claimName: trunkline-data-pvc
       restartPolicy: Always
 ```
 
@@ -1409,8 +1409,8 @@ Create `secret.yaml`:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: jairouter-secret
-  namespace: jairouter
+  name: trunkline-secret
+  namespace: trunkline
 type: Opaque
 data:
   # Base64 encoded keys
@@ -1424,8 +1424,8 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: jairouter-tls
-  namespace: jairouter
+  name: trunkline-tls
+  namespace: trunkline
 type: kubernetes.io/tls
 data:
   tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCiMKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
@@ -1445,8 +1445,8 @@ Create `configmap-security.yaml`:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: jairouter-security-config
-  namespace: jairouter
+  name: trunkline-security-config
+  namespace: trunkline
 data:
   application-security.yml: |
     # Security configuration
@@ -1463,7 +1463,7 @@ data:
         secret: ${JWT_SECRET}
         algorithm: HS256
         expiration-minutes: 60
-        issuer: jairouter
+        issuer: trunkline
         accounts:
           - username: admin
             password: ${ADMIN_PASSWORD}
@@ -1489,7 +1489,7 @@ data:
         key-store: /app/config/tls/keystore.p12
         key-store-password: ${SSL_KEYSTORE_PASSWORD}
         key-store-type: PKCS12
-        key-alias: jairouter
+        key-alias: trunkline
 ```
 
 Create `api-keys-config.yaml`:
@@ -1499,8 +1499,8 @@ Create `api-keys-config.yaml`:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: jairouter-api-keys
-  namespace: jairouter
+  name: trunkline-api-keys
+  namespace: trunkline
 data:
   api-keys.yml: |
     # API key configuration

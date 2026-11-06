@@ -24,7 +24,7 @@ import java.util.Optional;
  *
  * <p><b>异常语义</b>：后端实现自身不吞异常——Redis 不可用 / 超时 / 脚本错误时以
  * {@link Mono#error} 形式传播，由 {@link QuotaLedgerService} 统一按
- * {@code jairouter.quota.distributed.degrade-to-local} 降级并遵循 {@code fail-open} 策略，
+ * {@code trunkline.quota.distributed.degrade-to-local} 降级并遵循 {@code fail-open} 策略，
  * 因此调用方（请求链路）不会看到 5xx。</p>
  *
  * <p>所有方法均为非阻塞 Reactive 签名；{@link QuotaLedgerService} 因历史原因（PR-2 已钉死
@@ -32,6 +32,7 @@ import java.util.Optional;
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 public interface QuotaCounterBackend {
 

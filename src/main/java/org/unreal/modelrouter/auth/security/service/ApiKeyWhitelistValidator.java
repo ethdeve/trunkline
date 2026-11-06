@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import org.unreal.modelrouter.common.api.config.ServiceTypeCatalogApi;
 import org.unreal.modelrouter.common.constants.ServiceTypeConstants;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -53,6 +54,7 @@ import java.util.TreeSet;
  *
  * @author JAiRouter Team
  * @since 3.3.2
+ * @modified Trunkline Team
  */
 @Slf4j
 @Component
@@ -159,6 +161,51 @@ public class ApiKeyWhitelistValidator {
             return;
         }
         throw new ApiKeyWhitelistMismatchException(buildMessage(invalid, permissions));
+    }
+
+    /**
+     * 按白名单自动推导「可调用的模型分类」（2026-11：前端已移除分类手选字段）。
+     *
+     * <p><b>推导规则：</b></p>
+     * <ul>
+     *   <li>白名单非空 → 分类 = 白名单内各分组所属分类的并集（密钥恰好能调通所配分组）；</li>
+     *   <li>白名单为空（= 不限制模型）→ 全部分类；</li>
+     *   <li>分组在目录中解析不出分类（已删除 / 裁剪部署）→ 该分组跳过；
+     *       全部解析不出时兜底为全部分类，避免产出「永远 403」的死密钥。</li>
+     * </ul>
+     *
+     * <p>推导结果必然通过 {@link #validate(List, List)} 的一致性校验，
+     * 因为分类恰好覆盖白名单（未解析名本来就被校验器放行）。</p>
+     *
+     * @param allowedGroups 白名单分组列表（可为 null / 空）
+     * @return 推导出的分类权限列表（非空）
+     */
+    public List<String> derivePermissions(final List<String> allowedGroups) {
+        final Set<String> categories = new LinkedHashSet<>();
+        final ServiceTypeCatalogApi catalog = catalogProvider.getIfAvailable();
+        if (catalog != null && allowedGroups != null && !allowedGroups.isEmpty()) {
+            final List<String> names = new ArrayList<>();
+            for (final String group : allowedGroups) {
+                if (group != null && !group.trim().isEmpty()) {
+                    names.add(group.trim());
+                }
+            }
+            if (!names.isEmpty()) {
+                final Map<String, Set<String>> resolved = catalog.resolveServiceTypes(names);
+                if (resolved != null) {
+                    for (final Set<String> types : resolved.values()) {
+                        if (types != null) {
+                            categories.addAll(types);
+                        }
+                    }
+                }
+            }
+        }
+        if (categories.isEmpty()) {
+            // 白名单为空（不限制模型）或目录不可用 → 全部分类，避免永远 403 的死密钥
+            return new ArrayList<>(ServiceTypeConstants.getAllServiceTypes());
+        }
+        return new ArrayList<>(categories);
     }
 
     /**

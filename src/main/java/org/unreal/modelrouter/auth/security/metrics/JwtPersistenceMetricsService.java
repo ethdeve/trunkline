@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * 提供令牌操作、黑名单操作、存储健康状态等监控指标
  */
 @Service
-@ConditionalOnProperty(name = "jairouter.security.monitoring.jwt-persistence.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.monitoring.jwt-persistence.enabled", havingValue = "true")
 public class JwtPersistenceMetricsService {
     
     private static final Logger log = LoggerFactory.getLogger(JwtPersistenceMetricsService.class);

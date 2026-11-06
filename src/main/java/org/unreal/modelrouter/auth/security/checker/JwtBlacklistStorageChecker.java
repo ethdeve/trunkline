@@ -34,15 +34,16 @@ import java.time.Duration;
  * 在存储恢复前不会被拦截</b>。该降级是既有的可用性优先取舍，但必须让运维在<b>启动阶段</b>
  * 就能看见，而不是等到第一个请求失败、或靠每请求告警刷屏才发现。</p>
  *
- * <p>本检查仅在黑名单开启（{@code jairouter.security.jwt.blacklist-enabled=true}）时执行；
+ * <p>本检查仅在黑名单开启（{@code trunkline.security.jwt.blacklist-enabled=true}）时执行；
  * 探测失败只告警，既不影响启动，也不改变任何校验行为。</p>
  *
  * @author JAiRouter Team
  * @since 3.2.1
+ * @modified Trunkline Team
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "jairouter.security.jwt.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.jwt.enabled", havingValue = "true")
 public class JwtBlacklistStorageChecker {
 
     /** 探测超时：与鉴权链路的短超时同数量级，避免拖慢启动。 */

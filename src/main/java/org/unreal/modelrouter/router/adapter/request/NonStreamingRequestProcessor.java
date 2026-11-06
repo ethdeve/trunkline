@@ -24,6 +24,7 @@ import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.common.exception.DownstreamServiceException;
 import org.unreal.modelrouter.monitor.callhistory.config.CallHistoryProperties;
 import org.unreal.modelrouter.monitor.callhistory.config.RecordLevel;
+import org.unreal.modelrouter.monitor.tracing.TracingContextHolder;
 import org.unreal.modelrouter.router.adapter.builder.RequestBuilder;
 import org.unreal.modelrouter.router.adapter.handler.MultipartRequestHandler;
 import org.unreal.modelrouter.router.adapter.metrics.AdapterMetricsRecorder;
@@ -124,7 +125,7 @@ public class NonStreamingRequestProcessor {
         // 1. 请求转换
         Object transformedRequest = transformRequestFn.apply(request);
         String instanceName = selectedInstance.getName();
-        // v2.8.9: 池路由后,下游请求 model 改写为实际实例模型名(auto-model/池名不再透传上游)
+        // v2.8.9: 池路由后,下游请求 model 改写为实际实例模型名(虚拟模型名不再透传上游)
         String requestedModel = tokenUsageExtractor.extractRequestModel(request);
         transformedRequest = tokenUsageExtractor.rewriteModelField(transformedRequest, requestedModel, instanceName);
         long requestStartTime = System.currentTimeMillis();
@@ -188,7 +189,7 @@ public class NonStreamingRequestProcessor {
             result = processJsonResponse(requestSpec, transformedRequest, instanceName,
                     adapterType, serviceType, requestStartTime, path, transformResponseFn, multipartHandler,
                     capturedKeyId, responseCacheKey, requestedModel, capturedRequestBody, selectedInstance,
-                    quotaReservation, isNativeResponse(httpRequest));
+                    quotaReservation, isNativeResponse(httpRequest), httpRequest);
         }
         return result
                 .doOnError(error -> QuotaReservation.settleFailure(quotaReservation))
@@ -277,7 +278,13 @@ public class NonStreamingRequestProcessor {
             final String capturedRequestBody,
             final ModelInstance selectedInstance,
             final QuotaReservation quotaReservation,
-            final boolean nativeResponse) {
+            final boolean nativeResponse,
+            final ServerHttpRequest httpRequest) {
+
+        // 关联链路追踪：在请求处理线程（追踪上下文存活）同步捕获 traceId。
+        // WebClient 响应回调线程上 ThreadLocal 已丢失，异步落库时再取只会拿到空串，
+        // 导致 token_usage / 调用历史无法通过 traceId 反查追踪与账单对账。
+        final String traceIdForRecord = TracingContextHolder.getCurrentTraceId();
 
         // 支持multipart请求（如STT）
         BodyInserter<?, ? super ClientHttpRequest> requestBody;
@@ -325,9 +332,11 @@ public class NonStreamingRequestProcessor {
 
                             // 提取并记录 token 使用量（v3.1 PR-2: 同时完成配额结算）
                             // P1-4: 透传下游响应耗时,token_usage.responseTimeMs 供平均响应时间统计
+                            // traceId: 传入方法入口同步捕获的值（回调线程无追踪上下文）
                             tokenUsageExtractor.extractAndRecordTokenUsage(bodyStr, adapterType, instanceName,
                                     capturedKeyId, quotaReservation,
-                                    System.currentTimeMillis() - requestStartTime);
+                                    System.currentTimeMillis() - requestStartTime, httpRequest,
+                                    traceIdForRecord);
                         }
 
                         // 响应转换
@@ -340,12 +349,13 @@ public class NonStreamingRequestProcessor {
                         cacheSuccessfulResponse(responseCacheKey, transformedData);
 
                         // v2.9.2: 记录治理 - 异步记录含请求/响应体的调用历史
+                        // traceId: 传入同步捕获的值，保证调用历史与追踪系统同源（不再退化为随机 UUID）
                         if (metricsRecorder != null) {
                             metricsRecorder.recordCompleteCall(
                                     adapterType, instanceName,
                                     System.currentTimeMillis() - requestStartTime,
                                     true, null, requestedModel, serviceType, selectedInstance,
-                                    capturedRequestBody, capturedResponseBody);
+                                    capturedRequestBody, capturedResponseBody, traceIdForRecord);
                         }
 
                         // v3.1: OpenAI 原生面（/v1）——不包 RouterResponse，直接回下游原生 JSON

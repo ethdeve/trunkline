@@ -14,7 +14,7 @@ $Blue = "Blue"
 
 # Configuration
 $ProjectName = "model-router"
-$ImageName = "sodlinken/jairouter"
+$ImageName = "trunkline/trunkline"
 
 # Function definitions
 function Write-Info {

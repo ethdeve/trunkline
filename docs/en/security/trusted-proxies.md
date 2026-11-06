@@ -7,17 +7,17 @@
 > **Author**: Lincoln
 <!-- /版本信息 -->
 
-JAiRouter uses the client IP as the rate-limit key for management APIs. When
+Trunkline uses the client IP as the rate-limit key for management APIs. When
 requests pass through a reverse proxy (Nginx, HAProxy, cloud SLB, Kubernetes
-Ingress, and so on), you must tell JAiRouter **which peers are your own
-proxies**; otherwise JAiRouter cannot safely derive the real client IP from
+Ingress, and so on), you must tell Trunkline **which peers are your own
+proxies**; otherwise Trunkline cannot safely derive the real client IP from
 forwarding headers such as `X-Forwarded-For`.
 
 ## Configuration
 
 | Item | Value |
 |------|-------|
-| Key | `jairouter.security.rate-limit.trusted-proxies` |
+| Key | `trunkline.security.rate-limit.trusted-proxies` |
 | Type | String, comma-separated list |
 | Default | Empty string (`""`) |
 | Semantics | `X-Forwarded-For` / `X-Real-IP` are honored only when the direct TCP peer address is in this list; otherwise the connection `remoteAddress` is always used |
@@ -25,7 +25,7 @@ forwarding headers such as `X-Forwarded-For`.
 | Hot reload | No; restart required after changes |
 
 ```yaml
-jairouter:
+trunkline:
   security:
     rate-limit:
       # Comma-separated; list your own reverse-proxy addresses
@@ -61,11 +61,11 @@ Parsing behavior (current implementation):
 
 ### Multi-Proxy Chains
 
-With client → proxy A → proxy B → JAiRouter, `X-Forwarded-For` looks like
-`client, proxyA`, and JAiRouter sees `proxyB` as the direct peer.
+With client → proxy A → proxy B → Trunkline, `X-Forwarded-For` looks like
+`client, proxyA`, and Trunkline sees `proxyB` as the direct peer.
 
 - The current implementation takes the **last hop**, which yields `proxyA`
-  rather than `client`. A **single** proxy hop (client → proxy → JAiRouter) is
+  rather than `client`. A **single** proxy hop (client → proxy → Trunkline) is
   the exact case the current implementation handles correctly.
 - For multi-hop chains, list **every proxy you own** in `trusted-proxies`, and
   note the last-hop limitation above. A full "walk right-to-left past trusted
@@ -74,14 +74,14 @@ With client → proxy A → proxy B → JAiRouter, `X-Forwarded-For` looks like
 
 ## How to Determine the Proxy IP
 
-1. **Inspect JAiRouter's connection peer**: trigger a rate-limit event (or turn
+1. **Inspect Trunkline's connection peer**: trigger a rate-limit event (or turn
    on DEBUG logging) and read the IP in
    `API Key management write rate limit triggered, IP: ...`
    (Chinese log line: `API Key管理接口写操作速率限制触发, IP: ...`). If that IP
    is the proxy rather than an end user, `trusted-proxies` is not in effect.
 2. **Inspect the proxy's outbound interface**:
    - Nginx: the local address the `proxy_pass` upstream uses; usually a private
-     address such as `10.0.0.1`, or the `hostname -I` address on JAiRouter's
+     address such as `10.0.0.1`, or the `hostname -I` address on Trunkline's
      subnet.
    - Docker / Kubernetes: usually an address in the bridge / Pod network
      (such as `172.17.0.0/16`, `10.244.0.0/16`). With many replicas, listing
@@ -100,7 +100,7 @@ With client → proxy A → proxy B → JAiRouter, `X-Forwarded-For` looks like
 
 ```yaml
 # ❌ Disaster configuration — equivalent to disabling the protection
-jairouter:
+trunkline:
   security:
     rate-limit:
       # An address the attacker can originate from (their VPS / rented host)
@@ -122,7 +122,7 @@ trusted-proxies: "0.0.0.0/0"   # trust the whole Internet — never do this
 
 ```yaml
 # ✅ Trust only your own reverse proxy
-jairouter:
+trunkline:
   security:
     rate-limit:
       trusted-proxies: "10.0.0.1"
@@ -132,8 +132,8 @@ jairouter:
 
 The proxy is part of the trusted computing base (TCB). A compromised proxy can
 append an arbitrary last XFF hop, and the trust model collapses with it. Keep
-the proxy and JAiRouter on a private network / NetworkPolicy-isolated subnet,
-and forbid third parties from connecting directly to the JAiRouter port.
+the proxy and Trunkline on a private network / NetworkPolicy-isolated subnet,
+and forbid third parties from connecting directly to the Trunkline port.
 
 ## Verifying Whether XFF Is Honored
 
@@ -147,11 +147,11 @@ and forbid third parties from connecting directly to the JAiRouter port.
    - IP is the proxy address → not in effect (missing, wrong, or the request
      does not pass through that proxy).
 
-2. **Probe directly** (bypass the proxy, hit JAiRouter):
+2. **Probe directly** (bypass the proxy, hit Trunkline):
 
    ```bash
    # Forged XFF must have no effect: the logged IP should be the curl client
-   curl -H "X-Forwarded-For: 1.2.3.4" http://jairouter:8080/api/auth/api-keys
+   curl -H "X-Forwarded-For: 1.2.3.4" http://trunkline:8080/api/auth/api-keys
    ```
 
    If the log shows `1.2.3.4`, a header that should not be trusted was
@@ -198,11 +198,11 @@ different causes:
 | Symptom | Cause | Action |
 |---------|-------|--------|
 | **429 Too Many Requests** | Management-API rate limiting. Usually `trusted-proxies` not configured → shared bucket | Configure per this document; confirm with the "Verifying" section |
-| **403 Forbidden** | RBAC permission. Unmatched permission rules are denied by default for non-ADMIN (fail-closed) | Check JWT `roles` / `permissions` and `jairouter.security.rbac.unmatched-policy` (default `DENY_ALL`); **this is unrelated to IP** |
+| **403 Forbidden** | RBAC permission. Unmatched permission rules are denied by default for non-ADMIN (fail-closed) | Check JWT `roles` / `permissions` and `trunkline.security.rbac.unmatched-policy` (default `DENY_ALL`); **this is unrelated to IP** |
 | 403 and "I do have permission" | The token lacks the required permission code, or the path is not registered in the permission rules | See [RBAC Permission Management](rbac-permissions.md) and the RBAC coverage self-check |
 | Suspecting "my IP is blocked" | The system has **no** per-IP denial logic; 403 is not an IP problem | Separate 403 from 429 first |
 
-Tip: temporarily set `jairouter.security.rbac.unmatched-policy=AUTHENTICATED`
+Tip: temporarily set `trunkline.security.rbac.unmatched-policy=AUTHENTICATED`
 to fall back to the legacy permissive behavior while isolating the RBAC
 variable, and **switch it back to `DENY_ALL` afterwards**.
 

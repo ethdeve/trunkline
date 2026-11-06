@@ -20,9 +20,10 @@ import org.unreal.modelrouter.router.http.WebClientPool;
  *
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Component
-@ConditionalOnProperty(name = "jairouter.tracing.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.tracing.enabled", havingValue = "true", matchIfMissing = true)
 public class TracingWebClientFactory {
 
     private final BackendCallTracingInterceptor tracingInterceptor;

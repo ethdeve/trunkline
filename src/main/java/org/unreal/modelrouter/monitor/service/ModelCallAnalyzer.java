@@ -3,6 +3,8 @@ package org.unreal.modelrouter.monitor.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.unreal.modelrouter.monitor.dto.ModelCallStats;
@@ -27,6 +29,7 @@ import java.util.stream.Collectors;
  * 
  * @author JAiRouter Team
  * @since 2.0.0
+ * @modified Trunkline Team
  */
 @Service
 public class ModelCallAnalyzer {
@@ -265,6 +268,20 @@ public class ModelCallAnalyzer {
         refreshQps();
         statsRepository.persist();
         logger.debug("模型调用统计已刷新并持久化");
+    }
+
+    /**
+     * 启动时从持久化层恢复模型调用统计。
+     * {@code ModelCallStatsRepository.restore()} 此前全仓零调用点，导致
+     * {@link #scheduledRefresh()} 每分钟 persist 的累计统计在重启后丢失。
+     * 仅在内存尚无统计（getCount()==0）时恢复，避免覆盖运行期已累积数据。
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void restoreStatsOnStartup() {
+        if (statsRepository.getCount() == 0) {
+            boolean ok = statsRepository.restore();
+            logger.info("模型调用统计启动恢复: {}", ok ? "成功" : "无数据或失败");
+        }
     }
 
     /**

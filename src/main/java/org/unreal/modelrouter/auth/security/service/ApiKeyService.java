@@ -17,8 +17,10 @@ import org.unreal.modelrouter.auth.security.dto.ApiKeyBatchImportResult;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyCreateRequest;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyCreationVO;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyListVO;
+import org.unreal.modelrouter.auth.security.dto.ApiKeyModelScopeVO;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyUpdateRequest;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyVO;
+import org.unreal.modelrouter.auth.security.dto.ApiKeyWithModelScopeVO;
 import org.unreal.modelrouter.auth.security.event.ApiKeyAuditEvent;
 import org.unreal.modelrouter.auth.security.model.UsageStatistics;
 import org.unreal.modelrouter.auth.security.quota.QuotaLimits;
@@ -50,15 +52,33 @@ public class ApiKeyService {
     private final SecurityProperties securityProperties;
 
     /** 是否定期从共享存储刷新本副本 API Key 缓存（#162） */
-    @Value("${jairouter.security.api-key.cache-refresh-enabled:true}")
+    @Value("${trunkline.security.api-key.cache-refresh-enabled:true}")
     private boolean cacheRefreshEnabled;
 
     @Autowired private ApiKeyValidator apiKeyValidator;
     @Autowired private ApiKeyBatchService apiKeyBatchService;
     @Autowired private ApiKeyPersistenceService apiKeyPersistenceService;
     @Autowired private ApplicationEventPublisher eventPublisher;
+    /** 密钥明文加密器（「我的密钥」复制能力的底层，2026-11 用户决策） */
+    @Autowired private ApiKeyPlaintextCipher plaintextCipher;
     /** 白名单与权限分类一致性校验器（2026-10-24 新增） */
     @Autowired private ApiKeyWhitelistValidator apiKeyWhitelistValidator;
+
+    /**
+     * JWT 账户服务：用于校验「分配给谁（holder）」必须是真实存在的账户。
+     * 可选注入（测试上下文可能没有该 Bean）——缺失时跳过存在性校验。
+     */
+    @Autowired(required = false) private JwtAccountService jwtAccountService;
+
+    /** O(1) 查找索引（C6 整改） */
+    @Autowired(required = false) private ApiKeyLookupIndex apiKeyLookupIndex;
+
+    /**
+     * 分组扩展信息解析器（P0-L：员工侧不再需要拉全公司资源池即可拿到友好名与加权均价）。
+     *
+     * <p>可选注入：极简测试上下文未装配该 Bean 时降级为「无分组信息」，接口照常返回密钥列表。</p>
+     */
+    @Autowired(required = false) private ApiKeyModelScopeResolver apiKeyModelScopeResolver;
 
     @Autowired
     public ApiKeyService(@Qualifier("jpaStoreManager") StoreManager sm,
@@ -106,13 +126,25 @@ public class ApiKeyService {
             String kv = ApiKey.generateApiKey("sk-", 32);
             String kh = ApiKeyHashUtil.hashApiKey(kv);
             List<String> validatedPermissions = validatePermissions(req.getPermissions());
+            // 2026-11：前端已移除「可调用的模型分类」手选字段——未显式提供时按白名单自动推导
+            // （白名单空 = 不限制模型 = 全部分类），避免配出「永远 403」的密钥
+            if (validatedPermissions == null || validatedPermissions.isEmpty()) {
+                validatedPermissions = apiKeyWhitelistValidator.derivePermissions(req.getAllowedGroups());
+            }
             // 白名单与权限分类一致性校验（防止配出「永远调不通」的密钥）
             apiKeyWhitelistValidator.validate(validatedPermissions, req.getAllowedGroups());
-            ApiKey ak = ApiKey.builder().keyId(kid).keyHash(kh).keyPrefix("sk-").description(req.getDescription())
+            // 持有人（分配给谁）：未指定时回落为操作者本人
+            final String holder = resolveHolder(req.getHolder(), by);
+            ApiKey ak = ApiKey.builder().keyId(kid).keyHash(kh).keyPrefix("sk-")
+                // 明文只在创建时可得：此刻落盘脱敏展示串与加密明文，明文本身不落盘（C6 + 2026-11 复制能力）
+                .keyMasked(ApiKey.maskKey(kv))
+                .keyEncrypted(plaintextCipher.encrypt(kv))
+                .description(req.getDescription())
                 .permissions(validatedPermissions)
                 .allowedGroups(req.getAllowedGroups())
                 .enabled(req.getEnabled() != null ? req.getEnabled() : true)
-                .expiresAt(req.getExpiresAt()).createdAt(LocalDateTime.now()).createdBy(by).creatorIpAddress(ip)
+                .expiresAt(req.getExpiresAt()).createdAt(LocalDateTime.now()).createdBy(by).holder(holder)
+                .creatorIpAddress(ip)
                 .rotationPeriodDays(req.getRotationPeriodDays() != null ? req.getRotationPeriodDays() : 0)
                 .allowedIpAddresses(req.getAllowedIpAddresses())
                 .dailyRequestLimit(req.getDailyRequestLimit() != null ? req.getDailyRequestLimit() : 0L)
@@ -124,13 +156,24 @@ public class ApiKeyService {
                 .rateLimitPerMinute(req.getRateLimitPerMinute() != null ? req.getRateLimitPerMinute() : 0)
                 .quotaAlertThreshold(req.getQuotaAlertThreshold() != null ? req.getQuotaAlertThreshold() : 0.8)
                 .usage(UsageStatistics.builder().totalRequests(0L).successfulRequests(0L).failedRequests(0L)
-                    .dailyUsage(new HashMap<>()).dailyTokenUsage(new HashMap<>()).build()).build();
+                    .dailyUsage(new HashMap<>()).dailyTokenUsage(new HashMap<>())
+                    .hourlyUsage(new HashMap<>()).hourlyTokenUsage(new HashMap<>())
+                    .monthlyUsage(new HashMap<>()).monthlyTokenUsage(new HashMap<>()).build()).build();
+            if (apiKeyLookupIndex != null) {
+                apiKeyLookupIndex.attachLookupHash(ak, kv);
+                apiKeyLookupIndex.index(ak);
+            }
             apiKeyCache.put(kh, ak); keyIdIndex.put(kid, kh);
             apiKeyPersistenceService.saveApiKeysToStore(apiKeyCache);
             eventPublisher.publishEvent(ApiKeyAuditEvent.created(kid, by, ip));
             log.info("创建API Key成功: {}", kid);
-            return ApiKeyCreationVO.builder().keyId(kid).keyValue(kv).description(ak.getDescription())
+            // 2026-11 安全加固：管理员代员工建密钥时，响应不回传明文（C6）。
+            // 只有「持有人 = 操作者本人」时才回显明文（如快速开始向导自建密钥）；
+            // 代建场景下持有人登录后在「我的密钥」里查看并复制（keyEncrypted 解密通道）。
+            final boolean selfHeld = by != null && by.equals(holder);
+            return ApiKeyCreationVO.builder().keyId(kid).keyValue(selfHeld ? kv : null).description(ak.getDescription())
                 .createdBy(by)
+                .holder(holder)
                 .permissions(ak.getPermissions())
                 .allowedGroups(ak.getAllowedGroups())
                 .enabled(ak.isEnabled()).createdAt(ak.getCreatedAt())
@@ -143,8 +186,36 @@ public class ApiKeyService {
                 .monthlyTokenLimit(ak.getMonthlyTokenLimit())
                 .rateLimitPerMinute(ak.getRateLimitPerMinute())
                 .quotaAlertThreshold(ak.getQuotaAlertThreshold())
-                .warning("密钥值只会显示一次，请妥善保存！").build();
+                .warning(selfHeld
+                    ? "密钥值只会显示一次，请妥善保存！"
+                    : "密钥已创建并加密保存，持有人可在「我的密钥」中查看并复制密钥值。").build();
         });
+    }
+
+    /**
+     * 解析密钥持有人（原型「分配给谁？」）。
+     *
+     * <p>规则：</p>
+     * <ul>
+     *   <li>请求未带 holder 或为空白 → 回落为当前操作者 {@code fallback}</li>
+     *   <li>请求带了 holder → 必须是库中已存在的账户，否则拒绝
+     *       （否则会写出永远查不到人的「幽灵持有人」）</li>
+     * </ul>
+     *
+     * @param requested 前端传入的持有人（可空）
+     * @param fallback  回落值（当前操作者）
+     * @return 归一化后的持有人；两者皆空时返回 {@code null}
+     */
+    private String resolveHolder(final String requested, final String fallback) {
+        final String trimmed = requested == null ? null : requested.trim();
+        if (trimmed == null || trimmed.isEmpty()) {
+            final String fb = fallback == null ? null : fallback.trim();
+            return (fb == null || fb.isEmpty()) ? null : fb;
+        }
+        if (jwtAccountService != null && !jwtAccountService.accountExists(trimmed)) {
+            throw new IllegalArgumentException("持有人不存在: " + trimmed);
+        }
+        return trimmed;
     }
 
     /**
@@ -171,13 +242,22 @@ public class ApiKeyService {
             // （历史遗留）不阻塞其它字段的编辑，避免存量密钥变成不可编辑的死数据。
             final List<String> oldPermissions = ak.getPermissions();
             final List<String> oldGroups = ak.getAllowedGroups();
-            final List<String> newPermissions = req.getPermissions() != null
-                    ? validatePermissions(req.getPermissions()) : oldPermissions;
             final List<String> newGroups = req.getAllowedGroups() != null
                     ? req.getAllowedGroups() : oldGroups;
+            final List<String> newPermissions;
+            if (req.getPermissions() != null) {
+                newPermissions = validatePermissions(req.getPermissions());
+            } else if (req.getAllowedGroups() != null) {
+                // 2026-11：前端已移除「可调用的模型分类」字段——本次改动了白名单时，
+                // 分类权限按新白名单自动推导，保证密钥始终能调通其所配分组
+                newPermissions = apiKeyWhitelistValidator.derivePermissions(newGroups);
+            } else {
+                newPermissions = oldPermissions;
+            }
             validateWhitelistDelta(oldPermissions, oldGroups, newPermissions, newGroups);
 
             if (req.getDescription() != null) ak.setDescription(req.getDescription());
+            if (req.getHolder() != null) ak.setHolder(req.getHolder().trim());
             if (req.getEnabled() != null) ak.setEnabled(req.getEnabled());
             if (req.getExpiresAt() != null) ak.setExpiresAt(req.getExpiresAt());
             if (req.getPermissions() != null) ak.setPermissions(newPermissions);
@@ -242,6 +322,268 @@ public class ApiKeyService {
         });
     }
 
+    /**
+     * 「我的密钥」列表：仅返回指定归属用户的密钥（v3.5 Trunkline UI 改造，§4.2）。
+     *
+     * <p>过滤口径：<b>有效持有人</b>（{@link #effectiveHolder}）等于 owner。owner 由控制器从
+     * {@code Authentication.getName()} 透传（JWT subject），**严禁**信任前端传入的用户名，
+     * 避免越权查看他人密钥。</p>
+     *
+     * <p>与 {@link #getAllApiKeysVO()} 的差异仅在于按归属过滤；统计口径同源（各自密钥的
+     * 当日请求量 + 累计成功/失败），返回结构复用 {@link ApiKeyListVO}，前端可复用既有
+     * 列表渲染与统计卡逻辑。</p>
+     *
+     * @param owner 归属用户名（当前登录用户 subject）
+     * @return 归属该用户的密钥列表（含汇总统计）
+     */
+    public Mono<ApiKeyListVO> getMineApiKeysVO(final String owner) {
+        return Mono.fromCallable(() -> {
+            List<ApiKeyVO> items = apiKeyCache.values().stream()
+                    .filter(ak -> belongsTo(ak, owner))
+                    .map(this::convertToVO)
+                    .sorted(Comparator.comparing(ApiKeyVO::getCreatedAt).reversed())
+                    .toList();
+            int en = 0, dis = 0, exp = 0; long ttr = 0, tsr = 0, tfr = 0;
+            String td = LocalDateTime.now().toLocalDate().toString();
+            for (ApiKey ak : apiKeyCache.values()) {
+                if (!belongsTo(ak, owner)) {
+                    continue;
+                }
+                if (ak.isEnabled()) en++; else dis++;
+                if (ak.isExpired()) exp++;
+                UsageStatistics us = ak.getUsage();
+                if (us != null) {
+                    Map<String, Long> du = us.getDailyUsage();
+                    if (du != null && du.get(td) != null) ttr += du.get(td);
+                    tsr += us.getSuccessfulRequests(); tfr += us.getFailedRequests();
+                }
+            }
+            return ApiKeyListVO.builder().items(items).total(items.size())
+                .enabledCount(en).disabledCount(dis).expiredCount(exp)
+                .summary(ApiKeyListVO.Summary.builder().todayTotalRequests(ttr)
+                    .todaySuccessfulRequests(tsr).todayFailedRequests(tfr).build()).build();
+        });
+    }
+
+    /**
+     * 「我的密钥」列表（含分组扩展信息，P0-L 越权泄漏收敛的补偿能力）。
+     *
+     * <p>与 {@link #getMineApiKeysVO(String)} 的差异：除密钥本体外，额外下发
+     * <b>该用户可见分组</b>的展示信息（分组名 / 友好名 / 服务类型 / 加权均价）——
+     * 见 {@link ApiKeyWithModelScopeVO#getModelScope()} 与
+     * {@link ApiKeyVO#getModelScope()}。</p>
+     *
+     * <p><b>为什么需要它</b>：此前员工侧为显示友好名与均价，必须调用
+     * {@code GET /api/config/pools/list} 拉取全公司资源池（含成员 instanceId / weight）。
+     * 收紧 {@code config:pools:read} 权限后该接口对员工关闭，改由服务端按<b>白名单</b>
+     * 解析后随密钥一起下发，既保住员工侧功能，又不再跨员工泄漏资源池。</p>
+     *
+     * <p>归属过滤口径与 {@link #getMineApiKeysVO(String)} 完全一致（有效持有人 = owner）。</p>
+     *
+     * @param owner 归属用户名（当前登录用户 subject）
+     * @return 归属该用户的密钥列表（含汇总统计与分组扩展信息）
+     */
+    public Mono<ApiKeyWithModelScopeVO> getMineApiKeysWithModelScope(final String owner) {
+        return Mono.fromCallable(() -> {
+            final List<ApiKeyVO> items = apiKeyCache.values().stream()
+                    .filter(ak -> belongsTo(ak, owner))
+                    .map(this::convertToVO)
+                    .sorted(Comparator.comparing(ApiKeyVO::getCreatedAt).reversed())
+                    .toList();
+            int en = 0, dis = 0, exp = 0;
+            long ttr = 0, tsr = 0, tfr = 0;
+            final String td = LocalDateTime.now().toLocalDate().toString();
+            for (final ApiKey ak : apiKeyCache.values()) {
+                if (!belongsTo(ak, owner)) {
+                    continue;
+                }
+                if (ak.isEnabled()) {
+                    en++;
+                } else {
+                    dis++;
+                }
+                if (ak.isExpired()) {
+                    exp++;
+                }
+                final UsageStatistics us = ak.getUsage();
+                if (us != null) {
+                    final Map<String, Long> du = us.getDailyUsage();
+                    if (du != null && du.get(td) != null) {
+                        ttr += du.get(td);
+                    }
+                    tsr += us.getSuccessfulRequests();
+                    tfr += us.getFailedRequests();
+                }
+            }
+            final ApiKeyWithModelScopeVO vo = ApiKeyWithModelScopeVO.builder()
+                    .items(items)
+                    .total(items.size())
+                    .enabledCount(en)
+                    .disabledCount(dis)
+                    .expiredCount(exp)
+                    .summary(ApiKeyListVO.Summary.builder()
+                            .todayTotalRequests(ttr)
+                            .todaySuccessfulRequests(tsr)
+                            .todayFailedRequests(tfr)
+                            .build())
+                    .build();
+            attachModelScope(vo);
+            return vo;
+        });
+    }
+
+    /**
+     * 员工取回自己的密钥明文（「我的密钥」页复制按钮的数据源，2026-11 用户决策）。
+     *
+     * <p>安全约束：归属校验在服务端完成（{@code holder/createdBy} 必须等于当前登录名，
+     * 与 {@link #getMineApiKeysWithModelScope} 同一口径），不信任前端传参；
+     * 明文从 {@code ApiKey.keyEncrypted}（AES-256-GCM）解密得到，
+     * 存量未加密密钥（2026-11-05 之前创建）明文不可恢复，明确报错引导轮换。</p>
+     *
+     * @param owner 当前登录用户名（从 Authentication 解析，非前端传参）
+     * @param keyId 目标密钥 ID
+     * @return 密钥明文
+     * @throws IllegalArgumentException 密钥不存在，或不属于该用户
+     * @throws IllegalStateException    明文不可恢复（存量未加密密钥）
+     */
+    public String revealMineApiKeyValue(final String owner, final String keyId) {
+        final String keyHash = keyIdIndex.get(keyId);
+        final ApiKey ak = keyHash != null ? apiKeyCache.get(keyHash) : null;
+        if (ak == null) {
+            throw new IllegalArgumentException("API Key不存在: " + keyId);
+        }
+        if (!belongsTo(ak, owner)) {
+            throw new IllegalArgumentException("该密钥不属于当前用户");
+        }
+        final String encrypted = ak.getKeyEncrypted();
+        if (encrypted == null || encrypted.isBlank()) {
+            throw new IllegalStateException("该密钥创建于旧版本，未存储可解密的明文，请先轮换密钥后再使用复制功能");
+        }
+        return plaintextCipher.decrypt(encrypted);
+    }
+
+    /**
+     * 给密钥列表补齐分组扩展信息（按密钥 + 按用户两个维度）。
+     *
+     * <p>解析器缺失（极简上下文）时降级为空列表，接口不失败。</p>
+     *
+     * @param vo 待补齐的 VO
+     */
+    private void attachModelScope(final ApiKeyWithModelScopeVO vo) {
+        final List<ApiKeyVO> items = vo.getItems();
+        if (items == null || items.isEmpty()) {
+            vo.setModelScope(new ArrayList<>());
+            return;
+        }
+        if (apiKeyModelScopeResolver == null) {
+            vo.setModelScope(new ArrayList<>());
+            return;
+        }
+        final List<List<String>> whitelistOfItems = new ArrayList<>(items.size());
+        for (final ApiKeyVO item : items) {
+            whitelistOfItems.add(item.getAllowedGroups() == null ? List.of() : item.getAllowedGroups());
+        }
+        // 应修8：用带密钥级均价的批量解析，一次性拿到分组扩展信息 + 密钥级合计均价。
+        // 索引只在内部构建一次，避免逐密钥重复扫表（应修10 同样收益）。
+        final List<ApiKeyModelScopeResolver.ResolvedKeyScope> resolved =
+                apiKeyModelScopeResolver.resolveAllWithPrices(whitelistOfItems);
+        final Map<String, ApiKeyModelScopeVO> union = new LinkedHashMap<>();
+        for (int i = 0; i < items.size(); i++) {
+            final ApiKeyModelScopeResolver.ResolvedKeyScope entry = i < resolved.size() ? resolved.get(i) : null;
+            final List<ApiKeyModelScopeVO> scope = entry == null ? List.of() : entry.scope();
+            items.get(i).setModelScope(scope);
+            // 应修8：服务端下发密钥级合计均价，前端只显示不计算。
+            items.get(i).setMixedPrice(entry == null ? null : entry.keyLevelMixedPrice());
+            for (final ApiKeyModelScopeVO scopeEntry : scope) {
+                if (scopeEntry.getPoolName() != null) {
+                    union.putIfAbsent(scopeEntry.getPoolName(), scopeEntry);
+                }
+            }
+        }
+        vo.setModelScope(new ArrayList<>(union.values()));
+    }
+
+    /**
+     * 密钥是否归属指定用户。
+     *
+     * <p>口径：<b>有效持有人</b>（{@link #effectiveHolder}）等于 owner —— 与「全部密钥」页
+     * 「持有人」列（{@code holder || createdBy}）、以及调用观测「员工」列完全一致。</p>
+     *
+     * <p><b>为什么不能是「或」语义</b>：{@code createdBy} 是<b>操作者</b>（谁在控制台点了
+     * 创建），{@code holder} 是<b>使用者</b>（密钥发给谁用）。管理员给别人发密钥时
+     * {@code createdBy=admin, holder=员工}；若用「{@code createdBy == owner ||
+     * holder == owner}」，管理员的「我的密钥」里会多出发给别人的密钥，而「全部密钥」页的
+     * 「持有人」列明明显示的是别人 —— 两页口径分叉，用户看到的同一把密钥归属对不上。</p>
+     *
+     * <p>存量密钥没有 {@code holder} 字段，{@code ApiKeyPersistenceService} 加载时已把它
+     * 兜底为 {@code createdBy}，此处再兜一次双保险：行为与改造前完全一致。</p>
+     *
+     * @param ak    密钥
+     * @param owner 用户名
+     * @return 属于该用户返回 true
+     */
+    private static boolean belongsTo(final ApiKey ak, final String owner) {
+        if (owner == null || owner.isBlank() || ak == null) {
+            return false;
+        }
+        return owner.equals(effectiveHolder(ak));
+    }
+
+    /**
+     * 密钥的有效持有人：{@code holder}（发给谁用）优先，为空时回落 {@code createdBy}（谁创建的）。
+     *
+     * <p>这是全站唯一的「密钥归属」口径来源：「全部密钥」页「持有人」列、「我的密钥」页过滤、
+     * 调用观测「员工」列三处共用，避免同一把密钥在不同页面归属不一致。</p>
+     *
+     * @param ak 密钥
+     * @return 有效持有人用户名；两者皆空时返回 {@code null}
+     */
+    private static String effectiveHolder(final ApiKey ak) {
+        if (ak == null) {
+            return null;
+        }
+        final String holder = ak.getHolder();
+        if (holder != null && !holder.isBlank()) {
+            return holder;
+        }
+        return ak.getCreatedBy();
+    }
+
+    /**
+     * 按 API Key ID 查<b>密钥持有人</b>（有效持有人），供调用观测的「员工」列归属。
+     *
+     * <p>v3.5 Trunkline：「调用观测」要回答「谁在什么时候调了什么」，需要把 API Key 调用
+     * 归到具体员工。持有人的口径与「全部密钥」页的「持有人」列、「我的密钥」页过滤完全一致
+     * （统一走 {@link #effectiveHolder}），此处只读不写、不改语义。</p>
+     *
+     * <p>读内存缓存（{@code keyIdIndex} → {@code apiKeyCache}），无数据库开销；
+     * 查不到（密钥已删除 / 缓存未同步 / 系统密钥）时返回 {@code null}，
+     * 调用方据此把该行归入「未知」，不丢数据。</p>
+     *
+     * @param keyId API Key ID
+     * @return 持有人用户名；未知时为 {@code null}
+     */
+    public String findHolderByKeyId(final String keyId) {
+        if (keyId == null || keyId.isBlank()) {
+            return null;
+        }
+        try {
+            final String kh = keyIdIndex.get(keyId);
+            if (kh == null) {
+                return null;
+            }
+            final ApiKey ak = apiKeyCache.get(kh);
+            if (ak == null) {
+                return null;
+            }
+            final String holder = effectiveHolder(ak);
+            return holder == null || holder.isBlank() ? null : holder;
+        } catch (Exception e) {
+            // 查不到持有人不影响调用记录本身，静默返回未知
+            return null;
+        }
+    }
+
     public Mono<ApiKeyVO> getApiKeyByIdVO(String kid) {
         return Mono.fromCallable(() -> {
             String kh = keyIdIndex.get(kid);
@@ -304,18 +646,27 @@ public class ApiKeyService {
 
     public void initializeApiKeyFromYaml() {
         apiKeyPersistenceService.initializeApiKeyFromYaml(apiKeyCache, keyIdIndex, loadApiKeysFromConfig());
+        if (apiKeyLookupIndex != null) {
+            apiKeyLookupIndex.rebuild(apiKeyCache);
+        }
     }
 
     public void loadLatestApiKeyConfig() {
         apiKeyPersistenceService.loadLatestApiKeyConfig(apiKeyCache, keyIdIndex, loadApiKeysFromConfig());
+        if (apiKeyLookupIndex != null) {
+            apiKeyLookupIndex.rebuild(apiKeyCache);
+        }
     }
-    
+
     /**
      * 加载持久化配置并与 YAML 配置合并（YAML 优先）
      * v2.x 修复：解决 YAML 中定义的 API Key 无法生效的问题
      */
     public void loadAndMergeWithYaml() {
         apiKeyPersistenceService.loadAndMergeWithYaml(apiKeyCache, keyIdIndex, loadApiKeysFromConfig());
+        if (apiKeyLookupIndex != null) {
+            apiKeyLookupIndex.rebuild(apiKeyCache);
+        }
     }
 
     /**
@@ -323,13 +674,13 @@ public class ApiKeyService {
      *
      * <p>缓存是本副本的内存镜像，只在本进程内更新：多副本下在副本 A 吊销或新建的 Key，
      * 副本 B 原先要等到重启才能感知——其间已吊销的 Key 会继续被放行。本方法让各副本在
-     * {@code jairouter.security.api-key.cache-refresh-interval-seconds} 内收敛到共享存储的
+     * {@code trunkline.security.api-key.cache-refresh-interval-seconds} 内收敛到共享存储的
      * 最新内容（含移除已删除项）。</p>
      *
      * <p><b>每个副本都必须执行</b>，因此刻意不加跨副本排他锁：加锁会让只有一个副本刷新
      * 自己的缓存，其余副本依旧停留在过期视图。</p>
      */
-    @Scheduled(fixedDelayString = "${jairouter.security.api-key.cache-refresh-interval-seconds:60}",
+    @Scheduled(fixedDelayString = "${trunkline.security.api-key.cache-refresh-interval-seconds:60}",
             timeUnit = TimeUnit.SECONDS)
     public void refreshCacheFromSharedStore() {
         if (!cacheRefreshEnabled) {
@@ -337,6 +688,9 @@ public class ApiKeyService {
         }
         int refreshed = apiKeyPersistenceService.refreshApiKeyCache(apiKeyCache, keyIdIndex);
         if (refreshed >= 0) {
+            if (apiKeyLookupIndex != null) {
+                apiKeyLookupIndex.rebuild(apiKeyCache);
+            }
             log.debug("本副本 API Key 缓存已刷新，当前 {} 个密钥", refreshed);
         }
     }
@@ -376,6 +730,10 @@ public class ApiKeyService {
             ak.setUsage(UsageStatistics.builder()
                     .dailyUsage(new HashMap<>())
                     .dailyTokenUsage(new HashMap<>())
+                    .hourlyUsage(new HashMap<>())
+                    .hourlyTokenUsage(new HashMap<>())
+                    .monthlyUsage(new HashMap<>())
+                    .monthlyTokenUsage(new HashMap<>())
                     .totalRequests(0L).successfulRequests(0L).failedRequests(0L)
                     .build());
         }
@@ -447,13 +805,26 @@ public class ApiKeyService {
         });
     }
 
+    /**
+     * 旧版掩码入口（兼容存量密钥内存中偶存的明文）：统一走 {@link ApiKey#maskKey(String)}。
+     *
+     * <p>密钥值不可得（老数据 / 从 YAML 迁移来的密钥未保留明文）时返回 {@code null}，
+     * 前端显示「—」，不臆造。</p>
+     */
+    private static String maskKeyValue(final String keyValue) {
+        return ApiKey.maskKey(keyValue);
+    }
+
     private ApiKeyVO convertToVO(ApiKey ak) {
         ApiKeyVO vo = ApiKeyVO.builder().keyId(ak.getKeyId()).description(ak.getDescription())
+            // 优先用创建/轮换/导入时持久化的脱敏串；存量无明文密钥回落（仍为 null → 前端显示「—」）
+            .keyMasked(ak.getKeyMasked() != null ? ak.getKeyMasked() : maskKeyValue(ak.getKeyValue()))
             .permissions(normalizeStoredPermissions(ak.getPermissions()))
             .allowedGroups(ak.getAllowedGroups())
             .allowedIpAddresses(ak.getAllowedIpAddresses())
             .enabled(ak.isEnabled()).expired(ak.isExpired())
-            .createdAt(ak.getCreatedAt()).createdBy(ak.getCreatedBy()).creatorIpAddress(ak.getCreatorIpAddress())
+            .createdAt(ak.getCreatedAt()).createdBy(ak.getCreatedBy()).holder(ak.getHolder())
+            .creatorIpAddress(ak.getCreatorIpAddress())
             .rotationPeriodDays(ak.getRotationPeriodDays()).lastRotatedAt(ak.getLastRotatedAt())
             .needsRotation(ak.needsRotation()).expiresAt(ak.getExpiresAt())
             .dailyRequestLimit(ak.getDailyRequestLimit())

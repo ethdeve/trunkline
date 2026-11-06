@@ -23,6 +23,15 @@ public class TokenBucketRateLimiter implements RateLimiter {
     }
 
     /**
+     * B4 修复：由 ComponentFactory 在创建后注入指标采集器（限流器经 new 创建，
+     * 自身 {@code @Autowired} 字段恒为 null）。
+     */
+    @Override
+    public void setMetricsCollector(final MetricsCollector metricsCollector) {
+        this.metricsCollector = metricsCollector;
+    }
+
+    /**
      * 尝试获取令牌
      * @param context 限流上下文
      * @return 是否获取成功

@@ -9,14 +9,14 @@
 
 
 
-本文档介绍如何配置和管理 JAiRouter 的告警系统，包括告警规则设置、通知配置和告警处理流程。
+本文档介绍如何配置和管理 Trunkline 的告警系统，包括告警规则设置、通知配置和告警处理流程。
 
 ## 告警架构
 
 ```mermaid
 graph TB
     subgraph "指标收集"
-        A[JAiRouter 应用] --> B[Prometheus]
+        A[Trunkline 应用] --> B[Prometheus]
     end
     
     subgraph "告警处理"
@@ -44,48 +44,48 @@ graph TB
 
 ### 基础告警规则
 
-创建 `monitoring/prometheus/rules/jairouter-alerts.yml`：
+创建 `monitoring/prometheus/rules/trunkline-alerts.yml`：
 
 ```yaml
 groups:
-  - name: jairouter.critical
+  - name: trunkline.critical
     interval: 30s
     rules:
       # 服务不可用
-      - alert: JAiRouterDown
-        expr: up{job="jairouter"} == 0
+      - alert: TrunklineDown
+        expr: up{job="trunkline"} == 0
         for: 1m
         labels:
           severity: critical
-          service: jairouter
+          service: trunkline
         annotations:
-          summary: "JAiRouter 服务不可用"
-          description: "JAiRouter 服务已停止响应超过 1 分钟"
-          runbook_url: "https://jairouter.com/troubleshooting/service-down"
+          summary: "Trunkline 服务不可用"
+          description: "Trunkline 服务已停止响应超过 1 分钟"
+          runbook_url: "https://trunkline.com/troubleshooting/service-down"
 
       # 严重错误率
       - alert: HighErrorRate
-        expr: sum(rate(jairouter_requests_total{status=~"5.."}[5m])) / sum(rate(jairouter_requests_total[5m])) > 0.05
+        expr: sum(rate(trunkline_requests_total{status=~"5.."}[5m])) / sum(rate(trunkline_requests_total[5m])) > 0.05
         for: 2m
         labels:
           severity: critical
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "高错误率告警"
           description: "5xx 错误率超过 5%，当前值: {{ $value | humanizePercentage }}"
-          runbook_url: "https://jairouter.com/troubleshooting/high-error-rate"
+          runbook_url: "https://trunkline.com/troubleshooting/high-error-rate"
 
       # 严重响应延迟
       - alert: HighLatency
-        expr: histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le)) > 5
+        expr: histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le)) > 5
         for: 5m
         labels:
           severity: critical
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "响应时间过长"
           description: "P95 响应时间超过 5 秒，当前值: {{ $value }}s"
-          runbook_url: "https://jairouter.com/troubleshooting/high-latency"
+          runbook_url: "https://trunkline.com/troubleshooting/high-latency"
 
       # 内存严重不足
       - alert: HighMemoryUsage
@@ -93,47 +93,47 @@ groups:
         for: 2m
         labels:
           severity: critical
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "内存使用率过高"
           description: "JVM 堆内存使用率超过 90%，当前值: {{ $value | humanizePercentage }}"
-          runbook_url: "https://jairouter.com/troubleshooting/memory-issues"
+          runbook_url: "https://trunkline.com/troubleshooting/memory-issues"
 
       # 后端服务不可用
       - alert: BackendServiceDown
-        expr: jairouter_backend_health == 0
+        expr: trunkline_backend_health == 0
         for: 1m
         labels:
           severity: critical
-          service: jairouter
+          service: trunkline
           adapter: "{{ $labels.adapter }}"
           instance: "{{ $labels.instance }}"
         annotations:
           summary: "后端服务不可用"
           description: "后端服务 {{ $labels.adapter }}/{{ $labels.instance }} 健康检查失败"
-          runbook_url: "https://jairouter.com/troubleshooting/backend-down"
+          runbook_url: "https://trunkline.com/troubleshooting/backend-down"
 
-  - name: jairouter.warning
+  - name: trunkline.warning
     interval: 60s
     rules:
       # 警告级错误率
       - alert: ModerateErrorRate
-        expr: sum(rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum(rate(jairouter_requests_total[5m])) > 0.10
+        expr: sum(rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum(rate(trunkline_requests_total[5m])) > 0.10
         for: 5m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "错误率偏高"
           description: "总错误率超过 10%，当前值: {{ $value | humanizePercentage }}"
 
       # 响应时间警告
       - alert: ModerateLatency
-        expr: histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le)) > 2
+        expr: histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le)) > 2
         for: 10m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "响应时间偏高"
           description: "P95 响应时间超过 2 秒，当前值: {{ $value }}s"
@@ -144,18 +144,18 @@ groups:
         for: 5m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "内存使用率偏高"
           description: "JVM 堆内存使用率超过 80%，当前值: {{ $value | humanizePercentage }}"
 
       # 熔断器开启
       - alert: CircuitBreakerOpen
-        expr: jairouter_circuit_breaker_state == 1
+        expr: trunkline_circuit_breaker_state == 1
         for: 1m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
           circuit_breaker: "{{ $labels.circuit_breaker }}"
         annotations:
           summary: "熔断器开启"
@@ -163,11 +163,11 @@ groups:
 
       # 限流频繁触发
       - alert: HighRateLimitRejection
-        expr: sum(rate(jairouter_rate_limit_events_total{result="denied"}[5m])) / sum(rate(jairouter_rate_limit_events_total[5m])) > 0.20
+        expr: sum(rate(trunkline_rate_limit_events_total{result="denied"}[5m])) / sum(rate(trunkline_rate_limit_events_total[5m])) > 0.20
         for: 5m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "限流拒绝率过高"
           description: "限流拒绝率超过 20%，当前值: {{ $value | humanizePercentage }}"
@@ -176,38 +176,38 @@ groups:
       - alert: LoadImbalance
         expr: |
           (
-            max(sum by (instance) (rate(jairouter_backend_calls_total[5m]))) -
-            min(sum by (instance) (rate(jairouter_backend_calls_total[5m])))
-          ) / avg(sum by (instance) (rate(jairouter_backend_calls_total[5m]))) > 0.5
+            max(sum by (instance) (rate(trunkline_backend_calls_total[5m]))) -
+            min(sum by (instance) (rate(trunkline_backend_calls_total[5m])))
+          ) / avg(sum by (instance) (rate(trunkline_backend_calls_total[5m]))) > 0.5
         for: 10m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "负载不均衡"
           description: "实例间负载差异超过 50%"
 
       # 慢查询检测
       - alert: SlowQueriesDetected
-        expr: increase(jairouter_slow_queries_total[5m]) > 5
+        expr: increase(trunkline_slow_queries_total[5m]) > 5
         for: 1m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "检测到慢查询"
           description: "在过去5分钟内检测到 {{ $value }} 个慢查询，需要关注性能问题"
 
-  - name: jairouter.business
+  - name: trunkline.business
     interval: 60s
     rules:
       # 模型调用失败率高
       - alert: HighModelCallFailureRate
-        expr: sum(rate(jairouter_model_calls_total{status!="success"}[5m])) / sum(rate(jairouter_model_calls_total[5m])) > 0.10
+        expr: sum(rate(trunkline_model_calls_total{status!="success"}[5m])) / sum(rate(trunkline_model_calls_total[5m])) > 0.10
         for: 5m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "模型调用失败率过高"
           description: "模型调用失败率超过 10%，当前值: {{ $value | humanizePercentage }}"
@@ -216,16 +216,16 @@ groups:
       - alert: UnusualActiveSessionCount
         expr: |
           (
-            sum(jairouter_user_sessions_active) > 
-            (avg_over_time(sum(jairouter_user_sessions_active)[1h:5m]) * 2)
+            sum(trunkline_user_sessions_active) > 
+            (avg_over_time(sum(trunkline_user_sessions_active)[1h:5m]) * 2)
           ) or (
-            sum(jairouter_user_sessions_active) < 
-            (avg_over_time(sum(jairouter_user_sessions_active)[1h:5m]) * 0.5)
+            sum(trunkline_user_sessions_active) < 
+            (avg_over_time(sum(trunkline_user_sessions_active)[1h:5m]) * 0.5)
           )
         for: 10m
         labels:
           severity: info
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "活跃会话数异常"
           description: "当前活跃会话数: {{ $value }}，与历史平均值差异较大"
@@ -235,16 +235,16 @@ groups:
 
 ```yaml
 groups:
-  - name: jairouter.business-specific
+  - name: trunkline.business-specific
     interval: 60s
     rules:
       # Chat 服务响应时间过长
       - alert: ChatServiceSlowResponse
-        expr: histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket{service="chat"}[5m])) by (le)) > 3
+        expr: histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket{service="chat"}[5m])) by (le)) > 3
         for: 5m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
           business_service: chat
         annotations:
           summary: "Chat 服务响应缓慢"
@@ -252,11 +252,11 @@ groups:
 
       # Embedding 服务调用量异常下降
       - alert: EmbeddingServiceLowTraffic
-        expr: sum(rate(jairouter_requests_total{service="embedding"}[5m])) < (avg_over_time(sum(rate(jairouter_requests_total{service="embedding"}[5m]))[1h:5m]) * 0.3)
+        expr: sum(rate(trunkline_requests_total{service="embedding"}[5m])) < (avg_over_time(sum(rate(trunkline_requests_total{service="embedding"}[5m]))[1h:5m]) * 0.3)
         for: 15m
         labels:
           severity: info
-          service: jairouter
+          service: trunkline
           business_service: embedding
         annotations:
           summary: "Embedding 服务流量异常下降"
@@ -264,11 +264,11 @@ groups:
 
       # 特定模型提供商故障
       - alert: ModelProviderDown
-        expr: sum by (provider) (jairouter_backend_health{adapter=~".*"}) == 0
+        expr: sum by (provider) (trunkline_backend_health{adapter=~".*"}) == 0
         for: 2m
         labels:
           severity: critical
-          service: jairouter
+          service: trunkline
           provider: "{{ $labels.provider }}"
         annotations:
           summary: "模型提供商服务中断"
@@ -276,22 +276,22 @@ groups:
           
       # 高频慢查询
       - alert: HighSlowQueryRate
-        expr: rate(jairouter_slow_queries_total[5m]) > 1
+        expr: rate(trunkline_slow_queries_total[5m]) > 1
         for: 2m
         labels:
           severity: critical
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "慢查询率过高"
           description: "慢查询速率超过 {{ $value | humanize }} 个/秒，严重影响系统性能"
           
       # 数据库查询缓慢
       - alert: DatabaseSlowQuery
-        expr: histogram_quantile(0.95, sum(rate(jairouter_database_query_duration_seconds_bucket[5m])) by (le)) > 2
+        expr: histogram_quantile(0.95, sum(rate(trunkline_database_query_duration_seconds_bucket[5m])) by (le)) > 2
         for: 5m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "数据库查询缓慢"
           description: "数据库查询 P95 响应时间超过 2 秒"
@@ -306,8 +306,8 @@ groups:
 ```yaml
 global:
   smtp_smarthost: 'smtp.example.com:587'
-  smtp_from: 'alerts@jairouter.com'
-  smtp_auth_username: 'alerts@jairouter.com'
+  smtp_from: 'alerts@trunkline.com'
+  smtp_auth_username: 'alerts@trunkline.com'
   smtp_auth_password: 'your-password'
 
 # 告警路由配置
@@ -343,9 +343,9 @@ route:
 inhibit_rules:
   # 服务不可用时抑制其他告警
   - source_match:
-      alertname: JAiRouterDown
+      alertname: TrunklineDown
     target_match:
-      service: jairouter
+      service: trunkline
     equal: ['service']
   
   # 严重告警抑制警告告警
@@ -366,8 +366,8 @@ inhibit_rules:
 receivers:
   - name: 'default'
     email_configs:
-      - to: 'admin@jairouter.com'
-        subject: 'JAiRouter 告警: {{ .GroupLabels.alertname }}'
+      - to: 'admin@trunkline.com'
+        subject: 'Trunkline 告警: {{ .GroupLabels.alertname }}'
         body: |
           {{ range .Alerts }}
           告警: {{ .Annotations.summary }}
@@ -377,7 +377,7 @@ receivers:
 
   - name: 'critical-alerts'
     email_configs:
-      - to: 'oncall@jairouter.com'
+      - to: 'oncall@trunkline.com'
         subject: '🚨 严重告警: {{ .GroupLabels.alertname }}'
         body: |
           严重告警触发！
@@ -392,7 +392,7 @@ receivers:
     slack_configs:
       - api_url: 'YOUR_SLACK_WEBHOOK_URL'
         channel: '#alerts-critical'
-        title: '🚨 JAiRouter 严重告警'
+        title: '🚨 Trunkline 严重告警'
         text: |
           {{ range .Alerts }}
           *{{ .Annotations.summary }}*
@@ -401,16 +401,16 @@ receivers:
 
   - name: 'warning-alerts'
     email_configs:
-      - to: 'team@jairouter.com'
+      - to: 'team@trunkline.com'
         subject: '⚠️ 警告告警: {{ .GroupLabels.alertname }}'
     slack_configs:
       - api_url: 'YOUR_SLACK_WEBHOOK_URL'
         channel: '#alerts-warning'
-        title: '⚠️ JAiRouter 警告告警'
+        title: '⚠️ Trunkline 警告告警'
 
   - name: 'business-alerts'
     email_configs:
-      - to: 'business@jairouter.com'
+      - to: 'business@trunkline.com'
         subject: '📊 业务告警: {{ .GroupLabels.alertname }}'
     webhook_configs:
       - url: 'http://your-webhook-endpoint/alerts'
@@ -443,8 +443,8 @@ route:
     
     # 特定服务的告警
     - match:
-        service: jairouter
-        alertname: JAiRouterDown
+        service: trunkline
+        alertname: TrunklineDown
       receiver: 'service-down'
       group_wait: 0s
       repeat_interval: 2m
@@ -478,12 +478,12 @@ time_intervals:
 receivers:
   - name: 'email-alerts'
     email_configs:
-      - to: 'alerts@jairouter.com'
-        from: 'noreply@jairouter.com'
+      - to: 'alerts@trunkline.com'
+        from: 'noreply@trunkline.com'
         smarthost: 'smtp.example.com:587'
-        auth_username: 'noreply@jairouter.com'
+        auth_username: 'noreply@trunkline.com'
         auth_password: 'your-password'
-        subject: 'JAiRouter 告警: {{ .GroupLabels.alertname }}'
+        subject: 'Trunkline 告警: {{ .GroupLabels.alertname }}'
         headers:
           Priority: 'high'
         body: |
@@ -497,7 +497,7 @@ receivers:
               </style>
           </head>
           <body>
-              <h2>JAiRouter 告警通知</h2>
+              <h2>Trunkline 告警通知</h2>
               {{ range .Alerts }}
               <div class="alert {{ .Labels.severity }}">
                   <h3>{{ .Annotations.summary }}</h3>
@@ -521,10 +521,10 @@ receivers:
   - name: 'slack-alerts'
     slack_configs:
       - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
-        channel: '#jairouter-alerts'
+        channel: '#trunkline-alerts'
         username: 'AlertManager'
         icon_emoji: ':warning:'
-        title: '{{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} JAiRouter 告警'
+        title: '{{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} Trunkline 告警'
         title_link: 'http://localhost:9093'
         text: |
           {{ range .Alerts }}
@@ -559,8 +559,8 @@ receivers:
           {
             "msgtype": "markdown",
             "markdown": {
-              "title": "JAiRouter 告警通知",
-              "text": "## JAiRouter 告警通知\n\n{{ range .Alerts }}**告警:** {{ .Annotations.summary }}\n\n**描述:** {{ .Annotations.description }}\n\n**服务:** {{ .Labels.service }}\n\n**严重程度:** {{ .Labels.severity }}\n\n**时间:** {{ .StartsAt.Format \"2006-01-02 15:04:05\" }}\n\n---\n\n{{ end }}"
+              "title": "Trunkline 告警通知",
+              "text": "## Trunkline 告警通知\n\n{{ range .Alerts }}**告警:** {{ .Annotations.summary }}\n\n**描述:** {{ .Annotations.description }}\n\n**服务:** {{ .Labels.service }}\n\n**严重程度:** {{ .Labels.severity }}\n\n**时间:** {{ .StartsAt.Format \"2006-01-02 15:04:05\" }}\n\n---\n\n{{ end }}"
             }
           }
 ```
@@ -579,7 +579,7 @@ receivers:
         body: |
           {
             "to": ["13800138000", "13900139000"],
-            "message": "JAiRouter告警: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}"
+            "message": "Trunkline告警: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}"
           }
 ```
 
@@ -592,10 +592,10 @@ receivers:
 amtool silence add alertname="HighMemoryUsage" --duration="2h" --comment="内存优化维护"
 
 # 静默特定服务的所有告警
-amtool silence add service="jairouter" --duration="30m" --comment="服务维护"
+amtool silence add service="trunkline" --duration="30m" --comment="服务维护"
 
 # 静默特定实例的告警
-amtool silence add instance="jairouter-01" --duration="1h" --comment="实例重启"
+amtool silence add instance="trunkline-01" --duration="1h" --comment="实例重启"
 ```
 
 ### 抑制规则配置
@@ -604,7 +604,7 @@ amtool silence add instance="jairouter-01" --duration="1h" --comment="实例重�
 inhibit_rules:
   # 服务完全不可用时抑制其他相关告警
   - source_match:
-      alertname: JAiRouterDown
+      alertname: TrunklineDown
     target_match_re:
       alertname: '(HighLatency|HighErrorRate|HighMemoryUsage)'
     equal: ['service']
@@ -629,8 +629,8 @@ inhibit_rules:
 ### 手动触发告警
 
 ```shell
-# 停止 JAiRouter 服务测试服务不可用告警
-docker stop jairouter
+# 停止 Trunkline 服务测试服务不可用告警
+docker stop trunkline
 
 # 模拟高内存使用
 curl -X POST http://localhost:8080/actuator/test/memory-stress
@@ -642,10 +642,10 @@ for i in {1..100}; do curl http://localhost:8080/invalid-endpoint; done
 ### 告警规则验证
 ```shell
 # 验证告警规则语法
-promtool check rules monitoring/prometheus/rules/jairouter-alerts.yml
+promtool check rules monitoring/prometheus/rules/trunkline-alerts.yml
 
 # 测试告警规则
-promtool query instant http://localhost:9090 'up{job="jairouter"} == 0'
+promtool query instant http://localhost:9090 'up{job="trunkline"} == 0'
 
 # 查看当前活跃告警
 curl http://localhost:9090/api/v1/alerts
@@ -664,7 +664,7 @@ amtool alert query
 amtool silence query
 
 # 测试通知
-amtool alert add alertname="TestAlert" service="jairouter" severity="warning"
+amtool alert add alertname="TestAlert" service="trunkline" severity="warning"
 ```
 
 ## 告警处理流程
@@ -760,7 +760,7 @@ route:
 ```yml
 # 避免过于敏感的阈值
 - alert: HighLatency
-  expr: histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le)) > 2
+  expr: histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le)) > 2
   for: 5m  # 增加持续时间避免瞬时波动
 ```
 
@@ -776,7 +776,7 @@ route:
 ```yml
 inhibit_rules:
   - source_match:
-      alertname: JAiRouterDown
+      alertname: TrunklineDown
     target_match_re:
       alertname: '.*'
     equal: ['service']
@@ -787,10 +787,10 @@ inhibit_rules:
 #### 告警指标收集
 ```yml
 # 收集告警相关指标
-- record: jairouter:alert_firing_count
+- record: trunkline:alert_firing_count
   expr: sum(ALERTS{alertstate="firing"})
 
-- record: jairouter:alert_resolution_time
+- record: trunkline:alert_resolution_time
   expr: time() - ALERTS_FOR_STATE{alertstate="firing"}
 ```
 
@@ -817,9 +817,9 @@ inhibit_rules:
 #### 3. 告警命名规范
 ```yml
 # 好的告警命名
-- alert: JAiRouterHighLatency
-- alert: JAiRouterBackendDown
-- alert: JAiRouterHighErrorRate
+- alert: TrunklineHighLatency
+- alert: TrunklineBackendDown
+- alert: TrunklineHighErrorRate
 
 # 避免的命名
 - alert: Alert1
@@ -853,13 +853,13 @@ inhibit_rules:
 **检查步骤**:
 ```shell
 # 验证规则语法
-promtool check rules rules/jairouter-alerts.yml
+promtool check rules rules/trunkline-alerts.yml
 
 # 检查规则加载状态
 curl http://localhost:9090/api/v1/rules
 
 # 测试查询表达式
-curl "http://localhost:9090/api/v1/query?query=up{job=\"jairouter\"}"
+curl "http://localhost:9090/api/v1/query?query=up{job=\"trunkline\"}"
 ```
 
 #### 2. 通知未发送

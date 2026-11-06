@@ -41,15 +41,15 @@ public class MetricsErrorHandler {
     
     public MetricsErrorHandler(final MeterRegistry meterRegistry) {
         this.meterRegistry = meterRegistry;
-        this.errorCounter = Counter.builder("jairouter.metrics.errors")
+        this.errorCounter = Counter.builder("trunkline.metrics.errors")
             .description("指标收集错误计数")
             .tag("component", "metrics-handler")
             .register(meterRegistry);
-        this.degradationCounter = Counter.builder("jairouter.metrics.degradations")
+        this.degradationCounter = Counter.builder("trunkline.metrics.degradations")
             .description("指标收集降级计数")
             .tag("component", "metrics-handler")
             .register(meterRegistry);
-        this.errorRecoveryTimer = Timer.builder("jairouter.metrics.error_recovery")
+        this.errorRecoveryTimer = Timer.builder("trunkline.metrics.error_recovery")
             .description("错误恢复时间")
             .tag("component", "metrics-handler")
             .register(meterRegistry);
@@ -62,7 +62,7 @@ public class MetricsErrorHandler {
         String errorKey = component + ":" + operation;
         
         // 记录错误
-        Counter.builder("jairouter.metrics.errors")
+        Counter.builder("trunkline.metrics.errors")
             .description("指标收集错误计数")
             .tag("component", component)
             .tag("operation", operation)

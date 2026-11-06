@@ -8,7 +8,7 @@
     "types": {
       "provider": "模型供应商",
       "instance": "已接入模型",
-      "pool": "模型分组",
+      "pool": "虚拟模型",
       "apiKey": "密钥",
       "other": "其他引用"
     }

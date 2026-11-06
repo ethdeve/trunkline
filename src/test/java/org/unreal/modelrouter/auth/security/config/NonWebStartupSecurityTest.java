@@ -31,7 +31,7 @@ class NonWebStartupSecurityTest {
             .withUserConfiguration(SecurityConfiguration.class)
             // 必须显式打开这个开关：否则类会被它自己的 @ConditionalOnProperty 跳过，
             // 测试就变成"无论有没有 @ConditionalOnWebApplication 都通过"的假绿。
-            .withPropertyValues("jairouter.security.enabled=true");
+            .withPropertyValues("trunkline.security.enabled=true");
 
     @Test
     @DisplayName("非 Web 上下文中 SecurityConfiguration 应被条件跳过，不创建安全过滤器链")

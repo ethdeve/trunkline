@@ -20,7 +20,7 @@ import java.util.Map;
 @Slf4j
 @Component("jwtRedisHealthIndicator")
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "jairouter.security.jwt.persistence.redis.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.jwt.persistence.redis.enabled", havingValue = "true")
 public class JwtRedisHealthMonitor implements HealthIndicator {
     
     private final ReactiveRedisTemplate<String, String> redisTemplate;

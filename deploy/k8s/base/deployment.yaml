@@ -1,15 +1,15 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: jairouter
+  name: trunkline
   labels:
-    app.kubernetes.io/name: jairouter
+    app.kubernetes.io/name: trunkline
     app.kubernetes.io/component: gateway
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app.kubernetes.io/name: jairouter
+      app.kubernetes.io/name: trunkline
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -20,10 +20,10 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: jairouter
+        app.kubernetes.io/name: trunkline
         app.kubernetes.io/component: gateway
     spec:
-      serviceAccountName: jairouter
+      serviceAccountName: trunkline
       # 必须大于 spring.lifecycle.timeout-per-shutdown-phase（30s，见 config/common/server.yml）。
       # 小于它时 kubelet 会先 SIGKILL，优雅停机配置失效，在途流式响应被直接切断。
       terminationGracePeriodSeconds: 45
@@ -33,8 +33,8 @@ spec:
         runAsGroup: 10010
         fsGroup: 10010
       containers:
-        - name: jairouter
-          image: sodlinken/jairouter:latest
+        - name: trunkline
+          image: trunkline/trunkline:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -60,9 +60,9 @@ spec:
                 -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+UseContainerSupport
           envFrom:
             - configMapRef:
-                name: jairouter-config
+                name: trunkline-config
             - secretRef:
-                name: jairouter-secrets
+                name: trunkline-secrets
           # 启动探针：JVM 冷启动可能久于 liveness 的 initialDelay，用它兜住，
           # 避免启动期被 liveness 误杀。
           startupProbe:
@@ -114,7 +114,7 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: jairouter-config-files
+            name: trunkline-config-files
         # emptyDir（每副本独立）：多副本下本机 H2/文件存储不成立，共享 DB 才是状态载体。
         # 单副本且需要保留本地数据时，在 overlay 中替换为 PVC。
         - name: data

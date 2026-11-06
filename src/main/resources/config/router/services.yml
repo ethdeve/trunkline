@@ -22,7 +22,7 @@ model:
     chat:
       load-balance:
         type: least-connections
-      adapter: gpustack
+      adapter: normal
       rate-limit:
         enabled: true
         algorithm: "token-bucket"

@@ -1,23 +1,30 @@
 package org.unreal.modelrouter.config.service;
 
+import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.unreal.modelrouter.common.constants.ServiceTypeConstants;
 import org.unreal.modelrouter.common.dto.ModelProviderDTO;
+import org.unreal.modelrouter.common.dto.ProviderCatalogDTO;
 import org.unreal.modelrouter.common.dto.ServiceInstanceDTO;
 import org.unreal.modelrouter.config.core.ServiceInstanceManager;
 import org.unreal.modelrouter.config.dependency.DependencyCheckService;
 import org.unreal.modelrouter.config.core.helper.SsrfGuard;
+import org.unreal.modelrouter.config.dto.BatchAddModelsResult;
 import org.unreal.modelrouter.config.dto.CreateModelProviderRequest;
 import org.unreal.modelrouter.config.dto.CreateServiceInstanceRequest;
 import org.unreal.modelrouter.persistence.jpa.entity.ModelProviderEntity;
 import org.unreal.modelrouter.persistence.jpa.entity.ServiceConfigEntity;
+import org.unreal.modelrouter.persistence.jpa.entity.ServiceInstanceEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.ModelProviderRepository;
 import org.unreal.modelrouter.persistence.jpa.repository.ServiceConfigRepository;
 import org.unreal.modelrouter.persistence.jpa.repository.ServiceInstanceRepository;
+import org.unreal.modelrouter.router.handler.ServiceEndpoint;
+import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 import org.unreal.modelrouter.router.model.WebClientCacheManager;
 import org.unreal.modelrouter.common.exception.ApiException;
 import reactor.core.publisher.Mono;
@@ -25,12 +32,14 @@ import reactor.core.publisher.Mono;
 import java.net.ConnectException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
+import java.util.regex.Pattern;
 
 /**
  * 模型供应商服务（v2.11.0）
@@ -43,6 +52,12 @@ import java.util.concurrent.TimeoutException;
 @Slf4j
 @Service
 public class ModelProviderService {
+
+    /**
+     * 纯版本路径（如 {@code /v1}、{@code /api/paas/v4}）：只有版本段、没有端点段，
+     * 换算模型分类端点时直接在其后拼接。
+     */
+    private static final Pattern VERSION_ONLY_PATH = Pattern.compile("^.*/v\\d+$");
 
     private final ModelProviderRepository providerRepository;
     private final ServiceConfigRepository serviceConfigRepository;
@@ -104,6 +119,52 @@ public class ModelProviderService {
     }
 
     // ==================== 创建 / 更新 / 删除 ====================
+
+    /**
+     * 供应商目录：供应商 + 其下已接入模型名（合并视图，供「接入厂商」表格直接渲染）。
+     *
+     * <p>一次性装配，避免前端为每个供应商再发一次模型列表请求。</p>
+     */
+    public List<ProviderCatalogDTO> listCatalog() {
+        final List<ModelProviderEntity> providers =
+                providerRepository.findAllByOrderBySortOrderAscIdAsc();
+        // 按供应商聚合实例：模型名 + 健康状态
+        final Map<Long, List<ServiceInstanceEntity>> byProvider = new java.util.LinkedHashMap<>();
+        for (final ServiceInstanceEntity instance : serviceInstanceRepository.findAll()) {
+            if (instance.getProviderId() != null) {
+                byProvider.computeIfAbsent(instance.getProviderId(), k -> new ArrayList<>()).add(instance);
+            }
+        }
+
+        final List<ProviderCatalogDTO> result = new ArrayList<>(providers.size());
+        for (final ModelProviderEntity provider : providers) {
+            final List<ServiceInstanceEntity> instances = byProvider.getOrDefault(provider.getId(), List.of());
+            final List<String> models = new ArrayList<>(instances.size());
+            int unhealthy = 0;
+            for (final ServiceInstanceEntity instance : instances) {
+                if (instance.getInstanceName() != null) {
+                    models.add(instance.getInstanceName());
+                }
+                if (instance.getHealthStatus() != null
+                        && "UNHEALTHY".equalsIgnoreCase(instance.getHealthStatus())) {
+                    unhealthy++;
+                }
+            }
+            result.add(ProviderCatalogDTO.builder()
+                    .id(provider.getId())
+                    .providerUid(provider.getProviderUid())
+                    .name(provider.getName())
+                    .baseUrl(provider.getBaseUrl())
+                    .serviceType(provider.getServiceType())
+                    .status(provider.getStatus())
+                    .hasApiKey(!isBlank(provider.getApiKey()))
+                    .modelCount(instances.size())
+                    .models(models)
+                    .unhealthyCount(unhealthy)
+                    .build());
+        }
+        return result;
+    }
 
     /**
      * 创建供应商
@@ -327,50 +388,208 @@ public class ModelProviderService {
     }
 
     /**
-     * 批量添加模型：按清单在该供应商下创建实例（继承地址与 Key）。
-     * 已存在同名实例的模型自动跳过。
+     * 取指定模型分类的服务配置；<b>不存在时自动补建</b>。
      *
-     * @return 实际创建成功的数量
+     * <p><b>为什么补建而不是报错：</b>实例的归属完全依赖 {@code service_config} 外键
+     * （{@code service_instance.service_config_id}），而分类目录的权威来源是
+     * {@code config_data} 里持久化的 {@code services} 映射——两者本应一一对应，
+     * 但历史上初始化条件是「{@code config_data} 与 {@code service_config} 都为空」
+     * 才从 YAML 灌数据，导致「配置已有分类、外键表却空」的库：接入厂商时
+     * 按分类查服务配置必然落空（报「服务配置不存在: chat」），而分类本身是用户
+     * 在界面上选的合法值。接入流程是自助式的，因此这里选择自愈补建，
+     * 让「选了分类就能接入」。</p>
+     *
+     * @param serviceType 模型分类（chat / embedding / imgGen …）
+     * @return 该分类的服务配置（新建或已有）
+     */
+    private ServiceConfigEntity ensureServiceConfig(final String serviceType) {
+        final String type = serviceType == null ? "" : serviceType.trim();
+        if (type.isEmpty()) {
+            throw new ApiException("SERVICE_TYPE_REQUIRED", "请先选择模型分类");
+        }
+        return serviceConfigRepository.findFirstByServiceTypeAndIsLatestTrue(type)
+                .orElseGet(() -> {
+                    final ServiceConfigEntity saved = serviceConfigRepository.save(
+                            ServiceConfigEntity.builder()
+                                    .configKey(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY)
+                                    .serviceType(type)
+                                    .version(1)
+                                    .isLatest(true)
+                                    .build());
+                    log.info("自动补建模型分类配置（实例归属外键）：serviceType={}, id={}",
+                            type, saved.getId());
+                    return saved;
+                });
+    }
+
+    /**
+     * 批量添加模型：按清单在该供应商下创建实例（继承地址与 Key）。
+     *
+     * <p><b>逐模型分类（v3.5）</b>：同一厂商常同时提供聊天 / 向量 / 图片模型，
+     * 因此分类以<b>模型级</b>为准（{@code items[].serviceType}），批次级
+     * {@code request.serviceType} 与供应商级 {@code provider.serviceType} 仅作兜底。
+     * 实现上按分类分组：每组各自解析服务配置（不存在则自愈补建）、各自在<b>该分类内</b>
+     * 按同名实例去重，并按分类计算实例的<b>上游调用路径</b>——上游路径取自实例自身的
+     * path 字段（{@code ModelServiceRegistry#getModelPath}），不随分类实时换算，
+     * 因此图片模型若沿用聊天路径会打到 /chat/completions。</p>
+     *
+     * <p>已存在同名实例的模型自动跳过——同名去重范围是该模型分类下全部实例（跨供应商，
+     * 因实例名在分类内唯一，否则会撞 CONFLICT_INSTANCE_NAME 409），跳过时返回原因明细
+     * （同名实例挂在哪个供应商名下），供前端逐条提示，避免「点了添加却没反应」的静默失败。</p>
+     *
+     * @return 创建数量 + 跳过明细
      */
     @Transactional
-    public int batchAddModels(final Long id, final CreateModelProviderRequest.BatchAddModelsRequest request) {
+    public BatchAddModelsResult batchAddModels(final Long id, final CreateModelProviderRequest.BatchAddModelsRequest request) {
         final ModelProviderEntity provider = providerRepository.findById(id)
                 .orElseThrow(() -> new ApiException("PROVIDER_NOT_FOUND", "供应商不存在: " + id));
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new ApiException("PROVIDER_BATCH_EMPTY", "请先勾选或填写要添加的模型");
         }
-        final String serviceType = isBlank(request.getServiceType())
+        final String fallbackType = isBlank(request.getServiceType())
                 ? provider.getServiceType() : request.getServiceType().trim();
-        final ServiceConfigEntity serviceConfig = serviceConfigRepository
-                .findFirstByServiceTypeAndIsLatestTrue(serviceType)
-                .orElseThrow(() -> new ApiException("SERVICE_CONFIG_NOT_FOUND",
-                        "服务配置不存在: " + serviceType));
 
-        // 同名去重：该服务配置下已存在的实例名直接跳过
-        final Set<String> existing = new java.util.HashSet<>();
-        for (ServiceInstanceDTO inst : serviceInstanceManager.getInstancesByServiceConfigId(serviceConfig.getId())) {
-            existing.add(inst.getName());
+        // 按模型自身的分类分组（保持请求顺序）
+        final Map<String, List<CreateModelProviderRequest.BatchModelItem>> groups = new LinkedHashMap<>();
+        for (CreateModelProviderRequest.BatchModelItem item : request.getItems()) {
+            groups.computeIfAbsent(resolveItemServiceType(item, fallbackType), key -> new ArrayList<>())
+                    .add(item);
         }
 
         int created = 0;
-        for (CreateModelProviderRequest.BatchModelItem item : request.getItems()) {
-            final String modelId = item.getModelId() == null ? "" : item.getModelId().trim();
-            if (modelId.isEmpty() || existing.contains(modelId)) {
-                continue;
+        final List<BatchAddModelsResult.SkippedModel> skipped = new ArrayList<>();
+        for (Map.Entry<String, List<CreateModelProviderRequest.BatchModelItem>> group : groups.entrySet()) {
+            final String serviceType = group.getKey();
+            final ServiceConfigEntity serviceConfig = ensureServiceConfig(serviceType);
+
+            // 同名去重：该服务配置（分类）下已存在的实例名直接跳过
+            final Map<String, ServiceInstanceDTO> existingMap = new LinkedHashMap<>();
+            for (ServiceInstanceDTO inst : serviceInstanceManager.getInstancesByServiceConfigId(serviceConfig.getId())) {
+                existingMap.putIfAbsent(inst.getName(), inst);
             }
-            final CreateServiceInstanceRequest instanceRequest = CreateServiceInstanceRequest.builder()
-                    .name(modelId)
-                    .providerId(provider.getId())
-                    .weight(1)
-                    .status("active")
-                    .tags(buildTags(item.getDisplayName()))
-                    .build();
-            serviceInstanceManager.createInstance(serviceConfig.getId(), instanceRequest);
-            existing.add(modelId);
-            created++;
+            // 路径随分类走：同一供应商下的不同分类要打到各自的上游端点
+            final String instancePath = resolveInstancePath(provider, serviceType);
+
+            for (CreateModelProviderRequest.BatchModelItem item : group.getValue()) {
+                final String modelId = item.getModelId() == null ? "" : item.getModelId().trim();
+                if (modelId.isEmpty()) {
+                    skipped.add(BatchAddModelsResult.SkippedModel.builder()
+                            .modelId("").reason("无效的模型 ID").serviceType(serviceType).build());
+                    continue;
+                }
+                if (existingMap.containsKey(modelId)) {
+                    skipped.add(buildSkippedItem(modelId, existingMap.get(modelId), provider.getId(), serviceType));
+                    continue;
+                }
+                final CreateServiceInstanceRequest instanceRequest = CreateServiceInstanceRequest.builder()
+                        .name(modelId)
+                        .providerId(provider.getId())
+                        .path(instancePath)
+                        .weight(1)
+                        .status("active")
+                        .tags(buildTags(item.getDisplayName()))
+                        .build();
+                serviceInstanceManager.createInstance(serviceConfig.getId(), instanceRequest);
+                existingMap.put(modelId, null);
+                created++;
+            }
         }
-        log.info("Batch added {} models under provider {} (serviceType={})", created, provider.getName(), serviceType);
-        return created;
+        log.info("Batch added {} models (skipped {}) under provider {} (serviceTypes={})",
+                created, skipped.size(), provider.getName(), groups.keySet());
+        return BatchAddModelsResult.builder().created(created).skipped(skipped).build();
+    }
+
+    /**
+     * 解析单个模型的分类：模型级 &gt; 批次级 &gt; 供应商级，并归一化到分类枚举的规范值。
+     *
+     * <p>归一化（大小写不敏感 → 驼峰规范值）的原因：分类同时用于查 {@code service_config}
+     * 外键与路由枚举，存成 {@code IMGGEN} 之类的大小写变体会重复建行。</p>
+     */
+    private String resolveItemServiceType(final CreateModelProviderRequest.BatchModelItem item, final String fallbackType) {
+        final String raw = (item != null && !isBlank(item.getServiceType()))
+                ? item.getServiceType().trim() : fallbackType;
+        final String canonical = ServiceTypeConstants.ServiceType.normalizeValue(raw);
+        if (canonical != null) {
+            return canonical;
+        }
+        return raw == null ? "" : raw.trim();
+    }
+
+    /**
+     * 按模型分类计算实例的上游调用路径。
+     *
+     * <p>上游路径取自实例自身的 path 字段，不随分类实时换算，因此这里必须把路径改写为
+     * 该分类对应的端点（图片生成 → /images/generations），否则图片模型会打到聊天端点。
+     * 换写时保留供应商路径里的版本前缀：</p>
+     * <ul>
+     *   <li>{@code /v1/chat/completions} → {@code /v1/images/generations}（前缀 /v1）</li>
+     *   <li>{@code /chat/completions} → {@code /images/generations}（baseUrl 已含 /v1，无前缀）</li>
+     *   <li>{@code /api/paas/v4/chat/completions} → {@code /api/paas/v4/images/generations}</li>
+     *   <li>非聊天端点的自定义路径（如 {@code /v1/messages}）保持原样，不做猜测</li>
+     * </ul>
+     */
+    private String resolveInstancePath(final ModelProviderEntity provider, final String serviceType) {
+        final String providerPath = provider.getPath() == null ? "" : provider.getPath().trim();
+        final String endpoint = endpointPathOf(serviceType);
+        if (endpoint == null) {
+            // 未知分类：沿用供应商路径（保持既有行为）
+            return providerPath;
+        }
+        if (providerPath.isEmpty()) {
+            return "/v1" + endpoint;
+        }
+        if (providerPath.endsWith(endpoint)) {
+            return providerPath;
+        }
+        final String chatEndpoint = ServiceEndpoint.CHAT.getPath();
+        if (providerPath.endsWith(chatEndpoint)) {
+            return providerPath.substring(0, providerPath.length() - chatEndpoint.length()) + endpoint;
+        }
+        if (VERSION_ONLY_PATH.matcher(providerPath).matches()) {
+            return providerPath + endpoint;
+        }
+        return providerPath;
+    }
+
+    /**
+     * 取模型分类对应的上游端点相对段（chat → /chat/completions）；未知分类返回 null。
+     */
+    private String endpointPathOf(final String serviceType) {
+        final String canonical = ServiceTypeConstants.ServiceType.normalizeValue(serviceType);
+        if (canonical == null) {
+            return null;
+        }
+        try {
+            return ServiceEndpoint.fromServiceType(ModelServiceRegistry.ServiceType.valueOf(canonical)).getPath();
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    /**
+     * 构造跳过明细：指明同名实例挂在哪个供应商名下。
+     * 注意 {@link ServiceInstanceManager#convertToDTO} 不填充 providerName，这里按 providerId 反查供应商名。
+     */
+    private BatchAddModelsResult.SkippedModel buildSkippedItem(
+            final String modelId,
+            final ServiceInstanceDTO existing,
+            final Long currentProviderId,
+            final String serviceType) {
+        String owner;
+        if (existing == null || existing.getProviderId() == null) {
+            owner = null; // 手工创建或历史迁移的实例，无供应商归属
+        } else if (existing.getProviderId().equals(currentProviderId)) {
+            owner = "当前供应商";
+        } else {
+            owner = providerRepository.findById(existing.getProviderId())
+                    .map(ModelProviderEntity::getName)
+                    .orElse("ID=" + existing.getProviderId());
+        }
+        final String reason = owner == null
+                ? "模型分类「" + serviceType + "」下已存在同名实例"
+                : "已由「" + owner + "」接入模型分类「" + serviceType + "」";
+        return BatchAddModelsResult.SkippedModel.builder()
+                .modelId(modelId).reason(reason).serviceType(serviceType).build();
     }
 
     // ==================== 内部工具 ====================

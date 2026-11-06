@@ -9,11 +9,11 @@
 
 
 
-本文档描述了 JAiRouter 项目的未来发展规划和功能路线图。
+本文档描述了 Trunkline 项目的未来发展规划和功能路线图。
 
 ## 项目愿景
 
-JAiRouter 致力于成为最优秀的开源 AI 模型服务路由网关，为用户提供：
+Trunkline 致力于成为最优秀的开源 AI 模型服务路由网关，为用户提供：
 
 - **统一接入**: 一个网关接入所有 AI 模型服务
 - **智能路由**: 基于多种策略的智能负载均衡
@@ -378,8 +378,8 @@ v3.0 为 Web 完整流程里程碑（对外 /api/v1 保持兼容，无 breaking�
 
 ### 反馈渠道
 
-- **GitHub Issues**: [https://github.com/Lincoln-cn/JAiRouter/issues](https://github.com/Lincoln-cn/JAiRouter/issues)
-- **GitHub Discussions**: [https://github.com/Lincoln-cn/JAiRouter/discussions](https://github.com/Lincoln-cn/JAiRouter/discussions)
+- **GitHub Issues**: [https://github.com/Lincoln-cn/Trunkline/issues](https://github.com/Lincoln-cn/Trunkline/issues)
+- **GitHub Discussions**: [https://github.com/Lincoln-cn/Trunkline/discussions](https://github.com/Lincoln-cn/Trunkline/discussions)
 - **文档反馈**: 通过 GitHub PR 提交
 
 ---
@@ -407,7 +407,7 @@ v3.0 为 Web 完整流程里程碑（对外 /api/v1 保持兼容，无 breaking�
 
 ## 总结
 
-JAiRouter 项目将继续秉承开源精神，致力于为用户提供最优秀的 AI 模型服务路由解决方案。我们欢迎社区的参与和贡献，共同推动项目的发展和进步。
+Trunkline 项目将继续秉承开源精神，致力于为用户提供最优秀的 AI 模型服务路由解决方案。我们欢迎社区的参与和贡献，共同推动项目的发展和进步。
 
 ### 近期重点 (2026年)
 1. ✅ 完成 v2.7.x 性能优化系列 + RBAC权限控制
@@ -435,4 +435,4 @@ JAiRouter 项目将继续秉承开源精神，致力于为用户提供最优秀�
 
 **更新时间**: 2026年9月22日
 
-如有任何建议或想法，欢迎通过 [GitHub Discussions](https://github.com/Lincoln-cn/JAiRouter/discussions) 与我们交流。
+如有任何建议或想法，欢迎通过 [GitHub Discussions](https://github.com/Lincoln-cn/Trunkline/discussions) 与我们交流。

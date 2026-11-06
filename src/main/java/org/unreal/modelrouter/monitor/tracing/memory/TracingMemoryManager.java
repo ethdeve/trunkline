@@ -78,9 +78,9 @@ public class TracingMemoryManager {
     public TracingMemoryManager(
             final TracingConfiguration tracingConfiguration,
             @org.springframework.beans.factory.annotation.Value(
-                    "${jairouter.tracing.performance.scheduler.thread-cap:2}") final int schedulerThreadCap,
+                    "${trunkline.tracing.performance.scheduler.thread-cap:2}") final int schedulerThreadCap,
             @org.springframework.beans.factory.annotation.Value(
-                    "${jairouter.tracing.performance.scheduler.queue-capacity:100}")
+                    "${trunkline.tracing.performance.scheduler.queue-capacity:100}")
             final int schedulerQueueCapacity) {
         this.tracingConfiguration = tracingConfiguration;
         this.memoryMXBean = ManagementFactory.getMemoryMXBean();

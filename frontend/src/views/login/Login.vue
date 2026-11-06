@@ -15,6 +15,29 @@ const form = reactive({ username: '', password: '' })
 const loading = ref(false)
 const errMsg = ref('')
 
+/**
+ * 登录报错人话化（P1 员工激活包③）：
+ * 不透出后端原始 message（可能含堆栈线索/内部术语），按状态码与错误特征
+ * 映射为员工能直接行动的文案。登录页在认证前，无角色可用，不走 roleTerm。
+ */
+function friendlyLoginError(e: any): string {
+  const status = e?.response?.status
+  const raw = String(e?.response?.data?.message || e?.message || '').toLowerCase()
+  if (status === 401 || raw.includes('credential') || raw.includes('密码') || raw.includes('用户名')) {
+    return '用户名或密码不对，请再试一次'
+  }
+  if (status === 423 || raw.includes('locked') || raw.includes('disabled') || raw.includes('停用') || raw.includes('锁定')) {
+    return '这个账号被停用或锁定了，请联系管理员'
+  }
+  if (status === 429 || raw.includes('too many') || raw.includes('尝试')) {
+    return '尝试太频繁了，请等一分钟再试'
+  }
+  if (raw.includes('timeout') || raw.includes('network') || raw.includes('connection')) {
+    return '连不上服务，请检查网络后重试'
+  }
+  return '登录出了点问题，请稍后再试；一直不行就联系管理员'
+}
+
 async function onSubmit() {
   if (!form.username || !form.password) {
     errMsg.value = '请输入用户名与密码'
@@ -24,9 +47,9 @@ async function onSubmit() {
   errMsg.value = ''
   try {
     await userStore.login(form.username, form.password)
-    router.push('/overview')
+    router.push('/my-quota')
   } catch (e: any) {
-    errMsg.value = e?.response?.data?.message || e?.message || '登录失败，请检查用户名与密码'
+    errMsg.value = friendlyLoginError(e)
   } finally {
     loading.value = false
   }

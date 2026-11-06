@@ -1,13 +1,5 @@
 {
   "shell": {
-    "overview": {
-      "title": "总览",
-      "subtitle": "调用 · 用量 · 健康一屏看清"
-    },
-    "models": {
-      "title": "接入模型",
-      "subtitle": "先添加供应商（只需填一次 Key），再批量添加模型；高级模式管理在「已接入模型」"
-    },
     "playground": {
       "title": "测试场",
       "subtitle": "对话 / 向量 / 重排 / 语音 / 图像"
@@ -20,13 +12,13 @@
       "title": "观测中心",
       "subtitle": "调用历史 · Token · 慢查询 · 异常 · 配额 · 熔断 · 限流"
     },
-    "tracing": {
-      "title": "链路追踪",
-      "subtitle": "看清一次调用在网关内部的完整路径"
-    },
     "strategy": {
-      "title": "策略中心",
-      "subtitle": "路由规则 / 负载均衡 / 熔断阈值 / 响应缓存 / 用量配额"
+      "title": "路由规则",
+      "subtitle": "按条件把请求转给不同的模型",
+      "tabs": {
+        "routeRules": "🎯 分配规则",
+        "responseCache": "响应缓存"
+      }
     },
     "quota": {
       "title": "用量配额",
@@ -34,7 +26,7 @@
     },
     "settings": {
       "title": "系统设置",
-      "subtitle": "账号与权限 / 模型配置 / 审计与版本"
+      "subtitle": "账号管理 / 模型配置 / 审计与版本"
     },
     "guide": {
       "title": "接入指南",

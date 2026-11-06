@@ -195,7 +195,7 @@
     </template>
 
     <!-- 日志表格 -->
-    <el-table :data="logs" style="width: 100%" border v-loading="loading" :row-class-name="tableRowClassName">
+    <el-table ref="auditTableRef" :data="logs" :max-height="auditMaxHeight" style="width: 100%" border v-loading="loading" :row-class-name="tableRowClassName">
       <el-table-column prop="timestamp" :label="t('auditLog.time')" width="180" sortable>
         <template #default="scope">
           {{ formatDateTime(scope.row.timestamp) }}
@@ -257,7 +257,7 @@
   </PageSkeleton>
 
     <!-- 日志详情对话框 -->
-    <el-dialog v-model="detailDialogVisible" :title="t('auditLog.logDetailTitle')" width="650px">
+    <el-dialog v-model="detailDialogVisible" :title="t('auditLog.logDetailTitle')" width="min(640px, 92vw)">
       <el-descriptions v-if="currentLog" :column="2" border>
         <el-descriptions-item :label="t('auditLog.eventId')" :span="2">{{ currentLog.id }}</el-descriptions-item>
         <el-descriptions-item :label="t('auditLog.time')">{{ formatDateTime(currentLog.timestamp) }}</el-descriptions-item>
@@ -296,11 +296,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { confirmDanger } from '@/utils/dangerConfirm'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
 import { Refresh, ArrowDown, Key, Connection, WarningFilled, Bell } from '@element-plus/icons-vue'
-import * as echarts from 'echarts'
+import echarts from '@/utils/echarts'
 import {
   queryAuditEventsAdvanced,
   generateSecurityReport,
@@ -312,6 +313,7 @@ import {
 import { addToBlacklist } from '@/api/blacklist'
 import { useChartTheme } from '@/composables/useChartTheme'
 import { useChartAutoRefresh } from '@/composables/useChartAutoRefresh'
+import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import { formatDateTime as formatDateTimeBase } from '@/utils/format'
 import { exportCsv, downloadFile, datedFilename } from '@/utils/csvExport'
@@ -387,6 +389,10 @@ const pagination = reactive({
 // 审计日志数据
 const logs = ref<AuditEvent[]>([])
 const loading = ref(false)
+
+// 主列表表格内部滚动（自适应 max-height）
+const auditTableRef = ref()
+const { maxHeight: auditMaxHeight } = useTableMaxHeight(auditTableRef)
 
 const detailDialogVisible = ref(false)
 const currentLog = ref<AuditEvent | null>(null)
@@ -535,16 +541,15 @@ const handleAddToBlacklist = async (log: AuditEvent, type: string) => {
     return
   }
 
-  try {
-    await ElMessageBox.confirm(
-      t('auditLog.confirmMessage', {
-        entity: type === 'IP' ? t('auditLog.entityIp') : t('auditLog.entityUser'),
-        target: targetValue
-      }),
-      t('auditLog.confirmTitle'),
-      { type: 'warning' }
-    )
+  const confirmed = await confirmDanger({
+    title: t('auditLog.confirmTitle'),
+    target: type === 'IP' ? `${t('auditLog.entityIp')} ${targetValue}` : `${t('auditLog.entityUser')} ${targetValue}`,
+    action: '封禁',
+    type: 'warning'
+  })
+  if (!confirmed) return
 
+  try {
     const result = await addToBlacklist({
       blacklistType: type === 'IP' ? 'IP' : 'DEVICE',
       targetValue,
@@ -559,7 +564,7 @@ const handleAddToBlacklist = async (log: AuditEvent, type: string) => {
       ElMessage.error(result.message || t('auditLog.addFailed'))
     }
   } catch {
-    // 用户取消
+    // 加入黑名单失败
   }
 }
 
@@ -789,7 +794,7 @@ onUnmounted(() => {
 }
 
 .jwt-card .stats-icon {
-  background: linear-gradient(135deg, var(--ja-login-gradient-start) 0%, var(--ja-login-gradient-end) 100%);
+  background: linear-gradient(135deg, var(--ja-primary) 0%, var(--ja-primary-dark-2) 100%);
   color: white;
 }
 

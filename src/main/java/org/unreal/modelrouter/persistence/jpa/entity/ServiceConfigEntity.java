@@ -5,11 +5,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -24,7 +26,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "service_config")
+@Table(name = "service_config", indexes = @Index(name = "idx_service_config_tenant", columnList = "tenant_id"))
+@Filter(name = "tenantFilter")
 public class ServiceConfigEntity {
 
     @Id
@@ -56,4 +59,10 @@ public class ServiceConfigEntity {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    /** 归属租户（多租户预埋，S2 任务 35/36；社区版恒为 default） */
+    @Builder.Default
+    @Column(name = "tenant_id", nullable = false, length = 64)
+    private String tenantId = "default";
+
 }

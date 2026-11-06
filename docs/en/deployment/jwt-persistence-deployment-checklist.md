@@ -8,7 +8,7 @@
 > **Author**: System
 <!-- /Version Information -->
 
-This checklist ensures proper deployment of JWT token persistence features in JAiRouter.
+This checklist ensures proper deployment of JWT token persistence features in Trunkline.
 
 ## Pre-Deployment Checklist
 
@@ -100,11 +100,11 @@ docker-compose exec redis redis-cli ping
 ### Step 3: Start Application
 
 ```bash
-# Start JAiRouter application
-docker-compose up -d jairouter
+# Start Trunkline application
+docker-compose up -d trunkline
 
 # Monitor startup logs
-docker-compose logs -f jairouter
+docker-compose logs -f trunkline
 
 # Wait for application to be ready
 curl -f http://localhost:8080/actuator/health
@@ -214,11 +214,11 @@ If JWT persistence causes issues:
 ```bash
 # 1. Disable JWT persistence
 export JWT_PERSISTENCE_ENABLED=false
-docker-compose restart jairouter
+docker-compose restart trunkline
 
 # 2. Or rollback to previous configuration
 git checkout HEAD~1 -- src/main/resources/config/security/
-docker-compose restart jairouter
+docker-compose restart trunkline
 
 # 3. Or stop Redis and use memory-only mode
 docker-compose stop redis
@@ -254,7 +254,7 @@ For planned rollback:
 2. **JWT Persistence Not Working**
    ```bash
    # Check application logs
-   docker-compose logs jairouter | grep -i jwt
+   docker-compose logs trunkline | grep -i jwt
    
    # Check health endpoint
    curl http://localhost:8080/actuator/health/jwt-persistence
@@ -383,7 +383,7 @@ For issues or questions regarding JWT persistence deployment:
 
 | Port | Service | Description |
 |------|---------|-------------|
-| 8080 | JAiRouter | Main application port |
+| 8080 | Trunkline | Main application port |
 | 6379 | Redis | Redis server port |
 | 9090 | Prometheus | Monitoring metrics |
 | 3000 | Grafana | Monitoring dashboard |

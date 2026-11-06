@@ -21,5 +21,7 @@ public final class CreateJwtAccountRequest {
     private String username;
     private String password;
     private List<String> roles;
+    /** 所属部门（如「研发部」）；团队用量按部门统计的维度来源 */
+    private String department;
     private Boolean enabled;
 }

@@ -14,7 +14,7 @@ $NC = "`e[0m" # No Color
 
 # Configuration
 $PROJECT_NAME = "model-router"
-$IMAGE_NAME = "sodlinken/jairouter"
+$IMAGE_NAME = "trunkline/trunkline"
 
 # Get version from pom.xml
 $VERSION = (Select-Xml -Path "pom.xml" -XPath "//project/version" | Select-Object -First 1).Node.InnerText

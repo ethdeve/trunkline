@@ -54,7 +54,7 @@ management:
       enabled: true
 
 # 安全配置（开发环境启用测试功能）
-jairouter:
+trunkline:
   call-history:
     record-level: SUMMARY   # 脱敏摘要（默认截断200字）；要完整诗文用 FULL（AES-256-GCM 加密存储）
   security:

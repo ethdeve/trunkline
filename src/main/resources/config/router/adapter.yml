@@ -9,7 +9,7 @@ model:
   # 如果服务没有指定适配器，将使用此配置
   # 支持: normal, gpustack, ollama, vllm, xinference, localai, claude, gemini
   # 以及 adapter-definitions 中定义的自定义adapter
-  adapter: gpustack
+  adapter: normal
 
 # ========================================
 # 配置驱动Adapter定义

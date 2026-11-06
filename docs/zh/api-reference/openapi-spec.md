@@ -1,20 +1,20 @@
 ﻿# OpenAPI 规范文档
 
 <!-- 版本信息 -->
-> **文档版本**: 1.0.3  
-> **最后更新**: 2026-09-15  
+> **文档版本**: 1.1.0  
+> **最后更新**: 2026-10-28  
 > **Git 提交**: 61384b4a  
 > **作者**: Lincoln
 <!-- /版本信息 -->
 
 
 
-JAiRouter 使用 SpringDoc OpenAPI 3 自动生成 API 文档，提供交互式的 API 探索和测试体验。
+Trunkline 使用 SpringDoc OpenAPI 3 自动生成 API 文档，提供交互式的 API 探索和测试体验。
 
 ## 访问方式
 
 ### Swagger UI 界面
-当 JAiRouter 服务运行时，可以通过以下地址访问交互式 API 文档：
+当 Trunkline 服务运行时，可以通过以下地址访问交互式 API 文档：
 
 ```
 http://localhost:8080/swagger-ui.html
@@ -36,7 +36,7 @@ http://localhost:8080/v3/api-docs.yaml
 
 ## 配置说明
 
-JAiRouter 的 OpenAPI 配置位于 `application-dev.yml` 文件中：
+Trunkline 的 OpenAPI 配置位于 `application-dev.yml` 文件中：
 
 ```yaml
 springdoc:
@@ -52,9 +52,11 @@ springdoc:
     disabled: true                 # 开发环境禁用缓存
 ```
 
+> ⚠️ **待确认（v3.3.1 核验发现）**：配置中的 `packages-to-scan: org.unreal.modelrouter.controller` 这个包在当前代码库中**不存在**——实际控制器分布在 `org.unreal.modelrouter.router.controller`、`auth.controller`、`config.controller`、`monitor.controller` 等子包下。若 springdoc 严格按此包名过滤，`/v3/api-docs` 可能产出空文档；是否因 springdoc 回退扫描全部而仍可见，需启动实例实测确认。
+
 ## API 分组
 
-JAiRouter 的 API 按功能分为以下几个主要分组：
+Trunkline 的 API 按功能分为以下几个主要分组：
 
 ### 1. 统一模型接口 (Universal API)
 - **标签**: `统一模型接口`
@@ -69,7 +71,7 @@ JAiRouter 的 API 按功能分为以下几个主要分组：
   - 图像生成 (`POST /api/v1/images/generations`)
   - 图像编辑 (`POST /api/v1/images/edits`)
 
-> `/v1` 面（`OpenAiNativeController`）只注册了 `GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/embeddings`、`POST /v1/rerank` —— 音频与图像接口**不在** `/v1` 下。
+> `/v1` 面（`OpenAiNativeController`）注册了 `GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/embeddings`、`POST /v1/rerank`；另有 `AnthropicMessagesController` 在 `/v1` 下提供 `POST /v1/messages`、`POST /v1/messages/count_tokens` —— 音频与图像接口**不在** `/v1` 下。
 
 ### 2. 服务类型管理
 - **标签**: `服务类型管理`
@@ -100,6 +102,17 @@ JAiRouter 的 API 按功能分为以下几个主要分组：
 - **标签**: `Metric Registration`
 - **描述**: 动态指标注册和管理 API
 - **路径前缀**: `/api/monitoring/metrics`
+
+### 8. OpenAI / Anthropic 原生面（`/v1`）
+- **标签**: `OpenAI 原生接口`（`OpenAiNativeController`）、`Anthropic 原生接口`（`AnthropicMessagesController`）
+- **描述**: 供 OpenAI / Anthropic SDK 直连的原生响应形状接口
+- **路径前缀**: `/v1`
+- **包含接口**:
+  - 模型列表 (`GET /v1/models`)
+  - 聊天完成 (`POST /v1/chat/completions`)
+  - 文本嵌入 (`POST /v1/embeddings`)
+  - 重排序 (`POST /v1/rerank`)
+  - Anthropic Messages (`POST /v1/messages`、`POST /v1/messages/count_tokens`)
 
 ## 使用 Swagger UI
 
@@ -144,19 +157,19 @@ public class OpenApiConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("JAiRouter API")
-                        .version("3.1.1")
+                        .title("Trunkline API")
+                        .version("3.3.1")
                         .description("AI 模型服务路由和负载均衡网关 API 文档")
                         .contact(new Contact()
-                                .name("JAiRouter Team")
-                                .email("support@jairouter.com")
-                                .url("https://github.com/Lincoln-cn/JAiRouter"))
+                                .name("Trunkline Team")
+                                .email("support@trunkline.com")
+                                .url("https://github.com/Lincoln-cn/Trunkline"))
                         .license(new License()
                                 .name("Apache 2.0")
                                 .url("https://www.apache.org/licenses/LICENSE-2.0")))
                 .servers(Arrays.asList(
                         new Server().url("http://localhost:8080").description("开发环境"),
-                        new Server().url("https://api.jairouter.com").description("生产环境")
+                        new Server().url("https://api.trunkline.com").description("生产环境")
                 ))
                 .components(new Components()
                         .addSecuritySchemes("bearerAuth",
@@ -221,10 +234,10 @@ public Mono<ResponseEntity<?>> chatCompletions(
 
 ```bash
 # 导出 JSON 格式
-curl http://localhost:8080/v3/api-docs > jairouter-openapi.json
+curl http://localhost:8080/v3/api-docs > trunkline-openapi.json
 
 # 导出 YAML 格式
-curl http://localhost:8080/v3/api-docs.yaml > jairouter-openapi.yaml
+curl http://localhost:8080/v3/api-docs.yaml > trunkline-openapi.yaml
 ```
 
 ### 2. 集成到文档站点
@@ -263,7 +276,7 @@ openapi-generator-cli generate \
   -i http://localhost:8080/v3/api-docs \
   -g python \
   -o ./clients/python \
-  --package-name jairouter_client
+  --package-name trunkline_client
 
 # 生成 JavaScript 客户端
 openapi-generator-cli generate \
@@ -276,7 +289,7 @@ openapi-generator-cli generate \
   -i http://localhost:8080/v3/api-docs \
   -g java \
   -o ./clients/java \
-  --package-name com.jairouter.client
+  --package-name com.trunkline.client
 ```
 
 ## 最佳实践

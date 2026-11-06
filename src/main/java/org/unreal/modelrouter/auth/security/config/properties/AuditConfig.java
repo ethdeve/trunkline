@@ -12,7 +12,7 @@ import java.util.Map;
  */
 @Data
 @Configuration
-@ConfigurationProperties(prefix = "jairouter.security.audit")
+@ConfigurationProperties(prefix = "trunkline.security.audit")
 public class AuditConfig {
 
     /**

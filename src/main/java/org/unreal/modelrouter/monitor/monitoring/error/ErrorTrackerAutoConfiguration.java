@@ -16,6 +16,7 @@ import org.unreal.modelrouter.monitor.tracing.logger.StructuredLogger;
  *
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Configuration
 @EnableConfigurationProperties(ErrorTrackerProperties.class)
@@ -43,7 +44,7 @@ public class ErrorTrackerAutoConfiguration {
      * @return 错误追踪器
      */
     @Bean
-    @ConditionalOnProperty(name = "jairouter.monitoring.enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(name = "trunkline.monitoring.enabled", havingValue = "true", matchIfMissing = true)
     public ErrorTracker errorTracker(final StructuredLogger structuredLogger,
                                      final ObjectProvider<StackTraceSanitizer> stackTraceSanitizer,
                                      final ObjectProvider<ErrorMetricsCollector> errorMetricsCollector,
@@ -66,8 +67,8 @@ public class ErrorTrackerAutoConfiguration {
      * @return 错误指标收集器
      */
     @Bean
-    @ConditionalOnProperty(name = "jairouter.monitoring.error-tracking.enabled", havingValue = "true")
-    @ConditionalOnProperty(name = "jairouter.monitoring.metrics.enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(name = "trunkline.monitoring.error-tracking.enabled", havingValue = "true")
+    @ConditionalOnProperty(name = "trunkline.monitoring.metrics.enabled", havingValue = "true", matchIfMissing = true)
     public ErrorMetricsCollector errorMetricsCollector(
             final MeterRegistry meterRegistry,
             final ErrorTrackerProperties properties,
@@ -83,9 +84,9 @@ public class ErrorTrackerAutoConfiguration {
      * @return 异常堆栈脱敏器
      */
     @Bean
-    @ConditionalOnProperty(name = "jairouter.monitoring.error-tracking.enabled", havingValue = "true")
+    @ConditionalOnProperty(name = "trunkline.monitoring.error-tracking.enabled", havingValue = "true")
     @ConditionalOnProperty(
-            name = "jairouter.monitoring.error-tracking.sanitization.enabled",
+            name = "trunkline.monitoring.error-tracking.sanitization.enabled",
             havingValue = "true", matchIfMissing = true)
     public StackTraceSanitizer stackTraceSanitizer(final ErrorTrackerProperties.SanitizationConfig sanitizationConfig) {
         return new StackTraceSanitizer(sanitizationConfig);

@@ -9,7 +9,7 @@
 
 
 
-This document describes how to set up and configure the monitoring features of JAiRouter, including basic configuration, monitoring stack deployment, and verification steps.
+This document describes how to set up and configure the monitoring features of Trunkline, including basic configuration, monitoring stack deployment, and verification steps.
 
 ## Environment Requirements
 
@@ -21,7 +21,7 @@ This document describes how to set up and configure the monitoring features of J
 - **Disk**: At least 10GB available space
 
 ### Network Ports
-- **JAiRouter**: 8080 (application port), 8081 (management port)
+- **Trunkline**: 8080 (application port), 8081 (management port)
 - **Prometheus**: 9090
 - **Grafana**: 3000
 - **AlertManager**: 9093
@@ -78,7 +78,7 @@ docker-compose -f docker-compose-monitoring.yml logs
 
 ## Basic Configuration
 
-### JAiRouter Application Configuration
+### Trunkline Application Configuration
 
 Enable monitoring in `application.yml`:
 
@@ -90,7 +90,7 @@ monitoring:
     enabled: true
     
     # Metric prefix
-    prefix: "jairouter"
+    prefix: "trunkline"
     
     # Metric collection interval
     collection-interval: 10s
@@ -142,9 +142,9 @@ rule_files:
   - "rules/*.yml"
 
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 10s
     scrape_timeout: 5s
@@ -175,15 +175,15 @@ datasources:
 ```
 
 #### Dashboard Auto Import
-Create `monitoring/grafana/provisioning/dashboards/jairouter-dashboards.yml`:
+Create `monitoring/grafana/provisioning/dashboards/trunkline-dashboards.yml`:
 
 ```yaml
 apiVersion: 1
 
 providers:
-  - name: 'jairouter'
+  - name: 'trunkline'
     orgId: 1
-    folder: 'JAiRouter'
+    folder: 'Trunkline'
     type: file
     disableDeletion: false
     updateIntervalSeconds: 10
@@ -202,8 +202,8 @@ Create `docker-compose-monitoring.yml`:
 version: '3.8'
 
 services:
-  jairouter:
-    image: sodlinken/jairouter:latest
+  trunkline:
+    image: trunkline/trunkline:latest
     ports:
       - "8080:8080"
     environment:
@@ -236,14 +236,14 @@ services:
     networks:
       - monitoring
     depends_on:
-      - jairouter
+      - trunkline
 
   grafana:
     image: grafana/grafana:latest
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=jairouter2024
+      - GF_SECURITY_ADMIN_PASSWORD=trunkline2024
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
     volumes:
@@ -287,7 +287,7 @@ networks:
 # Check all service status
 docker-compose -f docker-compose-monitoring.yml ps
 
-# Check JAiRouter health status
+# Check Trunkline health status
 curl http://localhost:8080/actuator/health
 
 # Check Prometheus target status
@@ -301,13 +301,13 @@ curl http://localhost:9090/api/v1/targets
 curl http://localhost:8080/actuator/prometheus
 
 # Check specific metrics
-curl http://localhost:8080/actuator/metrics/jairouter.requests.total
+curl http://localhost:8080/actuator/metrics/trunkline.requests.total
 ```
 
 ### 3. Verify Grafana Dashboard
 
 1. Visit http://localhost:3000
-2. Log in with admin/jairouter2024
+2. Log in with admin/trunkline2024
 3. Check data source connection status
 4. Verify dashboard displays data correctly
 
@@ -493,8 +493,8 @@ monitoring:
 ### Log Checking
 
 ```bash
-# Check JAiRouter logs
-docker logs jairouter
+# Check Trunkline logs
+docker logs trunkline
 
 # Check Prometheus logs
 docker logs prometheus

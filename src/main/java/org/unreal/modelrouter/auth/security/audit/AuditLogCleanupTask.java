@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "jairouter.security.audit.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.security.audit.enabled", havingValue = "true", matchIfMissing = true)
 public class AuditLogCleanupTask {
 
     private final ExtendedSecurityAuditService auditService;
@@ -28,7 +28,7 @@ public class AuditLogCleanupTask {
      * 定时清理过期审计日志
      * 默认每天凌晨2点执行
      */
-    @Scheduled(cron = "${jairouter.security.audit.cleanup-schedule:0 0 2 * * *}")
+    @Scheduled(cron = "${trunkline.security.audit.cleanup-schedule:0 0 2 * * *}")
     public void cleanupExpiredAuditLogs() {
         log.info("开始清理过期审计日志, 保留策略: {} 天", auditConfig.getRetentionDays());
 

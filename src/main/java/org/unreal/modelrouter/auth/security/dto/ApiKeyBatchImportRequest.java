@@ -63,6 +63,11 @@ public final class ApiKeyBatchImportRequest {
         private String description;
 
         /**
+         * 密钥持有人（分配给谁）；为空表示不指定，回落为导入操作者。
+         */
+        private String holder;
+
+        /**
          * 权限列表
          */
         private List<String> permissions;

@@ -14,7 +14,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 @Slf4j
 @Configuration
 @ConditionalOnProperty(
-        name = "jairouter.security.jwt.persistence.cleanup.enabled",
+        name = "trunkline.security.jwt.persistence.cleanup.enabled",
         havingValue = "true", matchIfMissing = true)
 public class JwtCleanupConfiguration {
 
@@ -39,7 +39,7 @@ public class JwtCleanupConfiguration {
      * 清理任务配置属性
      */
     @Bean
-    @ConditionalOnProperty(name = "jairouter.security.jwt.persistence.cleanup.enabled", havingValue = "true")
+    @ConditionalOnProperty(name = "trunkline.security.jwt.persistence.cleanup.enabled", havingValue = "true")
     public JwtCleanupProperties jwtCleanupProperties() {
         return new JwtCleanupProperties();
     }

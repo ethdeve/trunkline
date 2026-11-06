@@ -8,7 +8,7 @@
 <!-- /Version Info -->
 
 
-This directory contains the complete documentation for the JAiRouter project.
+This directory contains the complete documentation for the Trunkline project.
 
 ## Documentation Management Tools
 

@@ -11,7 +11,7 @@
 
 ## Overview
 
-JAiRouter documentation site is automatically deployed through GitHub Pages, providing online documentation access service.
+Trunkline documentation site is automatically deployed through GitHub Pages, providing online documentation access service.
 
 ## Configuration Steps
 
@@ -42,8 +42,8 @@ Documentation will be automatically deployed after modifications:
 
 ## Access URLs
 
-- **Default URL**: https://lincoln-cn.github.io/JAiRouter
-- **Custom Domain**: https://jairouter.com (requires DNS configuration)
+- **Default URL**: https://lincoln-cn.github.io/Trunkline
+- **Custom Domain**: https://trunkline.com (requires DNS configuration)
 
 ## Deployment Status Check
 

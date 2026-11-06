@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "jairouter.security.archive.enabled", havingValue = "true", matchIfMissing = false)
+@ConditionalOnProperty(name = "trunkline.security.archive.enabled", havingValue = "true", matchIfMissing = false)
 public class SecurityLogArchiveService {
     
     private final SecurityAuditService auditService;

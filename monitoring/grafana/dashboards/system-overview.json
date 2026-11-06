@@ -90,19 +90,19 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(jairouter_requests_total[5m]))",
+          "expr": "sum(rate(trunkline_requests_total[5m]))",
           "interval": "",
           "legendFormat": "总请求率",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(jairouter_requests_total{status=~\"2..\"}[5m]))",
+          "expr": "sum(rate(trunkline_requests_total{status=~\"2..\"}[5m]))",
           "interval": "",
           "legendFormat": "成功请求率",
           "refId": "B"
         },
         {
-          "expr": "sum(rate(jairouter_requests_total{status=~\"4..|5..\"}[5m]))",
+          "expr": "sum(rate(trunkline_requests_total{status=~\"4..|5..\"}[5m]))",
           "interval": "",
           "legendFormat": "错误请求率",
           "refId": "C"
@@ -164,7 +164,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate(jairouter_requests_total{status=~\"4..|5..\"}[5m])) / sum(rate(jairouter_requests_total[5m]))",
+          "expr": "sum(rate(trunkline_requests_total{status=~\"4..|5..\"}[5m])) / sum(rate(trunkline_requests_total[5m]))",
           "interval": "",
           "legendFormat": "错误率",
           "refId": "A"
@@ -245,19 +245,19 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, rate(jairouter_request_duration_seconds_bucket[5m]))",
+          "expr": "histogram_quantile(0.50, rate(trunkline_request_duration_seconds_bucket[5m]))",
           "interval": "",
           "legendFormat": "P50 响应时间",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, rate(jairouter_request_duration_seconds_bucket[5m]))",
+          "expr": "histogram_quantile(0.95, rate(trunkline_request_duration_seconds_bucket[5m]))",
           "interval": "",
           "legendFormat": "P95 响应时间",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, rate(jairouter_request_duration_seconds_bucket[5m]))",
+          "expr": "histogram_quantile(0.99, rate(trunkline_request_duration_seconds_bucket[5m]))",
           "interval": "",
           "legendFormat": "P99 响应时间",
           "refId": "C"
@@ -330,7 +330,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "jairouter_backend_health",
+          "expr": "trunkline_backend_health",
           "interval": "",
           "legendFormat": "{{adapter}}-{{instance}}",
           "refId": "A"
@@ -411,7 +411,7 @@
       },
       "targets": [
         {
-          "expr": "jairouter_active_connections",
+          "expr": "trunkline_active_connections",
           "interval": "",
           "legendFormat": "{{service}} 活跃连接",
           "refId": "A"
@@ -424,7 +424,7 @@
   "schemaVersion": 27,
   "style": "dark",
   "tags": [
-    "jairouter",
+    "trunkline",
     "system"
   ],
   "templating": {
@@ -436,7 +436,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "JAiRouter - 系统概览",
-  "uid": "jairouter-system-overview",
+  "title": "Trunkline - 系统概览",
+  "uid": "trunkline-system-overview",
   "version": 1
 }

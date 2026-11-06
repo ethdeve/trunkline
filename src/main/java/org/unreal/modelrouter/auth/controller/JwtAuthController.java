@@ -20,6 +20,7 @@ import org.unreal.modelrouter.common.dto.LoginResponse;
 import org.unreal.modelrouter.common.dto.TokenRefreshRequest;
 import org.unreal.modelrouter.auth.security.config.properties.SecurityProperties;
 import org.unreal.modelrouter.auth.security.service.AccountManager;
+import org.unreal.modelrouter.auth.security.service.JwtTokenOwnershipValidator;
 import org.unreal.modelrouter.auth.security.service.JwtTokenRefreshService;
 import org.unreal.modelrouter.auth.security.service.JwtPersistenceService;
 import reactor.core.publisher.Mono;
@@ -36,7 +37,7 @@ import org.unreal.modelrouter.common.exception.ApiException;
 @RequestMapping("/api/auth/jwt")
 @RequiredArgsConstructor
 @Tag(name = "JWT Authentication", description = "JWT认证API")
-@ConditionalOnProperty(name = "jairouter.security.jwt.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.jwt.enabled", havingValue = "true")
 public class JwtAuthController {
 
     private final JwtTokenRefreshService tokenRefreshService;
@@ -116,7 +117,36 @@ public class JwtAuthController {
         String clientIp = getClientIpAddress(exchange);
         String userAgent = exchange != null ? exchange.getRequest().getHeaders().getFirst("User-Agent") : null;
 
-        return tokenRefreshService.refreshToken(request.getToken(), clientIp, userAgent)
+        // P0-L 安全修复（漏洞 3）：校验「待刷新令牌」的归属。
+        //
+        // 旧实现从请求体取 token 去刷新，authentication 只用于审计 —— 任何已认证用户
+        // 只要拿到别人的令牌串，就能把别人的令牌刷新成新的（实测：USER 刷出了
+        // roles=[ADMIN,USER] 的令牌，属于权限提升）。
+        //
+        // 语义：刷新是「续期自己的会话」，不是「代签发」。因此主体必须一致，
+        // **ADMIN 也不能刷新他人的令牌**。
+        return tokenRefreshService.subjectOf(request.getToken())
+                .flatMap(tokenSubject -> {
+                    final JwtTokenOwnershipValidator.Result ownership =
+                            JwtTokenOwnershipValidator.check(
+                                    tokenSubject,
+                                    authentication != null ? authentication.getName() : null);
+                    return switch (ownership) {
+                        case ALLOWED -> Mono.just(true);
+                        // 显式指定状态码：resolveStatus 只按已知错误码规则推导，
+                        // 未知码会落到 500 —— 越权刷新必须明确返回 403，不能是「服务器错误」。
+                        case UNAUTHENTICATED -> Mono.error(ApiException.of(
+                                "TOKEN_REFRESH_UNAUTHENTICATED", "未认证，无法刷新令牌",
+                                org.springframework.http.HttpStatus.UNAUTHORIZED));
+                        case INVALID_TOKEN -> Mono.error(ApiException.of(
+                                "TOKEN_REFRESH_INVALID", "待刷新的令牌无效",
+                                org.springframework.http.HttpStatus.UNAUTHORIZED));
+                        case FORBIDDEN -> Mono.error(ApiException.of(
+                                "TOKEN_REFRESH_FORBIDDEN", "只能刷新属于自己的令牌",
+                                org.springframework.http.HttpStatus.FORBIDDEN));
+                    };
+                })
+                .then(tokenRefreshService.refreshToken(request.getToken(), clientIp, userAgent))
                 .flatMap(newToken -> {
                     JwtTokenInfo response = new JwtTokenInfo();
                     response.setToken(newToken);
@@ -139,6 +169,13 @@ public class JwtAuthController {
                 })
                 .onErrorResume(ex -> {
                     log.warn("JWT令牌刷新失败: {}", ex.getMessage());
+
+                    // 归属校验失败属于**业务拒绝**（401/403），不是服务端错误。
+                    // 必须原样透出，不能被重包成 TOKEN_REFRESH_FAILED（500）——
+                    // 否则「越权刷新」在客户端看是「服务器坏了」，语义完全错位。
+                    if (ex instanceof ApiException apiException) {
+                        return Mono.error(apiException);
+                    }
 
                     JwtTokenInfo response = new JwtTokenInfo();
                     response.setMessage("令牌刷新失败: " + ex.getMessage());

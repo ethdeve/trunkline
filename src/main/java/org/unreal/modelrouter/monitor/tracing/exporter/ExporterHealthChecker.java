@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * 
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @Component
@@ -95,7 +96,7 @@ public class ExporterHealthChecker implements HealthIndicator {
     /**
      * 定期健康检查
      */
-    @Scheduled(fixedDelayString = "${jairouter.tracing.monitoring.health.check-interval:30000}")
+    @Scheduled(fixedDelayString = "${trunkline.tracing.monitoring.health.check-interval:30000}")
     public void performHealthCheck() {
         if (!tracingConfig.getMonitoring().getHealth().isEnabled()) {
             return;
@@ -172,7 +173,7 @@ public class ExporterHealthChecker implements HealthIndicator {
      * 更新健康状态（issue #224 批 B2：按配置阈值去抖动）。
      *
      * <p>原先每次检查都直接翻转状态，于是单次抖动就会让 {@code /actuator/health} 报 DOWN；
-     * 现在按 {@code jairouter.tracing.monitoring.health.failure-threshold}（连续失败多少次判不健康）与
+     * 现在按 {@code trunkline.tracing.monitoring.health.failure-threshold}（连续失败多少次判不健康）与
      * {@code recovery-threshold}（连续成功多少次判恢复）切换，两个阈值每次调用时读取，运行时改配置即可生效。
      * 阈值配成非正数时按 1 处理（等价于"立即切换"，不会因为配错而永久不切换）。</p>
      *

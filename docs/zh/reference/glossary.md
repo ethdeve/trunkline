@@ -9,17 +9,17 @@
 
 
 
-本文档定义了 JAiRouter 项目中使用的专业术语和概念。
+本文档定义了 Trunkline 项目中使用的专业术语和概念。
 
 ## A
 
 ### Adapter (适配器)
 将不同后端 AI 服务的 API 格式转换为统一接口的组件。每个适配器负责处理特定服务的请求/响应格式转换、错误处理和协议适配。
 
-**示例**: GPUStackAdapter 将 JAiRouter 的请求转换为 GPUStack 服务能理解的格式。
+**示例**: GPUStackAdapter 将 Trunkline 的请求转换为 GPUStack 服务能理解的格式。
 
 ### API Gateway (API 网关)
-作为所有客户端请求的统一入口点，提供路由、认证、限流、监控等功能的服务。JAiRouter 是专门为 AI 模型服务设计的 API 网关。
+作为所有客户端请求的统一入口点，提供路由、认证、限流、监控等功能的服务。Trunkline 是专门为 AI 模型服务设计的 API 网关。
 
 ### Actuator (执行器)
 Spring Boot 提供的生产就绪功能，包括健康检查、指标收集、配置信息等监控和管理端点。
@@ -27,7 +27,7 @@ Spring Boot 提供的生产就绪功能，包括健康检查、指标收集、�
 ## B
 
 ### Backpressure (背压)
-在响应式编程中，当数据生产速度超过消费速度时的流量控制机制。JAiRouter 使用 Reactor 框架处理背压。
+在响应式编程中，当数据生产速度超过消费速度时的流量控制机制。Trunkline 使用 Reactor 框架处理背压。
 
 ### Base URL (基础 URL)
 后端服务的根地址，用于构建完整的请求 URL。
@@ -48,7 +48,7 @@ Spring Boot 提供的生产就绪功能，包括健康检查、指标收集、�
 ## D
 
 ### Dynamic Configuration (动态配置)
-运行时可以修改的配置，无需重启服务即可生效。JAiRouter 支持通过 REST API 动态更新服务实例配置。
+运行时可以修改的配置，无需重启服务即可生效。Trunkline 支持通过 REST API 动态更新服务实例配置。
 
 ## E
 
@@ -97,12 +97,12 @@ Reactor 框架中表示 0 到 N 个元素的异步序列的响应式类型。
 ## J
 
 ### JVM (Java 虚拟机)
-运行 Java 应用程序的运行时环境。JAiRouter 基于 JVM 运行，需要 Java 17 或更高版本。
+运行 Java 应用程序的运行时环境。Trunkline 基于 JVM 运行，需要 Java 17 或更高版本。
 
 ## L
 
 ### Load Balancer (负载均衡器)
-在多个后端实例之间分配请求的组件。JAiRouter 支持随机、轮询、最少连接、IP 哈希等策略。
+在多个后端实例之间分配请求的组件。Trunkline 支持随机、轮询、最少连接、IP 哈希等策略。
 
 ### Least Connections (最少连接)
 选择当前活跃连接数最少的实例的负载均衡策略，适合处理时间差异较大的请求。
@@ -124,7 +124,7 @@ AI 服务中的具体模型，如 GPT-3.5、LLaMA-2 等。每个模型可能有�
 ## O
 
 ### OpenAI Compatible (OpenAI 兼容)
-遵循 OpenAI API 格式和规范的接口设计，使得客户端可以无缝切换到 JAiRouter。
+遵循 OpenAI API 格式和规范的接口设计，使得客户端可以无缝切换到 Trunkline。
 
 ## P
 
@@ -134,7 +134,7 @@ API 端点的 URL 路径部分，与基础 URL 组合形成完整的请求地址
 **示例**: `/v1/chat/completions` 是聊天完成 API 的路径。
 
 ### Prometheus
-开源的监控系统和时序数据库，用于收集和存储 JAiRouter 的运行指标。
+开源的监控系统和时序数据库，用于收集和存储 Trunkline 的运行指标。
 
 ## R
 
@@ -142,7 +142,7 @@ API 端点的 URL 路径部分，与基础 URL 组合形成完整的请求地址
 控制请求频率的组件，防止系统过载。支持令牌桶、漏桶、滑动窗口等算法。
 
 ### Reactive Programming (响应式编程)
-基于异步数据流的编程范式，JAiRouter 使用 Spring WebFlux 和 Reactor 实现响应式编程。
+基于异步数据流的编程范式，Trunkline 使用 Spring WebFlux 和 Reactor 实现响应式编程。
 
 ### Round Robin (轮询)
 按顺序循环选择后端实例的负载均衡策略，确保请求均匀分布。
@@ -159,7 +159,7 @@ API 端点的 URL 路径部分，与基础 URL 组合形成完整的请求地址
 一种限流算法，在固定时间窗口内限制请求数量，窗口随时间滑动更新。
 
 ### Spring Boot
-Java 应用程序框架，JAiRouter 基于 Spring Boot 3.5.x 构建。
+Java 应用程序框架，Trunkline 基于 Spring Boot 3.5.x 构建。
 
 ### Spring WebFlux
 Spring 框架的响应式 Web 模块，支持非阻塞 I/O 和高并发处理。
@@ -175,7 +175,7 @@ Spring 框架的响应式 Web 模块，支持非阻塞 I/O 和高并发处理。
 ## W
 
 ### WebClient
-Spring WebFlux 提供的非阻塞、响应式的 HTTP 客户端，JAiRouter 使用它与后端服务通信。
+Spring WebFlux 提供的非阻塞、响应式的 HTTP 客户端，Trunkline 使用它与后端服务通信。
 
 ### Weight (权重)
 服务实例的权重值，用于加权负载均衡。权重越高的实例接收到的请求越多。
@@ -271,5 +271,5 @@ graph TB
 
 ---
 
-**说明**: 本术语表会随着项目发展持续更新。如果您发现遗漏的术语或需要补充的概念，欢迎通过 [GitHub Issues](https://github.com/Lincoln-cn/JAiRouter/issues) 反馈。
+**说明**: 本术语表会随着项目发展持续更新。如果您发现遗漏的术语或需要补充的概念，欢迎通过 [GitHub Issues](https://github.com/Lincoln-cn/Trunkline/issues) 反馈。
 

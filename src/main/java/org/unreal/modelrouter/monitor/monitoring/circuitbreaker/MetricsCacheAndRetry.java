@@ -57,31 +57,31 @@ public final class MetricsCacheAndRetry {
     
     public MetricsCacheAndRetry(final MeterRegistry meterRegistry) {
         this.meterRegistry = meterRegistry;
-        this.cacheHits = Counter.builder("jairouter.metrics.cache.hits")
+        this.cacheHits = Counter.builder("trunkline.metrics.cache.hits")
             .description("缓存命中次数")
             .register(meterRegistry);
-        this.cacheMisses = Counter.builder("jairouter.metrics.cache.misses")
+        this.cacheMisses = Counter.builder("trunkline.metrics.cache.misses")
             .description("缓存未命中次数")
             .register(meterRegistry);
-        this.retryAttempts = Counter.builder("jairouter.metrics.retry.attempts")
+        this.retryAttempts = Counter.builder("trunkline.metrics.retry.attempts")
             .description("重试尝试次数")
             .register(meterRegistry);
-        this.retrySuccesses = Counter.builder("jairouter.metrics.retry.successes")
+        this.retrySuccesses = Counter.builder("trunkline.metrics.retry.successes")
             .description("重试成功次数")
             .register(meterRegistry);
-        this.retryFailures = Counter.builder("jairouter.metrics.retry.failures")
+        this.retryFailures = Counter.builder("trunkline.metrics.retry.failures")
             .description("重试失败次数")
             .register(meterRegistry);
-        this.cacheOperationTimer = Timer.builder("jairouter.metrics.cache.operation_time")
+        this.cacheOperationTimer = Timer.builder("trunkline.metrics.cache.operation_time")
             .description("缓存操作耗时")
             .register(meterRegistry);
         
         // 注册缓存大小指标
-        Gauge.builder("jairouter.metrics.cache.size", cacheSize, AtomicLong::doubleValue)
+        Gauge.builder("trunkline.metrics.cache.size", cacheSize, AtomicLong::doubleValue)
             .description("缓存大小")
             .register(meterRegistry);
         
-        Gauge.builder("jairouter.metrics.retry.active", activeRetries, AtomicInteger::doubleValue)
+        Gauge.builder("trunkline.metrics.retry.active", activeRetries, AtomicInteger::doubleValue)
             .description("活跃重试任务数")
             .register(meterRegistry);
     }

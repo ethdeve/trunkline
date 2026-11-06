@@ -38,6 +38,7 @@ import java.util.Optional;
  * 
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @Component
@@ -49,11 +50,12 @@ public class TracingWebFilter implements WebFilter, Ordered {
     private final TracingPerformanceMonitor performanceMonitor;
     
     /**
-     * 设置过滤器优先级，确保在缓存body过滤器之后、安全过滤器之前执行
+     * 追踪过滤器顺序：在 CachedBody/writeableHeaders/metrics 之后、Security 链之前
+     * （顺序契约见 {@link org.unreal.modelrouter.common.filter.FilterOrderContract}）。
      */
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE;
+        return org.unreal.modelrouter.common.filter.FilterOrderContract.TRACING;
     }
     
     @Override
@@ -129,11 +131,21 @@ public class TracingWebFilter implements WebFilter, Ordered {
         }
 
         // 继续处理链，并在完成时记录响应（业务链异常不在此捕获，由上层处理）
+        //
+        // v3.5 修复：共享 TracingContext 的 currentSpan 跨线程读取存在可见性竞态，
+        // 响应完成回调上 getTraceId() 可能返回空串，finishHttpSpan 的 isActive()
+        // 检查会直接跳过落库——模型调用（/v1/**）的入口 span 因此从未进入查询服务：
+        // 高级查询列表里搜不到模型调用，与调用历史点 Trace ID 看到的链路对不上。
+        // 此处在入口线程同步捕获 traceId 与根 Span 快照，完成回调只使用快照，
+        // 不再依赖跨线程可变状态（快照随 Reactor 信号传递，有 happens-before 保证）。
+        final String capturedTraceId = context.getTraceId();
+        final Span capturedRootSpan = context.getCurrentSpan();
+
         return chain.filter(exchange)
             .contextWrite(reactorContext)
-            .doOnSuccess(v -> handleSuccess(exchange, context, startTime))
-            .doOnError(error -> handleError(exchange, context, error, startTime))
-            .doFinally(signal -> finishSpan(context, startTime));
+            .doOnSuccess(v -> handleSuccess(exchange, context, startTime, capturedTraceId, capturedRootSpan))
+            .doOnError(error -> handleError(exchange, context, error, startTime, capturedTraceId, capturedRootSpan))
+            .doFinally(signal -> finishSpan(capturedRootSpan));
     }
     
     /**
@@ -162,80 +174,76 @@ public class TracingWebFilter implements WebFilter, Ordered {
     /**
      * 处理请求成功完成
      */
-    private void handleSuccess(final ServerWebExchange exchange, final TracingContext context, final long startTime) {
+    private void handleSuccess(final ServerWebExchange exchange, final TracingContext context, final long startTime,
+                               final String capturedTraceId, final Span capturedRootSpan) {
         try {
             long duration = System.currentTimeMillis() - startTime;
-            
+
             // 设置响应相关的Span属性
             setResponseAttributes(context, exchange, duration);
-            
+
             // 记录响应日志
             structuredLogger.logResponse(exchange.getResponse(), context, duration);
-            
+
             // 记录性能指标
             recordPerformanceMetrics(exchange, context, startTime, duration, true);
-            
-            // 完成HTTP追踪并记录到查询服务
-            tracingService.finishHttpSpan(exchange, context, duration);
-            
+
+            // 完成HTTP追踪并记录到查询服务（使用入口快照，不受跨线程可见性影响）
+            tracingService.finishHttpSpan(exchange, context, duration, startTime, capturedTraceId, capturedRootSpan);
+
             // 检查是否为慢请求并触发优化
             if (duration > 5000) { // 超过5秒的请求
                 String operationName = buildOperationName(exchange.getRequest());
                 log.warn("检测到慢请求: {} 耗时 {}ms", operationName, duration);
                 triggerSlowRequestOptimization(operationName, duration, context);
             }
-            
-            log.debug("HTTP请求处理成功，耗时: {}ms (traceId: {}, spanId: {})", 
-                    duration, context.getTraceId(), context.getSpanId());
+
+            log.debug("HTTP请求处理成功，耗时: {}ms (traceId: {}, spanId: {})",
+                    duration, capturedTraceId,
+                    capturedRootSpan != null ? capturedRootSpan.getSpanContext().getSpanId() : "");
         } catch (Exception e) {
             log.debug("处理成功响应时发生错误", e);
         }
     }
-    
+
     /**
      * 处理请求错误
      */
     private void handleError(
             final ServerWebExchange exchange, final TracingContext context,
-            final Throwable error, final long startTime) {
+            final Throwable error, final long startTime,
+            final String capturedTraceId, final Span capturedRootSpan) {
         try {
             long duration = System.currentTimeMillis() - startTime;
-            
+
             // 设置错误相关的Span属性
             setErrorAttributes(context, error);
             setResponseAttributes(context, exchange, duration);
-            
+
             // 记录错误日志
             structuredLogger.logError(error, context);
-            
+
             // 记录错误性能指标
             recordErrorPerformanceMetrics(exchange, context, startTime, duration, error);
-            
-            // 完成HTTP追踪并记录到查询服务（错误情况）
-            tracingService.finishHttpSpan(exchange, context, duration);
-            
-            log.debug("HTTP请求处理失败，耗时: {}ms (traceId: {}, spanId: {})", 
-                    duration, context.getTraceId(), context.getSpanId(), error);
+
+            // 完成HTTP追踪并记录到查询服务（错误情况，使用入口快照）
+            tracingService.finishHttpSpan(exchange, context, duration, startTime, capturedTraceId, capturedRootSpan);
+
+            log.debug("HTTP请求处理失败，耗时: {}ms (traceId: {}, spanId: {})",
+                    duration, capturedTraceId,
+                    capturedRootSpan != null ? capturedRootSpan.getSpanContext().getSpanId() : "", error);
         } catch (Exception e) {
             log.debug("处理错误响应时发生错误", e);
         }
     }
-    
+
     /**
-     * 完成Span
+     * 完成Span（使用入口捕获的根 Span 快照，避免跨线程读到被置换/失效的 currentSpan）
      */
-    private void finishSpan(final TracingContext context, final long startTime) {
+    private void finishSpan(final Span capturedRootSpan) {
         try {
-            if (context != null && context.isActive()) {
-                Span currentSpan = context.getCurrentSpan();
-                if (currentSpan != null) {
-                    // 设置总耗时
-                    long totalDuration = System.currentTimeMillis() - startTime;
-                    currentSpan.setAttribute(TracingConstants.HttpAttributes.RESPONSE_TIME, totalDuration);
-                    
-                    // 完成Span
-                    context.finishSpan(currentSpan);
-                }
+            if (capturedRootSpan != null && capturedRootSpan.isRecording()) {
+                capturedRootSpan.end();
             }
         } catch (Exception e) {
             log.debug("完成Span时发生错误", e);

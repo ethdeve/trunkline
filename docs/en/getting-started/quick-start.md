@@ -7,19 +7,19 @@
 > **Author**: Lincoln
 <!-- /版本信息 -->
 
-This guide will help you make your first API call to JAiRouter and understand the basic concepts.
+This guide will help you make your first API call to Trunkline and understand the basic concepts.
 
 ## Learning Objectives
 
 After completing this guide, you will be able to:
-- Start JAiRouter service
+- Start Trunkline service
 - Configure your first AI model service
 - Send API requests and receive responses
 - Experience load balancing and rate limiting
 
 ## Prerequisites
 
-- JAiRouter is installed and running (see [Installation Guide](installation.md))
+- Trunkline is installed and running (see [Installation Guide](installation.md))
 - At least one AI model service is configured and accessible
 
 ## Step 0: Generate Secure Keys (v3.1.1+ Recommended)
@@ -28,7 +28,7 @@ The production profile (prod) deliberately ships no default JWT key, so you need
 
 > 💡 **Tip**: You can use the built-in key generator in the image:
 > ```bash
-> docker run --rm sodlinken/jairouter:latest --generate-key
+> docker run --rm trunkline/trunkline:latest --generate-key
 > ```
 > Alternatively, use the command-line methods below:
 
@@ -62,6 +62,19 @@ export INITIAL_ADMIN_PASSWORD="your-own-strong-password"
 ![Login Page](images/login-en-US.png)
 
 ![Management Console](images/dashboard-en-US.png)
+
+## Recommended: 4-step new-console onboarding wizard
+
+If you can already log into the new console (`http://<host>:8080/`), the fastest path is the **Onboarding → Quick Start** wizard (`/quick-start`), which auto-creates the provider, discovers & imports models, builds groups and issues a test key:
+
+1. **Pick provider**: choose a preset (domestic / international / local) or fill a custom Base URL and adapter;
+2. **Set upstream key**: the key for the downstream provider (skip for local inference);
+3. **Import models**: the wizard discovers models and auto-classifies them by model ID (chat/embedding/rerank/tts/stt/imgGen/imgEdit); check the ones to import;
+4. **Done**: the wizard auto-creates **model groups** per category (named `<provider>-<category>`), issues a test key with `allowedGroups` pointing to those groups, and gives copyable curl / Python SDK examples.
+
+> ⚠️ **Since v3.5 the `model` parameter is the "model group (virtual model name)", not an upstream instance name.** Instances added by the API below should also be grouped before being called.
+
+The API-based steps below remain valid for scripted or bulk setup.
 
 ## Your First API Call
 
@@ -228,7 +241,7 @@ curl -X POST "http://localhost:8080/api/config/instance/add/chat" \
   }'
 ```
 
-Now send multiple requests, and JAiRouter will distribute them based on the configured load balancing strategy (default: round-robin).
+Now send multiple requests, and Trunkline will distribute them based on the configured load balancing strategy (default: round-robin).
 
 ## Next Steps
 
@@ -260,4 +273,4 @@ Now send multiple requests, and JAiRouter will distribute them based on the conf
 **A:** Check:
 1. Request format is correct
 2. Model name matches
-3. Check JAiRouter logs for detailed information
+3. Check Trunkline logs for detailed information

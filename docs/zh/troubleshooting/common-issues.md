@@ -9,7 +9,7 @@
 
 
 
-本文档收集了 JAiRouter 使用过程中最常见的问题及其解决方案。
+本文档收集了 Trunkline 使用过程中最常见的问题及其解决方案。
 
 ## 启动问题
 
@@ -294,7 +294,7 @@ curl http://localhost:8080/api/config/store/status
 ls -la config/
 
 # 3. 查看应用日志
-tail -f logs/jairouter-debug.log | grep -i config
+tail -f logs/trunkline-debug.log | grep -i config
 ```
 
 #### 解决方案
@@ -330,7 +330,7 @@ curl http://localhost:8080/api/config/instance/type/chat
 curl http://localhost:8080/actuator/health
 
 # 3. 分析请求分布
-curl http://localhost:8080/actuator/metrics/jairouter.requests.total
+curl http://localhost:8080/actuator/metrics/trunkline.requests.total
 ```
 
 #### 解决方案
@@ -370,7 +370,7 @@ model:
 curl http://localhost:8080/api/config/rate-limit/status
 
 # 2. 检查限流指标
-curl http://localhost:8080/actuator/metrics/jairouter.rate.limit.rejected
+curl http://localhost:8080/actuator/metrics/trunkline.rate.limit.rejected
 
 # 3. 测试限流行为
 for i in {1..20}; do
@@ -436,9 +436,9 @@ management:
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 30s
 ```
@@ -498,8 +498,8 @@ sudo systemctl restart docker
 ```yaml
 # docker-compose.yml
 services:
-  jairouter:
-    image: sodlinken/jairouter:latest
+  trunkline:
+    image: trunkline/trunkline:latest
     deploy:
       resources:
         limits:
@@ -517,7 +517,7 @@ services:
 #!/bin/bash
 # health-check.sh
 
-echo "=== JAiRouter 健康检查 ==="
+echo "=== Trunkline 健康检查 ==="
 
 # 检查服务状态
 echo "1. 服务状态检查..."
@@ -552,7 +552,7 @@ echo "=== 健康检查完成 ==="
 #!/bin/bash
 # log-analysis.sh
 
-LOG_FILE="logs/jairouter-debug.log"
+LOG_FILE="logs/trunkline-debug.log"
 
 echo "=== 日志分析 ==="
 
@@ -581,7 +581,7 @@ echo "=== 日志分析完成 ==="
 如果以上解决方案无法解决您的问题，请：
 
 1. **查看详细日志**: 启用 DEBUG 级别日志获取更多信息
-2. **搜索已知问题**: 在 [GitHub Issues](https://github.com/Lincoln-cn/JAiRouter/issues) 中搜索类似问题
+2. **搜索已知问题**: 在 [GitHub Issues](https://github.com/Lincoln-cn/Trunkline/issues) 中搜索类似问题
 3. **提交新问题**: 创建新的 Issue，包含详细的错误信息和环境描述
 4. **参与社区讨论**: 在项目讨论区寻求帮助
 
@@ -593,7 +593,7 @@ echo "=== 日志分析完成 ==="
 ## 环境信息
 - Java 版本: 
 - 操作系统: 
-- JAiRouter 版本: 
+- Trunkline 版本: 
 - 部署方式: (Docker/直接运行)
 
 ## 复现步骤

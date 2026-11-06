@@ -7,16 +7,16 @@
 > **作者**: Lincoln
 <!-- /版本信息 -->
 
-JAiRouter 会用客户端 IP 作为管理接口限流键。当请求经过反向代理（Nginx、
-HAProxy、云 SLB、Kubernetes Ingress 等）时，必须告诉 JAiRouter **哪些对端是
-你自己的代理**，否则 JAiRouter 无法安全地从 `X-Forwarded-For` 等转发头中
+Trunkline 会用客户端 IP 作为管理接口限流键。当请求经过反向代理（Nginx、
+HAProxy、云 SLB、Kubernetes Ingress 等）时，必须告诉 Trunkline **哪些对端是
+你自己的代理**，否则 Trunkline 无法安全地从 `X-Forwarded-For` 等转发头中
 解析出真实客户端 IP。
 
 ## 配置项
 
 | 项 | 值 |
 |----|----|
-| 键 | `jairouter.security.rate-limit.trusted-proxies` |
+| 键 | `trunkline.security.rate-limit.trusted-proxies` |
 | 类型 | 字符串，逗号分隔列表 |
 | 默认值 | 空字符串（`""`） |
 | 语义 | 只有当 TCP 直连对端地址在该列表中时，才采信 `X-Forwarded-For` / `X-Real-IP`；否则一律使用连接的 `remoteAddress` |
@@ -24,7 +24,7 @@ HAProxy、云 SLB、Kubernetes Ingress 等）时，必须告诉 JAiRouter **哪�
 | 热更新 | 否，修改后需重启 |
 
 ```yaml
-jairouter:
+trunkline:
   security:
     rate-limit:
       # 逗号分隔；写你自己的反向代理地址
@@ -56,23 +56,23 @@ jairouter:
 
 ### 多代理链路
 
-客户端 → 代理 A → 代理 B → JAiRouter 时，`X-Forwarded-For` 形如
-`client, proxyA`，JAiRouter 看到的对端是 `proxyB`。
+客户端 → 代理 A → 代理 B → Trunkline 时，`X-Forwarded-For` 形如
+`client, proxyA`，Trunkline 看到的对端是 `proxyB`。
 
 - 当前实现取**最后一跳**，会得到 `proxyA` 而不是 `client`。
-  因此**一跳代理**（客户端 → 代理 → JAiRouter）才是当前实现的精确适用场景。
+  因此**一跳代理**（客户端 → 代理 → Trunkline）才是当前实现的精确适用场景。
 - 多跳链路请把链路上**所有自家代理**都写进 `trusted-proxies`，并注意当前
   末跳语义的限制。更完整的"从右向左跳过可信代理"算法已列入规划
   （见[相关文档](#related-docs)中的设计文档）。
 
 ## 如何确定代理 IP
 
-1. **直接看 JAiRouter 的连接对端**：触发一次限流（或开启 DEBUG 日志），
+1. **直接看 Trunkline 的连接对端**：触发一次限流（或开启 DEBUG 日志），
    观察 `API Key管理接口写操作速率限制触发, IP: ...` 中的 IP。该 IP 若是
    代理地址而非终端用户地址，说明还没配 `trusted-proxies`。
 2. **看代理的出站接口**：
    - Nginx：`proxy_pass` 上游所在的本机地址；通常就是 `10.0.0.1` 这类
-     内网地址，或 `hostname -I` 中与 JAiRouter 同网段的那个地址。
+     内网地址，或 `hostname -I` 中与 Trunkline 同网段的那个地址。
    - Docker / K8s：通常是网桥 / Pod 网段（如 `172.17.0.0/16`、
      `10.244.0.0/16`）里的某个地址；副本多时逐个 IP 不现实，这也是
      需要 CIDR 的原因（见下文）。
@@ -87,7 +87,7 @@ jairouter:
 
 ```yaml
 # ❌ 灾难配置 —— 相当于关闭防护
-jairouter:
+trunkline:
   security:
     rate-limit:
       # 攻击者可以发起连接的地址（他们的 VPS / 租用主机）
@@ -108,7 +108,7 @@ trusted-proxies: "0.0.0.0/0"   # 信任全网 —— 绝不要这么配
 
 ```yaml
 # ✅ 只信任自家反代
-jairouter:
+trunkline:
   security:
     rate-limit:
       trusted-proxies: "10.0.0.1"
@@ -117,8 +117,8 @@ jairouter:
 ### 代理自身被攻陷
 
 代理属于信任计算基（TCB）。代理一旦被攻陷，它可以追加任意 XFF 末跳，
-信任模型随之失效。请把代理与 JAiRouter 放在私网 / NetworkPolicy 隔离的
-网段内，并禁止第三方直连 JAiRouter 端口。
+信任模型随之失效。请把代理与 Trunkline 放在私网 / NetworkPolicy 隔离的
+网段内，并禁止第三方直连 Trunkline 端口。
 
 ## 验证 XFF 是否被采信
 
@@ -131,11 +131,11 @@ jairouter:
    - IP 是终端用户地址 → `trusted-proxies` 已生效。
    - IP 是代理地址 → 未生效（没配、配错，或请求不经过该代理）。
 
-2. **主动探测**（直连 JAiRouter，绕过代理）：
+2. **主动探测**（直连 Trunkline，绕过代理）：
 
    ```bash
    # 伪造 XFF 必须无效：日志中的 IP 应是 curl 客户端的地址
-   curl -H "X-Forwarded-For: 1.2.3.4" http://jairouter:8080/api/auth/api-keys
+   curl -H "X-Forwarded-For: 1.2.3.4" http://trunkline:8080/api/auth/api-keys
    ```
 
    若此时日志出现 `1.2.3.4`，说明有不该信任的头被采信了——立即复查配置。
@@ -178,11 +178,11 @@ IPv6 将支持精确匹配，IPv6 CIDR 暂不在首版范围。在 CIDR 发布�
 | 症状 | 原因 | 处理 |
 |------|------|------|
 | **429 Too Many Requests** | 管理接口限流。多半是 `trusted-proxies` 未配 → 共享限流桶 | 按本文档配置；按「验证」一节确认生效 |
-| **403 Forbidden** | RBAC 权限。未命中权限规则且非 ADMIN 时默认拒绝（fail-closed） | 查 JWT `roles` / `permissions`、`jairouter.security.rbac.unmatched-policy`（默认 `DENY_ALL`），**与 IP 无关** |
+| **403 Forbidden** | RBAC 权限。未命中权限规则且非 ADMIN 时默认拒绝（fail-closed） | 查 JWT `roles` / `permissions`、`trunkline.security.rbac.unmatched-policy`（默认 `DENY_ALL`），**与 IP 无关** |
 | 403 且"我明明有权限" | 令牌缺少所需权限码，或请求路径未登记到权限规则 | 参见 [权限管理](rbac-permissions.md) 与 RBAC 覆盖自检 |
 | 怀疑"IP 被封" | 系统**没有**按 IP 拒绝的逻辑；403 不是 IP 问题 | 先分清 403 / 429 |
 
-排障小技巧：可临时设置 `jairouter.security.rbac.unmatched-policy=AUTHENTICATED`
+排障小技巧：可临时设置 `trunkline.security.rbac.unmatched-policy=AUTHENTICATED`
 回退到旧的放行语义，以隔离 RBAC 变量，**排查完必须改回 `DENY_ALL`**。
 
 ## 相关文档

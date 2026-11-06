@@ -12,6 +12,7 @@ import org.unreal.modelrouter.monitor.callhistory.config.RecordLevel;
 import org.unreal.modelrouter.persistence.repository.ModelCallStatsRepository;
 import org.unreal.modelrouter.monitor.callhistory.ApiCallHistoryRecorder;
 import org.unreal.modelrouter.monitor.callhistory.dto.CallHistoryRecordDTO;
+import org.unreal.modelrouter.monitor.tracing.TracingContextHolder;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -30,6 +31,7 @@ import java.time.Duration;
  *
  * @author JAiRouter Team
  * @since v2.3.2
+ * @modified Trunkline Team
  */
 @Slf4j
 @Component
@@ -378,16 +380,47 @@ public class AdapterMetricsRecorder {
             final ModelRouterProperties.ModelInstance instance,
             final String requestBody,
             final String responseBody) {
+        // traceId 在当前线程就近捕获（兜底重载）：仅当调用方位于追踪上下文存活的线程上才有效
+        recordCompleteCall(adapterType, instanceId, durationMs, success, errorCode,
+                modelName, serviceType, instance, requestBody, responseBody,
+                TracingContextHolder.getCurrentTraceId());
+    }
+
+    /**
+     * 完整的调用成功记录（含请求/响应体捕获），traceId 由调用方<b>同步捕获后显式透传</b>。
+     *
+     * <p><b>为什么必须透传</b>：本方法内部的落库可能发生在异步脱敏回调线程上，
+     * {@link TracingContextHolder} 是 ThreadLocal 实现——回调线程上没有请求的追踪上下文，
+     * 运行时再取只会拿到空串（落库侧退化为随机 UUID），调用历史就无法与追踪系统对账。
+     * 调用方须在请求处理线程（上下文存活）同步捕获后传入
+     * （与流式路径 {@code traceIdForRecord} 同一修法）。</p>
+     *
+     * @param traceId 调用方同步捕获的追踪 ID；空串/null 时退回运行时取值
+     * @since v3.5
+     */
+    public void recordCompleteCall(
+            final String adapterType,
+            final String instanceId,
+            final long durationMs,
+            final boolean success,
+            final String errorCode,
+            final String modelName,
+            final ModelServiceRegistry.ServiceType serviceType,
+            final ModelRouterProperties.ModelInstance instance,
+            final String requestBody,
+            final String responseBody,
+            final String traceId) {
 
         // v2.9.2: 统计更新（Registry + MetricsCollector + StatsRepository）
         recordStats(adapterType, instanceId, durationMs, success, errorCode, modelName, serviceType, instance);
 
         // v2.7.8: 记录 API 调用历史（v2.9.2: 含请求/响应体）
-        // 脱敏与落库移到 boundedElastic，避免在 EventLoop / 回调线程上 block
+        // G1 修复：落库触发与"是否携带报文"解耦。此前在 METADATA_ONLY 下把 requestBody/responseBody 置为 null，
+        // 再走 Mono.zip(justOrEmpty(null), justOrEmpty(null)) —— zip(empty, empty) 空完成，success 回调永不触发，
+        // 导致默认配置下非流式调用历史静默不落库。
+        // 现改为：元数据级直接构造元数据记录落库（不依赖任何异步脱敏），SUMMARY/FULL 才走脱敏 zip。
         if (callHistoryRecorder != null && serviceType != null && modelName != null) {
             final RecordLevel level = resolveRecordLevel();
-            final String rawRequestBody = level != RecordLevel.METADATA_ONLY ? requestBody : null;
-            final String rawResponseBody = level != RecordLevel.METADATA_ONLY ? responseBody : null;
             final boolean needSanitize = level == RecordLevel.SUMMARY && sanitizationService != null;
             final SanitizationService sanitization = this.sanitizationService;
             final ApiCallHistoryRecorder recorder = this.callHistoryRecorder;
@@ -400,29 +433,30 @@ public class AdapterMetricsRecorder {
             final boolean finalSuccess = success;
             final String finalErrorCode = errorCode;
 
-            Mono.zip(
-                            sanitizeOptional(needSanitize, sanitization, rawRequestBody),
-                            sanitizeOptional(needSanitize, sanitization, rawResponseBody))
-                    .subscribeOn(Schedulers.boundedElastic())
-                    .subscribe(tuple -> {
-                        try {
-                            CallHistoryRecordDTO record = CallHistoryRecordDTO.builder()
-                                    .serviceType(finalServiceType)
-                                    .modelName(finalModelName)
-                                    .provider(finalAdapterType)
-                                    .instanceName(finalInstanceId)
-                                    .instanceUrl(finalInstance != null ? finalInstance.getBaseUrl() : null)
-                                    .responseTimeMs(finalDurationMs)
-                                    .isSuccess(finalSuccess)
-                                    .errorCode(finalErrorCode)
-                                    .requestBody(tuple.getT1())
-                                    .responseBody(tuple.getT2())
-                                    .build();
-                            recorder.record(record);
-                        } catch (Exception e) {
-                            log.debug("Failed to record call history: {}", e.getMessage());
-                        }
-                    }, err -> log.debug("Failed to sanitize call history: {}", err.getMessage()));
+            if (level == RecordLevel.METADATA_ONLY) {
+                // 元数据级：直接落库（buffer.offer 非阻塞，无需 boundedElastic）。
+                try {
+                    recorder.record(buildCallHistoryRecord(finalServiceType, finalModelName, finalAdapterType,
+                            finalInstanceId, finalInstance, finalDurationMs, finalSuccess, finalErrorCode, null, null,
+                            traceId));
+                } catch (Exception e) {
+                    log.debug("Failed to record call history (metadata): {}", e.getMessage());
+                }
+            } else {
+                Mono.zip(
+                                sanitizeOptional(needSanitize, sanitization, requestBody),
+                                sanitizeOptional(needSanitize, sanitization, responseBody))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe(tuple -> {
+                            try {
+                                recorder.record(buildCallHistoryRecord(finalServiceType, finalModelName, finalAdapterType,
+                                        finalInstanceId, finalInstance, finalDurationMs, finalSuccess, finalErrorCode,
+                                        tuple.getT1(), tuple.getT2(), traceId));
+                            } catch (Exception e) {
+                                log.debug("Failed to record call history: {}", e.getMessage());
+                            }
+                        }, err -> log.debug("Failed to sanitize call history: {}", err.getMessage()));
+            }
         }
 
         if (log.isDebugEnabled()) {
@@ -493,5 +527,42 @@ public class AdapterMetricsRecorder {
                 })
                 .map(sanitized -> sanitized != null ? sanitized : raw)
                 .defaultIfEmpty(raw);
+    }
+
+    /**
+     * 构造调用历史记录 DTO（元数据 + 可选报文）。
+     * 提取为方法避免 METADATA_ONLY / SUMMARY·FULL 两条路径重复组装字段。
+     *
+     * @param traceId 调用方同步捕获的追踪 ID（优先使用）；空串/null 时退回当前线程取值
+     */
+    private CallHistoryRecordDTO buildCallHistoryRecord(
+            final String serviceType,
+            final String modelName,
+            final String provider,
+            final String instanceId,
+            final ModelRouterProperties.ModelInstance instance,
+            final long durationMs,
+            final boolean success,
+            final String errorCode,
+            final String requestBody,
+            final String responseBody,
+            final String traceId) {
+        // 关联链路追踪：优先用调用方同步捕获的 traceId（异步回调线程无追踪上下文）；
+        // 两者皆空时落库侧兜底随机 UUID
+        final String effectiveTraceId = traceId != null && !traceId.isBlank()
+                ? traceId : TracingContextHolder.getCurrentTraceId();
+        return CallHistoryRecordDTO.builder()
+                .traceId(effectiveTraceId)
+                .serviceType(serviceType)
+                .modelName(modelName)
+                .provider(provider)
+                .instanceName(instanceId)
+                .instanceUrl(instance != null ? instance.getBaseUrl() : null)
+                .responseTimeMs(durationMs)
+                .isSuccess(success)
+                .errorCode(errorCode)
+                .requestBody(requestBody)
+                .responseBody(responseBody)
+                .build();
     }
 }

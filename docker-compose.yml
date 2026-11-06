@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  jairouter:
-    image: sodlinken/jairouter:alpine
-    container_name: jairouter
+  trunkline:
+    image: trunkline/trunkline:alpine
+    container_name: trunkline
     ports:
       - "9900:8080"
     environment:
@@ -22,7 +22,7 @@ services:
       - ./data:/app/data
     restart: unless-stopped
     networks:
-      - jairouter-network
+      - trunkline-network
     external_links:
       - redis:redis
     healthcheck:
@@ -33,5 +33,5 @@ services:
       start_period: 60s
 
 networks:
-  jairouter-network:
+  trunkline-network:
     driver: bridge

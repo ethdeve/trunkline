@@ -1,5 +1,6 @@
 package org.unreal.modelrouter.config.core.manager;
 
+import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -24,13 +25,14 @@ import java.util.stream.Collectors;
  *
  * @author AI Assistant
  * @since v2.2.0
+ * @modified Trunkline Team
  */
 @Component
 public class ConfigVersionManager {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigVersionManager.class);
 
-    private static final String CURRENT_KEY = "model-router-config";
+    private static final String CURRENT_KEY = ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY;
 
     private final StoreManager storeManager;
     private final ConfigMergeService configMergeService;
@@ -70,12 +72,15 @@ public class ConfigVersionManager {
     /**
      * 获取所有可用版本
      *
+     * <p>E1: storeManager.getConfigVersions 只返回 version>=1 的快照行（v0 当前行
+     * 不混入），三个来源合并后去重排序。</p>
+     *
      * @return 版本列表
      */
     public List<Integer> getAllVersions() {
         List<Integer> versions = new ArrayList<>();
 
-        // 从数据库获取版本列表
+        // 从数据库获取版本列表（E1: 只含快照行，不含 v0 当前行）
         List<Integer> dbVersions = storeManager.getConfigVersions(CURRENT_KEY);
         if (dbVersions != null && !dbVersions.isEmpty()) {
             versions.addAll(dbVersions);
@@ -141,6 +146,9 @@ public class ConfigVersionManager {
 
     /**
      * 内部版本保存方法
+     *
+     * <p>E1 语义：版本快照只追加（saveConfigVersion 写 isLatest=false 快照行），
+     * 当前值由 v0 当前行独立承载（saveConfig upsert）——两者互不篡改。</p>
      */
     private int saveAsNewVersionInternal(final Map<String, Object> config,
                                           final String description, final String userId) {
@@ -162,15 +170,15 @@ public class ConfigVersionManager {
                 logger.info("创建新的配置元数据");
             }
 
-            // 内联生成新版本号
-            int newVersion = getCurrentVersion() + 1;
+            // E1: 版本号来自持久化序列——DB 快照 max + 1（唯一约束兜底单调）
+            final int newVersion = getActualCurrentVersion() + 1;
             logger.info("生成新版本号：{}", newVersion);
 
-            // 保存版本配置
+            // 1. 追加版本快照（不可变，isLatest=false）
             storeManager.saveConfigVersion(CURRENT_KEY, config, newVersion);
-            logger.debug("版本配置已保存：{}", newVersion);
+            logger.debug("版本快照已追加：{}", newVersion);
 
-            // 更新元数据
+            // 2. 更新元数据
             String effectiveUserId = userId != null ? userId : "system";
             metadataManager.updateMetadataVersion(CURRENT_KEY, newVersion, effectiveUserId);
             logger.debug("元数据已更新");
@@ -186,9 +194,9 @@ public class ConfigVersionManager {
             metadataManager.addVersionToHistory(CURRENT_KEY, versionInfo);
             logger.debug("版本历史已更新");
 
-            // 更新当前活跃配置
+            // 3. E1: 更新当前生效配置（v0 当前行）——与版本快照行彻底分离
             storeManager.saveConfig(CURRENT_KEY, config);
-            logger.debug("当前活跃配置已更新");
+            logger.debug("当前生效配置已更新（v0 当前行）");
 
             logger.info("已保存配置为新版本：{}", newVersion);
             return newVersion;
@@ -200,6 +208,10 @@ public class ConfigVersionManager {
 
     /**
      * 应用指定版本的配置
+     *
+     * <p>E1 语义：应用历史版本 = 「把目标版本内容作为<b>新</b>版本快照追加（N+1）」
+     * + 「重写 v0 当前行」+ 「元数据指针指向 N+1」。历史版本行永不改写，
+     * 回滚历史本身也是一条可追溯的新版本。</p>
      *
      * @param version 版本号
      */
@@ -230,15 +242,21 @@ public class ConfigVersionManager {
                 logger.warn("无法备份当前配置：{}", e.getMessage());
             }
 
-            // 6. 原子性应用配置
+            // 6. 原子性应用配置：追加新快照 + 重写当前行 + 移动指针
+            final int appliedVersion = getActualCurrentVersion() + 1;
             try {
+                // 6a. E1: 目标版本内容作为新版本快照追加（历史行不被改写）
+                if (appliedVersion != version) {
+                    storeManager.saveConfigVersion(CURRENT_KEY, config, appliedVersion);
+                }
+                // 6b. 重写当前生效配置（v0 当前行）
                 storeManager.saveConfig(CURRENT_KEY, config);
-                logger.debug("配置已成功应用到存储管理器");
 
-                // 更新当前版本状态
-                metadataManager.updateCurrentVersion(CURRENT_KEY, version, SecurityUtils.getCurrentUserId());
+                // 6c. 更新当前版本状态（指针 → appliedVersion）
+                metadataManager.updateCurrentVersion(CURRENT_KEY, appliedVersion,
+                        SecurityUtils.getCurrentUserId());
 
-                logger.info("成功应用配置版本：{}", version);
+                logger.info("成功应用配置版本 {}（作为新版本 {} 生效）", version, appliedVersion);
 
             } catch (Exception e) {
                 logger.error("应用配置版本 {} 时发生错误，尝试恢复", version, e);
@@ -316,17 +334,30 @@ public class ConfigVersionManager {
     }
 
     /**
-     * 获取实际当前配置版本号
+     * 获取实际当前配置版本号（E1 指针语义）
+     *
+     * <p>优先读元数据指针（applyVersion/saveAsNewVersion 维护的 currentVersion）；
+     * 指针不可用时回退到「DB 快照 max」——两者在正常路径下恒等（applyVersion 会
+     * 追加 N+1 快照再移指针，保持「当前 = max 版本」不变量）。</p>
      *
      * @return 当前配置版本号，如果不存在则返回 0
      */
     public int getActualCurrentVersion() {
+        // E1: 指针语义优先（currentVersion 是基本型 int，clean() 会置 -99，
+        // 用 > 0 过滤无效/未初始化指针）
+        ConfigMetadata metadata = metadataManager.getMetadata(CURRENT_KEY);
+        if (metadata != null && metadata.getCurrentVersion() > 0) {
+            logger.debug("当前实际版本（元数据指针）：{}", metadata.getCurrentVersion());
+            return metadata.getCurrentVersion();
+        }
+
+        // 回退：DB 快照 max（冷启动同步完成前/元数据丢失时）
         List<Integer> versions = storeManager.getConfigVersions(CURRENT_KEY);
         int currentVersion = versions.stream()
                 .max(Integer::compareTo)
                 .orElse(0);
 
-        logger.debug("当前实际版本：{}", currentVersion);
+        logger.debug("当前实际版本（DB max 回退）：{}", currentVersion);
         return currentVersion;
     }
 

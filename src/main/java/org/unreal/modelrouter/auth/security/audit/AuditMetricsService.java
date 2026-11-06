@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "jairouter.security.audit.metrics.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.security.audit.metrics.enabled", havingValue = "true", matchIfMissing = true)
 public class AuditMetricsService {
 
     private final MeterRegistry meterRegistry;
@@ -58,55 +58,55 @@ public class AuditMetricsService {
         log.info("初始化审计日志 Prometheus 指标...");
         
         // 总事件计数器
-        auditEventsTotal = Counter.builder("jairouter_audit_events_total")
+        auditEventsTotal = Counter.builder("trunkline_audit_events_total")
             .description("Total number of audit events")
-            .tag("application", "jairouter")
+            .tag("application", "trunkline")
             .register(meterRegistry);
         
         // 成功事件计数器
-        auditEventsSuccess = Counter.builder("jairouter_audit_events_success_total")
+        auditEventsSuccess = Counter.builder("trunkline_audit_events_success_total")
             .description("Number of successful audit events")
-            .tag("application", "jairouter")
+            .tag("application", "trunkline")
             .register(meterRegistry);
         
         // 失败事件计数器
-        auditEventsFailure = Counter.builder("jairouter_audit_events_failure_total")
+        auditEventsFailure = Counter.builder("trunkline_audit_events_failure_total")
             .description("Number of failed audit events")
-            .tag("application", "jairouter")
+            .tag("application", "trunkline")
             .register(meterRegistry);
         
         // 备用存储事件计数器
-        auditFallbackEventsTotal = Counter.builder("jairouter_audit_fallback_events_total")
+        auditFallbackEventsTotal = Counter.builder("trunkline_audit_fallback_events_total")
             .description("Number of audit events written to fallback storage")
-            .tag("application", "jairouter")
+            .tag("application", "trunkline")
             .register(meterRegistry);
         
         // 主存储失败计数器
-        auditPrimaryStorageFailures = Counter.builder("jairouter_audit_primary_storage_failures_total")
+        auditPrimaryStorageFailures = Counter.builder("trunkline_audit_primary_storage_failures_total")
             .description("Number of primary storage write failures")
-            .tag("application", "jairouter")
+            .tag("application", "trunkline")
             .register(meterRegistry);
         
         // 写入耗时计时器
-        auditEventWriteTimer = Timer.builder("jairouter_audit_event_write_duration_seconds")
+        auditEventWriteTimer = Timer.builder("trunkline_audit_event_write_duration_seconds")
             .description("Duration of audit event write operations")
-            .tag("application", "jairouter")
+            .tag("application", "trunkline")
             .register(meterRegistry);
         
         // 健康状态指标（Gauge）
-        Gauge.builder("jairouter_audit_health_score", this, AuditMetricsService::getHealthScoreValue)
+        Gauge.builder("trunkline_audit_health_score", this, AuditMetricsService::getHealthScoreValue)
             .description("Audit system health score (0-100)")
-            .tag("application", "jairouter")
+            .tag("application", "trunkline")
             .register(meterRegistry);
         
-        Gauge.builder("jairouter_audit_buffer_size", this, AuditMetricsService::getBufferSizeValue)
+        Gauge.builder("trunkline_audit_buffer_size", this, AuditMetricsService::getBufferSizeValue)
             .description("Current audit event buffer size")
-            .tag("application", "jairouter")
+            .tag("application", "trunkline")
             .register(meterRegistry);
         
-        Gauge.builder("jairouter_audit_total_events", this, AuditMetricsService::getTotalEventsValue)
+        Gauge.builder("trunkline_audit_total_events", this, AuditMetricsService::getTotalEventsValue)
             .description("Total number of audit events processed")
-            .tag("application", "jairouter")
+            .tag("application", "trunkline")
             .register(meterRegistry);
         
         log.info("审计日志 Prometheus 指标初始化完成");

@@ -1,13 +1,13 @@
 ﻿# Monitoring API
 
 <!-- 版本信息 -->
-> **Doc Version**: 1.0.2  
-> **Last Updated**: 2026-05-21  
+> **Doc Version**: 1.1.0  
+> **Last Updated**: 2026-10-28  
 > **Git Commit**: 61384b4a  
 > **Author**: Lincoln
 <!-- /版本信息 -->
 
-JAiRouter provides comprehensive monitoring APIs for health checks, metrics collection, and system status monitoring.
+Trunkline provides comprehensive monitoring APIs for health checks, metrics collection, and system status monitoring.
 
 ## Overview
 
@@ -17,7 +17,7 @@ The Monitoring API includes:
 - **Metrics** - Performance and usage statistics  
 - **System Status** - Overall system health and configuration
 
-All monitoring endpoints are available under the `/actuator/*` path and provide real-time insights into your JAiRouter deployment.
+All monitoring endpoints are available under the `/actuator/*` path and provide real-time insights into your Trunkline deployment.
 
 ## Health Check Endpoints
 
@@ -121,29 +121,29 @@ jvm_memory_used_bytes{area="heap",id="PS Eden Space",} 2.38026752E8
 jvm_memory_used_bytes{area="heap",id="PS Survivor Space",} 1048576.0
 jvm_memory_used_bytes{area="heap",id="PS Old Gen",} 4.2991616E7
 
-# HELP jairouter_requests_total Total number of requests
-# TYPE jairouter_requests_total counter
-jairouter_requests_total{service="chat",method="POST",status="200",} 1247.0
-jairouter_requests_total{service="chat",method="POST",status="500",} 23.0
-jairouter_requests_total{service="chat",method="POST",status="200",} 1156.0
-jairouter_requests_total{service="chat",method="POST",status="500",} 18.0
+# HELP trunkline_requests_total Total number of requests
+# TYPE trunkline_requests_total counter
+trunkline_requests_total{service="chat",method="POST",status="200",} 1247.0
+trunkline_requests_total{service="chat",method="POST",status="500",} 23.0
+trunkline_requests_total{service="chat",method="POST",status="200",} 1156.0
+trunkline_requests_total{service="chat",method="POST",status="500",} 18.0
 
-# HELP jairouter_request_duration_seconds Request duration in seconds
-# TYPE jairouter_request_duration_seconds histogram
-jairouter_request_duration_seconds_bucket{service="chat",method="POST",le="0.1",} 234.0
-jairouter_request_duration_seconds_bucket{service="chat",method="POST",le="0.5",} 892.0
-jairouter_request_duration_seconds_bucket{service="chat",method="POST",le="1.0",} 1156.0
-jairouter_request_duration_seconds_bucket{service="chat",method="POST",le="+Inf",} 1270.0
+# HELP trunkline_request_duration_seconds Request duration in seconds
+# TYPE trunkline_request_duration_seconds histogram
+trunkline_request_duration_seconds_bucket{service="chat",method="POST",le="0.1",} 234.0
+trunkline_request_duration_seconds_bucket{service="chat",method="POST",le="0.5",} 892.0
+trunkline_request_duration_seconds_bucket{service="chat",method="POST",le="1.0",} 1156.0
+trunkline_request_duration_seconds_bucket{service="chat",method="POST",le="+Inf",} 1270.0
 
-# HELP jairouter_circuit_breaker_state Circuit breaker state (0=CLOSED, 1=OPEN, 2=HALF_OPEN)
-# TYPE jairouter_circuit_breaker_state gauge
-jairouter_circuit_breaker_state{service="chat",method="POST",} 0.0
-jairouter_circuit_breaker_state{service="chat",method="POST",} 0.0
+# HELP trunkline_circuit_breaker_state Circuit breaker state (0=CLOSED, 1=OPEN, 2=HALF_OPEN)
+# TYPE trunkline_circuit_breaker_state gauge
+trunkline_circuit_breaker_state{service="chat",method="POST",} 0.0
+trunkline_circuit_breaker_state{service="chat",method="POST",} 0.0
 
-# HELP jairouter_rate_limit_remaining Rate limit remaining requests
-# TYPE jairouter_rate_limit_remaining gauge
-jairouter_rate_limit_remaining{service="chat",client_ip="192.168.1.100",} 45.0
-jairouter_rate_limit_remaining{service="chat",client_ip="192.168.1.101",} 38.0
+# HELP trunkline_rate_limit_remaining Rate limit remaining requests
+# TYPE trunkline_rate_limit_remaining gauge
+trunkline_rate_limit_remaining{service="chat",client_ip="192.168.1.100",} 45.0
+trunkline_rate_limit_remaining{service="chat",client_ip="192.168.1.101",} 38.0
 ```
 
 ### Metrics Summary
@@ -162,11 +162,11 @@ GET /actuator/metrics
     "jvm.memory.max", 
     "jvm.gc.pause",
     "http.server.requests",
-    "jairouter_requests_total",
-    "jairouter_request_duration_seconds",
-    "jairouter_circuit_breaker_state",
-    "jairouter_rate_limit_remaining",
-    "jairouter_loadbalancer_selections_total"
+    "trunkline_requests_total",
+    "trunkline_request_duration_seconds",
+    "trunkline_circuit_breaker_state",
+    "trunkline_rate_limit_remaining",
+    "trunkline_loadbalancer_selections_total"
   ]
 }
 ```
@@ -176,13 +176,13 @@ GET /actuator/metrics
 Get details for a specific metric:
 
 ```http
-GET /actuator/metrics/jairouter_requests_total
+GET /actuator/metrics/trunkline_requests_total
 ```
 
 **Response:**
 ```json
 {
-  "name": "jairouter_requests_total",
+  "name": "trunkline_requests_total",
   "description": "Total number of requests processed by model router",
   "baseUnit": null,
   "measurements": [
@@ -222,12 +222,12 @@ GET /actuator/info
 ```json
 {
   "app": {
-    "name": "JAiRouter",
-    "version": "3.2.2",
+    "name": "Trunkline",
+    "version": "3.3.1",
     "description": "AI Model Service Router and Load Balancer"
   },
   "build": {
-    "version": "3.2.2",
+    "version": "3.3.1",
     "artifact": "model-router",
     "name": "model-router",
     "group": "org.unreal",
@@ -249,7 +249,7 @@ GET /actuator/info
 
 > ⚠️ The `build` / `git` sections require the `build-info` goal in `pom.xml` (not configured
 > today), so the default `/actuator/info` does not return them; the output above is
-> illustrative. The current project version is 3.2.2.
+> illustrative. The current project version is 3.3.1.
 
 ### Environment Information
 
@@ -260,7 +260,7 @@ GET /actuator/env
 ```
 
 > ⚠️ `env` is **not in the default exposure list** (`config/base/monitoring-base.yml:60` exposes
-> only health / info / metrics / prometheus / jairouter-metrics / error-tracking; see
+> only health / info / metrics / prometheus / trunkline-metrics / error-tracking; see
 > `application-prod.yml:40` for prod). Add `env` to
 > `management.endpoints.web.exposure.include` first if you need it.
 
@@ -296,7 +296,7 @@ GET /actuator/env
 ```
 
 > ⚠️ The output above is illustrative: every configuration key in this project lives under the
-> `jairouter.*` prefix — there are **no `model-router.*` keys** (no match anywhere under
+> `trunkline.*` prefix — there are **no `model-router.*` keys** (no match anywhere under
 > `src/main/resources`).
 
 ## Custom Monitoring Endpoints
@@ -309,6 +309,14 @@ Get the overall system health status:
 
 ```http
 GET /api/monitoring/health
+```
+
+### Monitoring Overview
+
+Get the aggregated monitoring overview (code: `MonitoringController#overview`):
+
+```http
+GET /api/monitoring/overview
 ```
 
 ### Monitoring Configuration
@@ -351,7 +359,7 @@ Get cache statistics:
 GET /api/monitoring/cache/stats
 ```
 
-> **Note**: These are the custom monitoring endpoints JAiRouter (currently 3.2.2) actually
+> **Note**: These are the custom monitoring endpoints Trunkline (currently 3.3.1) actually
 > provides; each maps to `MonitoringController.java:65,226,240,268,309,390,426`. See the
 > [Management API](management-api.md) for more endpoints.
 
@@ -359,12 +367,12 @@ GET /api/monitoring/cache/stats
 
 ### Prometheus Integration
 
-JAiRouter exposes metrics in Prometheus format at `/actuator/prometheus`. Configure Prometheus to scrape these metrics:
+Trunkline exposes metrics in Prometheus format at `/actuator/prometheus`. Configure Prometheus to scrape these metrics:
 
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
       - targets: ['localhost:8080']
     metrics_path: '/actuator/prometheus'
@@ -373,7 +381,7 @@ scrape_configs:
 
 ### Grafana Dashboard
 
-Import the JAiRouter Grafana dashboard for visualization:
+Import the Trunkline Grafana dashboard for visualization:
 
 - **Dashboard ID**: Coming soon
 - **Metrics**: Request rate, response time, error rate, circuit breaker status
@@ -381,7 +389,7 @@ Import the JAiRouter Grafana dashboard for visualization:
 
 ### Health Check Integration
 
-Configure external monitoring tools to check JAiRouter health:
+Configure external monitoring tools to check Trunkline health:
 
 ```bash
 # Simple health check
@@ -422,10 +430,10 @@ Set up alerts for critical conditions:
 ```yaml
 # Prometheus alerting rules
 groups:
-  - name: jairouter
+  - name: trunkline
     rules:
       - alert: HighErrorRate
-        expr: rate(jairouter_requests_total{status="500"}[5m]) / rate(jairouter_requests_total[5m]) > 0.1
+        expr: rate(trunkline_requests_total{status="500"}[5m]) / rate(trunkline_requests_total[5m]) > 0.1
         for: 2m
         labels:
           severity: warning
@@ -433,7 +441,7 @@ groups:
           summary: "High error rate detected"
           
       - alert: CircuitBreakerOpen
-        expr: jairouter_circuit_breaker_state > 0
+        expr: trunkline_circuit_breaker_state > 0
         for: 1m
         labels:
           severity: critical
@@ -441,12 +449,12 @@ groups:
           summary: "Circuit breaker is open"
           
       - alert: InstanceDown
-        expr: up{job="jairouter"} == 0
+        expr: up{job="trunkline"} == 0
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: "JAiRouter instance is down"
+          summary: "Trunkline instance is down"
 ```
 
 ### Log Monitoring

@@ -1,17 +1,16 @@
 # Configuration Guide
 
 <!-- 版本信息 -->
-> **Doc Version**: 1.0.2  
-> **Last Updated**: 2026-05-21
-> **Git Commit**: 61384b4a  
+> **Doc Version**: 1.1.0  
+> **Last Updated**: 2026-10-28
 > **Author**: Lincoln
 <!-- /版本信息 -->
 
-JAiRouter provides flexible configuration options to meet various deployment scenarios. This guide covers all configuration aspects from basic setup to advanced features.
+Trunkline provides flexible configuration options to meet various deployment scenarios. This guide covers all configuration aspects from basic setup to advanced features.
 
 ## Modular Configuration Overview
 
-Starting from v1.0.0, JAiRouter adopts a modular configuration structure, separating different functional configurations into independent configuration files to improve maintainability and readability.
+Since v2.8.x, Trunkline adopts a modular configuration structure, separating functional configurations into independent files to improve maintainability and readability.
 
 ### Configuration File Structure
 
@@ -19,72 +18,129 @@ Starting from v1.0.0, JAiRouter adopts a modular configuration structure, separa
 src/main/resources/
 ├── application.yml                    # Main configuration file, imports other modules
 ├── config/
-│   ├── base/
-│   │   ├── server-base.yml           # Server base configuration
-│   │   ├── model-services-base.yml    # Model services configuration
-│   │   └── monitoring-base.yml       # Monitoring base configuration
-│   ├── security/
-│   │   └── security-base.yml         # Security feature configuration
+│   ├── common/                        # Shared infrastructure
+│   │   ├── server.yml                 # Server configuration
+│   │   ├── webclient.yml              # WebClient connection pool
+│   │   ├── logging.yml                # Logging configuration
+│   │   ├── scheduling.yml             # Scheduled tasks toggle
+│   │   └── cluster.yml                # Cluster toggle
+│   ├── config-service/
+│   │   └── core.yml                   # Config service core (store/datasource/JPA)
+│   ├── router/                        # Routing service
+│   │   ├── adapter.yml                # Adapter configuration
+│   │   ├── loadbalancer.yml           # Load balancing configuration
+│   │   ├── ratelimit.yml              # Rate limiting configuration
+│   │   ├── circuitbreaker.yml         # Circuit breaker configuration
+│   │   ├── fallback.yml               # Fallback configuration
+│   │   ├── services.yml               # Service instances
+│   │   ├── rules.yml                  # Conditional routing rules
+│   │   └── pools.yml                  # Model pools (resource pools)
+│   ├── auth/                          # Authentication service
+│   │   ├── jwt.yml                    # JWT authentication
+│   │   ├── api-key.yml                # API key configuration
+│   │   ├── audit.yml                  # Audit configuration
+│   │   └── sanitization.yml           # Data sanitization
+│   ├── monitor/                       # Monitoring service
+│   │   ├── slow-query-alerts.yml
+│   │   ├── error-tracking.yml
+│   │   └── persistence-monitoring-base.yml
 │   ├── tracing/
-│   │   └── tracing-base.yml          # Tracing feature configuration
-│   └── monitoring/
-│       ├── slow-query-alerts.yml     # Slow query alert configuration
-│       └── error-tracking.yml        # Error tracking configuration
-├── application-dev.yml               # Development environment configuration
-├── application-staging.yml           # Staging environment configuration
-├── application-prod.yml              # Production environment configuration
-├── application-legacy.yml            # Backward compatibility configuration
-└── application-security-example.yml  # Security configuration example
+│   │   └── tracing-base.yml           # Distributed tracing
+│   ├── persistence/
+│   │   └── state-persistence-base.yml # State persistence (3-tier fallback)
+│   ├── base/                          # Base config (backward compatible)
+│   │   ├── server-base.yml
+│   │   ├── model-services-base.yml
+│   │   └── monitoring-base.yml
+│   └── security/                      # Security config (backward compatible)
+│       ├── security-base.yml
+│       ├── persistence-base.yml
+│       └── audit-base.yml
+├── application-dev.yml                # Development profile
+├── application-staging.yml            # Staging profile
+├── application-prod.yml               # Production profile
+├── application-legacy.yml             # Legacy compatibility profile
+└── application-migrate.yml            # Data migration profile
 ```
 
 ### Configuration Import Mechanism
 
-The main configuration file `application.yml` imports various module configurations through the `spring.config.import` mechanism:
+The main `application.yml` imports module configurations via `spring.config.import`:
 
 ```yaml
 # application.yml
 spring:
   config:
     import:
+      # common module
+      - classpath:config/common/server.yml
+      - classpath:config/common/webclient.yml
+      - classpath:config/common/logging.yml
+      - classpath:config/common/scheduling.yml
+      - classpath:config/common/cluster.yml
+      # config-service module
+      - classpath:config/config-service/core.yml
+      # router module
+      - classpath:config/router/adapter.yml
+      - classpath:config/router/loadbalancer.yml
+      - classpath:config/router/ratelimit.yml
+      - classpath:config/router/circuitbreaker.yml
+      - classpath:config/router/fallback.yml
+      - classpath:config/router/services.yml
+      - classpath:config/router/rules.yml
+      - classpath:config/router/pools.yml
+      # auth module
+      - classpath:config/auth/jwt.yml
+      - classpath:config/auth/api-key.yml
+      - classpath:config/auth/audit.yml
+      - classpath:config/auth/sanitization.yml
+      # monitor / tracing / persistence modules
+      - classpath:config/base/monitoring-base.yml
+      - classpath:config/monitor/slow-query-alerts.yml
+      - classpath:config/monitor/error-tracking.yml
+      - classpath:config/monitor/persistence-monitoring-base.yml
+      - classpath:config/tracing/tracing-base.yml
+      - classpath:config/persistence/state-persistence-base.yml
+      # backward compatibility
       - classpath:config/base/server-base.yml
       - classpath:config/base/model-services-base.yml
-      - classpath:config/base/monitoring-base.yml
-      - classpath:config/tracing/tracing-base.yml
       - classpath:config/security/security-base.yml
-      - classpath:config/monitoring/slow-query-alerts.yml
-      - classpath:config/monitoring/error-tracking.yml
+      - classpath:config/security/persistence-base.yml
+      - classpath:config/security/audit-base.yml
+      # external config files (must be last; later imports win)
+      - optional:file:/app/config/application.yml
+      - optional:file:/app/config/auth/jwt.yml
+      - optional:file:/app/config/router/services.yml
 ```
-
-This approach makes the configuration clearer and easier to maintain and extend.
 
 ## Configuration Overview
 
-JAiRouter supports two main configuration approaches:
+Trunkline supports two main configuration styles:
 
-1. **Static Configuration**: Defined in YAML files, loaded at startup
-2. **Dynamic Configuration**: Updated at runtime via REST APIs
+1. **Static config**: defined in YAML files, loaded at startup
+2. **Dynamic config**: updated at runtime via REST API (instances, rate limit, circuit breaker, rules, pools, etc.)
 
 ## Configuration Hierarchy
 
-Configuration is loaded in the following order (later sources override earlier ones):
+Loaded in this order (later sources override earlier ones):
 
-1. Default configuration (embedded in JAR)
-2. `application.yml` (classpath)
+1. Default configuration (bundled in the JAR)
+2. `application.yml` (classpath) and its `spring.config.import` modules
 3. `./application.yml` (current directory)
 4. `./config/application.yml` (config directory)
 5. Environment variables
-6. Command line arguments
-7. Dynamic configuration (runtime updates)
+6. Command-line arguments
+7. Dynamic configuration (runtime updates, persisted to StoreManager)
 
 ## Basic Structure
 
-```
+```yaml
 server:
   port: 8080
 
 model:
   services:
-    <service-type>:
+    <serviceType>:
       load-balance:
         type: <strategy>
       rate-limit:
@@ -94,29 +150,28 @@ model:
         enabled: true
         # ... circuit breaker settings
       fallback:
-        strategy: <fallback-type>
+        strategy: <fallback type>
         # ... fallback settings
       instances:
-        - name: <model-name>
-          baseUrl: <service-url>
-          path: <api-path>
-          weight: <load-balance-weight>
-          # ... instance-specific settings
+        - name: <model name>
+          base-url: <service URL>
+          path: <API path>
+          weight: <load balance weight>
+          # ... instance settings
 
 store:
-  type: <storage-backend>
-  # ... storage settings
+  type: jpa            # default jpa
+  path: ./config       # config import/export directory
+  fallback-storage: memory
 ```
 
 ## Service Types
-
-JAiRouter supports the following service types:
 
 | Service Type | Description | Default Path |
 |--------------|-------------|--------------|
 | `chat` | Chat completions | `/v1/chat/completions` |
 | `embedding` | Text embeddings | `/v1/embeddings` |
-| `rerank` | Text reranking | `/v1/rerank` |
+| `rerank` | Reranking | `/v1/rerank` |
 | `tts` | Text-to-speech | `/v1/audio/speech` |
 | `stt` | Speech-to-text | `/v1/audio/transcriptions` |
 | `imgGen` | Image generation | `/v1/images/generations` |
@@ -126,85 +181,82 @@ JAiRouter supports the following service types:
 
 ### 1. Load Balancing
 
-Configure how requests are distributed across service instances:
+Distributes requests across service instances (see `config/router/loadbalancer.yml`):
 
 ```yaml
 model:
-  services:
-    chat:
-      load-balance:
-        type: round-robin  # random, round-robin, least-connections, ip-hash
+  load-balance:
+    type: round-robin        # default random
+    hash-algorithm: md5      # hash algorithm for ip-hash / consistent-hash
+    virtual-nodes: 150       # virtual nodes for consistent hash
+    ewma-alpha: 0.2          # EWMA smoothing factor for latency strategy
 ```
 
-**Available Strategies:**
+**Available strategies:**
 
-- **random**: Random selection of instances
-- **round-robin**: Sequential rotation through instances
-- **least-connections**: Route to instance with fewest active connections
-- **ip-hash**: Consistent routing based on client IP hash
+- **random**: pick a random instance (default)
+- **round-robin**: poll instances in order
+- **least-connections**: route to the instance with the fewest active connections
+- **ip-hash**: client-IP hashing for session stickiness
+- **consistent-hash**: consistent hashing with virtual nodes (small impact on membership changes)
+- **latency**: EWMA latency-weighted random (lower latency = higher weight)
 
 ### 2. Rate Limiting
 
-Control request rates to prevent service overload:
+Controls request rate to protect backends (see `config/router/ratelimit.yml`):
 
 ```yaml
 model:
-  services:
-    chat:
-      rate-limit:
-        algorithm: token-bucket
-        capacity: 100          # Maximum tokens in bucket
-        rate: 10               # Tokens added per second
-        client-ip-enable: true # Enable per-client-IP rate limiting
+  rate-limit:
+    enabled: false
+    algorithm: token-bucket   # default token-bucket
+    capacity: 1000
+    rate: 100
+    scope: service            # service / instance / global
+    client-ip-enable: false   # enable per-client-IP limiting
+    key-dimension: client-ip  # client-ip / api-key / tenant
 ```
 
-**Available Algorithms:**
+**Available algorithms (per `ComponentFactory`):**
 
-- **token-bucket**: Allow bursts up to bucket capacity
-- **leaky-bucket**: Smooth, constant rate limiting
-- **sliding-window**: Rate limit over time windows
-- **warm-up**: Gradually increase rate limit
+- **token-bucket**: allows bursts up to capacity (default)
+- **leaky-bucket**: smooth constant-rate output
+- **sliding-window**: precise time-window control
+- **warm-up**: ramps up the rate after startup
 
-### 3. Circuit Breaking
+### 3. Circuit Breaker
 
-Prevent cascading failures with circuit breaker pattern:
+Prevents cascading failures (see `config/router/circuitbreaker.yml`):
 
 ```yaml
 model:
-  services:
-    chat:
-      circuit-breaker:
-        enabled: true
-        failure-threshold: 5      # Failures before opening circuit
-        recovery-timeout: 30000   # Time before attempting recovery (ms)
-        success-threshold: 3      # Successes needed to close circuit
+  circuit-breaker:
+    enabled: true
+    failureThreshold: 5      # failures before opening
+    timeout: 60000           # OPEN duration (ms) before HALF_OPEN
+    successThreshold: 2      # successes in HALF_OPEN to close
 ```
 
-### 4. Fallback Strategies
+### 4. Fallback Strategy
 
-Define fallback behavior when services are unavailable:
+Defines behavior when a service is unavailable (see `config/router/fallback.yml`):
 
 ```yaml
 model:
-  services:
-    chat:
-      fallback:
-        strategy: default
-        message: "Service temporarily unavailable"
-        # OR
-        strategy: cache
-        cache-ttl: 300000  # Cache TTL in milliseconds
+  fallback:
+    enabled: true
+    strategy: default        # default / cache / mock
 ```
 
-**Available Types:**
+**Available strategies:**
 
-- **default**: Return predefined message
-- **cache**: Return cached responses
-- **none**: No fallback (return error)
+- **default**: return a predefined fallback response
+- **cache**: return the last successful cached response (rerank fallback cache defaults `cache-size: 100`, `cache-ttl: 600000` ms)
+- **mock**: return a mock response
 
 ### 5. Service Instances
 
-Define the actual service endpoints:
+Defines actual endpoints (see `config/router/services.yml`):
 
 ```yaml
 model:
@@ -212,76 +264,79 @@ model:
     chat:
       instances:
         - name: "qwen2.5:7b"
-          baseUrl: "http://server1:11434"
+          base-url: "http://server1:11434"
           path: "/v1/chat/completions"
           weight: 2
-          timeout: 30000
           headers:
             Authorization: "Bearer token"
-            Custom-Header: "value"
         - name: "qwen2.5:14b"
-          baseUrl: "http://server2:11434"
+          base-url: "http://server2:11434"
           path: "/v1/chat/completions"
           weight: 1
 ```
 
-**Instance Properties:**
+**Instance fields:**
 
-- `name`: Model name identifier
-- `baseUrl`: Service base URL
+- `name`: model identifier
+- `base-url`: service base URL (kebab-case recommended in YAML)
 - `path`: API endpoint path
-- `weight`: Load balancing weight (higher = more traffic)
-- `timeout`: Request timeout in milliseconds
-- `headers`: Custom headers to include in requests
+- `weight`: load balance weight (higher = more traffic)
+- `instance-id`: unique instance id (defaults to `name@baseUrl`)
+- `adapter`: instance-level adapter (falls back to service/global adapter)
+- `headers`: custom request headers
+- `tags`: instance tags (key-value pairs for tag-based routing)
 
-### 6. Storage Configuration
+### 6. Store Configuration
 
-Configure how dynamic configuration is persisted:
+Configures persistence of dynamic configuration (see `config/config-service/core.yml`):
 
 ```yaml
 store:
-  type: file              # memory or file
-  path: ./config          # File storage directory
-  auto-backup: true       # Enable automatic backups
-  backup-interval: 3600   # Backup interval in seconds
+  type: jpa                 # default jpa (H2), alternatives redis / memory
+  path: ./config            # config import/export directory
+  fallback-storage: memory  # fallback storage on degradation
+  migration:
+    enabled: true           # migrate from legacy file store to JPA
+  security-migration:
+    enabled: true           # migrate security data (API keys/JWT accounts)
 ```
 
-**Storage Types:**
-
-- **memory**: In-memory storage (lost on restart)
-- **file**: File-based storage (persisted across restarts)
+The default datasource is H2 (`spring.datasource.url: jdbc:h2:file:./data/trunkline`). Use `DATABASE_URL` / `DATABASE_USERNAME` / `DATABASE_PASSWORD` to switch to PostgreSQL.
 
 ## Environment-Specific Configuration
 
-JAiRouter supports multiple environment configuration files:
+- **Development**: `application-dev.yml`
+- **Staging**: `application-staging.yml`
+- **Production**: `application-prod.yml`
+- **Legacy compatibility**: `application-legacy.yml`
+- **Data migration**: `application-migrate.yml`
 
-- **Development Environment**: `application-dev.yml`
-- **Staging Environment**: `application-staging.yml`
-- **Production Environment**: `application-prod.yml`
-- **Compatibility Mode**: `application-legacy.yml`
-- **Security Example**: `application-security-example.yml`
-
-Environment configuration files only contain the differences from the base configuration, following Spring Boot's configuration override mechanism.
+Profile files only contain the deltas, following Spring Boot's override mechanism.
 
 ## Environment Variables
 
-Override configuration using environment variables:
-
 ```bash
-# Server configuration
+# Required: JWT secret (>= 32 chars) and initial admin password
+export JWT_SECRET="your-secret-at-least-32-chars"
+export INITIAL_ADMIN_PASSWORD="your-admin-password"
+
+# Server port
 export SERVER_PORT=8080
 
-# Model service configuration
+# Model service config (Spring Boot relaxed binding)
 export MODEL_LOAD_BALANCE_TYPE=round-robin
-export MODEL_RATE_LIMIT_TYPE=token-bucket
+export MODEL_RATE_LIMIT_ALGORITHM=token-bucket
+
+# Redis (if distributed counters / state persistence Tier1 enabled)
+export REDIS_HOST=localhost
+export REDIS_PORT=6379
+export REDIS_PASSWORD=""
 ```
 
-## Command Line Arguments
-
-Override configuration via command line:
+## Command-Line Arguments
 
 ```bash
-java -jar jairouter.jar \
+java -jar trunkline.jar \
   --server.port=8080 \
   --model.load-balance.type=round-robin \
   --spring.profiles.active=prod
@@ -289,118 +344,58 @@ java -jar jairouter.jar \
 
 ## Configuration Validation
 
-JAiRouter validates configuration at startup. Common validation errors:
+Trunkline validates sensitive configuration and key integrity settings at startup. The admin API exposes:
 
-### Missing Required Fields
+- `GET /api/config/sources`: where each config key was loaded from
+- `GET /api/config/validation-rules`: validation rule definitions (sensitive secret min length, LB strategy enum, circuit breaker threshold ranges, etc.)
+- `GET /api/config/environment-variables`: required/optional environment variable guide
 
-```
-# ❌ Invalid - missing baseUrl
-model:
-  services:
-    chat:
-      instances:
-        - name: "model"
-          path: "/v1/chat/completions"
+See [Validation Rules](validation-rules.md).
 
-# ✅ Valid
-model:
-  services:
-    chat:
-      instances:
-        - name: "model"
-          baseUrl: "http://localhost:11434"
-          path: "/v1/chat/completions"
-```
+## Best Practices
 
-### Invalid Configuration Values
+### 1. Use Descriptive Names
 
-```
-# ❌ Invalid - unsupported load balance type
-model:
-  services:
-    chat:
-      load-balance:
-        type: invalid-type
-
-# ✅ Valid
-model:
-  services:
-    chat:
-      load-balance:
-        type: round-robin
-```
-
-## Configuration Best Practices
-
-### 1. Use Meaningful Names
-
-```
-# ✅ Good - descriptive names
+```yaml
 model:
   services:
     chat:
       instances:
         - name: "qwen2.5-7b-fast"
-          baseUrl: "http://fast-gpu-server:11434"
+          base-url: "http://fast-gpu-server:11434"
         - name: "qwen2.5-14b-accurate"
-          baseUrl: "http://high-memory-server:11434"
+          base-url: "http://high-memory-server:11434"
 ```
 
-### 2. Set Appropriate Timeouts
+### 2. Use Weights for Progressive Rollout
 
-```
-# ✅ Good - reasonable timeouts
-model:
-  services:
-    chat:
-      instances:
-        - name: "model"
-          baseUrl: "http://server:11434"
-          timeout: 30000  # 30 seconds for chat
-    embedding:
-      instances:
-        - name: "embedding"
-          baseUrl: "http://server:11434"
-          timeout: 10000  # 10 seconds for embeddings
-```
-
-### 3. Configure Health Checks
-
-```
-# ✅ Good - enable health monitoring
-model:
-  load-balance:
-    health-check:
-      enabled: true
-      interval: 30000
-      timeout: 5000
-```
-
-### 4. Use Weights for Gradual Rollouts
-
-```
-# ✅ Good - gradual rollout with weights
+```yaml
 model:
   services:
     chat:
       instances:
         - name: "stable-model-v1"
-          baseUrl: "http://stable-server:11434"
+          base-url: "http://stable-server:11434"
           weight: 9  # 90% traffic
         - name: "new-model-v2"
-          baseUrl: "http://new-server:11434"
+          base-url: "http://new-server:11434"
           weight: 1  # 10% traffic
 ```
 
+### 3. Keep Secrets in Environment Variables
+
+JWT secret, admin password, GPUStack token and Redis password must be injected via environment variables, never hard-coded in YAML.
+
 ## Next Steps
 
-- [Application Configuration](application-config.md) - Detailed application settings
-- [Dynamic Configuration](dynamic-config.md) - Runtime configuration management
-- [Load Balancing](load-balancing.md) - Load balancing strategies
-- [Rate Limiting](rate-limiting.md) - Rate limiting algorithms
-- [Circuit Breaker](circuit-breaker.md) - Circuit breaker configuration
-- [Storage Configuration](store-config.md) - Storage and auto-merge configuration
-- [Version Management](version-management.md) - Configuration version management: Apply vs Rollback
-- [JWT Persistence Configuration](jwt-persistence.md) - JWT token persistence and security audit configuration
-- [KV Cache](kv-cache.md) - Prefix-cache-friendly gateway: sticky routing and cache metrics (v2.9.0)
-- [Response Cache](response-cache.md) - Full response cache: deterministic requests reuse the cached response and skip the downstream; P1 adds streaming SSE cache + invalidation API + rate-limit short-circuit (v2.9.10)
+- [Application Config](application-config.md) - detailed application settings
+- [Dynamic Config](dynamic-config.md) - runtime configuration management
+- [Load Balancing](load-balancing.md) - load balancing strategies
+- [Rate Limiting](rate-limiting.md) - rate limiting algorithms
+- [Circuit Breaker](circuit-breaker.md) - circuit breaker configuration
+- [Store Configuration](store-config.md) - storage and data migration
+- [Model Pools](model-pools.md) - model pool configuration and pool-level quotas
+- [Version Management](version-management.md) - config version apply vs rollback
+- [KV Cache](kv-cache.md) - prefix-cache-friendly gateway: sticky routing & cache metrics
+- [Response Cache](response-cache.md) - full response cache: deterministic requests reuse cached responses and skip upstream
+- [Quota Ledger](quota.md) - multi-dimensional quota ledger

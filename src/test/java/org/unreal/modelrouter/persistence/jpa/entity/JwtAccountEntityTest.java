@@ -34,15 +34,18 @@ class JwtAccountEntityTest {
                 "testuser",
                 "password123",
                 "[\"ADMIN\",\"USER\"]",
+                "研发部",
                 true,
                 now,
-                now
+                now,
+                "default"
         );
 
         assertEquals(1L, entity.getId());
         assertEquals("testuser", entity.getUsername());
         assertEquals("password123", entity.getPassword());
         assertEquals("[\"ADMIN\",\"USER\"]", entity.getRoles());
+        assertEquals("研发部", entity.getDepartment());
         assertTrue(entity.getEnabled());
         assertEquals(now, entity.getCreatedAt());
         assertEquals(now, entity.getUpdatedAt());
@@ -57,6 +60,7 @@ class JwtAccountEntityTest {
                 .username("builderuser")
                 .password("builderpass")
                 .roles("[\"USER\"]")
+                .department("市场部")
                 .enabled(true)
                 .createdAt(now)
                 .updatedAt(now)
@@ -66,6 +70,7 @@ class JwtAccountEntityTest {
         assertEquals("builderuser", entity.getUsername());
         assertEquals("builderpass", entity.getPassword());
         assertEquals("[\"USER\"]", entity.getRoles());
+        assertEquals("市场部", entity.getDepartment());
         assertTrue(entity.getEnabled());
     }
 

@@ -1,7 +1,9 @@
 // Playground 缓存管理
 import { ref, reactive } from 'vue'
-import { getServiceInstances } from '@/api/dashboard'
+import { getServiceInstances, getMyServiceInstances } from '@/api/instance'
 import { getPoolList } from '@/api/pools'
+import { getMyApiKeys } from '@/api/apiKey'
+import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import { i18n } from '@/i18n'
 
@@ -11,6 +13,83 @@ import { COMMON_SERVICE_TYPES } from '@/constants/serviceTypes'
 const { t: gt } = i18n.global as unknown as {
   t: (key: string, named?: Record<string, string | number>) => string
 }
+
+/**
+ * 当前登录用户名 —— 用作分组缓存的隔离键。
+ *
+ * <p><b>为什么必须隔离</b>：本模块的缓存是<b>模块级</b>的（SPA 进程内共享）。
+ * 分组候选对运维是「全公司资源池」、对员工是「自己白名单内的分组」——
+ * 若不隔离，A 运维登录后登出、B 员工接着登录，B 会继承 A 的全量分组，
+ * 等于绕过 {@code config:pools:read} 权限收回（越权泄漏）。
+ * 因此缓存键绑定当前用户名，用户切换即换键（旧键自然失效）。</p>
+ */
+const currentOwnerKey = (): string => {
+  try {
+    return useUserStore().userInfo?.username || 'anonymous'
+  } catch {
+    return 'anonymous'
+  }
+}
+
+/**
+ * 是否为运维视角（ops / admin）—— 运维看全部分组，不做收窄。
+ *
+ * <p>基于 JWT 真实角色判定，<b>不经 {@code logicalRoles}</b>（历史上的演示角色
+ * 徽章已移除，{@code logicalRoles} 现在同样由 JWT 角色唯一决定，保留直接读 JWT
+ * 的写法作为纵深防御）。</p>
+ *
+ * <p><b>异常时保守判为 ops</b>：运维看明文，误判为 ops 最多白屏；误判为员工
+ * 会拿到脱敏数据并可能覆盖真实配置。因此 catch 返回 true（纵深防御，
+ * 后端员工 VO 裁剪是最后防线）。</p>
+ */
+const isOpsScope = (): boolean => {
+  try {
+    const userStore = useUserStore()
+    const jwtRoles = userStore.userInfo?.roles || []
+    return jwtRoles.some(r => r === 'OPERATOR' || r === 'ADMIN')
+  } catch {
+    return true
+  }
+}
+
+/**
+ * 解析候选分组名。
+ *
+ * <p><b>P0-L 越权泄漏收敛</b>：员工（非 ops/admin）**不再**调用
+ * {@code GET /api/config/pools/list}（返回全公司资源池，含成员 instanceId / weight；
+ * 该接口已随 {@code config:pools:read} 权限收紧对员工关闭），改用「我的密钥」响应里的
+ * {@code modelScope}（服务端按白名单解析后下发）推导候选分组。</p>
+ *
+ * <p>运维 / 管理员保持拉取全量资源池 —— 排障需要看到全部模型。</p>
+ *
+ * @param serviceType 服务类型（chat / embedding / …）
+ * @returns 该服务类型下的候选分组名
+ */
+const resolveGroupNames = async (serviceType: string): Promise<string[]> => {
+  if (!isOpsScope()) {
+    const list = await getMyApiKeys()
+    const scope = list?.modelScope || []
+    const names: string[] = []
+    for (const s of scope) {
+      if (!s?.poolName) continue
+      if ((s.serviceType || '').toLowerCase() !== serviceType.toLowerCase()) continue
+      if (!names.includes(s.poolName)) names.push(s.poolName)
+    }
+    return names
+  }
+
+  const response = await getPoolList()
+  const pools = (response.data?.data || []) as Array<{
+    poolName?: string
+    serviceType?: string
+    enabled?: boolean
+  }>
+
+  return pools
+    .filter((p) => (p.serviceType || '').toLowerCase() === serviceType.toLowerCase() && p.enabled !== false && Boolean(p.poolName))
+    .map((p) => p.poolName as string)
+}
+
 // 缓存接口定义
 interface CacheItem<T> {
   data: T
@@ -29,9 +108,22 @@ interface ServiceInstance {
 const CACHE_EXPIRE_TIME = 5 * 60 * 1000
 
 // 全局缓存状态
+//
+// P0-L：三个缓存（instances / models / groups）的键统一为「用户名::服务类型」复合键。
+// 模块级缓存是 SPA 进程内共享的 —— 若按 serviceType 单键存储，运维登录后缓存的全量实例
+// 会被下一个登录的员工继承（跨账号缓存泄漏，等于绕过刚收回的 config:instances:read）。
 const instancesCache = reactive<Record<string, CacheItem<ServiceInstance[]>>>({})
 const modelsCache = reactive<Record<string, CacheItem<string[]>>>({})
 const groupsCache = reactive<Record<string, CacheItem<string[]>>>({})
+
+/** 复合缓存键：用户名::服务类型 */
+const cacheKeyOf = (serviceType: string): string => `${currentOwnerKey()}::${serviceType}`
+
+/** 从复合缓存键里取回真实的服务类型（用于展示与刷新） */
+const serviceTypeOfKey = (cacheKey: string): string => {
+  const idx = cacheKey.lastIndexOf('::')
+  return idx >= 0 ? cacheKey.slice(idx + 2) : cacheKey
+}
 
 // 请求去重控制
 const pendingRequests = new Map<string, Promise<any>>()
@@ -69,12 +161,15 @@ const dedupeRequest = <T>(key: string, fn: () => Promise<T>): Promise<T> => {
 
 // 获取实例列表（带缓存）
 export const getCachedInstances = async (serviceType: string, forceRefresh = false): Promise<ServiceInstance[]> => {
+  // P0-L：缓存键绑定当前用户名，避免跨账号复用（模块级缓存）
+  const cacheKey = cacheKeyOf(serviceType)
+
   // 初始化缓存
-  if (!instancesCache[serviceType]) {
-    instancesCache[serviceType] = createEmptyCache<ServiceInstance[]>([])
+  if (!instancesCache[cacheKey]) {
+    instancesCache[cacheKey] = createEmptyCache<ServiceInstance[]>([])
   }
 
-  const cache = instancesCache[serviceType]
+  const cache = instancesCache[cacheKey]
 
   // 如果缓存有效且不强制刷新，返回缓存数据
   if (!forceRefresh && isCacheValid(cache) && cache.data.length > 0) {
@@ -96,12 +191,18 @@ export const getCachedInstances = async (serviceType: string, forceRefresh = fal
   }
 
   // 使用请求去重机制避免重复请求
-  return dedupeRequest(`instances-${serviceType}`, async () => {
+  return dedupeRequest(`instances-${cacheKey}`, async () => {
     console.log(`[Cache] 开始获取 ${serviceType} 实例数据...`)
     cache.loading = true
-    
+
     try {
-      const response = await getServiceInstances(serviceType)
+      // P0-L 越权泄漏收敛：普通员工没有 config:instances:read 权限，
+      // 无法访问 /config/instance/{type}（其响应含上游厂商 API Key 明文），
+      // 改走员工自助端点 /api/instance/mine（响应已脱敏）。
+      // 运维/管理员保持走管理面，以便看到完整配置。
+      const response = isOpsScope()
+        ? await getServiceInstances(serviceType)
+        : await getMyServiceInstances(serviceType)
       if (response.data?.success) {
         const newInstances = response.data.data || []
         
@@ -133,12 +234,15 @@ export const getCachedInstances = async (serviceType: string, forceRefresh = fal
 
 // 获取模型列表（从实例缓存中提取，避免重复请求）
 export const getCachedModels = async (serviceType: string, forceRefresh = false): Promise<string[]> => {
+  // P0-L：缓存键绑定当前用户名（与 instancesCache 一致）
+  const cacheKey = cacheKeyOf(serviceType)
+
   // 初始化缓存
-  if (!modelsCache[serviceType]) {
-    modelsCache[serviceType] = createEmptyCache<string[]>([])
+  if (!modelsCache[cacheKey]) {
+    modelsCache[cacheKey] = createEmptyCache<string[]>([])
   }
 
-  const cache = modelsCache[serviceType]
+  const cache = modelsCache[cacheKey]
 
   // 如果缓存有效且不强制刷新，返回缓存数据
   if (!forceRefresh && isCacheValid(cache) && cache.data.length > 0) {
@@ -188,13 +292,19 @@ export const getCachedModels = async (serviceType: string, forceRefresh = false)
 }
 
 // 获取分组（模型分组/资源池）名称列表，供测试场把分组作为虚拟模型选择
+//
+// P0-L：缓存键绑定当前用户名（`用户名::服务类型`）——模块级缓存不得跨账号复用，
+// 否则运维缓存的全量分组会被下一个登录的员工读到（越权泄漏）。
 export const getCachedGroups = async (serviceType: string, forceRefresh = false): Promise<string[]> => {
+  const owner = currentOwnerKey()
+  const cacheKey = cacheKeyOf(serviceType)
+
   // 初始化缓存
-  if (!groupsCache[serviceType]) {
-    groupsCache[serviceType] = createEmptyCache<string[]>([])
+  if (!groupsCache[cacheKey]) {
+    groupsCache[cacheKey] = createEmptyCache<string[]>([])
   }
 
-  const cache = groupsCache[serviceType]
+  const cache = groupsCache[cacheKey]
 
   // 如果缓存有效且不强制刷新，返回缓存数据
   if (!forceRefresh && isCacheValid(cache) && cache.data.length > 0) {
@@ -215,21 +325,12 @@ export const getCachedGroups = async (serviceType: string, forceRefresh = false)
     })
   }
 
-  // 拉取资源池列表，按服务类型过滤出启用的分组名
-  return dedupeRequest(`groups-${serviceType}`, async () => {
+  // 拉取分组候选：员工走「我的密钥」的 modelScope，运维走全量资源池
+  return dedupeRequest(`groups-${owner}-${serviceType}`, async () => {
     cache.loading = true
 
     try {
-      const response = await getPoolList()
-      const pools = (response.data?.data || []) as Array<{
-        poolName?: string
-        serviceType?: string
-        enabled?: boolean
-      }>
-
-      const names = pools
-        .filter((p) => p.serviceType === serviceType && p.enabled !== false && Boolean(p.poolName))
-        .map((p) => p.poolName as string)
+      const names = await resolveGroupNames(serviceType)
 
       // 更新缓存
       cache.data = names
@@ -255,8 +356,9 @@ export const getCachedGroups = async (serviceType: string, forceRefresh = false)
 
 // 获取缓存状态
 export const getCacheStatus = () => {
-  const instancesStatus = Object.entries(instancesCache).map(([serviceType, cache]) => ({
-    serviceType,
+  // P0-L：缓存键是「用户名::服务类型」复合键，展示时只取真实服务类型部分
+  const instancesStatus = Object.entries(instancesCache).map(([cacheKey, cache]) => ({
+    serviceType: serviceTypeOfKey(cacheKey),
     type: 'instances',
     hasData: cache.data.length > 0,
     isValid: isCacheValid(cache),
@@ -264,8 +366,8 @@ export const getCacheStatus = () => {
     timestamp: cache.timestamp
   }))
 
-  const modelsStatus = Object.entries(modelsCache).map(([serviceType, cache]) => ({
-    serviceType,
+  const modelsStatus = Object.entries(modelsCache).map(([cacheKey, cache]) => ({
+    serviceType: serviceTypeOfKey(cacheKey),
     type: 'models',
     hasData: cache.data.length > 0,
     isValid: isCacheValid(cache),
@@ -279,9 +381,21 @@ export const getCacheStatus = () => {
 // 清除指定服务类型的缓存
 export const clearCache = (serviceType?: string) => {
   if (serviceType) {
-    delete instancesCache[serviceType]
-    delete modelsCache[serviceType]
-    delete groupsCache[serviceType]
+    // P0-L：三个缓存的键都是「用户名::服务类型」复合键。
+    // 应修3：必须同时限定「当前用户名::」前缀，只清当前用户的该服务类型缓存 ——
+    // 否则运维在「模型配置」页清理缓存时，会把其他用户（含已登出会话）的
+    // 同 serviceType 缓存一并清掉（endsWith 后缀匹配会跨用户命中）。
+    const ownerPrefix = `${currentOwnerKey()}::`
+    const suffix = `::${serviceType}`
+    Object.keys(instancesCache)
+      .filter(key => key.startsWith(ownerPrefix) && key.endsWith(suffix))
+      .forEach(key => delete instancesCache[key])
+    Object.keys(modelsCache)
+      .filter(key => key.startsWith(ownerPrefix) && key.endsWith(suffix))
+      .forEach(key => delete modelsCache[key])
+    Object.keys(groupsCache)
+      .filter(key => key.startsWith(ownerPrefix) && key.endsWith(suffix))
+      .forEach(key => delete groupsCache[key])
   } else {
     // 清除所有缓存
     Object.keys(instancesCache).forEach(key => delete instancesCache[key])
@@ -307,7 +421,10 @@ export const preloadCommonData = async () => {
 
 // 刷新所有缓存
 export const refreshAllCache = async () => {
+  // P0-L：缓存键是「用户名::服务类型」复合键，必须先拆回真实服务类型，
+  // 否则会拿 `admin::chat` 这种非法值去请求后端。
   const serviceTypes = [...Object.keys(instancesCache), ...Object.keys(modelsCache)]
+    .map(serviceTypeOfKey)
   const uniqueServiceTypes = [...new Set(serviceTypes)]
   
   const promises = uniqueServiceTypes.map(async (serviceType) => {

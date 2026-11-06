@@ -22,10 +22,14 @@ public class JwtConfig {
 
     /**
      * JWT令牌请求头名称
+     *
+     * <p>品牌切换（S2 任务 26a①）：默认值从 {@code Jairouter_Token} 改为
+     * {@code Trunkline_Token}；服务端双读回落旧头（见 DefaultAuthenticationConverter），
+     * 旧调用方平滑过渡。显式配置过 jwt-header 的部署不受影响。
      */
     @NotBlank
     @Size(min = 1, max = 100)
-    private String jwtHeader = "Jairouter_Token";
+    private String jwtHeader = "Trunkline_Token";
 
     /**
      * JWT签名密钥
@@ -59,7 +63,7 @@ public class JwtConfig {
      */
     @NotBlank
     @Size(min = 1, max = 100)
-    private String issuer = "jairouter";
+    private String issuer = "trunkline";
 
     /**
      * 是否启用令牌黑名单

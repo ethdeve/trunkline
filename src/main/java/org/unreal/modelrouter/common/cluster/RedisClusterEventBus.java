@@ -37,16 +37,17 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * @author JAiRouter Team
  * @since 3.2.4
+ * @modified Trunkline Team
  */
 @Slf4j
 @Component
 @ConditionalOnProperty(
-        name = "jairouter.cluster.events.enabled",
+        name = "trunkline.cluster.events.enabled",
         havingValue = "true")
 public class RedisClusterEventBus implements ClusterEventBus {
 
     /** Redis 通道前缀，避免与其它用途的通道冲突。 */
-    private static final String CHANNEL_PREFIX = "jairouter:events:";
+    private static final String CHANNEL_PREFIX = "trunkline:events:";
 
     /**
      * 消息信封：携带来源副本标识，供订阅侧做回环过滤。
@@ -88,7 +89,7 @@ public class RedisClusterEventBus implements ClusterEventBus {
         this.objectMapper = objectMapper;
         final ReactiveRedisConnectionFactory factory = connectionFactoryProvider.getIfAvailable();
         if (factory == null) {
-            log.warn("jairouter.cluster.events.enabled=true 但 RedisConnectionFactory 不可用，"
+            log.warn("trunkline.cluster.events.enabled=true 但 RedisConnectionFactory 不可用，"
                     + "集群事件广播降级为「仅本副本可见」");
             this.template = null;
             this.listenerContainer = null;

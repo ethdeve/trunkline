@@ -59,6 +59,7 @@
     "unsupportedTag": "暂不支持",
     "emptyModels": "未发现可用模型，请检查上游地址与密钥是否正确，或换一个服务商。",
     "importSuccess": "已成功导入 {count} 个模型",
+    "importSkipped": "{count} 个模型被跳过：{detail}",
     "needImport": "请至少导入一个模型后再继续。",
 
     "doneTitle": "接入完成",

@@ -1,5 +1,5 @@
 {
-  "name": "jairouter-console",
+  "name": "trunkline-console",
   "version": "0.1.0",
   "type": "module",
   "scripts": {
@@ -8,7 +8,9 @@
     "preview": "vite preview",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
     "type-check": "vue-tsc --noEmit",
-    "test:api": "vitest run src/api"
+    "test:api": "vitest run src/api",
+    "verify:employee-terms": "node scripts/verify-employee-terms.mjs",
+    "verify:ui-colors": "node scripts/verify-ui-colors.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
@@ -22,6 +24,7 @@
     "marked": "^18.0.2",
     "minimatch": "^10.2.5",
     "pinia": "^2.3.1",
+    "qrcode": "^1.5.4",
     "sortablejs": "^1.15.7",
     "vue": "^3.5.13",
     "vue-echarts": "^8.0.1",
@@ -32,6 +35,7 @@
     "@rushstack/eslint-patch": "^1.10.5",
     "@tsconfig/node18": "^18.2.4",
     "@types/node": "^22.10.7",
+    "@types/qrcode": "^1.5.6",
     "@types/sortablejs": "^1.15.9",
     "@typescript-eslint/eslint-plugin": "^8.65.0",
     "@typescript-eslint/parser": "^8.65.0",
@@ -54,5 +58,5 @@
     "vitest": "^5.0.1",
     "vue-tsc": "^3.3.7"
   },
-  "description": "JAiRouter Console - rebuilt admin frontend"
+  "description": "Trunkline Console - rebuilt admin frontend"
 }

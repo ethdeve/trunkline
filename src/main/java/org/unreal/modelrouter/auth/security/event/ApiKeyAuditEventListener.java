@@ -35,7 +35,7 @@ public class ApiKeyAuditEventListener {
      *
      * <p>该服务此前<b>没有任何调用方</b>，四类告警实际都不会产生；本监听器作为认证相关事件的
      * 单一汇聚点，在失败事件上接线它的「失败次数陡增」与「可疑 IP」两项检查。
-     * 用可选注入以兼容 {@code jairouter.security.alerts.enabled=false} 时不装配该 bean 的场景。</p>
+     * 用可选注入以兼容 {@code trunkline.security.alerts.enabled=false} 时不装配该 bean 的场景。</p>
      */
     @Autowired(required = false)
     private SecurityAlertService securityAlertService;

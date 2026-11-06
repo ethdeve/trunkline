@@ -83,6 +83,11 @@ public class ApiKeyBatchExportVO {
         private String createdBy;
 
         /**
+         * 密钥持有人（分配给谁）；为空表示未单独指定。
+         */
+        private String holder;
+
+        /**
          * 过期时间
          */
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

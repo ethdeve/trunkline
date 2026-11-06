@@ -24,8 +24,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RequiredArgsConstructor
 public class EnhancedJwtBlacklistService {
 
-    private static final String BLACKLIST_KEY_PREFIX = "jwt:blacklist:";
-    private static final String BLACKLIST_BACKUP_KEY_PREFIX = "jwt:blacklist:backup:";
+    private static final String JTI_PREFIX = "jwt:blacklist:jti:";
+    private static final String JTI_BACKUP_PREFIX = "jwt:blacklist:backup:jti:";
+    /** entry（按令牌哈希撤销）维度前缀：撤销侧 RedisBlacklistOperations 写入此命名空间，
+     *  校验侧 isBlacklisted 亦查此命名空间，从而"撤销→重放"必然命中。 */
+    private static final String ENTRY_PREFIX = "jwt:blacklist:entry:";
 
     /** 单次 Redis 查询超时（存储不可达时避免拖死鉴权链路）。 */
     private static final Duration REDIS_CHECK_TIMEOUT = Duration.ofMillis(300);
@@ -71,8 +74,8 @@ public class EnhancedJwtBlacklistService {
         }
 
         String trimmedTokenId = tokenId.trim();
-        String blacklistKey = BLACKLIST_KEY_PREFIX + trimmedTokenId;
-        String backupKey = BLACKLIST_BACKUP_KEY_PREFIX + trimmedTokenId;
+        String blacklistKey = JTI_PREFIX + trimmedTokenId;
+        String backupKey = JTI_BACKUP_PREFIX + trimmedTokenId;
 
         // 1. 立即加入本地缓存
         long expirationTime = System.currentTimeMillis() + (ttlSeconds * 1000);
@@ -146,8 +149,12 @@ public class EnhancedJwtBlacklistService {
         }
 
         // 3. 检查Redis主键（短超时：Redis 不可达时避免拖死管理台/鉴权链路）
-        String blacklistKey = BLACKLIST_KEY_PREFIX + trimmedTokenId;
-        return redisTemplate.hasKey(blacklistKey)
+        //    C2 键命名空间拆分：jti 主键 / jti 备份键 / entry（按令牌哈希撤销）键 三者独立前缀，
+        //    避免字符串"blacklisted"与 JSON 条目在同一 jwt:blacklist: 前缀下互踩。
+        String jtiKey = JTI_PREFIX + trimmedTokenId;
+        String backupKey = JTI_BACKUP_PREFIX + trimmedTokenId;
+        String entryKey = ENTRY_PREFIX + trimmedTokenId;
+        return redisTemplate.hasKey(jtiKey)
                 .timeout(REDIS_CHECK_TIMEOUT)
                 .flatMap(exists -> {
                     if (exists) {
@@ -155,20 +162,29 @@ public class EnhancedJwtBlacklistService {
                         // 同步到本地缓存
                         localBlacklistCache.put(trimmedTokenId, System.currentTimeMillis() + 3600000); // 1小时
                         return Mono.just(true);
-                    } else {
-                        // 4. 检查Redis备份键
-                        String backupKey = BLACKLIST_BACKUP_KEY_PREFIX + trimmedTokenId;
-                        return redisTemplate.hasKey(backupKey)
-                                .timeout(REDIS_CHECK_TIMEOUT)
-                                .map(backupExists -> {
-                                    if (backupExists) {
-                                        log.debug("令牌在Redis备份黑名单中: tokenId={}", trimmedTokenId);
-                                        localBlacklistCache.put(trimmedTokenId, System.currentTimeMillis() + 3600000);
-                                        return true;
-                                    }
-                                    return false;
-                                });
                     }
+                    // 4. 检查Redis备份键
+                    return redisTemplate.hasKey(backupKey)
+                            .timeout(REDIS_CHECK_TIMEOUT)
+                            .flatMap(backupExists -> {
+                                if (backupExists) {
+                                    log.debug("令牌在Redis备份黑名单中: tokenId={}", trimmedTokenId);
+                                    localBlacklistCache.put(trimmedTokenId, System.currentTimeMillis() + 3600000);
+                                    return Mono.just(true);
+                                }
+                                // 5. C2：检查按令牌哈希撤销写入的 entry 键（撤销侧 RedisBlacklistOperations 写入）。
+                                //    校验侧 isTokenBlacklisted 先查 jti、再查 hash，本步确保 hash 撤销必然命中。
+                                return redisTemplate.hasKey(entryKey)
+                                        .timeout(REDIS_CHECK_TIMEOUT)
+                                        .map(entryExists -> {
+                                            if (entryExists) {
+                                                log.debug("令牌在Redis entry 黑名单中: tokenId={}", trimmedTokenId);
+                                                localBlacklistCache.put(trimmedTokenId, System.currentTimeMillis() + 3600000);
+                                                return true;
+                                            }
+                                            return false;
+                                        });
+                            });
                 })
                 // 查询成功即证明存储可用：撤销降级状态（恢复后重新生效）
                 .doOnNext(ignored -> clearStorageDegradation())
@@ -183,7 +199,7 @@ public class EnhancedJwtBlacklistService {
      * （可用性优先），但必须让运维可见：首次失败打一条带安全含义的 WARN，其后同类
      * 失败降为 DEBUG，避免每个请求刷屏掩盖真正的鉴权失败（见 issue #76）。</p>
      *
-     * <p>issue #118：可通过 {@code jairouter.security.jwt.blacklist-fail-closed-when-unavailable}
+     * <p>issue #118：可通过 {@code trunkline.security.jwt.blacklist-fail-closed-when-unavailable}
      * 将同一场景改为 fail-closed——本地缓存未命中时按“在黑名单”返回 {@code true} 并拒绝令牌。
      * 默认 {@code false}，行为与历史完全一致。</p>
      */
@@ -259,13 +275,15 @@ public class EnhancedJwtBlacklistService {
         // 1. 从本地缓存移除
         localBlacklistCache.remove(trimmedTokenId);
 
-        // 2. 从Redis移除
-        String blacklistKey = BLACKLIST_KEY_PREFIX + trimmedTokenId;
-        String backupKey = BLACKLIST_BACKUP_KEY_PREFIX + trimmedTokenId;
+        // 2. 从Redis移除（C2：jti 主键 / jti 备份键 / entry 哈希键 一并清理，命名空间一致）
+        String jtiKey = JTI_PREFIX + trimmedTokenId;
+        String backupKey = JTI_BACKUP_PREFIX + trimmedTokenId;
+        String entryKey = ENTRY_PREFIX + trimmedTokenId;
 
-        return redisTemplate.delete(blacklistKey)
+        return redisTemplate.delete(jtiKey)
                 .flatMap(deleted -> redisTemplate.delete(backupKey))
-                .map(backupDeleted -> {
+                .flatMap(backupDeleted -> redisTemplate.delete(entryKey))
+                .map(entryDeleted -> {
                     log.debug("令牌已从黑名单移除: tokenId={}", trimmedTokenId);
                     return true;
                 })
@@ -336,10 +354,10 @@ public class EnhancedJwtBlacklistService {
      * 获取Redis统计信息
      */
     private Mono<RedisStats> getRedisStats() {
-        return redisTemplate.keys(BLACKLIST_KEY_PREFIX + "*")
+        return redisTemplate.keys(JTI_PREFIX + "*")
                 .count()
                 .flatMap(mainCount ->
-                    redisTemplate.keys(BLACKLIST_BACKUP_KEY_PREFIX + "*")
+                    redisTemplate.keys(JTI_BACKUP_PREFIX + "*")
                             .count()
                             .map(backupCount -> {
                                 RedisStats stats = new RedisStats();

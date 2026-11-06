@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.unreal.modelrouter.config.core.ConfigurationValidator;
+import org.unreal.modelrouter.router.circuitbreaker.CircuitBreakerManager;
 import org.unreal.modelrouter.router.fallback.FallbackStrategy;
 import org.unreal.modelrouter.router.fallback.impl.CacheFallbackStrategy;
 import org.unreal.modelrouter.router.fallback.impl.DefaultFallbackStrategy;
@@ -24,6 +25,8 @@ import org.unreal.modelrouter.router.ratelimit.impl.LeakyBucketRateLimiter;
 import org.unreal.modelrouter.router.ratelimit.impl.SlidingWindowRateLimiter;
 import org.unreal.modelrouter.router.ratelimit.impl.TokenBucketRateLimiter;
 import org.unreal.modelrouter.monitor.tracing.wrapper.TracingWrapperFactory;
+import org.unreal.modelrouter.monitor.monitoring.collector.MetricsCollector;
+import org.unreal.modelrouter.router.checker.ServiceStateManager;
 
 @Component
 public class ComponentFactory {
@@ -31,13 +34,25 @@ public class ComponentFactory {
     
     private final ConfigurationValidator configurationValidator;
     private final TracingWrapperFactory tracingWrapperFactory;
+    // R2: 由 Spring 注入(AsyncMetricsCollector 标 @Primary)，下传给 new 出的 LB 实例，
+    // 否则 LB 上的 @Autowired 字段在 new 出的实例上恒为 null → 指标死代码 / 健康判定退化
+    private final MetricsCollector metricsCollector;
+    private final ServiceStateManager serviceStateManager;
+    // B1: 单一熔断注册表，下传给 new 出的 LB 实例（原 RandomLoadBalancer 私有熔断表已删除）
+    private final CircuitBreakerManager circuitBreakerManager;
 
     @Autowired
     public ComponentFactory(final ConfigurationValidator configurationValidator,
-                           @Autowired(required = false) final TracingWrapperFactory tracingWrapperFactory) {
+                           @Autowired(required = false) final TracingWrapperFactory tracingWrapperFactory,
+                           @Autowired(required = false) final MetricsCollector metricsCollector,
+                           @Autowired(required = false) final ServiceStateManager serviceStateManager,
+                           @Autowired(required = false) final CircuitBreakerManager circuitBreakerManager) {
         this.configurationValidator = configurationValidator;
         this.tracingWrapperFactory = tracingWrapperFactory;
-        
+        this.metricsCollector = metricsCollector;
+        this.serviceStateManager = serviceStateManager;
+        this.circuitBreakerManager = circuitBreakerManager;
+
         if (tracingWrapperFactory != null) {
             logger.info("追踪包装器工厂已启用，将为组件添加追踪功能");
         } else {
@@ -50,21 +65,22 @@ public class ComponentFactory {
     public LoadBalancer createLoadBalancer(final ModelRouterProperties.LoadBalanceConfig config) {
         if (config == null) {
             logger.warn("Load balance config null, fallback to random");
-            LoadBalancer loadBalancer = new RandomLoadBalancer();
+            LoadBalancer loadBalancer = new RandomLoadBalancer(metricsCollector, circuitBreakerManager);
             return wrapWithTracing(loadBalancer);
         }
-        
+
         LoadBalancer loadBalancer = switch (config.getType().toLowerCase()) {
-            case "random" -> new RandomLoadBalancer();
-            case "round-robin" -> new RoundRobinLoadBalancer();
-            case "least-connections" -> new LeastConnectionsLoadBalancer();
-            case "ip-hash" -> new IpHashLoadBalancer(config.getHashAlgorithm());
+            case "random" -> new RandomLoadBalancer(metricsCollector, circuitBreakerManager);
+            case "round-robin" -> new RoundRobinLoadBalancer(metricsCollector);
+            case "least-connections" -> new LeastConnectionsLoadBalancer(metricsCollector);
+            case "ip-hash" -> new IpHashLoadBalancer(config.getHashAlgorithm(), metricsCollector, circuitBreakerManager);
             case "consistent-hash" -> new ConsistentHashLoadBalancer(
-                    config.getVirtualNodes() != null ? config.getVirtualNodes() : 150);
-            case "latency" -> new LatencyAwareLoadBalancer(config.getEwmaAlpha());
+                    config.getVirtualNodes() != null ? config.getVirtualNodes() : 150,
+                    metricsCollector, serviceStateManager);
+            case "latency" -> new LatencyAwareLoadBalancer(config.getEwmaAlpha(), metricsCollector);
             default -> {
                 logger.warn("Unsupported load balancer: {}, fallback to random", config.getType());
-                yield new RandomLoadBalancer();
+                yield new RandomLoadBalancer(metricsCollector, circuitBreakerManager);
             }
         };
         
@@ -86,6 +102,12 @@ public class ComponentFactory {
                 yield new TokenBucketRateLimiter(cfg);
             }
         };
+
+        // B4 修复：限流器经 new 创建，其 @Autowired 字段恒为 null；
+        // 由工厂在创建后注入 MetricsCollector，避免限流指标静默丢失（与 R2 同源）。
+        if (rateLimiter != null) {
+            rateLimiter.setMetricsCollector(metricsCollector);
+        }
         
         return wrapWithTracing(rateLimiter);
     }
@@ -155,24 +177,6 @@ public class ComponentFactory {
         };
     }
     
-    /* ---------------- CircuitBreaker ---------------- */
-    
-    /**
-     * 创建熔断器
-     * @param instanceId 实例ID
-     * @param failureThreshold 失败阈值
-     * @param timeout 超时时间
-     * @param successThreshold 成功阈值
-     * @return 熔断器实例
-     */
-    public org.unreal.modelrouter.router.circuitbreaker.CircuitBreaker createCircuitBreaker(
-            final String instanceId, final int failureThreshold, final long timeout, final int successThreshold) {
-        org.unreal.modelrouter.router.circuitbreaker.CircuitBreaker circuitBreaker = 
-                new org.unreal.modelrouter.router.circuitbreaker.DefaultCircuitBreaker(
-                        instanceId, failureThreshold, timeout, successThreshold);
-        return wrapWithTracing(circuitBreaker, instanceId);
-    }
-    
     /* ---------------- 追踪包装器集成方法 ---------------- */
     
     /**
@@ -209,48 +213,4 @@ public class ComponentFactory {
         return rateLimiter;
     }
     
-    /**
-     * 为CircuitBreaker添加追踪包装器
-     * 
-     * @param circuitBreaker 原始CircuitBreaker
-     * @param instanceId 实例ID
-     * @return 包装后的CircuitBreaker
-     */
-    private org.unreal.modelrouter.router.circuitbreaker.CircuitBreaker wrapWithTracing(
-            final org.unreal.modelrouter.router.circuitbreaker.CircuitBreaker circuitBreaker, final String instanceId) {
-        if (tracingWrapperFactory != null && circuitBreaker != null) {
-            try {
-                return tracingWrapperFactory.wrapCircuitBreaker(circuitBreaker, instanceId);
-            } catch (Exception e) {
-                logger.warn("为CircuitBreaker添加追踪包装器失败: {}", e.getMessage(), e);
-            }
-        }
-        return circuitBreaker;
-    }
-    
-    /**
-     * 检查追踪功能是否启用
-     * 
-     * @return 如果追踪功能启用返回true
-     */
-    public boolean isTracingEnabled() {
-        return tracingWrapperFactory != null;
-    }
-    
-    /**
-     * 获取组件工厂统计信息
-     * 
-     * @return 统计信息Map
-     */
-    public java.util.Map<String, Object> getFactoryStatistics() {
-        java.util.Map<String, Object> stats = new java.util.HashMap<>();
-        stats.put("factory_class", this.getClass().getSimpleName());
-        stats.put("tracing_enabled", isTracingEnabled());
-        
-        if (tracingWrapperFactory != null) {
-            stats.putAll(tracingWrapperFactory.getWrapperStatistics());
-        }
-        
-        return stats;
-    }
 }

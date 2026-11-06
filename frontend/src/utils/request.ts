@@ -1,5 +1,7 @@
 import axios, { type AxiosInstance, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import type { ApiResponse } from '@/types'
+import { isStaff } from '@/constants/employeeTerms'
+import { friendlyError } from '@/utils/friendlyError'
 
 // Create axios instance
 const request: AxiosInstance = axios.create({
@@ -29,15 +31,15 @@ request.interceptors.request.use(
     }
     // Add JWT token using the correct header name for Trunkline
     const token = localStorage.getItem('admin_token')
-    
+
     // 检查是否是JWT token获取接口，如果不是则添加token头部
     const isTokenEndpoint = config.url && (
-      config.url.includes('/auth/jwt/login') || 
+      config.url.includes('/auth/jwt/login') ||
       config.url.includes('/auth/jwt/refresh')
     )
-    
+
     if (token && config.headers && !isTokenEndpoint) {
-      config.headers['Jairouter_Token'] = token
+      config.headers['Trunkline_Token'] = token
     }
     return config
   },
@@ -80,6 +82,11 @@ request.interceptors.response.use(
     // RouterResponse{success:false, message, errorCode}。若不处理，
     // 调用方 ElMessage.error(e.message) 只会显示 "Request failed with status code 400"，
     // 后端的中文提示会丢失。这里把后端 message 提升到 error.message，并保留 errorCode 便于排障。
+    //
+    // P0-H：员工侧在此处就改写成「人话 + 指向管理员」。放在拦截器而不是各页面，
+    // 是为了让**所有**裸透传点（MyQuotaView / MyKeysView / MyBillsView / QuickstartView …）
+    // 自动受益——此前只有测试场做了分层，员工页完全没覆盖。
+    // 运维侧（ops/admin）保留原始 message，他们要的是精确原因。
     const serverBody = error.response?.data
     if (serverBody && serverBody.success === false) {
       if (typeof serverBody.message === 'string' && serverBody.message) {
@@ -88,6 +95,13 @@ request.interceptors.response.use(
       if (serverBody.errorCode) {
         error.serverErrorCode = serverBody.errorCode
       }
+    }
+
+    // P0-H：员工侧统一改写。注意放在 message 提升之后 —— 必须基于后端真实 message
+    // 才能做关键词匹配（提升前的 message 是 "Request failed with status code 400"）。
+    if (!isStaff()) {
+      const friendly = friendlyError(error)
+      if (friendly) error.message = friendly
     }
 
     return Promise.reject(error)

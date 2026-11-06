@@ -25,6 +25,7 @@ import org.unreal.modelrouter.monitor.callhistory.dto.CallHistoryRecordDTO;
 import org.unreal.modelrouter.monitor.monitoring.collector.MetricsCollector;
 import org.unreal.modelrouter.monitor.service.TokenUsageRecorder;
 import org.unreal.modelrouter.monitor.tracing.TracingContextHolder;
+import org.unreal.modelrouter.router.adapter.CallerIdentityResolver;
 import org.unreal.modelrouter.router.adapter.transformer.ResponseTransformer;
 import org.unreal.modelrouter.router.cache.CachedStreamingResponse;
 import org.unreal.modelrouter.router.cache.ResponseCacheService;
@@ -90,6 +91,10 @@ public class StreamingRequestProcessor {
     @Autowired(required = false)
     private ApiKeyService apiKeyService;
 
+    // v3.5 Trunkline: 调用者身份解析（JWT 用户名 / 密钥持有人）——调用观测与团队用量共用
+    @Autowired(required = false)
+    private CallerIdentityResolver callerIdentityResolver;
+
     // v2.8.9: 资源池选择器(池路由后改写下游流式请求的 model 字段为实际实例名)
     @Autowired(required = false)
     private PoolSelector poolSelector;
@@ -112,6 +117,23 @@ public class StreamingRequestProcessor {
 
     public StreamingRequestProcessor(final ResponseTransformer responseTransformer) {
         this.responseTransformer = responseTransformer;
+    }
+
+    /**
+     * v3.5 Trunkline: 提取本次请求命中的<b>虚拟模型</b>（模型分组 / 池名）。
+     *
+     * <p>由 {@link ServiceRequestHandler} 在路由决策后写入请求属性；取不到时返回 {@code null}
+     * （未命中任何分组），落库归入「未归类」。</p>
+     */
+    private String extractVirtualModel(final org.springframework.http.server.reactive.ServerHttpRequest httpRequest) {
+        if (httpRequest == null) {
+            return null;
+        }
+        Object virtualModel = httpRequest.getAttributes().get(ServiceRequestHandler.VIRTUAL_MODEL_ATTRIBUTE);
+        if (virtualModel instanceof String name && !name.isBlank()) {
+            return name;
+        }
+        return null;
     }
 
     /**
@@ -206,6 +228,10 @@ public class StreamingRequestProcessor {
             final ServerHttpRequest httpRequest) {
 
         final String capturedKeyId = captureApiKeyId(httpRequest);
+        // v3.5 Trunkline: 在入口处（仍在本请求处理线程、追踪上下文存活时）同步捕获 traceId，
+        // 避免后续在 Netty event loop / 异步落库线程上再读 ThreadLocal 取到空串
+        //（已有 bug：流式记录 traceId 落空，调用历史最新一条 Trace ID 为空）。
+        final String capturedTraceId = TracingContextHolder.getCurrentTraceId();
         // v3.1 PR-2: 配额预留凭据（handler 在 selectInstance 前挂载；未预扣/账本未启用时为 null）
         final QuotaReservation quotaReservation = QuotaReservation.from(httpRequest);
 
@@ -361,12 +387,13 @@ public class StreamingRequestProcessor {
 
                     // 记录 token 使用量(含 KV 缓存指标)。
                     // v3.2.3 (#127): 估算走独立计数，不依赖可能被截断的 contentBuilder。
-                    recordTokenUsage(adapterType, instanceName, modelRef.get(),
+                    recordTokenUsage(httpRequest, adapterType, instanceName, modelRef.get(),
                             promptTokens.get(), completionTokens.get(), totalTokens.get(),
                             cacheHitTokens.get(), cacheMissTokens.get(),
                             estimateTokensFromCounts(contentChineseChars.get(), contentOtherChars.get()),
                             contentSawAnyChar.get(), capturedKeyId, quotaReservation,
-                            System.currentTimeMillis() - requestStartTime);
+                            System.currentTimeMillis() - requestStartTime,
+                            extractVirtualModel(httpRequest), capturedTraceId);
 
                     // v2.9.2: 记录治理 - 记录含请求/响应体的调用历史
                     // 脱敏与落库不得阻塞 EventLoop（doOnComplete 可能在 IO 线程执行）
@@ -377,6 +404,9 @@ public class StreamingRequestProcessor {
                             rawResponseBody = recordedResponseBody(contentBuilder, contentTruncated.get());
                         }
                         final String modelForRecord = modelRef.get();
+                        // 关联链路追踪：复用入口处已捕获的 traceId（完成回调在 Netty event loop 上执行，
+                        // 此处再读 ThreadLocal 必为空串）。
+                        final String traceIdForRecord = capturedTraceId;
                         final long promptTok = promptTokens.get();
                         final long completionTok = completionTokens.get();
                         final long totalTok = totalTokens.get();
@@ -397,8 +427,11 @@ public class StreamingRequestProcessor {
                                 .subscribe(responseBodyForRecord -> {
                                     try {
                                         CallHistoryRecordDTO dto = CallHistoryRecordDTO.builder()
+                                                // 关联链路追踪（为 null 时落库侧兜底随机 UUID）
+                                                .traceId(traceIdForRecord)
                                                 .serviceType(serviceType != null ? serviceType.name() : null)
                                                 .modelName(modelForRecord)
+                                                .virtualModel(extractVirtualModel(httpRequest))
                                                 .provider(adapterType)
                                                 .instanceName(instanceName)
                                                 .instanceUrl(selectedInstance.getBaseUrl())
@@ -408,6 +441,7 @@ public class StreamingRequestProcessor {
                                                 .completionTokens(completionTok > 0 ? completionTok : null)
                                                 .totalTokens(totalTok > 0 ? totalTok : null)
                                                 .apiKeyId(capturedKeyId)
+                                                .userId(resolveCallerUser(httpRequest, capturedKeyId))
                                                 .requestBody(capturedRequestBody)
                                                 .responseBody(responseBodyForRecord)
                                                 .build();
@@ -653,7 +687,8 @@ public class StreamingRequestProcessor {
      * <p>v3.2.3 (#127): 估算入参改为独立累计的 token 数与「是否见过内容」标记，
      * 不再读取可能被截断的累积缓冲——截断不影响账单/配额。</p>
      */
-    private void recordTokenUsage(final String adapterType,
+    private void recordTokenUsage(final ServerHttpRequest httpRequest,
+                                   final String adapterType,
                                    final String instanceName,
                                    final String model,
                                    final long promptTokens,
@@ -665,7 +700,9 @@ public class StreamingRequestProcessor {
                                    final boolean sawContent,
                                    final String apiKeyId,
                                    final QuotaReservation quotaReservation,
-                                   final Long responseTimeMs) {
+                                   final Long responseTimeMs,
+                                   final String virtualModel,
+                                   final String traceId) {
         if (tokenUsageRecorder == null) {
             return;
         }
@@ -688,9 +725,7 @@ public class StreamingRequestProcessor {
         // 只有当有实际 token 使用量时才记录
         if (finalTotalTokens > 0) {
             try {
-                // 获取 traceId
-                String traceId = TracingContextHolder.getCurrentTraceId();
-
+                // 使用入口捕获的 traceId（在 Netty event loop 上读 ThreadLocal 必为空串）
                 tokenUsageRecorder.recordTokenUsageNoAuth(
                         "CHAT",
                         model,
@@ -705,7 +740,9 @@ public class StreamingRequestProcessor {
                         true, // isSuccess
                         null, // errorCode
                         null, // errorMessage
-                        responseTimeMs // P1-4: 流式耗时透传,供平均响应时间统计
+                        responseTimeMs, // P1-4: 流式耗时透传,供平均响应时间统计
+                        virtualModel, // v3.5 Trunkline: 请求命中的虚拟模型（模型分组）
+                        resolveCallerUser(httpRequest, apiKeyId) // v3.5 Trunkline: 调用者（团队用量按此归人）
                 );
 
                 // 更新 API Key 的每日 Token 使用量配额
@@ -765,6 +802,28 @@ public class StreamingRequestProcessor {
             logger.debug("Failed to capture API Key ID from request attributes: {}", e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * v3.5 Trunkline: 解析本次调用的<b>员工</b>身份（「调用观测」的「员工」列、
+     * 「团队用量」的归属维度）。
+     *
+     * <p>委托给 {@link CallerIdentityResolver}——与 {@code TokenUsageExtractor} 共用同一套解析逻辑，
+     * 保证「调用观测」和「团队用量」两处的归属口径完全一致。</p>
+     *
+     * <p><b>容错说明</b>：解析失败时返回 {@code null} 而不抛异常。本方法在用量落库的 try 块内被调用，
+     * 抛异常会被外层 catch 吞掉，导致其后的配额结算不执行（配额账本会停在预留值）。</p>
+     */
+    private String resolveCallerUser(final ServerHttpRequest httpRequest, final String apiKeyId) {
+        if (callerIdentityResolver == null) {
+            return null;
+        }
+        try {
+            return callerIdentityResolver.resolve(httpRequest, apiKeyId);
+        } catch (Exception e) {
+            logger.debug("解析调用者身份失败（忽略，不影响用量落库与配额结算）: {}", e.getMessage());
+            return null;
+        }
     }
 
     /**

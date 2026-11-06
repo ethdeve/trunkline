@@ -35,7 +35,8 @@
     "config": {
       "stream": "流式响应",
       "stopSequences": "停止词",
-      "stopPlaceholder": "输入停止词"
+      "stopPlaceholder": "输入停止词",
+      "advanced": "高级设置"
     },
     "messages": {
       "errorContext": "对话请求",

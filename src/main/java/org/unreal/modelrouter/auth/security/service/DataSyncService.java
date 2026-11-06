@@ -2,11 +2,15 @@ package org.unreal.modelrouter.auth.security.service;
 
 import reactor.core.publisher.Mono;
 
-import java.util.Map;
-
 /**
  * 数据同步服务接口
- * 提供Redis缓存和StoreManager之间的数据同步和恢复功能
+ *
+ * <p>提供 Redis 缓存和 StoreManager 之间的数据恢复能力。<b>S2 代码清债（任务 21）</b>：
+ * 原接口还声明了 {@code syncFromRedisToStoreManager} / {@code performBidirectionalSync} /
+ * {@code checkDataConsistency} / {@code repairDataInconsistency} / {@code getSyncStats} /
+ * {@code cleanupSyncData} 六个方法——全仓零调用方，且实现是返回 {@code success=true} 的
+ * 假成功 stub（"not implemented yet"），已整体移除。要恢复这些能力，应先实现真实
+ * 同步逻辑并接上消费方，再按需加回接口方法。</p>
  */
 public interface DataSyncService {
 
@@ -17,47 +21,10 @@ public interface DataSyncService {
     Mono<SyncResult> recoverFromStoreManagerToRedis();
 
     /**
-     * 从Redis同步数据到StoreManager
-     * @return 同步操作结果
-     */
-    Mono<SyncResult> syncFromRedisToStoreManager();
-
-    /**
-     * 执行双向数据同步
-     * @return 同步操作结果
-     */
-    Mono<SyncResult> performBidirectionalSync();
-
-    /**
-     * 检查数据一致性
-     * @return 一致性检查结果
-     */
-    Mono<ConsistencyCheckResult> checkDataConsistency();
-
-    /**
-     * 修复数据不一致问题
-     * @param checkResult 一致性检查结果
-     * @return 修复操作结果
-     */
-    Mono<SyncResult> repairDataInconsistency(ConsistencyCheckResult checkResult);
-
-    /**
-     * 获取同步统计信息
-     * @return 同步统计信息
-     */
-    Mono<Map<String, Object>> getSyncStats();
-
-    /**
-     * 启动时自动恢复数据
+     * 启动时自动恢复数据（先做存储健康检查，不健康则跳过）
      * @return 恢复操作结果
      */
     Mono<SyncResult> performStartupRecovery();
-
-    /**
-     * 清理同步过程中的临时数据
-     * @return 清理操作结果
-     */
-    Mono<Void> cleanupSyncData();
 
     /**
      * 同步结果类
@@ -111,69 +78,6 @@ public interface DataSyncService {
                             + "success=%d, failure=%d, duration=%dms, message='%s'}",
                 success, processedCount, successCount, failureCount,
                 durationMs, message);
-        }
-    }
-
-    /**
-     * 一致性检查结果类
-     */
-    class ConsistencyCheckResult {
-        private final boolean consistent;
-        private final long redisCount;
-        private final long storeManagerCount;
-        private final long missingInRedis;
-        private final long missingInStoreManager;
-        private final long conflictCount;
-        private final String details;
-
-        public ConsistencyCheckResult(final boolean consistent, final long redisCount, final long storeManagerCount,
-                                    final long missingInRedis, final long missingInStoreManager,
-                                    final long conflictCount, final String details) {
-            this.consistent = consistent;
-            this.redisCount = redisCount;
-            this.storeManagerCount = storeManagerCount;
-            this.missingInRedis = missingInRedis;
-            this.missingInStoreManager = missingInStoreManager;
-            this.conflictCount = conflictCount;
-            this.details = details;
-        }
-
-        // Getters
-        public boolean isConsistent() {
-            return consistent;
-        }
-
-        public long getRedisCount() {
-            return redisCount;
-        }
-
-        public long getStoreManagerCount() {
-            return storeManagerCount;
-        }
-
-        public long getMissingInRedis() {
-            return missingInRedis;
-        }
-
-        public long getMissingInStoreManager() {
-            return missingInStoreManager;
-        }
-
-        public long getConflictCount() {
-            return conflictCount;
-        }
-
-        public String getDetails() {
-            return details;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("ConsistencyCheckResult{consistent=%s, redis=%d, "
-                            + "storeManager=%d, missingInRedis=%d, missingInStoreManager=%d, "
-                            + "conflicts=%d, details='%s'}",
-                consistent, redisCount, storeManagerCount, missingInRedis,
-                missingInStoreManager, conflictCount, details);
         }
     }
 }

@@ -54,6 +54,9 @@ class AdapterControllerTest {
             adapters.put("normal", mockAdapter);
             adapters.put("gpustack", mockAdapter);
             when(adapterRegistry.getAllAdapters()).thenReturn(adapters);
+            // 控制器按「内置/自定义」分派方言来源：内置走静态方言表，自定义走 resolveDefinition
+            // （其依赖在纯 Mockito 单测里未注入，会 NPE→500）。两个名字均为内置适配器，按内置桩定。
+            when(adapterRegistry.isBuiltinAdapter(anyString())).thenReturn(true);
 
             // When
             ResponseEntity<RouterResponse<List<Object>>> result = controller.getAdapters();

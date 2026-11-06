@@ -92,7 +92,7 @@ const copyCode = async () => {
   font-size: 12px;
   color: #a8a8a8; /* 原 #888 在 #2d2d2d 上仅 ~3.9:1 -> 提亮至 ~5.9:1 */
   text-transform: uppercase;
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-family: var(--ja-font-mono);
 }
 
 .copy-btn {
@@ -112,7 +112,7 @@ const copyCode = async () => {
 }
 
 .code-content code {
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-family: var(--ja-font-mono);
   color: #d4d4d4; /* 在 #1e1e1e 上 ~11.3:1 */
   background: transparent;
 }

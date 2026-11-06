@@ -47,14 +47,41 @@ export interface DashboardOverview {
 }
 
 // API Key Management Types
+
+/**
+ * 密钥可见分组（资源池）的扩展信息（P0-L 越权泄漏收敛）。
+ *
+ * <p>由「我的密钥」接口下发，替代此前「拉全公司资源池列表」的做法：
+ * 只含分组名 / 友好名 / 服务类型 / 加权均价，**不含**成员 instanceId / weight
+ * 等内部拓扑信息。</p>
+ */
+export interface ApiKeyModelScopeVO {
+  /** 分组名（= 虚拟模型名，员工填进 AI 工具里的那个名字） */
+  poolName: string
+  /** 分组显示名（友好名，如「公司主力」）；未配置时回落展示 poolName */
+  displayName?: string
+  /** 服务类型（chat / embedding / rerank / tts / stt / imgGen / imgEdit） */
+  serviceType?: string
+  /** 加权均价（¥ / 千 token）；组内成员均未配价时为 null */
+  mixedPrice?: number | null
+  /**
+   * 分组扩展信息是否可用（应修9 / F5）。
+   * 后端解析器依赖缺失时为 false，前端据此显示提示而非空白下拉。
+   */
+  modelScopeAvailable?: boolean
+}
+
 export interface ApiKeyVO {
   keyId: string
   description: string
+  /** 脱敏后的密钥展示串（如 sk-9fK2••••••••4aQz）；不可用于认证，仅供辨认 */
+  keyMasked?: string
   permissions: string[]
   enabled: boolean
   expired: boolean
   createdAt: string
   createdBy?: string          // 创建者用户名
+  holder?: string             // 密钥持有人（分配给谁）；为空回落显示 createdBy
   creatorIpAddress?: string   // 创建者 IP 地址
   expiresAt: string
   lastUsedAt?: string
@@ -64,6 +91,23 @@ export interface ApiKeyVO {
   remainingDays?: number      // -1 表示已过期，null 表示永不过期
   allowedIpAddresses?: string[]  // IP 白名单
   allowedGroups?: string[]        // 可访问的模型分组（pool）白名单（按分组名匹配；空=不限制）
+  /**
+   * 该密钥可见分组的扩展信息（P0-L）。
+   *
+   * <p>由「我的密钥」接口下发：分组名 / 友好名 / 服务类型 / 加权均价。
+   * 白名单为空（= 不限制模型）的密钥会拿到全部启用中分组的展示信息。</p>
+   */
+  modelScope?: ApiKeyModelScopeVO[]
+  /**
+   * 密钥级合计均价（¥ / 千 token）—— 应修8 口径统一。
+   *
+   * <p>由服务端随「我的密钥」一起下发（与 {@code BillingService} 计价口径一致：
+   * 白名单内已配价成员的单价按权重加权平均）。前端<b>只显示不计算</b>。</p>
+   *
+   * <p>白名单为空（= 不限制模型）时为 {@code null} —— 此时聚合的是全公司成本水平，
+   * 不下发（应修7），前端显示「—」。组内成员均未配价时也为 {@code null}。</p>
+   */
+  mixedPrice?: number | null
   dailyRequestLimit?: number     // 每日请求限制
   dailyTokenLimit?: number       // 每日 Token 使用上限
   hourlyRequestLimit?: number   // 每小时请求上限（0=不限）
@@ -85,6 +129,7 @@ export interface ApiKeyCreationVO {
   keyValue: string  // 仅在创建时返回，请妥善保存
   description: string
   createdBy?: string  // 创建者用户名
+  holder?: string     // 密钥持有人（分配给谁）
   permissions: string[]
   allowedGroups?: string[]        // 可访问的模型分组（pool）白名单（按分组名匹配；空=不限制）
   enabled: boolean
@@ -107,10 +152,22 @@ export interface ApiKeyListVO {
   }
 }
 
+/**
+ * 「我的密钥」响应（P0-L）：在 ApiKeyListVO 基础上附带分组扩展信息。
+ *
+ * <p>顶层 `modelScope` 是该用户各密钥分组的**并集**（按 poolName 去重），
+ * 供测试场「虚拟模型」下拉一次取全；每把密钥自己的 `modelScope`
+ * （见 {@link ApiKeyVO.modelScope}）用于「可用虚拟模型」列的友好名与均价。</p>
+ */
+export interface ApiKeyWithModelScopeVO extends ApiKeyListVO {
+  modelScope: ApiKeyModelScopeVO[]
+}
+
 // API Key Management Request Types
 export interface ApiKeyCreateRequest {
   keyId?: string
   description?: string
+  holder?: string              // 密钥持有人（分配给谁）
   permissions?: string[]
   enabled?: boolean
   expiresAt?: string
@@ -129,6 +186,7 @@ export interface ApiKeyCreateRequest {
 
 export interface ApiKeyUpdateRequest {
   description?: string
+  holder?: string              // 密钥持有人（分配给谁）；不传 = 不修改
   permissions?: string[]
   enabled?: boolean
   expiresAt?: string
@@ -159,6 +217,7 @@ export interface ApiKeyExportedKey {
   enabled: boolean
   createdAt: string
   createdBy?: string
+  holder?: string        // 密钥持有人（分配给谁）
   expiresAt?: string
   allowedIpAddresses?: string[]
   allowedGroups?: string[]        // 可访问的模型分组（pool）白名单（按分组名匹配；空=不限制）
@@ -175,6 +234,7 @@ export interface ApiKeyBatchImportRequest {
 export interface ApiKeyImportItem {
   keyId?: string
   description?: string
+  holder?: string        // 密钥持有人（分配给谁）
   permissions?: string[]
   enabled?: boolean
   expiresAt?: string
@@ -401,6 +461,6 @@ export interface SamplingStats {
 
 // Common Types
 export interface TimeRange {
-  startTime?: string
-  endTime?: string
+  startTime?: string | number
+  endTime?: string | number
 }

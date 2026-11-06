@@ -7,41 +7,43 @@
 > **Author**: Lincoln
 <!-- /版本信息 -->
 
-JAiRouter provides four load balancing strategies, supporting configuration at global, service, and instance levels. This document details the configuration methods and use cases for various load balancing strategies.
+Trunkline provides six load balancing strategies, configurable at global, service, and instance level. This document details how to configure each strategy and when to use it.
 
-## Modular Configuration Overview
+## Modular Configuration Notes
 
-Starting from v1.0.0, JAiRouter adopts a modular configuration structure with load balancing related configurations moved to separate configuration files:
+Since v2.8.x, Trunkline uses a modular configuration structure. Load balancing lives in its own files:
 
-- Main configuration file: `application.yml`
-- Load balancing base configuration: `config/base/model-services-base.yml`
+- Main config: `application.yml`
+- Load balancing config: `config/router/loadbalancer.yml`
+- Service instance config: `config/router/services.yml`
 
-You can find all load balancing related configurations in the `config/base/model-services-base.yml` file, including global configurations, service type configurations, and instance configurations.
+Global load balancing settings (`model.load-balance.*`) and routing-monitor settings (`trunkline.loadbalancer.routing-monitor.*`) live in `config/router/loadbalancer.yml`; per-service instances and weights live in `config/router/services.yml`.
 
 ## Load Balancing Overview
 
 ### Supported Strategies
 
-| Strategy | Algorithm | Features | Use Cases |
-|----------|-----------|----------|-----------|
-| **Random** | Random selection | Simple and efficient, uniform over time | Instances with similar performance |
-| **Round Robin** | Round-robin allocation | Ensures each instance is used | Instances with similar performance |
-| **Least Connections** | Minimum connections | Automatically balances load | Large differences in request processing time |
-| **IP Hash** | Client IP hash | Session persistence | Client stickiness required |
-| **Latency** (v2.9.3+) | EWMA latency-aware | Weights instances by historical latency; lower latency = higher probability | Cross-region / mixed hardware, significant latency variance |
+| Strategy | Algorithm | Traits | Best For |
+|----------|-----------|--------|----------|
+| **Random** | random pick | simple, even over time (default) | similar instance performance |
+| **Round Robin** | round-robin | every instance gets a turn | similar instance performance |
+| **Least Connections** | fewest active connections | balances load automatically | uneven request durations |
+| **IP Hash** | client IP hash | session stickiness | client affinity needed |
+| **Consistent Hash** | consistent hash (150 virtual nodes) | instance churn only moves a few keys | sticky + dynamic scaling |
+| **Latency** (v2.9.3+) | EWMA latency-aware | weights by historical latency; lower latency = higher probability | cross-region / mixed hardware, large latency spread |
 
-> Candidate instances can first be narrowed by **instance tags** (tag routing, v2.9.7+); the load balancing strategy then picks from the narrowed set. See [Routing Rules Configuration](routing-rules.md).
+> Candidate instances can first be narrowed by **instance tags** (tag routing, v2.9.7+) before the load balancer selects among them — see [Routing Rules](routing-rules.md).
 
-### Configuration Hierarchy
+### Configuration Layers
 
 ```mermaid
 graph TB
-    A[Global Load Balancing Configuration] --> B[Service-Level Load Balancing Configuration]
-    B --> C[Instance Weight Configuration]
+    A[Global LB Config] --> B[Service-level LB Config]
+    B --> C[Instance Weight Config]
     
-    A --> D[Default Strategy: random]
-    B --> E[Service-Specific Strategy]
-    C --> F[Instance Weight: 1-10]
+    A --> D[Default strategy: random]
+    B --> E[Service-specific strategy]
+    C --> F[Instance weight: 1-10]
     
     style A fill:#e1f5fe
     style B fill:#f3e5f5
@@ -52,36 +54,36 @@ graph TB
 
 ### Basic Configuration
 
-Configure global load balancing strategies in the `config/base/model-services-base.yml` file:
+Configure the global strategy in `config/router/loadbalancer.yml`:
 
 ```yaml
-# config/base/model-services-base.yml
+# config/router/loadbalancer.yml
 model:
-  # Global configuration
+  # Global
   load-balance:
-    type: round-robin           # Global default strategy
-    hash-algorithm: "md5"       # Hash algorithm for IP Hash strategy
+    type: round-robin           # global default strategy (code default: random)
+    hash-algorithm: "md5"       # hash algorithm for ip-hash / consistent-hash
 
-  # Global adapter configuration - used if service doesn't specify adapter
-  adapter: gpustack # Supports: normal, gpustack, ollama, vllm, xinference, localai
+  # Global adapter - used when a service does not specify its own
+  adapter: gpustack # one of: normal, gpustack, ollama, vllm, xinference, localai
 
-  # Global rate limiting configuration
+  # Global rate limit
   rate-limit:
     enabled: true
     algorithm: "token-bucket"
     capacity: 1000
     rate: 100
     scope: "service"
-    client-ip-enable: true  # Enable client IP rate limiting
+    client-ip-enable: true  # enable client-IP rate limiting
 
-  # Global circuit breaker configuration
+  # Global circuit breaker
   circuit-breaker:
     enabled: true
     failureThreshold: 5
     timeout: 60000
     successThreshold: 2
 
-  # Global fallback configuration
+  # Global fallback
   fallback:
     enabled: true
     strategy: default
@@ -93,16 +95,16 @@ model:
 model:
   load-balance:
     type: consistent-hash
-    hash-algorithm: "md5"       # Hash algorithm for ip-hash / consistent-hash
-    virtual-nodes: 150          # Consistent-hash virtual nodes
-    ewma-alpha: 0.2             # EWMA smoothing factor (latency strategy)
+    hash-algorithm: "md5"       # hash algorithm for ip-hash / consistent-hash
+    virtual-nodes: 150          # consistent-hash virtual node count
+    ewma-alpha: 0.2             # EWMA smoothing factor (latency strategy only)
 ```
 
-## Service-Level Load Balancing Configuration
+## Service-level Load Balancing
 
-### YAML Configuration Method
+### YAML
 
-Configure load balancing strategies for each service type in the `config/base/model-services-base.yml` file:
+Configure per-service strategies in `config/router/services.yml`:
 
 ```yaml
 model:
@@ -110,9 +112,9 @@ model:
     chat:
       load-balance:
         type: least-connections
-        hash-algorithm: "sha256"  # Required only for IP Hash strategy
-      adapter: gpustack # Use GPUStack adapter
-      # Service-level rate limiting configuration
+        hash-algorithm: "sha256"  # only needed for IP Hash
+      adapter: gpustack # use the GPUStack adapter
+      # Service-level rate limit
       rate-limit:
         enabled: true
         algorithm: "token-bucket"
@@ -124,11 +126,11 @@ model:
         - name: "high-perf-model"
           base-url: "http://gpu-server:8080"
           path: "/v1-openai/chat/completions"
-          weight: 3               # High-weight instance
+          weight: 3               # high weight
         - name: "standard-model"
           base-url: "http://cpu-server:8080"
           path: "/v1/chat/completions"
-          weight: 1               # Standard-weight instance
+          weight: 1               # standard weight
     
     embedding:
       load-balance:
@@ -152,9 +154,9 @@ model:
           weight: 2
 ```
 
-### JSON Configuration Method
+### JSON
 
-JAiRouter also supports updating instance configurations via the dynamic configuration API:
+Trunkline also supports updating instance config via the dynamic config API:
 
 ```json
 {
@@ -162,11 +164,7 @@ JAiRouter also supports updating instance configurations via the dynamic configu
     "chat": {
       "loadBalance": {
         "type": "round-robin",
-        "healthCheck": {
-          "enabled": true,
-          "interval": 30000,
-          "timeout": 5000
-        }
+        "hashAlgorithm": "md5"
       },
       "instances": [
         {
@@ -187,11 +185,11 @@ JAiRouter also supports updating instance configurations via the dynamic configu
 }
 ```
 
-## Detailed Load Balancing Strategies
+## Strategy Details
 
-### 1. Random Strategy
+### 1. Random
 
-#### Configuration Example
+#### Example
 
 ```yaml
 model:
@@ -211,33 +209,33 @@ model:
           weight: 1
 ```
 
-#### Features and Use Cases
+#### Traits and Use Cases
 
-**Features**:
-- Simple algorithm with minimal performance overhead
-- Supports weight configuration
-- Uniform request distribution over time
+**Traits**:
+- Simple algorithm, lowest overhead
+- Supports weights
+- Even distribution over time
 - Stateless, easy to scale
 
-**Use Cases**:
-- Instances with similar performance
-- Relatively stable request processing time
-- High-concurrency scenarios
+**Use cases**:
+- Similar instance performance
+- Stable request durations
+- High concurrency
 - Stateless services
 
-**Weight Calculation**:
+**Weight math**:
 ```
-Instance selection probability = Instance weight / Total weight
+selection probability = instance weight / total weight
 ```
 
-Example selection probabilities:
+Probabilities for the example:
 - model-1: 1/4 = 25%
 - model-2: 2/4 = 50%
 - model-3: 1/4 = 25%
 
-### 2. Round Robin Strategy
+### 2. Round Robin
 
-#### Configuration Example
+#### Example
 
 ```yaml
 model:
@@ -257,28 +255,27 @@ model:
           weight: 3
 ```
 
-#### Features and Use Cases
+#### Traits and Use Cases
 
-**Features**:
-- Ensures each instance receives requests
+**Traits**:
+- Guarantees every instance gets traffic
 - Supports weighted round-robin
-- Predictable request distribution
-- Suitable for batch processing scenarios
+- Predictable distribution
+- Good for batch processing
 
-**Use Cases**:
-- Instances with similar performance
-- Need for uniform request distribution
+**Use cases**:
+- Similar instance performance
+- Even distribution desired
 - Batch data processing
-- Testing and debugging scenarios
+- Testing and debugging
 
-**Weighted Round Robin Algorithm**:
-Generates a scheduling sequence based on weights; an instance with weight 2 will be selected consecutively twice.
+**Weighted round-robin**: builds a schedule by weight; an instance with weight 2 is picked twice in a row.
 
-Example scheduling sequence: embed-1, embed-1, embed-2, embed-3, embed-3, embed-3
+Example schedule: embed-1, embed-1, embed-2, embed-3, embed-3, embed-3
 
-### 3. Least Connections Strategy
+### 3. Least Connections
 
-#### Configuration Example
+#### Example
 
 ```yaml
 model:
@@ -295,28 +292,28 @@ model:
           weight: 1
 ```
 
-#### Features and Use Cases
+#### Traits and Use Cases
 
-**Features**:
-- Automatically balances load
-- Adapts to instance performance differences
-- Requires maintaining connection state
-- Dynamically adjusts request allocation
+**Traits**:
+- Balances load automatically
+- Adapts to performance differences
+- Must track connection state
+- Dynamically adjusts allocation
 
-**Use Cases**:
-- Large performance differences between instances
-- Variable request processing time
-- Long-connection services
-- Need for precise load balancing
+**Use cases**:
+- Large performance spread
+- Variable request durations
+- Long-lived connections
+- Precise load balancing needed
 
-**Selection Algorithm**:
+**Selection**:
 ```
-Selected instance = min(current connections / weight)
+choose instance = min(activeConnections / weight)
 ```
 
-### 4. IP Hash Strategy
+### 4. IP Hash
 
-#### Configuration Example
+#### Example
 
 ```yaml
 model:
@@ -324,7 +321,7 @@ model:
     chat:
       load-balance:
         type: ip-hash
-        hash-algorithm: "md5"    # Supported: md5, sha1, sha256
+        hash-algorithm: "md5"    # one of: md5, sha1, sha256
       instances:
         - name: "session-model-1"
           base-url: "http://session-server-1:8080"
@@ -337,160 +334,140 @@ model:
           weight: 2
 ```
 
-#### Features and Use Cases
+#### Traits and Use Cases
 
-**Features**:
-- Same client always routed to the same instance
-- Supports session persistence
-- Instance changes affect routing
-- May cause load imbalance
+**Traits**:
+- Same client always routes to the same instance
+- Session stickiness
+- Instance churn changes routing
+- May cause imbalance
 
-**Use Cases**:
-- Session persistence required
+**Use cases**:
+- Session stickiness needed
 - Stateful services
-- Localized caching
-- Personalized user services
+- Cache locality
+- Personalized services
 
-**Hash Algorithm Selection**:
+**Hash algorithms**:
 
-| Algorithm | Features | Performance | Uniformity |
-|-----------|----------|-------------|------------|
-| MD5 | Fast, uniform distribution | High | Good |
-| SHA1 | Better security | Medium | Good |
-| SHA256 | Best security | Low | Best |
+| Algorithm | Traits | Speed | Distribution |
+|-----------|--------|-------|--------------|
+| MD5 | fast, even | high | good |
+| SHA1 | better security | medium | good |
+| SHA256 | best security | low | best |
 
-#### Consistent Hash Configuration
+#### Consistent Hash
+
+Consistent hash is a standalone strategy with a flat config (virtual node count at `model.load-balance.virtual-nodes`, default 150):
 
 ```yaml
 model:
-  services:
-    chat:
-      load-balance:
-        type: ip-hash
-        hash-algorithm: "md5"
-        consistent-hash:
-          enabled: true          # Enable consistent hashing
-          virtual-nodes: 150     # Number of virtual nodes
-          hash-function: "md5"   # Hash function
+  load-balance:
+    type: consistent-hash        # select consistent-hash directly
+    hash-algorithm: "md5"        # hash function: md5 / sha1 / sha256
+    virtual-nodes: 150           # virtual node count
 ```
 
-## Dynamic Load Balancing Configuration
+> The nested `load-balance.consistent-hash.{enabled,virtual-nodes,hash-function}` structure in earlier docs does not exist; the virtual node count is the flat key `model.load-balance.virtual-nodes`.
 
-### Updating Load Balancing Strategy via API
+## Dynamic Load Balancing
 
-```bash
-# Update service load balancing strategy (requires configuration file or restart)
-# Note: Current version does not support direct API updates to load balancing strategy
-# Requires updating the configuration file and restarting the service
+### Adjust Instance Weight via API
 
-# But instance weights can be adjusted to influence load distribution
-curl -X PUT "http://localhost:8080/api/config/instance/update/chat" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "instanceId": "high-perf-model@http://gpu-server:8080",
-    "instance": {
-      "name": "high-perf-model",
-      "baseUrl": "http://gpu-server:8080",
-      "path": "/v1/chat/completions",
-      "weight": 5
-    }
-  }'
-```
-
-### Dynamic Instance Weight Adjustment
+Instance weights can be hot-updated via the instance management API:
 
 ```bash
-# Scenario: GPU server performance improved, increase weight
-curl -X PUT "http://localhost:8080/api/config/instance/update/chat" \
+# Scenario: GPU server got faster, raise weight
+curl -X PUT "http://localhost:8080/api/config/instance/chat/gpu-model@http://gpu-server:8080" \
   -H "Content-Type: application/json" \
   -d '{
-    "instanceId": "gpu-model@http://gpu-server:8080",
-    "instance": {
-      "weight": 4
-    }
+    "name": "gpu-model",
+    "baseUrl": "http://gpu-server:8080",
+    "path": "/v1/chat/completions",
+    "weight": 4
   }'
 
-# Scenario: CPU server overloaded, decrease weight
-curl -X PUT "http://localhost:8080/api/config/instance/update/chat" \
+# Scenario: CPU server overloaded, lower weight
+curl -X PUT "http://localhost:8080/api/config/instance/chat/cpu-model@http://cpu-server:8080" \
   -H "Content-Type: application/json" \
   -d '{
-    "instanceId": "cpu-model@http://cpu-server:8080",
-    "instance": {
-      "weight": 1
-    }
+    "name": "cpu-model",
+    "baseUrl": "http://cpu-server:8080",
+    "path": "/v1/chat/completions",
+    "weight": 1
   }'
 ```
 
 ## Load Balancing Monitoring
 
-### Monitoring Metrics
-
-JAiRouter provides the following load balancing related metrics:
+### Metrics
 
 ```bash
-# View load balancing metrics
-curl "http://localhost:8080/actuator/metrics/jairouter_loadbalancer_selections_total"
+# LB selection metric
+curl "http://localhost:8080/actuator/metrics/trunkline_loadbalancer_selections_total"
 
-# View instance request distribution
-curl "http://localhost:8080/actuator/metrics/jairouter_requests_total"
+# Per-instance request distribution
+curl "http://localhost:8080/actuator/metrics/trunkline_requests_total"
 
-# View connection count statistics (Least Connections strategy only)
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_remaining"
+# Connection count (Least Connections only)
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_remaining"
 ```
 
 ### Prometheus Metrics
 
 ```prometheus
-# Total load balancing requests
-jairouter_loadbalancer_selections_total{service="chat",strategy="round-robin"}
+# Total LB requests
+trunkline_loadbalancer_selections_total{service="chat",strategy="round-robin"}
 
-# Instance request distribution
-jairouter_requests_total{service="chat",instance="model-1",status="success"}
+# Per-instance request distribution
+trunkline_requests_total{service="chat",instance="model-1",status="success"}
 
 # Active connections
-jairouter_rate_limit_remaining{service="chat",instance="model-1"}
+trunkline_rate_limit_remaining{service="chat",instance="model-1"}
 
-# Instance response time
-jairouter_request_duration_seconds{service="chat",instance="model-1"}
+# Instance latency
+trunkline_request_duration_seconds{service="chat",instance="model-1"}
 ```
 
-### Monitoring Dashboard Configuration
+### Dashboard Example
 
 ```yaml
-# Grafana dashboard query examples
+# Grafana query examples
 queries:
-  - name: "Request Distribution"
-    query: 'rate(jairouter_requests_total[5m])'
+  - name: "Request distribution"
+    query: 'rate(trunkline_requests_total[5m])'
     
-  - name: "Load Balancing Effectiveness"
-    query: 'jairouter_requests_total / ignoring(instance) group_left sum(jairouter_requests_total) by (service)'
+  - name: "LB effect"
+    query: 'trunkline_requests_total / ignoring(instance) group_left sum(trunkline_requests_total) by (service)'
     
-  - name: "Instance Health Status"
-    query: 'jairouter_backend_health'
+  - name: "Instance health"
+    query: 'trunkline_backend_health'
 ```
 
-### 5. Latency Strategy (v2.9.3+)
+## Performance Tuning
 
-Latency-aware load balancing based on EWMA (Exponentially Weighted Moving Average). Selection probability adapts to each instance's historical call latency: lower latency instances are picked more often.
+### 5. Latency (v2.9.3+)
 
-#### How it works
+EWMA (exponentially weighted moving average) latency-aware load balancing: selection probability adjusts to each instance's historical call latency — the lower the latency, the higher the probability.
 
-- Each successful call updates the instance's EWMA with its actual duration: `ewma = alpha × sample + (1 - alpha) × ewma`
-- Failed calls update with a penalty (equivalent to a 30s timeout), punishing high-failure instances
-- Selection weights by `1 / (1 + ewma)` using weighted random
-- Cold start: instances with no samples get weight 1.0 (zero-latency equivalent) for fair exploration
-- `alpha` (default 0.2) controls smoothing: higher values react faster to new samples
+#### How It Works
 
-#### Configuration example
+- Each successful call updates the instance's EWMA with the actual duration: `ewma = alpha × sample + (1 - alpha) × ewma`
+- Failed calls use a penalty (equivalent to a 30s timeout), penalizing high-failure instances
+- Selection weights by `1 / (1 + ewma)` for weighted random choice
+- Cold start: instances without samples start at weight 1.0 (zero-latency equivalent) for fair exploration
+- `alpha` (default 0.2) controls smoothing: larger = more sensitive to new samples
+
+#### Example
 
 ```yaml
-# Global configuration
+# Global
 model:
   load-balance:
-    type: latency        # latency-aware strategy
-    ewma-alpha: 0.2      # EWMA smoothing factor (optional, default 0.2)
+    type: latency        # latency-aware
+    ewma-alpha: 0.2      # EWMA smoothing (optional, default 0.2)
 
-# Service-level configuration (overrides global)
+# Service-level (overrides global)
 model:
   services:
     chat:
@@ -499,145 +476,115 @@ model:
         ewma-alpha: 0.3
 ```
 
-#### Features and use cases
+#### Traits and Use Cases
 
-- **Features**: automatically senses instance latency changes and adjusts traffic; fair exploration for unsampled instances; converges smoothly on latency shifts
-- **Use cases**: cross-region deployments, mixed hardware, time-varying instance load
-- **Note**: latency data comes from call history (not active probing); convergence takes about one request cycle at high concurrency. Duration passthrough works with Sticky routing.
-
-## Performance Tuning
-
-### 1. Strategy Selection Guide
+- **Traits**: auto-adapts to latency changes; fair exploration for unsampled instances; converges gradually under jitter
+- **Use cases**: cross-region deployments, mixed hardware, load that varies over time
+- **Note**: latency comes from call history (not active probing); convergence is ~1 request cycle under high load; duration passthrough is wired up for Sticky routing.
 
 ```mermaid
 flowchart TD
-    A[Start Selecting Load Balancing Strategy] --> B{Are instance performances similar?}
-    B -->|Yes| C{Is session persistence needed?}
-    B -->|No| D[Least Connections]
+    A[Start: choose LB strategy] --> B{Similar performance?}
+    B -->|yes| C{Stickiness needed?}
+    B -->|no| D[Least Connections]
     
-    C -->|Yes| E[IP Hash]
-    C -->|No| F{Is request volume very high?}
+    C -->|yes| E[IP Hash]
+    C -->|no| F{Very high QPS?}
     
-    F -->|Yes| G[Random]
-    F -->|No| H[Round Robin]
+    F -->|yes| G[Random]
+    F -->|no| H[Round Robin]
     
-    D --> I[Configure Connection Tracking]
-    E --> J[Choose Appropriate Hash Algorithm]
-    G --> K[Optimize Weight Configuration]
-    H --> L[Configure Round Robin Weights]
+    D --> I[Configure connection tracking]
+    E --> J[Pick hash algorithm]
+    G --> K[Tune weights]
+    H --> L[Configure round-robin weights]
 ```
 
-### 2. Weight Configuration Best Practices
+### 1. Strategy Selection Guide
+
+### 2. Weight Best Practices
 
 ```yaml
-# Weight configuration based on instance performance
+# Weight by instance capability
 model:
   services:
     chat:
       instances:
-        # High-performance GPU server
+        # High-performance GPU
         - name: "gpu-model"
           base-url: "http://gpu-server:8080"
-          weight: 5              # High weight
+          weight: 5              # high
           
-        # Medium-performance server
+        # Mid-tier
         - name: "cpu-model"
           base-url: "http://cpu-server:8080"
-          weight: 2              # Medium weight
+          weight: 2              # medium
           
-        # Backup server
+        # Backup
         - name: "backup-model"
           base-url: "http://backup-server:8080"
-          weight: 1              # Low weight
+          weight: 1              # low
 ```
 
-### 3. Connection Pool Optimization
+### 3. Connection Pool Tuning
+
+The outbound WebClient connection pool lives in `config/common/webclient.yml`, prefix `trunkline.webclient`:
 
 ```yaml
-# Optimization for Least Connections strategy
-webclient:
-  connection-pool:
-    max-connections: 500        # Increase connection pool size
-    max-idle-time: 30s         # Appropriate idle time
-    pending-acquire-timeout: 60s # Connection acquisition timeout
-
+trunkline:
+  webclient:
+    connect-timeout-ms: 5000       # connect timeout
+    response-timeout-seconds: 60   # response timeout
+    max-connections: 500           # pool size
+    pending-acquire-timeout-ms: 10000  # acquire-timeout
+    max-idle-time-seconds: 300     # idle connection recycle
 ```
 
-## Fault Handling
+> The top-level `webclient.connection-pool.*` keys in earlier docs are deprecated; the pool moved to `trunkline.webclient.*`.
 
-### 1. Automatic Instance Fault Handling
+## Troubleshooting
 
-```yaml
-model:
-  load-balance:
-    health-check:
-      enabled: true
-      interval: 15s             # More frequent health checks
-      timeout: 3s
-      failure-threshold: 2      # More sensitive fault detection
-      success-threshold: 1      # Faster recovery detection
-```
+### 1. Instance Failure and Circuit Breaker Isolation
 
-### 2. Failover Configuration
+Instance failure detection is the circuit breaker's job (after `failureThreshold` consecutive failures the instance trips and is excluded from LB selection while OPEN) — see [Circuit Breaker](circuit-breaker.md).
 
-```yaml
-model:
-  services:
-    chat:
-      load-balance:
-        type: round-robin
-        failover:
-          enabled: true          # Enable failover
-          retry-attempts: 3      # Retry attempts
-          retry-delay: 1s       # Retry delay
-          circuit-breaker: true  # Enable circuit breaker
-      instances:
-        - name: "primary-model"
-          base-url: "http://primary:8080"
-          weight: 3
-          priority: 1           # Primary instance
-        - name: "secondary-model"
-          base-url: "http://secondary:8080"
-          weight: 2
-          priority: 2           # Secondary instance
-        - name: "backup-model"
-          base-url: "http://backup:8080"
-          weight: 1
-          priority: 3           # Backup instance
-```
+> The `model.load-balance.health-check.*` block (interval/timeout/failure-threshold/success-threshold) in earlier docs **does not exist**; failure detection is the circuit breaker.
 
-#### Request-level failover (v2.9.6+)
+### 2. Failover
 
-Since v2.9.6, when a call fails with a retryable error (connection error / 5xx / timeout), the gateway **reselects a different instance** to retry, instead of hammering the same instance:
+Failover works by "retry on a different instance" (v2.9.6+): on a retryable error (connection error / 5xx / timeout), the current instance is added to this request's failure blacklist, and the normal selection chain (health/circuit-breaker filter + LB strategy) picks an untried instance to retry.
 
-- **Instance switching**: on retryable failure, the current instance joins the per-request failed-blacklist; a new instance is selected through the normal selection chain (health/circuit-breaker filter + LB strategy), excluding already-failed ones
-- **Blacklist isolation**: failed instances are not reselected within the same request
-- **All-failed fallback**: if all instances failed or only one exists, fall back to retrying the same instance (existing behavior); retry count remains bounded by `RetryPolicy`
-- **Non-retryable errors** (e.g. 4xx) do not switch instance or retry
-- Enabled by default, no extra config; retry limit follows the per-service-type retry configuration
+> The `load-balance.failover.{enabled,retry-attempts,retry-delay}` block and the instance `priority` field in earlier docs **do not exist**; retry counts follow each service's retry policy and need no LB-level config.
 
-### 3. Load Balancing Issue Diagnosis
+#### Request-level Failover (v2.9.6+)
+
+Since v2.9.6, on a retryable error (connection error / 5xx / timeout), the gateway **reselects another instance** instead of hammering the same one:
+
+- **Different-instance retry**: on a retryable error the current instance is blacklisted for this request, and the selection chain picks an untried instance
+- **Blacklist isolation**: already-failed instances in the same request are not re-picked
+- **All-failed fallback**: if every instance failed (or there is only one), fall back to the original instance; retry count is still governed by `RetryPolicy`
+- **Non-retryable errors** (e.g. 4xx client errors): no switch, no retry, return immediately
+- On by default, no extra config; retry cap follows each service's configured retry count
+
+### 3. Diagnosing LB Issues
 
 ```bash
-# Check instance status
-curl "http://localhost:8080/api/config/instance/type/chat"
+# Instance states
+curl "http://localhost:8080/api/config/instance/chat"
 
-# View load distribution
-curl "http://localhost:8080/actuator/metrics/jairouter_requests_total"
+# Instance circuit breaker states
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 
-# Check connection status (Least Connections)
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_remaining"
-
-# View health check status
+# Health
 curl "http://localhost:8080/actuator/health"
 ```
 
-## Real-World Use Cases
+## Real-world Examples
 
-### Case 1: E-commerce Recommendation System
+### Case 1: E-commerce Recommendation
 
 ```yaml
-# Recommendation service requiring session persistence
+# Sticky recommendation service
 model:
   services:
     recommendation:
@@ -656,10 +603,10 @@ model:
           weight: 1
 ```
 
-### Case 2: Multi-Model AI Service
+### Case 2: Multi-model AI Service
 
 ```yaml
-# Model instances with different performance characteristics
+# Instances of varying capability
 model:
   services:
     chat:
@@ -668,24 +615,24 @@ model:
       instances:
         - name: "gpt-4"
           base-url: "http://openai-proxy:8080"
-          weight: 1              # Slow but high quality
+          weight: 1              # slow but high quality
         - name: "llama3.2:70b"
           base-url: "http://gpu-cluster:8080"
-          weight: 3              # Fast and good quality
+          weight: 3              # fast and good
         - name: "qwen2:7b"
           base-url: "http://cpu-cluster:8080"
-          weight: 2              # Medium performance
+          weight: 2              # mid
 ```
 
-### Case 3: High-Concurrency Scenario
+### Case 3: High Concurrency
 
 ```yaml
-# High-concurrency chat service
+# High-QPS chat service
 model:
   services:
     chat:
       load-balance:
-        type: random             # Lowest latency
+        type: random             # lowest overhead
       instances:
         - name: "chat-1"
           base-url: "http://chat-server-1:8080"
@@ -700,9 +647,9 @@ model:
 
 ## Next Steps
 
-After completing load balancing configuration, you can continue to learn about:
+After load balancing, continue with:
 
-- **[Rate Limiting Configuration](rate-limiting.md)** - Setting up traffic control and protection
-- **[Circuit Breaker Configuration](circuit-breaker.md)** - Configuring fault protection mechanisms
-- **[Monitoring Guide](../monitoring/index.md)** - Setting up load balancing monitoring
-- **[Troubleshooting](../troubleshooting/index.md)** - Load balancing issue diagnosis
+- **[Rate Limiting](rate-limiting.md)** - traffic control and protection
+- **[Circuit Breaker](circuit-breaker.md)** - failure protection
+- **[Monitoring Guide](../monitoring/index.md)** - LB monitoring
+- **[Troubleshooting](../troubleshooting/index.md)** - diagnosing LB issues

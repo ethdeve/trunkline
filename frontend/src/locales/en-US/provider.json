@@ -2,6 +2,7 @@
   "provider": {
     "title": "Model Providers",
     "subtitle": "Configure each upstream once: set the key, then add models in bulk or one by one",
+    "modelCategoryHint": "The category decides what these models do: chat, embedding, speech, image generation, etc. You can rename them for callers later in Virtual Models.",
     "searchPlaceholder": "Search provider name / address",
     "addProvider": "Add Provider",
     "refresh": "Refresh",
@@ -100,6 +101,10 @@
     "addedModelsEmpty": "No models under this provider yet. Discover or add one above",
     "batchAddSuccess": "Added {count} models",
     "batchAddPartial": "Added {created}, skipped {skipped} (already exist or empty)",
+    "batchAddSkipped": "{count} model(s) skipped: {detail}",
+    "batchAddSkippedMore": " (+{count} more)",
+    "batchAddNothing": "No new models to add (selected models may already exist)",
+    "singleAddSkipped": "Not added: {reason}",
     "serviceTypeDefault": "Model Category",
     "serviceTypeDefaultTip": "Each checked model is auto-classified by its name; unrecognized models fall back to this default category",
     "inferTypeTip": "Auto-detected category, click to adjust",

@@ -24,7 +24,7 @@ import java.time.Duration;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(prefix = "jairouter.security.monitoring.alerts", name = "enabled",
+@ConditionalOnProperty(prefix = "trunkline.security.monitoring.alerts", name = "enabled",
         havingValue = "true", matchIfMissing = true)
 public class SecurityAlertScheduler {
 
@@ -39,7 +39,7 @@ public class SecurityAlertScheduler {
      *
      * <p>默认每 5 分钟一次（与两条检查的 60 / 10 分钟窗口匹配）。</p>
      */
-    @Scheduled(fixedDelayString = "${jairouter.security.monitoring.alerts.window-check-interval-ms:300000}")
+    @Scheduled(fixedDelayString = "${trunkline.security.monitoring.alerts.window-check-interval-ms:300000}")
     public void checkWindowAggregatedAlerts() {
         if (!taskLock.tryAcquire(WINDOW_CHECK_LOCK_KEY, Duration.ofMinutes(5))) {
             return;

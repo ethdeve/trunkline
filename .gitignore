@@ -259,3 +259,12 @@ jindexer.jar
 
 # playwright-cli 临时产物
 .playwright-cli/
+
+# WorkBuddy 项目数据（会话记录等，不进 git）
+.workbuddy/
+
+# 前端 e2e 临时截图
+frontend/.e2e_shots_*/
+
+# 退役代码归档（保留本地参考，不进 git）
+frontend/src/views/_attic/

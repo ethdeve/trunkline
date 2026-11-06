@@ -1,22 +1,55 @@
 # Unified API Interface
 
 <!-- 版本信息 -->
-> **Doc Version**: 2.1.0  
-> **Last Updated**: 2026-09-13  
-> **Main change**: v3.1 dual entry surfaces (`/v1` OpenAI-native + `/api/v1` console) and auth conventions  
+> **Doc Version**: 2.2.0  
+> **Last Updated**: 2026-10-28  
+> **Main change**: Controller-verified — added `GET /v1/models`, `POST /v1/messages`, `POST /v1/messages/count_tokens`; corrected `/api/v1/images/edits` to multipart/form-data; new "API key & group routing semantics" section  
 > **Git Commit**: 61384b4a  
 > **Author**: Lincoln
 <!-- /版本信息 -->
 
 
+## Important Change Notes (v2.0.0)
 
-JAiRouter provides a unified API interface compatible with OpenAI format, supporting multiple AI model services. The OpenAI-compatible surface lives under `/v1`; TTS / STT / image endpoints are exposed **only on the console surface** `/api/v1/**` (see the table below).
+### DTO Refactor
+
+To improve API maintainability and extensibility, the request DTOs were refactored:
+
+**Before**: all parameters sat at the same level, resulting in a bloated parameter dictionary (ChatDTO had 56 fields).
+
+**After**:
+- **Core fields**: only required and commonly-used parameters kept (ChatDTO: 11 fields)
+- **Extension options**: adapter-specific parameters moved into an `options` object (ChatDTO: 29 fields)
+
+**Benefits**:
+- ✅ Clear core parameters, easy to get started
+- ✅ Extension parameters are opt-in and don't affect simple scenarios
+- ✅ Backward compatible — existing requests still work
+- ✅ Easy to add new parameters later
+
+**Example**:
+```json
+{
+  "model": "qwen3:4b",
+  "messages": [{"role": "user", "content": "Hello"}],
+  "temperature": 0.7,
+  "options": {
+    "repeat_penalty": 1.1,
+    "seed": 42
+  }
+}
+```
+
+
+
+Trunkline provides a unified API interface compatible with OpenAI format, supporting multiple AI model services. The OpenAI-compatible surface lives under `/v1` (plus the Anthropic-native `/v1/messages`); TTS / STT / image endpoints are exposed **only on the console surface** `/api/v1/**` (see the table below).
 
 ## Two entry surfaces (since v3.1)
 
 | Surface | Path | Response shape | Intended use |
 |---|---|---|---|
 | **OpenAI-native** | `/v1/**` | Non-streaming: **raw JSON** (`{id, object:"chat.completion", choices, usage}`); streaming: **native SSE** (`data: {...}` separated by `\n\n`) | Point OpenAI SDK / LangChain / LlamaIndex at `base_url=http://<host>:8080/v1` |
+| **Anthropic-native** | `/v1/messages`, `/v1/messages/count_tokens` | Anthropic Messages native shape (`{"type":"error","error":{"type","message"}}` on errors) | Point the Anthropic SDK at `/v1/messages` |
 | **Console** | `/api/v1/**` | Wrapped in `RouterResponse` (`{success, message, data}`) | Web console / AI playground internal calls; **not advertised as OpenAI-compatible** |
 
 **Authentication**
@@ -27,6 +60,30 @@ JAiRouter provides a unified API interface compatible with OpenAI format, suppor
 - Missing credentials → `401`; insufficient permission → `403`; quota exceeded → `429` (with `Retry-After` and `X-Quota-*`).
 
 > **Changed in v3.1**: `/v1/**` used to be forwarded to `/api/v1/**` by a path-rewrite filter that lost the request body (always `400 Failed to read HTTP message`). It is now served natively by `OpenAiNativeController`, so `/v1` genuinely works as an OpenAI SDK `base_url`.
+
+## Model List Interface
+
+### `GET /v1/models`
+
+Returns the model groups (virtual model names) callable by the current key/session, in OpenAI shape:
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "chat-groups",
+      "object": "model",
+      "created": 1677652288,
+      "owned_by": "trunkline"
+    }
+  ]
+}
+```
+
+> Code: `OpenAiNativeController#listModels` → `ModelCatalogService.listCallableModelsAsOpenAiList()`. Under the v3.5 single-track governance, instance names (physical model names) are no longer directly callable (the routing layer disables direct instance calls and the key whitelist only recognizes groups), so this endpoint lists groups only.
+>
+> The console also has `GET /api/models` (`ModelInfoController`), which returns a `RouterResponse`-wrapped full inventory (groups + instances) for internal console use — **not** OpenAI-shaped.
 
 ## Chat Completion Interface
 
@@ -232,11 +289,53 @@ Reorders document lists based on relevance to a query.
 }
 ```
 
+## Anthropic Messages Interface
+
+### `POST /v1/messages`
+
+Chat completion in Anthropic Messages native shape (code: `AnthropicMessagesController`, routed to the chat service pool).
+
+#### Request Parameters
+
+```json
+{
+  "model": "chat-groups",
+  "max_tokens": 1024,
+  "system": "You are a helpful assistant.",
+  "messages": [
+    {"role": "user", "content": "Hello!"}
+  ],
+  "stream": false,
+  "temperature": 0.7
+}
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `model` | string | Yes | Model group name (same as the OpenAI surface: a group, not an instance name) |
+| `messages` | array | Yes | Anthropic message list (`role` / `content`) |
+| `max_tokens` | integer | Yes | Maximum tokens to generate |
+| `system` | string | No | System prompt |
+| `stream` | boolean | No | Stream (SSE) when true; default false |
+| `temperature` | number | No | Sampling temperature |
+
+#### Response Format
+
+Non-streaming returns the Anthropic shape (`id` / `type:"message"` / `role` / `content` / `model` / `stop_reason` / `usage`); with `stream:true` it returns the Anthropic event stream as SSE.
+
+> **Error-body difference**: errors on `/v1/messages*` use the Anthropic shape `{"type":"error","error":{"type","message"}}` — **no `code` field**; errors on all other `/v1/**` calls use the OpenAI shape `{"error":{"message","type","code"}}` (code: `V1ErrorBodyMapper#toBody`).
+
+### `POST /v1/messages/count_tokens`
+
+Counts tokens of `messages` (code: `AnthropicMessagesController#countTokens`). The request body is the same as `/v1/messages` (no `max_tokens` needed); the response follows the Anthropic counting shape (including `input_tokens`). This endpoint is a **local estimate and never calls the downstream model**.
+
+> Authentication is the same as other `/v1/**` calls: `X-API-Key` or `Jairouter_Token`.
+
 ## Text-to-Speech Interface
 
 ### `POST /api/v1/audio/speech`
 
-> **Console surface only.** The `/v1` surface registers just `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/embeddings` and `POST /v1/rerank` — there is no `/v1/...` mapping for this endpoint.
+> **Console surface only.** The `/v1` surface registers `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/embeddings`, `POST /v1/rerank`, `POST /v1/messages`, `POST /v1/messages/count_tokens` — there is no `/v1/...` mapping for this endpoint.
 
 Converts text into speech audio files.
 
@@ -270,7 +369,7 @@ Returns binary data of the audio file with Content-Type set according to `respon
 
 ### `POST /api/v1/audio/transcriptions`
 
-> **Console surface only.** The `/v1` surface registers just `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/embeddings` and `POST /v1/rerank` — there is no `/v1/...` mapping for this endpoint.
+> **Console surface only.** The `/v1` surface registers `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/embeddings`, `POST /v1/rerank`, `POST /v1/messages`, `POST /v1/messages/count_tokens` — there is no `/v1/...` mapping for this endpoint.
 
 Converts audio files into text.
 
@@ -309,7 +408,7 @@ temperature: 0
 
 ### `POST /api/v1/images/generations`
 
-> **Console surface only.** The `/v1` surface registers just `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/embeddings` and `POST /v1/rerank` — there is no `/v1/...` mapping for this endpoint.
+> **Console surface only.** The `/v1` surface registers `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/embeddings`, `POST /v1/rerank`, `POST /v1/messages`, `POST /v1/messages/count_tokens` — there is no `/v1/...` mapping for this endpoint.
 
 Generates images based on text descriptions.
 
@@ -359,27 +458,35 @@ Generates images based on text descriptions.
 
 ### `POST /api/v1/images/edits`
 
-> **Console surface only.** The `/v1` surface registers just `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/embeddings` and `POST /v1/rerank` — there is no `/v1/...` mapping for this endpoint.
+> **Console surface only.** The `/v1` surface registers `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/embeddings`, `POST /v1/rerank`, `POST /v1/messages`, `POST /v1/messages/count_tokens` — there is no `/v1/...` mapping for this endpoint.
 
 Edits existing images.
 
 #### Request Parameters
 
-A **JSON** request body (`@RequestBody ImageEditDTO.Request`) — **not** `multipart/form-data`:
+**`multipart/form-data`** request (code: `UniversalController#editImages` now declares `consumes = MediaType.MULTIPART_FORM_DATA_VALUE`, same as STT; the old `@RequestBody ImageEditDTO.Request` JSON style now yields `415 Unsupported Media Type`):
 
-```json
-{
-  "image": ["<image reference>"],
-  "prompt": "Edit description",
-  "model": "dall-e-2",
-  "n": 1,
-  "size": "1024x1024",
-  "response_format": "url",
-  "user": "user-123"
-}
+```
+image: (image file, may repeat)
+prompt: Edit description
+model: dall-e-2
+n: 1
+size: 1024x1024
+response_format: url
+user: user-123
 ```
 
-> Contrast with `/api/v1/audio/transcriptions`, which **is** declared as `multipart/form-data`, and note the part name there is `responseFormat` (camelCase).
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `image` | file | Yes | Image file(s) to edit |
+| `prompt` | string | Yes | Edit description |
+| `model` | string | Yes | Image-editing model group name |
+| `n` | integer | No | Number of images, default 1 |
+| `size` | string | No | Image size, default 1024x1024 |
+| `response_format` | string | No | Response format: url or b64_json |
+| `user` | string | No | User identifier |
+
+> By contrast, `/api/v1/audio/transcriptions` is also `multipart/form-data`, and its part name `responseFormat` is camelCase.
 
 #### Response Format
 
@@ -393,6 +500,56 @@ A **JSON** request body (`@RequestBody ImageEditDTO.Request`) — **not** `multi
   ]
 }
 ```
+
+## API Key & Group Routing Semantics (how the `model` field is routed)
+
+This chapter covers only the **request-side** resolution of the `model` field into a model group (pool) and how API-key constraints apply. Creating, rotating, and quota management of keys themselves are covered in the security section.
+
+### Core rule: `model` must be a model group name
+
+Under v3.5 single-track governance, the `model` field **only accepts model group names (pool names, i.e. the external virtual model names)**; instance names (physical model names) are no longer directly callable.
+
+Resolution order (code: `ModelServiceRegistry#selectInstance` → `PoolSelector#findPool`):
+
+1. Empty `model` → `400` (`IllegalArgumentException`).
+2. **Rule engine first** (since v2.8.5): admin-configured routing rules may rewrite the target model (`TARGET_MODEL`), pin an instance (`TARGET_INSTANCE`), override the load-balancing strategy, or trigger rate limiting (`RATE_LIMIT`) — this is console configuration, **not client-controllable**.
+3. **Tag filtering**: the request header `X-Trunkline-Tags` (or rule `TARGET_TAGS`) filters candidate instances by tags.
+4. **Exact group match**: within the service type implied by the endpoint (`chat` / `embedding` / `rerank` / `tts` / `stt` / `imgGen` / `imgEdit`), match enabled group names by exact string equality (`pool.getPoolName().equals(modelName)`). On match, group members become the candidate instance set and the group's configured load-balancing strategy is used.
+5. **System group `auto-model`**: a built-in virtual group name meaning all healthy instances of the service type.
+6. **No match → `404`**, message like: `Model 'X' is not a model group. Requests must target a model group (pool); direct model access is not allowed.`
+
+When a group matches but has no candidate instances (no healthy members) → **`503`** (`PoolUnavailableException`), with `Retry-After: 60` and per-member unavailability reasons.
+
+### No "pool/model" lock syntax exists
+
+There is **no** code that splits the `model` field on `/` — `model` is matched as a whole against group names. There is no `pool/model` or `group/instance` syntax. To pin a request to a specific instance, an admin must configure `TARGET_INSTANCE` in the rule engine, or inspect the debug response headers.
+
+### How the key whitelist constrains `model` resolution
+
+An API key carries an `allowedGroups` field (model-group whitelist; code: `auth/security/config/properties/ApiKey.java`):
+
+| `allowedGroups` | Behavior |
+|---|---|
+| `null` / empty | **No restriction** (legacy compatibility): the key may call any group within its service permissions |
+| non-empty | The request `model` must satisfy `allowedGroups.contains(modelName)`, otherwise **`403`** |
+
+Code: `ServiceRequestHandler#hasModelPermission` (`allowedGroups == null || isEmpty() → true`; otherwise `allowedGroups.contains(modelName)`).
+
+Notes:
+
+- This whitelist applies **only to API Key callers**; console JWT callers are exempt from the model whitelist check (`hasModelPermission` returns true when `caller.isJwtCaller()`).
+- Service-level permission is a separate gate: the API key must hold the matching service role (`CHAT` / `EMBEDDING` / `RERANK` / `TTS` / `STT` / `IMG_GEN` / `IMG_EDIT`, or `ADMIN`), otherwise `403` (`ServiceRequestHandler#hasServicePermission`).
+- Since v3.5 the legacy instance-level `allowedModels` whitelist has been removed; the whitelist recognizes **groups only**.
+
+### Debug observability
+
+When the debug switch is on, the response headers echo this routing decision (code: `ServiceRequestHandler` writes `X-Trunkline-*` headers):
+
+| Response header | Meaning |
+|---|---|
+| `X-Trunkline-Instance` | The actually selected instance |
+| `X-Trunkline-Pool` | The matched group name |
+| `X-Trunkline-Strategy` | The load-balancing strategy used |
 
 ## Error Handling
 

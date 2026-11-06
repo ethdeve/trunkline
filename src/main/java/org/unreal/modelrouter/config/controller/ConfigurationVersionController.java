@@ -1,5 +1,6 @@
 package org.unreal.modelrouter.config.controller;
 
+import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -41,7 +42,7 @@ import org.unreal.modelrouter.common.exception.ApiExceptions;
 public class ConfigurationVersionController {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigurationVersionController.class);
-    private static final String CONFIG_KEY = "model-router-config";
+    private static final String CONFIG_KEY = ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY;
 
     private final ConfigurationService configurationService;
     private final ConfigVersionManager configVersionManager;  // 新增

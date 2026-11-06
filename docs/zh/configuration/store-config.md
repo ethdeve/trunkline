@@ -11,80 +11,72 @@
 > **最后更新：** 2026-06-09  
 > **默认存储：** H2 数据库
 
-JAiRouter 使用存储管理器来持久化配置数据和版本控制。本页面详细介绍存储相关的配置选项。
+Trunkline 使用存储管理器来持久化配置数据和版本控制。本页面详细介绍存储相关的配置选项。
 
 ## 存储类型
 
-JAiRouter 支持多种存储类型，默认使用 H2 数据库存储。
+Trunkline 默认使用 JPA 持久化（嵌入式 H2，可切换 PostgreSQL）。
 
-### H2 数据库存储 (h2)
+### JPA / H2 存储 (jpa)
 
-H2 数据库存储是默认的存储方式，将配置数据保存在嵌入式 H2 数据库中，提供更好的性能、事务支持和查询能力。
+JPA 存储是默认方式，配置数据保存在关系型数据库中，提供事务支持与查询能力。默认数据源为嵌入式 H2（文件库 `./data/trunkline`），可通过环境变量切换到 PostgreSQL。适用于所有环境（dev、test、prod）。
 
-H2 数据库现在是项目的**默认存储方式**，适用于所有环境（dev、test、prod）。
+### Redis 存储 (redis)
 
-### 文件存储 (file)
-
-文件存储将配置数据保存在本地文件系统中，适用于简单的使用场景。
+Redis 存储将配置数据保存在 Redis 中，适合多实例共享配置的部署。
 
 ### 内存存储 (memory)
 
-内存存储将配置数据保存在内存中，适用于临时或测试场景。
+内存存储将配置数据保存在内存中，适用于临时或测试场景，重启后丢失。
 
 ## 配置选项
 
-存储配置通过 `store` 前缀进行配置，可以在 `application.yml` 或相关配置文件中设置。
+存储配置通过 `store` 前缀进行配置（`config/config-service/core.yml`）：
 
 ### 基本配置
 
 ```yaml
 store:
-  type: h2          # 存储类型，默认为 h2
-  h2:
-    url: file:./data/config  # H2 数据库文件路径
-  auto-merge: true  # 是否启用自动合并功能，默认为 true
+  type: jpa              # 存储类型，默认为 jpa，可选 redis / memory
+  path: ./config         # 配置文件导入导出目录
+  fallback-storage: memory   # 降级备用存储
+  migration:
+    enabled: true       # 从旧文件存储迁移到 JPA
+  security-migration:
+    enabled: true       # 安全数据（API Keys、JWT 账户）迁移
 ```
 
 ### 配置说明
 
 | 配置项 | 默认值 | 说明 |
 |-------|--------|------|
-| `store.type` | `h2` | 存储类型，支持 h2、file、memory |
-| `store.h2.url` | `file:./data/config` | H2 数据库文件路径 |
-| `store.path` | `config/` | 配置文件存储的目录路径（仅文件存储时使用） |
-| `store.auto-merge` | `true` | 是否启用自动合并功能 |
+| `store.type` | `jpa` | 存储类型：`jpa`（默认）、`redis`、`memory` |
+| `store.path` | `./config` | 配置文件导入导出目录 |
+| `store.fallback-storage` | `memory` | 降级备用存储 |
+| `store.migration.enabled` | `true` | 是否启用配置数据迁移 |
+| `store.security-migration.enabled` | `true` | 是否启用安全数据迁移 |
 
-### H2 数据库存储高级配置
+> 早期文档中的 `store.h2.url`、`store.auto-merge`、`store.auto-backup`、`store.backup-interval` 等键**不存在**；H2 连接由 `spring.datasource` 配置。
+
+### 数据源配置
 
 ```yaml
-store:
-  type: h2  # 默认使用 H2 数据库
-  h2:
-    url: file:./data/config  # H2 数据库文件路径
-  migration:
-    enabled: false  # 是否启用配置数据迁移（从文件存储迁移到H2数据库）
-  security-migration:
-    enabled: false  # 是否启用安全数据迁移（API Keys、JWT 账户等）
-
 spring:
-  r2dbc:
-    url: r2dbc:h2:file:///./data/config
-    username: sa
-    password:
-    pool:
-      initial-size: 10
-      max-size: 20
+  datasource:
+    # 默认嵌入式 H2（文件库）；生产环境用 DATABASE_URL 环境变量指向 PostgreSQL
+    url: ${DATABASE_URL:jdbc:h2:file:./data/trunkline;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE}
+    username: ${DATABASE_USERNAME:sa}
+    password: ${DATABASE_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: update     # H2 用 update；PostgreSQL 由 Flyway 覆盖为 validate
   h2:
     console:
-      enabled: false
+      enabled: false       # 开发环境可开启
       path: /h2-console
-
-jairouter:
-  security:
-    audit:
-      storage: h2  # 安全审计日志存储类型
-      retentionDays: 30
 ```
+
+> 早期示例中的 `spring.r2dbc` 配置不适用于当前 JPA 实现。
 
 ### H2 数据库存储完整配置
 
@@ -112,7 +104,7 @@ spring:
       enabled: false
       path: /h2-console
 
-jairouter:
+trunkline:
   security:
     audit:
       storage: h2
@@ -145,7 +137,7 @@ spring:
       enabled: true
       path: /h2-console
 
-jairouter:
+trunkline:
   security:
     audit:
       storage: h2
@@ -158,7 +150,7 @@ jairouter:
 store:
   type: h2
   h2:
-    url: file:/var/lib/jairouter/data/config
+    url: file:/var/lib/trunkline/data/config
   migration:
     enabled: false
   security-migration:
@@ -174,7 +166,7 @@ spring:
       max-size: 50
       max-idle-time: 30m
 
-jairouter:
+trunkline:
   security:
     audit:
       storage: h2
@@ -195,7 +187,7 @@ jairouter:
 # 启用自动合并功能并指定配置目录
 store:
   type: file
-  path: "/var/lib/jairouter/config/"
+  path: "/var/lib/trunkline/config/"
   auto-merge: true
 ```
 
@@ -427,11 +419,11 @@ cp ./backup/config-20241120.mv.db ./data/config.mv.db
 
 ```bash
 #!/bin/bash
-# /usr/local/bin/backup-jairouter-db.sh
+# /usr/local/bin/backup-trunkline-db.sh
 
 DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_DIR="/var/backups/jairouter"
-DB_FILE="/var/lib/jairouter/data/config.mv.db"
+BACKUP_DIR="/var/backups/trunkline"
+DB_FILE="/var/lib/trunkline/data/config.mv.db"
 
 mkdir -p $BACKUP_DIR
 cp $DB_FILE $BACKUP_DIR/config_$DATE.mv.db
@@ -449,7 +441,7 @@ echo "Backup completed: config_$DATE.mv.db.gz"
 
 ```bash
 # 每天凌晨3点备份
-0 3 * * * /usr/local/bin/backup-jairouter-db.sh
+0 3 * * * /usr/local/bin/backup-trunkline-db.sh
 ```
 
 ## 注意事项

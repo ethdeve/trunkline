@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# JAiRouter 安全功能部署脚本
-# 用于部署启用安全功能的 JAiRouter 实例
+# Trunkline 安全功能部署脚本
+# 用于部署启用安全功能的 Trunkline 实例
 
 set -e
 
@@ -38,7 +38,7 @@ log_error() {
 # 显示帮助信息
 show_help() {
     cat << EOF
-JAiRouter 安全功能部署脚本
+Trunkline 安全功能部署脚本
 
 用法: $0 [选项]
 
@@ -86,7 +86,7 @@ create_default_env() {
     if [[ ! -f "$ENV_FILE" ]]; then
         log_info "创建默认环境变量文件: $ENV_FILE"
         cat > "$ENV_FILE" << 'EOF'
-# JAiRouter 安全功能环境变量配置
+# Trunkline 安全功能环境变量配置
 
 # 安全功能总开关
 JAIROUTER_SECURITY_ENABLED=true
@@ -115,7 +115,7 @@ REDIS_DATABASE=0
 REDIS_TIMEOUT=2000
 
 # 其他配置
-COMPOSE_PROJECT_NAME=jairouter-security
+COMPOSE_PROJECT_NAME=trunkline-security
 EOF
         log_warning "请编辑 $ENV_FILE 文件，设置正确的安全配置参数"
         log_warning "特别注意设置强密码用于 ADMIN_API_KEY, USER_API_KEY, JWT_SECRET 和 REDIS_PASSWORD"
@@ -175,7 +175,7 @@ validate_env() {
 build_images() {
     local force_build=$1
     
-    log_info "构建 JAiRouter 镜像..."
+    log_info "构建 Trunkline 镜像..."
     
     cd "$PROJECT_ROOT"
     
@@ -192,12 +192,12 @@ build_images() {
 deploy_services() {
     local enable_monitoring=$1
     
-    log_info "部署 JAiRouter 安全功能服务..."
+    log_info "部署 Trunkline 安全功能服务..."
     
     cd "$PROJECT_ROOT"
     
     # 基础服务
-    local services="jairouter redis"
+    local services="trunkline redis"
     
     # 如果启用监控，添加监控服务
     if [[ "$enable_monitoring" == "true" ]]; then
@@ -212,7 +212,7 @@ deploy_services() {
 
 # 停止服务
 stop_services() {
-    log_info "停止 JAiRouter 服务..."
+    log_info "停止 Trunkline 服务..."
     
     cd "$PROJECT_ROOT"
     docker-compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down
@@ -222,7 +222,7 @@ stop_services() {
 
 # 重启服务
 restart_services() {
-    log_info "重启 JAiRouter 服务..."
+    log_info "重启 Trunkline 服务..."
     
     cd "$PROJECT_ROOT"
     docker-compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" restart
@@ -272,11 +272,11 @@ check_health() {
     # 检查服务端点
     log_info "检查服务端点..."
     
-    local jairouter_url="http://localhost:8080/actuator/health"
-    if curl -s "$jairouter_url" > /dev/null; then
-        log_success "JAiRouter 健康检查端点可访问"
+    local trunkline_url="http://localhost:8080/actuator/health"
+    if curl -s "$trunkline_url" > /dev/null; then
+        log_success "Trunkline 健康检查端点可访问"
     else
-        log_error "JAiRouter 健康检查端点不可访问"
+        log_error "Trunkline 健康检查端点不可访问"
     fi
     
     local redis_host="localhost"
@@ -366,9 +366,9 @@ main() {
         build_images "$force_build"
         deploy_services "$enable_monitoring"
         
-        log_success "JAiRouter 安全功能部署完成!"
+        log_success "Trunkline 安全功能部署完成!"
         log_info "服务访问地址:"
-        log_info "  - JAiRouter API: http://localhost:8080"
+        log_info "  - Trunkline API: http://localhost:8080"
         log_info "  - 健康检查: http://localhost:8080/actuator/health"
         log_info "  - API 文档: http://localhost:8080/swagger-ui/index.html"
         

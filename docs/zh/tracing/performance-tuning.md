@@ -7,14 +7,14 @@
 > **作者**: Lincoln
 <!-- /版本信息 -->
 
-本文档提供 JAiRouter 分布式追踪系统的性能调优指南和最佳实践。
+本文档提供 Trunkline 分布式追踪系统的性能调优指南和最佳实践。
 
 ## 采样策略优化
 
 ### 生产环境推荐配置 (v2.7.9+)
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       # 采样策略（issue #234 起真实存在）：ratio（默认，只按采样率）/ rule（按 rules 匹配 span 属性，
@@ -65,7 +65,7 @@ jairouter:
 ### 内存配置
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     performance:
       # 内存管理配置
@@ -102,7 +102,7 @@ jairouter:
 ### 线程池配置
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     performance:
       # 线程池配置
@@ -123,7 +123,7 @@ jairouter:
 ### 批处理配置
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     performance:
       # 批处理器参数就在这里 —— OpenTelemetry 的 BatchSpanProcessor 由这几个值驱动
@@ -145,7 +145,7 @@ jairouter:
 ### 导出器配置
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     exporter:
       type: "otlp"                     # jaeger, zipkin, otlp, logging
@@ -196,28 +196,28 @@ jairouter:
 
 ```bash
 # CPU 使用率
-jairouter_tracing_cpu_usage
+trunkline_tracing_cpu_usage
 
 # 内存使用
-jairouter_tracing_memory_used_bytes
+trunkline_tracing_memory_used_bytes
 
 # Span 处理延迟
-jairouter_tracing_span_processing_duration_seconds
+trunkline_tracing_span_processing_duration_seconds
 
 # 导出成功率
-jairouter_tracing_export_success_rate
+trunkline_tracing_export_success_rate
 
 # 队列大小
-jairouter_tracing_queue_size
+trunkline_tracing_queue_size
 
 # 活跃 Span 数
-jairouter_tracing_active_spans
+trunkline_tracing_active_spans
 ```
 
 ### 监控配置
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     monitoring:
       metrics:
@@ -242,11 +242,11 @@ jairouter:
 ### 性能问题诊断
 
 1. **检查采样率是否过高**
-   - 验证 `jairouter.tracing.sampling.ratio` 是否适合您的流量
+   - 验证 `trunkline.tracing.sampling.ratio` 是否适合您的流量
    - v2.7.9+ 默认为 0.1 (10%)，从 1.0 (100%) 降低
 
 2. **监控内存使用**
-   - 检查 `jairouter_tracing_memory_used_bytes`
+   - 检查 `trunkline_tracing_memory_used_bytes`
    - 必要时调整 `performance.memory.max-spans-in-memory`
 
 3. **分析 GC 频率和耗时**
@@ -254,11 +254,11 @@ jairouter:
    - 如果 GC 频繁，考虑增加堆大小
 
 4. **检查导出器响应时间**
-   - 监控 `jairouter_tracing_export_success_rate`
+   - 监控 `trunkline_tracing_export_success_rate`
    - 验证到 OTLP/Jaeger 端点的网络连接
 
 5. **验证队列压力**
-   - 检查 `jairouter_tracing_queue_size`
+   - 检查 `trunkline_tracing_queue_size`
    - 必要时增加 `performance.thread-pool.queue-capacity`
 
 ### 优化建议
@@ -275,7 +275,7 @@ jairouter:
 ### HTTP 追踪
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     components:
       http:
@@ -297,7 +297,7 @@ jairouter:
 ### 限流器与熔断器追踪
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     components:
       rate-limiter:

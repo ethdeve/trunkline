@@ -35,7 +35,7 @@ This document provides optimized deployment solutions specifically for the Chine
 
 ### 1. Alibaba Cloud Maven Mirror Configuration
 
-JAiRouter provides specialized build configurations for China optimization:
+Trunkline provides specialized build configurations for China optimization:
 
 #### settings-china.xml Configuration
 
@@ -128,14 +128,14 @@ Create `scripts/docker-build-china.ps1`:
 
 ```powershell
 #!/usr/bin/env pwsh
-# JAiRouter China Optimized Docker Build Script
+# Trunkline China Optimized Docker Build Script
 
 param(
     [string]$Tag = "latest",
     [string]$Profile = "china"
 )
 
-Write-Host "Starting to build JAiRouter (China Optimized Version)..." -ForegroundColor Green
+Write-Host "Starting to build Trunkline (China Optimized Version)..." -ForegroundColor Green
 Write-Host "Tag: $Tag" -ForegroundColor Yellow
 Write-Host "Profile: $Profile" -ForegroundColor Yellow
 
@@ -162,7 +162,7 @@ try {
 # Build Docker image
 Write-Host "Step 2: Building Docker image..." -ForegroundColor Cyan
 try {
-    docker build -f Dockerfile.china -t "sodlinken/jairouter:$Tag" .
+    docker build -f Dockerfile.china -t "trunkline/trunkline:$Tag" .
     if ($LASTEXITCODE -ne 0) {
         throw "Docker build failed"
     }
@@ -173,12 +173,12 @@ try {
 
 # Verify image
 Write-Host "Step 3: Verifying image..." -ForegroundColor Cyan
-$imageSize = docker images sodlinken/jairouter:$Tag --format "{{.Size}}"
+$imageSize = docker images trunkline/trunkline:$Tag --format "{{.Size}}"
 Write-Host "Image size: $imageSize" -ForegroundColor Green
 
 Write-Host "Build completed!" -ForegroundColor Green
-Write-Host "Image: sodlinken/jairouter:$Tag" -ForegroundColor Yellow
-Write-Host "Run command: docker run -d -p 8080:8080 sodlinken/jairouter:$Tag" -ForegroundColor Yellow
+Write-Host "Image: trunkline/trunkline:$Tag" -ForegroundColor Yellow
+Write-Host "Run command: docker run -d -p 8080:8080 trunkline/trunkline:$Tag" -ForegroundColor Yellow
 ```
 
 #### Linux/macOS Bash Script
@@ -187,14 +187,14 @@ Create `scripts/docker-build-china.sh`:
 
 ```bash
 #!/bin/bash
-# JAiRouter China Optimized Docker Build Script
+# Trunkline China Optimized Docker Build Script
 
 set -e
 
 TAG=${1:-latest}
 PROFILE=${2:-china}
 
-echo "Starting to build JAiRouter (China Optimized Version)..."
+echo "Starting to build Trunkline (China Optimized Version)..."
 echo "Tag: $TAG"
 echo "Profile: $PROFILE"
 
@@ -210,16 +210,16 @@ echo "Step 1: Building application with China mirrors..."
 
 # Build Docker image
 echo "Step 2: Building Docker image..."
-docker build -f Dockerfile.china -t "sodlinken/jairouter:$TAG" .
+docker build -f Dockerfile.china -t "trunkline/trunkline:$TAG" .
 
 # Verify image
 echo "Step 3: Verifying image..."
-IMAGE_SIZE=$(docker images sodlinken/jairouter:$TAG --format "{{.Size}}")
+IMAGE_SIZE=$(docker images trunkline/trunkline:$TAG --format "{{.Size}}")
 echo "Image size: $IMAGE_SIZE"
 
 echo "Build completed!"
-echo "Image: sodlinken/jairouter:$TAG"
-echo "Run command: docker run -d -p 8080:8080 sodlinken/jairouter:$TAG"
+echo "Image: trunkline/trunkline:$TAG"
+echo "Run command: docker run -d -p 8080:8080 trunkline/trunkline:$TAG"
 ```
 
 ### 3. pom.xml China Optimization Configuration
@@ -312,7 +312,7 @@ sudo systemctl restart docker
 `Dockerfile.china` has been optimized for the Chinese network environment:
 
 ```dockerfile
-# Multi-stage Dockerfile for JAiRouter (China Optimized)
+# Multi-stage Dockerfile for Trunkline (China Optimized)
 # Using Alibaba Cloud Maven mirror to accelerate build
 FROM maven:3.9.6-eclipse-temurin-17 AS builder
 
@@ -334,19 +334,19 @@ RUN mvn clean package -Pchina -DskipTests
 # Runtime stage - Using Alibaba Cloud image
 FROM registry.cn-hangzhou.aliyuncs.com/acs/openjdk:17-jre-alpine
 
-LABEL maintainer="JAiRouter Team"
-LABEL description="JAiRouter - AI Model Service Routing and Load Balancing Gateway (China Optimized)"
+LABEL maintainer="Trunkline Team"
+LABEL description="Trunkline - AI Model Service Routing and Load Balancing Gateway (China Optimized)"
 LABEL version="1.0-SNAPSHOT"
 
 # Create application user
-RUN addgroup -g 1001 jairouter && \
-    adduser -D -s /bin/sh -u 1001 -G jairouter jairouter
+RUN addgroup -g 1001 trunkline && \
+    adduser -D -s /bin/sh -u 1001 -G trunkline trunkline
 
 WORKDIR /app
 
 # Create necessary directories
 RUN mkdir -p /app/logs /app/config /app/config-store && \
-    chown -R jairouter:jairouter /app
+    chown -R trunkline:trunkline /app
 
 # Copy JAR file
 COPY --from=builder /app/target/model-router-*.jar app.jar
@@ -358,7 +358,7 @@ ENV SERVER_PORT=8080
 
 EXPOSE 8080
 
-USER jairouter
+USER trunkline
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
@@ -456,9 +456,9 @@ Configure in `docker-compose.china.yml`:
 version: '3.8'
 
 services:
-  jairouter:
-    image: sodlinken/jairouter:china
-    container_name: jairouter-china
+  trunkline:
+    image: trunkline/trunkline:china
+    container_name: trunkline-china
     dns:
       - 223.5.5.5      # Alibaba Cloud DNS
       - 119.29.29.29   # Tencent DNS
@@ -484,7 +484,7 @@ networks:
   china-network:
     driver: bridge
     driver_opts:
-      com.docker.network.bridge.name: jairouter-china
+      com.docker.network.bridge.name: trunkline-china
 ```
 
 ## AI Service Provider Optimization
@@ -583,8 +583,8 @@ Configure to use domestic monitoring services:
 version: '3.8'
 
 services:
-  jairouter:
-    image: sodlinken/jairouter:china
+  trunkline:
+    image: trunkline/trunkline:china
     # ... other configurations
     
   prometheus:
@@ -637,7 +637,7 @@ receivers:
   - name: 'china-alerts'
     email_configs:
       - to: 'ops@example.com'
-        subject: '[JAiRouter] {{ .GroupLabels.alertname }}'
+        subject: '[Trunkline] {{ .GroupLabels.alertname }}'
         body: |
           {{ range .Alerts }}
           Alert: {{ .Annotations.summary }}
@@ -652,7 +652,7 @@ receivers:
         api_secret: '${WECHAT_API_SECRET}'
         to_user: '@all'
         message: |
-          JAiRouter Alert Notification
+          Trunkline Alert Notification
           {{ range .Alerts }}
           Alert: {{ .Annotations.summary }}
           {{ end }}
@@ -661,7 +661,7 @@ receivers:
     webhook_configs:
       - url: '${DINGTALK_WEBHOOK_URL}'
         send_resolved: true
-        title: 'JAiRouter Alert'
+        title: 'Trunkline Alert'
         text: |
           {{ range .Alerts }}
           Alert: {{ .Annotations.summary }}
@@ -677,11 +677,11 @@ Create `deploy-china.sh`:
 
 ```bash
 #!/bin/bash
-# JAiRouter China Optimized One-click Deployment Script
+# Trunkline China Optimized One-click Deployment Script
 
 set -e
 
-echo "JAiRouter China Optimized Deployment Script"
+echo "Trunkline China Optimized Deployment Script"
 echo "=========================================="
 
 # Check system environment
@@ -730,7 +730,7 @@ EOF
 
 # Build image
 build_image() {
-    echo "Building JAiRouter China optimized image..."
+    echo "Building Trunkline China optimized image..."
     
     if [ -f "scripts/docker-build-china.sh" ]; then
         chmod +x scripts/docker-build-china.sh
@@ -738,7 +738,7 @@ build_image() {
     else
         echo "Building with Maven..."
         ./mvnw clean package -Pchina -DskipTests
-        docker build -f Dockerfile.china -t sodlinken/jairouter:china .
+        docker build -f Dockerfile.china -t trunkline/trunkline:china .
     fi
     
     echo "✓ Image build completed"
@@ -746,7 +746,7 @@ build_image() {
 
 # Deploy application
 deploy_application() {
-    echo "Deploying JAiRouter application..."
+    echo "Deploying Trunkline application..."
     
     # Create necessary directories
     mkdir -p config logs config-store
@@ -774,7 +774,7 @@ verify_deployment() {
     # Check health status
     if curl -f -s http://localhost:8080/actuator/health > /dev/null; then
         echo "✓ Application health check passed"
-        echo "✓ JAiRouter deployment successful!"
+        echo "✓ Trunkline deployment successful!"
         echo ""
         echo "Access URLs:"
         echo "  Application: http://localhost:8080"
@@ -782,7 +782,7 @@ verify_deployment() {
         echo "  API Documentation: http://localhost:8080/swagger-ui/index.html"
     else
         echo "✗ Application health check failed"
-        echo "Please check logs: docker logs jairouter-china"
+        echo "Please check logs: docker logs trunkline-china"
         exit 1
     fi
 }
@@ -806,14 +806,14 @@ Create `deploy-china.ps1`:
 
 ```powershell
 #!/usr/bin/env pwsh
-# JAiRouter China Optimized One-click Deployment Script (Windows)
+# Trunkline China Optimized One-click Deployment Script (Windows)
 
 param(
     [switch]$SkipBuild = $false,
     [switch]$Monitoring = $false
 )
 
-Write-Host "JAiRouter China Optimized Deployment Script (Windows)" -ForegroundColor Green
+Write-Host "Trunkline China Optimized Deployment Script (Windows)" -ForegroundColor Green
 Write-Host "======================================================" -ForegroundColor Green
 
 # Check system environment
@@ -847,14 +847,14 @@ function Build-Image {
         return
     }
     
-    Write-Host "Building JAiRouter China optimized image..." -ForegroundColor Cyan
+    Write-Host "Building Trunkline China optimized image..." -ForegroundColor Cyan
     
     if (Test-Path "scripts\docker-build-china.ps1") {
         & "scripts\docker-build-china.ps1"
     } else {
         Write-Host "Building with Maven..." -ForegroundColor Yellow
         .\mvnw.cmd clean package -Pchina -DskipTests
-        docker build -f Dockerfile.china -t sodlinken/jairouter:china .
+        docker build -f Dockerfile.china -t trunkline/trunkline:china .
     }
     
     Write-Host "✓ Image build completed" -ForegroundColor Green
@@ -862,7 +862,7 @@ function Build-Image {
 
 # Deploy application
 function Deploy-Application {
-    Write-Host "Deploying JAiRouter application..." -ForegroundColor Cyan
+    Write-Host "Deploying Trunkline application..." -ForegroundColor Cyan
     
     # Create necessary directories
     @("config", "logs", "config-store") | ForEach-Object {
@@ -899,7 +899,7 @@ function Test-Deployment {
         $response = Invoke-WebRequest -Uri "http://localhost:8080/actuator/health" -UseBasicParsing
         if ($response.StatusCode -eq 200) {
             Write-Host "✓ Application health check passed" -ForegroundColor Green
-            Write-Host "✓ JAiRouter deployment successful!" -ForegroundColor Green
+            Write-Host "✓ Trunkline deployment successful!" -ForegroundColor Green
             Write-Host ""
             Write-Host "Access URLs:" -ForegroundColor Yellow
             Write-Host "  Application: http://localhost:8080" -ForegroundColor White
@@ -913,7 +913,7 @@ function Test-Deployment {
         }
     } catch {
         Write-Error "Application health check failed"
-        Write-Host "Please check logs: docker logs jairouter-china" -ForegroundColor Red
+        Write-Host "Please check logs: docker logs trunkline-china" -ForegroundColor Red
         exit 1
     }
 }
@@ -934,7 +934,7 @@ Main
 
 ### 1. Domestic Security Service Integration
 
-JAiRouter can be integrated with domestic security services to enhance protection:
+Trunkline can be integrated with domestic security services to enhance protection:
 
 #### Alibaba Cloud Security Center Integration
 
@@ -970,7 +970,7 @@ aliyun configure
 
 # 3. Apply for certificate
 aliyun cas RequestCertificate \
-  --DomainName "jairouter.example.com" \
+  --DomainName "trunkline.example.com" \
   --SubjectAlternativeNames "www.example.com" \
   --ProductCode "cas" \
   --CertificateType "DV" \
@@ -1038,7 +1038,7 @@ security:
     secret: your-domestic-jwt-secret
     algorithm: HS256
     expiration-minutes: 30  # Shorter expiration for domestic compliance
-    issuer: jairouter-china
+    issuer: trunkline-china
 ```
 
 ## Log Configuration
@@ -1059,7 +1059,7 @@ logging:
   aliyun-sls:
     enabled: true
     endpoint: cn-hangzhou.log.aliyuncs.com
-    project: jairouter-logs
+    project: trunkline-logs
     logstore: application-logs
     access-key-id: your-access-key-id
     access-key-secret: your-access-key-secret
@@ -1080,7 +1080,7 @@ logging:
 <configuration>
     <!-- Alibaba Cloud SLS Appender -->
     <appender name="ALIYUN_SLS" class="com.aliyun.openservices.log.logback.LoghubAppender">
-        <project>jairouter-logs</project>
+        <project>trunkline-logs</project>
         <logStore>application-logs</logStore>
         <endpoint>cn-hangzhou.log.aliyuncs.com</endpoint>
         <accessKeyId>your-access-key-id</accessKeyId>
@@ -1105,7 +1105,7 @@ Configure log storage and analysis for domestic requirements:
 logging:
   # Local log storage (required for compliance)
   file:
-    name: /app/logs/jairouter.log
+    name: /app/logs/trunkline.log
     max-size: 100MB
     max-history: 30
     total-size-cap: 10GB
@@ -1121,7 +1121,7 @@ logging:
       message: "message"
       thread: "thread"
       traceId: "traceId"
-      service: "jairouter"
+      service: "trunkline"
       region: "china"
       
   # Security audit logging
@@ -1170,7 +1170,7 @@ monitoring:
   # Alibaba Cloud ARMS configuration
   aliyun-arms:
     enabled: true
-    app-name: jairouter-china
+    app-name: trunkline-china
     license-key: your-license-key
     region: cn-hangzhou
     
@@ -1200,9 +1200,9 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  - job_name: 'jairouter-china'
+  - job_name: 'trunkline-china'
     static_configs:
-      - targets: ['jairouter-cn:8080']
+      - targets: ['trunkline-cn:8080']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 10s
     
@@ -1250,7 +1250,7 @@ Optimize storage for domestic environments:
 storage:
   # Use domestic storage services
   provider: aliyun-oss
-  bucket: jairouter-china
+  bucket: trunkline-china
   region: oss-cn-hangzhou
   access-key-id: your-access-key-id
   access-key-secret: your-access-key-secret
@@ -1302,7 +1302,7 @@ Conduct regular security assessments:
 echo "Running security assessment for China deployment..."
 
 # Check for domestic certificate
-openssl x509 -in /etc/ssl/certs/jairouter.crt -text | grep "Subject:.*CN"
+openssl x509 -in /etc/ssl/certs/trunkline.crt -text | grep "Subject:.*CN"
 
 # Check data localization
 df -h | grep "/app/data" | grep "cn-"
@@ -1416,16 +1416,16 @@ rm -rf ~/.m2/repository
 
 ```bash
 # Check container status
-docker ps --filter "name=jairouter"
+docker ps --filter "name=trunkline"
 
 # Check container logs
-docker logs jairouter-china --tail 100
+docker logs trunkline-china --tail 100
 
 # Check network connections
-docker exec jairouter-china netstat -tulpn
+docker exec trunkline-china netstat -tulpn
 
 # Check DNS resolution
-docker exec jairouter-china nslookup baidu.com
+docker exec trunkline-china nslookup baidu.com
 ```
 
 ## Best Practices

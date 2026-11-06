@@ -21,6 +21,7 @@ import java.util.Set;
  *
  * @author JAiRouter Team
  * @since 3.3.2
+ * @modified Trunkline Team
  */
 public interface ServiceTypeCatalogApi {
 

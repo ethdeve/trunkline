@@ -1,6 +1,6 @@
 {
   "adapter": {
-    "management": "Adapter Management",
+    "management": "Custom Protocols",
     "emptyText": "No custom adapters yet. Common protocol adapters are built in; add one only when you need to integrate a special protocol.",
     "detailTitle": "Adapter Details",
     "newAdapter": "New Adapter",
@@ -8,7 +8,7 @@
     "testDialogTitle": "Test Adapter: {name}",
     "name": "Name",
     "type": "Type",
-    "dialect": "Dialect",
+    "dialect": "API style",
     "dialectPlaceholder": "Describe the vendor API protocol this adapter targets, e.g. DeepSeek (OpenAI compatible)",
     "dialectHint": "Shown when selecting an adapter to help users understand which vendor API it maps to",
     "capabilityColumn": "Capabilities",
@@ -26,9 +26,9 @@
     "deleteConfirmMessage": "Delete adapter \"{name}\"?",
     "capabilityConfig": "Capability Configuration",
     "namePlaceholder": "Enter adapter name",
-    "parentAdapter": "Parent Adapter",
-    "parentPlaceholder": "Select a parent adapter to inherit",
-    "parentHint": "Select an existing adapter as the base; the new adapter will inherit all of its features",
+    "parentAdapter": "Base protocol",
+    "parentPlaceholder": "Choose a protocol to extend",
+    "parentHint": "Pick an existing protocol as the base; the new one inherits all of its features",
     "parentBuiltinSuffix": " (Built-in)",
     "parentConfigDrivenSuffix": " (Config-driven)",
     "headerName": "Header Name",
@@ -46,13 +46,13 @@
     "operationFailedDetail": "Operation failed: {error}",
     "capability": {
       "chat": "Chat",
-      "embedding": "Embedding",
+      "embedding": "Semantic search",
       "rerank": "Rerank",
-      "tts": "TTS",
-      "stt": "STT",
+      "tts": "Text to speech",
+      "stt": "Speech to text",
       "imgGen": "Image Generation",
       "imgEdit": "Image Editing",
-      "streaming": "Streaming"
+      "streaming": "Streaming output"
     },
     "types": {
       "openaiCompatible": "OpenAI Compatible",

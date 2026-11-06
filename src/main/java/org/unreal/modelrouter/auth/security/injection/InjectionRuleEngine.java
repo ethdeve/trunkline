@@ -19,9 +19,9 @@ import org.unreal.modelrouter.common.util.SafeRegexValidator;
  * <ol>
  *   <li>内置默认规则（{@link #defaultRules()}）：指令覆盖 / 越狱令牌 / 系统提示词探测 /
  *       特殊标记注入 / 编码混淆五类，零模型成本；</li>
- *   <li>配置附加规则：{@code jairouter.security.injection.additional-rules}
+ *   <li>配置附加规则：{@code trunkline.security.injection.additional-rules}
  *       （标准 Spring 配置绑定，yml / 环境变量均可，无需新增配置文件）；</li>
- *   <li>配置禁用：{@code jairouter.security.injection.disabled-rules} 按 id 关闭。</li>
+ *   <li>配置禁用：{@code trunkline.security.injection.disabled-rules} 按 id 关闭。</li>
  * </ol>
  *
  * <p>所有正则经 {@link SafeRegexValidator} 编译（长度/量词上限，防 ReDoS），
@@ -31,6 +31,7 @@ import org.unreal.modelrouter.common.util.SafeRegexValidator;
  *
  * @author wjy-gateway Extensions
  * @since 3.3.1
+ * @modified Trunkline Team
  */
 @Component
 public class InjectionRuleEngine {

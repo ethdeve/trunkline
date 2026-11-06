@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type {DashboardOverview, RouterResponse} from '@/types'
+import type {RouterResponse} from '@/types'
 
 // 获取服务统计信息
 export const getServiceStats = () => {
@@ -12,9 +12,10 @@ export const getServiceTypes = () => {
 }
 
 // 获取指定服务的实例列表
-export const getServiceInstances = (serviceType: string) => {
-  return request.get<RouterResponse<any[]>>(`/config/instance/${serviceType}`)
-}
+//
+// <p>与 {@code @/api/instance} 的同名函数重复定义，收敛到唯一权威来源
+// （instance.ts 被 PoolManagement / RuleFormDialog / ModelConfigPanel / ApiKeyManagement 引用）。</p>
+export { getServiceInstances } from '@/api/instance'
 
 // 添加服务实例
 export const addServiceInstance = (serviceType: string, instanceConfig: any) => {
@@ -29,11 +30,6 @@ export const updateServiceInstance = (serviceType: string, instanceId: string, i
 // 删除服务实例
 export const deleteServiceInstance = (serviceType: string, instanceId: string) => {
     return request.delete<RouterResponse<void>>(`/config/instance/${serviceType}/${instanceId}`)
-}
-
-// 获取监控概览
-export const getMonitoringOverview = () => {
-  return request.get<RouterResponse<DashboardOverview>>('/monitoring/overview')
 }
 
 // 获取所有服务配置信息

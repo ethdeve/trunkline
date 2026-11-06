@@ -153,10 +153,10 @@ class ApiKeyManagementControllerTest {
             ApiKeyCreateRequest request = ApiKeyCreateRequest.builder()
                     .description("Test Key")
                     .build();
-            when(apiKeyService.createApiKey(any())).thenReturn(Mono.just(testCreationVO));
+            when(apiKeyService.createApiKey(any(), any(), any())).thenReturn(Mono.just(testCreationVO));
 
             // When
-            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.createApiKey(request);
+            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.createApiKey(request, null);
 
             // Then
             StepVerifier.create(result)

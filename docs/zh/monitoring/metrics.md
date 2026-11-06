@@ -9,23 +9,62 @@
 
 
 
-本文档详细描述了 JAiRouter 系统中所有可用的监控指标，包括指标定义、标签说明、使用场景和查询示例。
+本文档详细描述了 Trunkline 系统中所有可用的监控指标，包括指标定义、标签说明、使用场景和查询示例。
+
+> ⚠️ **以代码注册为准**：下文「HTTP/业务/后端」等通用指标（如 `trunkline_requests_total`、`trunkline_model_calls_total`、`trunkline_backend_health`）为**指标设计示意**，当前代码库中实际经 `MeterRegistry` 注册、可在 `/actuator/prometheus` 抓到的指标以下方「代码已注册指标」为准。其余示意名**待确认**，请以运行时 `/actuator/prometheus` 实际输出为准。
+
+## 代码已注册指标
+
+### 安全指标（`monitor/monitoring/security/SecurityMetrics.java`）
+
+Micrometer 注册名（Prometheus 下 Counter 自动加 `_total`）：
+
+| Micrometer 名 | 类型 | 标签 |
+|---------------|------|------|
+| `trunkline.security.authentication.attempts` | Counter | — |
+| `trunkline.security.authentication.successes` | Counter | `auth_type` |
+| `trunkline.security.authentication.failures` | Counter | `auth_type`、`failure_reason` |
+| `trunkline.security.authentication.duration` | Timer | — |
+| `trunkline.security.jwt.validations` | Counter | `result` |
+| `trunkline.security.jwt.refreshes` / `.expired` | Counter | — |
+| `trunkline.security.sanitization.operations` | Counter | `content_type`、`direction` |
+| `trunkline.security.sanitization.rule.matches` | Counter | `rule_id`、`rule_type` |
+| `trunkline.security.violations` | Counter | `violation_type`、`severity` |
+| `trunkline.security.suspicious.activities` | Counter | `activity_type`、`client_ip_hash` |
+| `trunkline.security.active.users` | Gauge | — |
+| `trunkline.security.apikeys.active` | Gauge | — |
+
+### 限流指标（`router/controller/RateLimitMonitorController` 暴露）
+
+| 指标名 | 类型 | 标签 |
+|--------|------|------|
+| `trunkline_rate_limit_events_total` | Counter | `service`、`algorithm`、`result` |
+| `trunkline_rate_limit_remaining` | Gauge | `service`、`scope`、`algorithm` |
+| `trunkline_rate_limit_usage_ratio` | Gauge | `service`、`scope`、`algorithm` |
+
+### 监控系统自身指标（`DashboardMetricsController` 读取）
+
+`trunkline.metrics.cache.hits/misses(.total)`、`trunkline.metrics.cache.size`、`trunkline.metrics.retry.attempts/successes/failures(.total)`、`trunkline.metrics.retry.active`、`trunkline.metrics.degradation.level`、`trunkline.metrics.degradations.total`、`trunkline.metrics.errors.total`；审计 `trunkline.audit.events.total`、`trunkline.audit.buffer.size`、`trunkline.audit.health.score`。
+
+### JVM / HTTP 通用指标
+
+沿用 Spring Boot Actuator / Micrometer 约定：`http.server.requests`（Timer）、`jvm.memory.*`、`jvm.gc.*`、`jvm.threads.*`、`process.cpu.usage`、`process.uptime`。
 
 ## 指标分类
 
-JAiRouter 监控指标按功能分为以下几个类别：
+Trunkline 监控指标按功能分为以下几个类别：
 
 | 类别 | 前缀 | 描述 | 用途 |
 |------|------|------|------|
-| 系统指标 | `jairouter_system_*` | JVM、HTTP、系统资源相关指标 | 系统健康监控 |
-| 业务指标 | `jairouter_business_*` | AI 模型服务、用户请求相关指标 | 业务分析和优化 |
-| 基础设施指标 | `jairouter_infrastructure_*` | 负载均衡、限流、熔断相关指标 | 基础设施监控 |
-| 请求指标 | `jairouter_requests_*` | HTTP 请求统计指标 | 性能和可用性监控 |
-| 后端调用指标 | `jairouter_backend_*` | 后端适配器调用指标 | 后端服务监控 |
+| 系统指标 | `trunkline_system_*` | JVM、HTTP、系统资源相关指标 | 系统健康监控 |
+| 业务指标 | `trunkline_business_*` | AI 模型服务、用户请求相关指标 | 业务分析和优化 |
+| 基础设施指标 | `trunkline_infrastructure_*` | 负载均衡、限流、熔断相关指标 | 基础设施监控 |
+| 请求指标 | `trunkline_requests_*` | HTTP 请求统计指标 | 性能和可用性监控 |
+| 后端调用指标 | `trunkline_backend_*` | 后端适配器调用指标 | 后端服务监控 |
 
 ## HTTP 请求指标
 
-### jairouter_requests_total
+### trunkline_requests_total
 **类型**: Counter  
 **描述**: HTTP 请求总数统计  
 **单位**: 次数
@@ -45,19 +84,19 @@ JAiRouter 监控指标按功能分为以下几个类别：
 **查询示例**:
 ```promql
 # 总请求率 (RPS)
-sum(rate(jairouter_requests_total[5m]))
+sum(rate(trunkline_requests_total[5m]))
 
 # 按服务类型分组的请求率
-sum by (service) (rate(jairouter_requests_total[5m]))
+sum by (service) (rate(trunkline_requests_total[5m]))
 
 # 错误率计算
-sum(rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum(rate(jairouter_requests_total[5m])) * 100
+sum(rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum(rate(trunkline_requests_total[5m])) * 100
 
 # 成功率计算
-sum(rate(jairouter_requests_total{status=~"2.."}[5m])) / sum(rate(jairouter_requests_total[5m])) * 100
+sum(rate(trunkline_requests_total{status=~"2.."}[5m])) / sum(rate(trunkline_requests_total[5m])) * 100
 ```
 
-### jairouter_request_duration_seconds
+### trunkline_request_duration_seconds
 **类型**: Histogram  
 **描述**: HTTP 请求响应时间分布  
 **单位**: 秒
@@ -77,19 +116,19 @@ sum(rate(jairouter_requests_total{status=~"2.."}[5m])) / sum(rate(jairouter_requ
 **查询示例**:
 ```promql
 # P95 响应时间
-histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))
 
 # 按服务分组的 P99 响应时间
-histogram_quantile(0.99, sum by (service, le) (rate(jairouter_request_duration_seconds_bucket[5m])))
+histogram_quantile(0.99, sum by (service, le) (rate(trunkline_request_duration_seconds_bucket[5m])))
 
 # 平均响应时间
-sum(rate(jairouter_request_duration_seconds_sum[5m])) / sum(rate(jairouter_request_duration_seconds_count[5m]))
+sum(rate(trunkline_request_duration_seconds_sum[5m])) / sum(rate(trunkline_request_duration_seconds_count[5m]))
 
 # 响应时间超过 2 秒的请求比例
-sum(rate(jairouter_request_duration_seconds_bucket{le="2"}[5m])) / sum(rate(jairouter_request_duration_seconds_count[5m]))
+sum(rate(trunkline_request_duration_seconds_bucket{le="2"}[5m])) / sum(rate(trunkline_request_duration_seconds_count[5m]))
 ```
 
-### jairouter_request_size_bytes
+### trunkline_request_size_bytes
 **类型**: Histogram  
 **描述**: HTTP 请求大小分布  
 **单位**: 字节
@@ -103,16 +142,16 @@ sum(rate(jairouter_request_duration_seconds_bucket{le="2"}[5m])) / sum(rate(jair
 **查询示例**:
 ```promql
 # P95 请求大小
-histogram_quantile(0.95, sum(rate(jairouter_request_size_bytes_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(trunkline_request_size_bytes_bucket[5m])) by (le))
 
 # 平均请求大小
-sum(rate(jairouter_request_size_bytes_sum[5m])) / sum(rate(jairouter_request_size_bytes_count[5m]))
+sum(rate(trunkline_request_size_bytes_sum[5m])) / sum(rate(trunkline_request_size_bytes_count[5m]))
 
 # 大请求（>1MB）的比例
-sum(rate(jairouter_request_size_bytes_bucket{le="1000000"}[5m])) / sum(rate(jairouter_request_size_bytes_count[5m]))
+sum(rate(trunkline_request_size_bytes_bucket{le="1000000"}[5m])) / sum(rate(trunkline_request_size_bytes_count[5m]))
 ```
 
-### jairouter_response_size_bytes
+### trunkline_response_size_bytes
 **类型**: Histogram  
 **描述**: HTTP 响应大小分布  
 **单位**: 字节
@@ -124,15 +163,15 @@ sum(rate(jairouter_request_size_bytes_bucket{le="1000000"}[5m])) / sum(rate(jair
 **查询示例**:
 ```promql
 # P95 响应大小
-histogram_quantile(0.95, sum(rate(jairouter_response_size_bytes_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(trunkline_response_size_bytes_bucket[5m])) by (le))
 
 # 按服务类型分组的平均响应大小
-sum by (service) (rate(jairouter_response_size_bytes_sum[5m])) / sum by (service) (rate(jairouter_response_size_bytes_count[5m]))
+sum by (service) (rate(trunkline_response_size_bytes_sum[5m])) / sum by (service) (rate(trunkline_response_size_bytes_count[5m]))
 ```
 
 ## 业务指标
 
-### jairouter_model_calls_total
+### trunkline_model_calls_total
 **类型**: Counter  
 **描述**: AI 模型调用总数  
 **单位**: 次数
@@ -151,19 +190,19 @@ sum by (service) (rate(jairouter_response_size_bytes_sum[5m])) / sum by (service
 **查询示例**:
 ```promql
 # 模型调用率
-sum(rate(jairouter_model_calls_total[5m]))
+sum(rate(trunkline_model_calls_total[5m]))
 
 # 按模型类型分组的调用率
-sum by (model_type) (rate(jairouter_model_calls_total[5m]))
+sum by (model_type) (rate(trunkline_model_calls_total[5m]))
 
 # 模型调用成功率
-sum(rate(jairouter_model_calls_total{status="success"}[5m])) / sum(rate(jairouter_model_calls_total[5m])) * 100
+sum(rate(trunkline_model_calls_total{status="success"}[5m])) / sum(rate(trunkline_model_calls_total[5m])) * 100
 
 # 最受欢迎的模型
-topk(5, sum by (model_name) (rate(jairouter_model_calls_total[5m])))
+topk(5, sum by (model_name) (rate(trunkline_model_calls_total[5m])))
 ```
 
-### jairouter_model_call_duration_seconds
+### trunkline_model_call_duration_seconds
 **类型**: Histogram  
 **描述**: 模型调用响应时间分布  
 **单位**: 秒
@@ -178,16 +217,16 @@ topk(5, sum by (model_name) (rate(jairouter_model_calls_total[5m])))
 **查询示例**:
 ```promql
 # 模型调用 P95 响应时间
-histogram_quantile(0.95, sum(rate(jairouter_model_call_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(trunkline_model_call_duration_seconds_bucket[5m])) by (le))
 
 # 按模型类型分组的平均响应时间
-sum by (model_type) (rate(jairouter_model_call_duration_seconds_sum[5m])) / sum by (model_type) (rate(jairouter_model_call_duration_seconds_count[5m]))
+sum by (model_type) (rate(trunkline_model_call_duration_seconds_sum[5m])) / sum by (model_type) (rate(trunkline_model_call_duration_seconds_count[5m]))
 
 # 响应最快的模型
-bottomk(5, sum by (model_name) (rate(jairouter_model_call_duration_seconds_sum[5m])) / sum by (model_name) (rate(jairouter_model_call_duration_seconds_count[5m])))
+bottomk(5, sum by (model_name) (rate(trunkline_model_call_duration_seconds_sum[5m])) / sum by (model_name) (rate(trunkline_model_call_duration_seconds_count[5m])))
 ```
 
-### jairouter_user_sessions_active
+### trunkline_user_sessions_active
 **类型**: Gauge  
 **描述**: 当前活跃用户会话数  
 **单位**: 个数
@@ -199,16 +238,16 @@ bottomk(5, sum by (model_name) (rate(jairouter_model_call_duration_seconds_sum[5
 **查询示例**:
 ```promql
 # 总活跃会话数
-sum(jairouter_user_sessions_active)
+sum(trunkline_user_sessions_active)
 
 # 按地区分组的活跃会话数
-sum by (region) (jairouter_user_sessions_active)
+sum by (region) (trunkline_user_sessions_active)
 
 # 会话数增长率
-rate(jairouter_user_sessions_active[5m])
+rate(trunkline_user_sessions_active[5m])
 ```
 
-### jairouter_user_sessions_total
+### trunkline_user_sessions_total
 **类型**: Counter  
 **描述**: 用户会话总数  
 **单位**: 次数
@@ -220,17 +259,17 @@ rate(jairouter_user_sessions_active[5m])
 **查询示例**:
 ```promql
 # 新会话创建率
-sum(rate(jairouter_user_sessions_total{session_type="new"}[5m]))
+sum(rate(trunkline_user_sessions_total{session_type="new"}[5m]))
 
 # 回访用户比例
-sum(rate(jairouter_user_sessions_total{session_type="returning"}[5m])) / sum(rate(jairouter_user_sessions_total[5m])) * 100
+sum(rate(trunkline_user_sessions_total{session_type="returning"}[5m])) / sum(rate(trunkline_user_sessions_total[5m])) * 100
 ```
 
 ## 基础设施指标
 
 ### 负载均衡指标
 
-#### jairouter_loadbalancer_selections_total
+#### trunkline_loadbalancer_selections_total
 **类型**: Counter  
 **描述**: 负载均衡器选择后端实例的总次数  
 **单位**: 次数
@@ -243,21 +282,21 @@ sum(rate(jairouter_user_sessions_total{session_type="returning"}[5m])) / sum(rat
 **查询示例**:
 ```promql
 # 负载均衡选择率
-sum(rate(jairouter_loadbalancer_selections_total[5m]))
+sum(rate(trunkline_loadbalancer_selections_total[5m]))
 
 # 按策略分组的选择分布
-sum by (strategy) (rate(jairouter_loadbalancer_selections_total[5m]))
+sum by (strategy) (rate(trunkline_loadbalancer_selections_total[5m]))
 
 # 实例选择均匀度
-stddev by (service) (sum by (service, selected_instance) (rate(jairouter_loadbalancer_selections_total[5m])))
+stddev by (service) (sum by (service, selected_instance) (rate(trunkline_loadbalancer_selections_total[5m])))
 
 # 最常被选中的实例
-topk(5, sum by (selected_instance) (rate(jairouter_loadbalancer_selections_total[5m])))
+topk(5, sum by (selected_instance) (rate(trunkline_loadbalancer_selections_total[5m])))
 ```
 
 ### 限流器指标
 
-#### jairouter_rate_limit_events_total
+#### trunkline_rate_limit_events_total
 **类型**: Counter  
 **描述**: 限流事件总数  
 **单位**: 次数
@@ -270,39 +309,55 @@ topk(5, sum by (selected_instance) (rate(jairouter_loadbalancer_selections_total
 **查询示例**:
 ```promql
 # 限流通过率
-sum(rate(jairouter_rate_limit_events_total{result="allowed"}[5m])) / sum(rate(jairouter_rate_limit_events_total[5m])) * 100
+sum(rate(trunkline_rate_limit_events_total{result="allowed"}[5m])) / sum(rate(trunkline_rate_limit_events_total[5m])) * 100
 
 # 限流拒绝率
-sum(rate(jairouter_rate_limit_events_total{result="denied"}[5m])) / sum(rate(jairouter_rate_limit_events_total[5m])) * 100
+sum(rate(trunkline_rate_limit_events_total{result="denied"}[5m])) / sum(rate(trunkline_rate_limit_events_total[5m])) * 100
 
 # 按算法分组的限流效果
-sum by (algorithm) (rate(jairouter_rate_limit_events_total{result="denied"}[5m]))
+sum by (algorithm) (rate(trunkline_rate_limit_events_total{result="denied"}[5m]))
 ```
 
-#### jairouter_rate_limit_tokens
+#### trunkline_rate_limit_remaining
 **类型**: Gauge  
-**描述**: 限流器当前可用令牌数  
+**描述**: 限流器当前剩余配额（按 service/scope/algorithm 维度）  
 **单位**: 个数
 
 **标签**:
 - `service`: 服务名称
+- `scope`: 限流作用域
 - `algorithm`: 限流算法
 
 **查询示例**:
 ```promql
-# 可用令牌数
-jairouter_rate_limit_tokens
+# 某服务剩余配额
+trunkline_rate_limit_remaining{service="chat"}
 
-# 令牌使用率
-(jairouter_rate_limit_tokens_max - jairouter_rate_limit_tokens) / jairouter_rate_limit_tokens_max * 100
-
-# 令牌耗尽的服务
-jairouter_rate_limit_tokens == 0
+# 剩余配额最低的服务
+min by (service) (trunkline_rate_limit_remaining)
 ```
+
+#### trunkline_rate_limit_usage_ratio
+**类型**: Gauge  
+**描述**: 限流配额使用率（0–1）  
+**单位**: 比率
+
+**标签**:
+- `service`: 服务名称
+- `scope`: 限流作用域
+- `algorithm`: 限流算法
+
+**查询示例**:
+```promql
+# 使用率超过 90% 的服务
+trunkline_rate_limit_usage_ratio > 0.9
+```
+
+> 说明：早期文档中的 `trunkline_rate_limit_tokens`（及 `_max`）未在当前代码注册，实际剩余/使用率以上述 `remaining`、`usage_ratio` 为准。
 
 ### 熔断器指标
 
-#### jairouter_circuit_breaker_state
+#### trunkline_circuit_breaker_state
 **类型**: Gauge  
 **描述**: 熔断器当前状态  
 **单位**: 状态值
@@ -319,16 +374,16 @@ jairouter_rate_limit_tokens == 0
 **查询示例**:
 ```promql
 # 熔断器状态
-jairouter_circuit_breaker_state
+trunkline_circuit_breaker_state
 
 # 熔断器开启的服务数
-count(jairouter_circuit_breaker_state == 1)
+count(trunkline_circuit_breaker_state == 1)
 
 # 处于半开状态的熔断器
-jairouter_circuit_breaker_state == 2
+trunkline_circuit_breaker_state == 2
 ```
 
-#### jairouter_circuit_breaker_events_total
+#### trunkline_circuit_breaker_events_total
 **类型**: Counter  
 **描述**: 熔断器事件总数  
 **单位**: 次数
@@ -341,16 +396,16 @@ jairouter_circuit_breaker_state == 2
 **查询示例**:
 ```promql
 # 熔断器成功率
-sum(rate(jairouter_circuit_breaker_events_total{event="success"}[5m])) / sum(rate(jairouter_circuit_breaker_events_total{event=~"success|error"}[5m])) * 100
+sum(rate(trunkline_circuit_breaker_events_total{event="success"}[5m])) / sum(rate(trunkline_circuit_breaker_events_total{event=~"success|error"}[5m])) * 100
 
 # 熔断器开启频率
-sum(rate(jairouter_circuit_breaker_events_total{event="circuit_open"}[5m]))
+sum(rate(trunkline_circuit_breaker_events_total{event="circuit_open"}[5m]))
 
 # 熔断器恢复频率
-sum(rate(jairouter_circuit_breaker_events_total{event="circuit_close"}[5m]))
+sum(rate(trunkline_circuit_breaker_events_total{event="circuit_close"}[5m]))
 ```
 
-#### jairouter_circuit_breaker_failure_rate
+#### trunkline_circuit_breaker_failure_rate
 **类型**: Gauge  
 **描述**: 熔断器当前失败率  
 **单位**: 百分比
@@ -362,18 +417,18 @@ sum(rate(jairouter_circuit_breaker_events_total{event="circuit_close"}[5m]))
 **查询示例**:
 ```promql
 # 失败率
-jairouter_circuit_breaker_failure_rate
+trunkline_circuit_breaker_failure_rate
 
 # 失败率超过阈值的服务
-jairouter_circuit_breaker_failure_rate > 0.5
+trunkline_circuit_breaker_failure_rate > 0.5
 
 # 失败率趋势
-rate(jairouter_circuit_breaker_failure_rate[5m])
+rate(trunkline_circuit_breaker_failure_rate[5m])
 ```
 
 ## 后端服务指标
 
-### jairouter_backend_health
+### trunkline_backend_health
 **类型**: Gauge  
 **描述**: 后端服务健康状态  
 **单位**: 状态值
@@ -390,19 +445,19 @@ rate(jairouter_circuit_breaker_failure_rate[5m])
 **查询示例**:
 ```promql
 # 健康的后端实例数
-sum(jairouter_backend_health)
+sum(trunkline_backend_health)
 
 # 不健康的后端实例
-jairouter_backend_health == 0
+trunkline_backend_health == 0
 
 # 按适配器分组的健康实例数
-sum by (adapter) (jairouter_backend_health)
+sum by (adapter) (trunkline_backend_health)
 
 # 健康率
-sum(jairouter_backend_health) / count(jairouter_backend_health) * 100
+sum(trunkline_backend_health) / count(trunkline_backend_health) * 100
 ```
 
-### jairouter_backend_calls_total
+### trunkline_backend_calls_total
 **类型**: Counter  
 **描述**: 后端适配器调用总数  
 **单位**: 次数
@@ -416,19 +471,19 @@ sum(jairouter_backend_health) / count(jairouter_backend_health) * 100
 **查询示例**:
 ```promql
 # 后端调用率
-sum(rate(jairouter_backend_calls_total[5m]))
+sum(rate(trunkline_backend_calls_total[5m]))
 
 # 按适配器分组的调用率
-sum by (adapter) (rate(jairouter_backend_calls_total[5m]))
+sum by (adapter) (rate(trunkline_backend_calls_total[5m]))
 
 # 后端调用成功率
-sum(rate(jairouter_backend_calls_total{status="success"}[5m])) / sum(rate(jairouter_backend_calls_total[5m])) * 100
+sum(rate(trunkline_backend_calls_total{status="success"}[5m])) / sum(rate(trunkline_backend_calls_total[5m])) * 100
 
 # 最繁忙的后端实例
-topk(5, sum by (instance) (rate(jairouter_backend_calls_total[5m])))
+topk(5, sum by (instance) (rate(trunkline_backend_calls_total[5m])))
 ```
 
-### jairouter_backend_call_duration_seconds
+### trunkline_backend_call_duration_seconds
 **类型**: Histogram  
 **描述**: 后端调用响应时间分布  
 **单位**: 秒
@@ -443,13 +498,13 @@ topk(5, sum by (instance) (rate(jairouter_backend_calls_total[5m])))
 **查询示例**:
 ```promql
 # 后端调用 P95 响应时间
-histogram_quantile(0.95, sum(rate(jairouter_backend_call_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(trunkline_backend_call_duration_seconds_bucket[5m])) by (le))
 
 # 按适配器分组的平均响应时间
-sum by (adapter) (rate(jairouter_backend_call_duration_seconds_sum[5m])) / sum by (adapter) (rate(jairouter_backend_call_duration_seconds_count[5m]))
+sum by (adapter) (rate(trunkline_backend_call_duration_seconds_sum[5m])) / sum by (adapter) (rate(trunkline_backend_call_duration_seconds_count[5m]))
 
 # 响应最快的适配器
-bottomk(3, sum by (adapter) (rate(jairouter_backend_call_duration_seconds_sum[5m])) / sum by (adapter) (rate(jairouter_backend_call_duration_seconds_count[5m])))
+bottomk(3, sum by (adapter) (rate(trunkline_backend_call_duration_seconds_sum[5m])) / sum by (adapter) (rate(trunkline_backend_call_duration_seconds_count[5m])))
 ```
 
 ## JVM 指标
@@ -523,7 +578,7 @@ rate(jvm_threads_live_threads[5m])
 
 ## 连接池指标
 
-### jairouter_backend_connection_pool_active
+### trunkline_backend_connection_pool_active
 **类型**: Gauge  
 **描述**: 后端连接池活跃连接数  
 **单位**: 个数
@@ -535,34 +590,34 @@ rate(jvm_threads_live_threads[5m])
 **查询示例**:
 ```promql
 # 连接池使用情况
-jairouter_backend_connection_pool_active
+trunkline_backend_connection_pool_active
 
 # 连接池使用率
-jairouter_backend_connection_pool_active / jairouter_backend_connection_pool_max * 100
+trunkline_backend_connection_pool_active / trunkline_backend_connection_pool_max * 100
 
 # 连接池耗尽的实例
-jairouter_backend_connection_pool_active >= jairouter_backend_connection_pool_max
+trunkline_backend_connection_pool_active >= trunkline_backend_connection_pool_max
 ```
 
 ## 自定义指标
 
 ### 业务特定指标
 
-JAiRouter 支持自定义业务指标，可以通过以下方式添加：
+Trunkline 支持自定义业务指标，可以通过以下方式添加：
 
 ```java
 @Component
 public class CustomMetrics {
-    private final Counter customCounter = Counter.builder("jairouter.custom.counter")
+    private final Counter customCounter = Counter.builder("trunkline.custom.counter")
         .description("自定义计数器")
         .tag("type", "business")
         .register(Metrics.globalRegistry);
     
-    private final Gauge customGauge = Gauge.builder("jairouter.custom.gauge")
+    private final Gauge customGauge = Gauge.builder("trunkline.custom.gauge")
         .description("自定义仪表")
         .register(Metrics.globalRegistry, this, CustomMetrics::getValue);
     
-    private final Timer customTimer = Timer.builder("jairouter.custom.timer")
+    private final Timer customTimer = Timer.builder("trunkline.custom.timer")
         .description("自定义计时器")
         .register(Metrics.globalRegistry);
 }
@@ -574,38 +629,38 @@ public class CustomMetrics {
 
 ```promql
 # HTTP 错误率
-sum(rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum(rate(jairouter_requests_total[5m])) * 100
+sum(rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum(rate(trunkline_requests_total[5m])) * 100
 
 # 后端调用错误率
-sum(rate(jairouter_backend_calls_total{status="error"}[5m])) / sum(rate(jairouter_backend_calls_total[5m])) * 100
+sum(rate(trunkline_backend_calls_total{status="error"}[5m])) / sum(rate(trunkline_backend_calls_total[5m])) * 100
 
 # 模型调用错误率
-sum(rate(jairouter_model_calls_total{status!="success"}[5m])) / sum(rate(jairouter_model_calls_total[5m])) * 100
+sum(rate(trunkline_model_calls_total{status!="success"}[5m])) / sum(rate(trunkline_model_calls_total[5m])) * 100
 ```
 
 ### 响应时间分析
 
 ```promql
 # P50, P95, P99 响应时间
-histogram_quantile(0.50, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))
-histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))
-histogram_quantile(0.99, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.50, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.99, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))
 
 # 按服务分组的响应时间
-histogram_quantile(0.95, sum by (service, le) (rate(jairouter_request_duration_seconds_bucket[5m])))
+histogram_quantile(0.95, sum by (service, le) (rate(trunkline_request_duration_seconds_bucket[5m])))
 ```
 
 ### 吞吐量分析
 
 ```promql
 # 总吞吐量 (RPS)
-sum(rate(jairouter_requests_total[5m]))
+sum(rate(trunkline_requests_total[5m]))
 
 # 按服务分组的吞吐量
-sum by (service) (rate(jairouter_requests_total[5m]))
+sum by (service) (rate(trunkline_requests_total[5m]))
 
 # 成功请求吞吐量
-sum(rate(jairouter_requests_total{status=~"2.."}[5m]))
+sum(rate(trunkline_requests_total{status=~"2.."}[5m]))
 ```
 
 ### 资源使用分析
@@ -618,20 +673,20 @@ rate(process_cpu_seconds_total[5m]) * 100
 jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"} * 100
 
 # 连接池使用率
-jairouter_backend_connection_pool_active / jairouter_backend_connection_pool_max * 100
+trunkline_backend_connection_pool_active / trunkline_backend_connection_pool_max * 100
 ```
 
 ### 服务健康状态
 
 ```promql
 # 服务可用性
-up{job="jairouter"}
+up{job="trunkline"}
 
 # 后端服务健康状态
-sum(jairouter_backend_health) / count(jairouter_backend_health) * 100
+sum(trunkline_backend_health) / count(trunkline_backend_health) * 100
 
 # 熔断器开启的服务
-count(jairouter_circuit_breaker_state == 1)
+count(trunkline_circuit_breaker_state == 1)
 ```
 
 ## 告警查询
@@ -640,13 +695,13 @@ count(jairouter_circuit_breaker_state == 1)
 
 ```promql
 # 服务不可用
-up{job="jairouter"} == 0
+up{job="trunkline"} == 0
 
 # 高错误率
-sum(rate(jairouter_requests_total{status=~"5.."}[5m])) / sum(rate(jairouter_requests_total[5m])) > 0.05
+sum(rate(trunkline_requests_total{status=~"5.."}[5m])) / sum(rate(trunkline_requests_total[5m])) > 0.05
 
 # 响应时间过长
-histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le)) > 5
+histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le)) > 5
 ```
 
 ### 警告告警
@@ -656,7 +711,7 @@ histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])
 jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"} > 0.8
 
 # 连接池使用率高
-jairouter_backend_connection_pool_active / jairouter_backend_connection_pool_max > 0.8
+trunkline_backend_connection_pool_active / trunkline_backend_connection_pool_max > 0.8
 
 # GC 时间过长
 sum(rate(jvm_gc_pause_seconds_sum[5m])) / sum(rate(jvm_gc_pause_seconds_count[5m])) > 0.1
@@ -668,10 +723,10 @@ sum(rate(jvm_gc_pause_seconds_sum[5m])) / sum(rate(jvm_gc_pause_seconds_count[5m
 
 ```promql
 # 请求量增长趋势
-increase(jairouter_requests_total[24h])
+increase(trunkline_requests_total[24h])
 
 # 用户增长趋势
-increase(jairouter_user_sessions_total[24h])
+increase(trunkline_user_sessions_total[24h])
 
 # 资源使用增长趋势
 increase(jvm_memory_used_bytes[24h])
@@ -681,10 +736,10 @@ increase(jvm_memory_used_bytes[24h])
 
 ```promql
 # 日峰值请求率
-max_over_time(sum(rate(jairouter_requests_total[5m]))[24h:5m])
+max_over_time(sum(rate(trunkline_requests_total[5m]))[24h:5m])
 
 # 周峰值响应时间
-max_over_time(histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))[7d:1h])
+max_over_time(histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))[7d:1h])
 ```
 
 ## 指标标签最佳实践
@@ -709,10 +764,10 @@ max_over_time(histogram_quantile(0.95, sum(rate(jairouter_request_duration_secon
 
 ```promql
 # 好的查询 - 使用低基数标签
-sum by (service, status) (rate(jairouter_requests_total[5m]))
+sum by (service, status) (rate(trunkline_requests_total[5m]))
 
 # 避免的查询 - 使用高基数标签
-sum by (client_ip) (rate(jairouter_requests_total[5m]))  # 可能导致高基数问题
+sum by (client_ip) (rate(trunkline_requests_total[5m]))  # 可能导致高基数问题
 ```
 
 ## Recording Rules
@@ -720,22 +775,22 @@ sum by (client_ip) (rate(jairouter_requests_total[5m]))  # 可能导致高基数
 为了提高查询性能，建议使用 Recording Rules 预聚合常用指标：
 
 ```yaml
-# rules/jairouter-recording-rules.yml
+# rules/trunkline-recording-rules.yml
 groups:
-  - name: jairouter.recording
+  - name: trunkline.recording
     interval: 30s
     rules:
-      - record: jairouter:request_rate_5m
-        expr: sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:request_rate_5m
+        expr: sum(rate(trunkline_requests_total[5m]))
       
-      - record: jairouter:error_rate_5m
-        expr: sum(rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:error_rate_5m
+        expr: sum(rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum(rate(trunkline_requests_total[5m]))
       
-      - record: jairouter:response_time_p95_5m
-        expr: histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))
+      - record: trunkline:response_time_p95_5m
+        expr: histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))
       
-      - record: jairouter:backend_health_ratio
-        expr: sum(jairouter_backend_health) / count(jairouter_backend_health)
+      - record: trunkline:backend_health_ratio
+        expr: sum(trunkline_backend_health) / count(trunkline_backend_health)
 ```
 
 ## 相关文档

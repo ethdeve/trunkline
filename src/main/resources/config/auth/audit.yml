@@ -4,7 +4,7 @@
 # 此文件包含安全审计日志配置
 # 位置：org.unreal.modelrouter.auth.audit
 
-jairouter:
+trunkline:
   security:
     audit:
       # 审计功能开关

@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 @Service
 @ConditionalOnProperty(
-        name = "jairouter.security.monitoring.jwt-persistence.health-checks.memory.enabled",
+        name = "trunkline.security.monitoring.jwt-persistence.health-checks.memory.enabled",
         havingValue = "true", matchIfMissing = true)
 public class MemoryUsageHealthService {
     

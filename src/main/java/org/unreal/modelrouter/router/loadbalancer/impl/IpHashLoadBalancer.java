@@ -2,7 +2,7 @@ package org.unreal.modelrouter.router.loadbalancer.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.unreal.modelrouter.router.circuitbreaker.CircuitBreakerManager;
 import org.unreal.modelrouter.router.loadbalancer.LoadBalancer;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
 import org.unreal.modelrouter.monitor.monitoring.collector.MetricsCollector;
@@ -19,12 +19,25 @@ import java.util.TreeMap;
 public class IpHashLoadBalancer implements LoadBalancer {
     private static final Logger logger = LoggerFactory.getLogger(IpHashLoadBalancer.class);
     private final String hashAlgorithm;
-    
-    @Autowired(required = false)
-    private MetricsCollector metricsCollector;
+
+    // R2: 由 ComponentFactory 在创建时注入(原 @Autowired 字段在 new 出的实例上恒为 null)
+    private final MetricsCollector metricsCollector;
+    // B1: 单一熔断注册表，回退 random 时透传
+    private final CircuitBreakerManager circuitBreakerManager;
 
     public IpHashLoadBalancer(final String hashAlgorithm) {
+        this(hashAlgorithm, null, null);
+    }
+
+    public IpHashLoadBalancer(final String hashAlgorithm, final MetricsCollector metricsCollector) {
+        this(hashAlgorithm, metricsCollector, null);
+    }
+
+    public IpHashLoadBalancer(final String hashAlgorithm, final MetricsCollector metricsCollector,
+                              final CircuitBreakerManager circuitBreakerManager) {
         this.hashAlgorithm = hashAlgorithm != null ? hashAlgorithm : "md5";
+        this.metricsCollector = metricsCollector;
+        this.circuitBreakerManager = circuitBreakerManager;
     }
 
     @Override
@@ -53,7 +66,8 @@ public class IpHashLoadBalancer implements LoadBalancer {
                 metricsCollector.recordLoadBalancer(serviceType, "ip-hash",
                         "random-fallback-no-client-ip");
             }
-            return new RandomLoadBalancer().selectInstance(instances, clientIp, serviceType);
+            return new RandomLoadBalancer(this.metricsCollector, this.circuitBreakerManager)
+                    .selectInstance(instances, clientIp, serviceType);
         }
 
         // 使用一致性哈希算法

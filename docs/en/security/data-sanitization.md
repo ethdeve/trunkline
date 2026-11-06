@@ -11,7 +11,7 @@
 
 ## Overview
 
-JAiRouter's data sanitization feature can automatically identify and process sensitive information in requests and responses, including Personally Identifiable Information (PII) and sensitive words.
+Trunkline's data sanitization feature can automatically identify and process sensitive information in requests and responses, including Personally Identifiable Information (PII) and sensitive words.
 
 ### Since v3.2.0: Record-path primary + console management
 
@@ -45,7 +45,7 @@ See [management API](../api-reference/management-api.md) and [web-console.md](..
 ### 1. Enable Data Sanitization
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     sanitization:
@@ -58,7 +58,7 @@ jairouter:
 ### 2. Basic Configuration
 
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -94,7 +94,7 @@ My phone number is 138****5678, email is u***@example.com
 ### Request Data Sanitization Configuration
 
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -150,7 +150,7 @@ jairouter:
 ### Response Data Sanitization Configuration
 
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       response:
@@ -318,7 +318,7 @@ pii-patterns:
 Specified users can skip sanitization processing:
 
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -333,7 +333,7 @@ jairouter:
 Specified IP addresses can skip sanitization processing:
 
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -368,7 +368,7 @@ curl -X POST http://localhost:8080/admin/security/whitelist/ips \
 Different AI services can use different sanitization rules:
 
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       response:
@@ -416,7 +416,7 @@ jairouter:
 ### Parallel Processing
 
 ```yaml
-jairouter:
+trunkline:
   security:
     performance:
       sanitization:
@@ -431,7 +431,7 @@ jairouter:
 ### Regular Expression Cache
 
 ```yaml
-jairouter:
+trunkline:
   security:
     performance:
       sanitization:
@@ -444,7 +444,7 @@ jairouter:
 ### Batch Processing
 
 ```yaml
-jairouter:
+trunkline:
   security:
     performance:
       sanitization:
@@ -459,7 +459,7 @@ jairouter:
 ### Sanitization Metrics
 
 ```yaml
-jairouter:
+trunkline:
   security:
     monitoring:
       metrics:
@@ -471,7 +471,7 @@ jairouter:
 ### Audit Logs
 
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       enabled: true
@@ -483,10 +483,10 @@ jairouter:
 
 ### Monitoring Metrics
 
-- `jairouter_security_sanitization_operations_total`: Total sanitization operations
-- `jairouter_security_sanitization_duration_seconds`: Sanitization operation duration
-- `jairouter_security_sanitization_patterns_matched_total`: Total matched patterns
-- `jairouter_security_sanitization_bytes_processed_total`: Total processed bytes
+- `trunkline_security_sanitization_operations_total`: Total sanitization operations
+- `trunkline_security_sanitization_duration_seconds`: Sanitization operation duration
+- `trunkline_security_sanitization_patterns_matched_total`: Total matched patterns
+- `trunkline_security_sanitization_bytes_processed_total`: Total processed bytes
 
 ## Best Practices
 
@@ -593,7 +593,7 @@ curl http://localhost:8080/actuator/prometheus | grep sanitization
 ### Basic Configuration
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     sanitization:
@@ -611,7 +611,7 @@ jairouter:
 ### Advanced Configuration
 
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:

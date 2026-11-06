@@ -23,6 +23,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -234,7 +235,9 @@ class JwtTokenManagementServiceTest {
             // Given
             when(jwtPersistenceService.findByTokenHash(sampleTokenHash)).thenReturn(Mono.just(sampleTokenInfo));
             when(jwtPersistenceService.saveToken(any())).thenReturn(Mono.empty());
-            when(jwtBlacklistService.addToBlacklist(anyString(), anyString(), anyString())).thenReturn(Mono.empty());
+            // C3: 撤销走 4 参重载（TTL = 令牌剩余寿命），stub 需与生产签名一致
+            when(jwtBlacklistService.addToBlacklist(anyString(), anyString(), anyString(), anyLong()))
+                .thenReturn(Mono.empty());
 
             // When
             Mono<Void> result = tokenManagementService.revokeTokenByHash(
@@ -245,7 +248,8 @@ class JwtTokenManagementServiceTest {
                 .verifyComplete();
             verify(jwtPersistenceService).findByTokenHash(sampleTokenHash);
             verify(jwtPersistenceService).saveToken(any());
-            verify(jwtBlacklistService).addToBlacklist(sampleTokenHash, "安全原因", "admin");
+            verify(jwtBlacklistService).addToBlacklist(
+                eq(sampleTokenHash), eq("安全原因"), eq("admin"), anyLong());
         }
 
         @Test
@@ -286,7 +290,7 @@ class JwtTokenManagementServiceTest {
             // Given
             when(jwtPersistenceService.findByTokenHash(sampleTokenHash)).thenReturn(Mono.just(sampleTokenInfo));
             when(jwtPersistenceService.saveToken(any())).thenReturn(Mono.empty());
-            when(jwtBlacklistService.addToBlacklist(anyString(), anyString(), anyString()))
+            when(jwtBlacklistService.addToBlacklist(anyString(), anyString(), anyString(), anyLong()))
                 .thenReturn(Mono.error(new RuntimeException("黑名单服务异常")));
 
             // When
@@ -348,7 +352,7 @@ class JwtTokenManagementServiceTest {
             when(jwtPersistenceService.findByTokenHash("hash1")).thenReturn(Mono.just(info1));
             when(jwtPersistenceService.findByTokenHash("hash2")).thenReturn(Mono.just(info2));
             when(jwtPersistenceService.saveToken(any())).thenReturn(Mono.empty());
-            when(jwtBlacklistService.addToBlacklist(anyString(), anyString(), anyString())).thenReturn(Mono.empty());
+            when(jwtBlacklistService.addToBlacklist(anyString(), anyString(), anyString(), anyLong())).thenReturn(Mono.empty());
 
             // When
             Mono<Void> result = tokenManagementService.batchRevokeTokensByHash(
@@ -382,7 +386,7 @@ class JwtTokenManagementServiceTest {
             when(jwtPersistenceService.findByTokenHash("hash1")).thenReturn(Mono.just(info1));
             when(jwtPersistenceService.findByTokenHash("hash2")).thenReturn(Mono.empty()); // 不存在
             when(jwtPersistenceService.saveToken(any())).thenReturn(Mono.empty());
-            when(jwtBlacklistService.addToBlacklist(anyString(), anyString(), anyString())).thenReturn(Mono.empty());
+            when(jwtBlacklistService.addToBlacklist(anyString(), anyString(), anyString(), anyLong())).thenReturn(Mono.empty());
 
             // When
             Mono<Void> result = tokenManagementService.batchRevokeTokensByHash(

@@ -14,9 +14,9 @@
     "pickRoleHint": "Pick a role above to view and adjust the permissions it holds",
     "showRawCodes": "Show raw permission codes",
     "roleDescriptions": {
-      "ADMIN": "Full access to all features, config and accounts",
-      "OPERATOR": "Can view and manage model access, strategy and observability; no system accounts or security settings",
-      "USER": "Daily use: view models and use the playground; config is read-only",
+      "ADMIN": "Full access: My + Team/Strategy + System groups, including account management, security settings and fallback access to unlisted endpoints",
+      "OPERATOR": "Daily ops: My + Team/Strategy groups — overview, team usage, model access and virtual models, all API keys, observability, tracing, strategy center; no System group (accounts, security)",
+      "USER": "Regular employee: My group only — my quota, my keys, quick start, playground, my billing; no Team/Strategy or System features",
       "VIEWER": "Read-only: view data on all pages, cannot modify anything"
     },
     "groups": {
@@ -24,7 +24,7 @@
       "modelAccess": "Model Access",
       "apiKeys": "API Keys",
       "observe": "Observability (Observe / Tracing)",
-      "strategy": "Strategy (Strategy Center)",
+      "strategy": "Routing Rules",
       "systemSettings": "System Settings",
       "overview": "Overview",
       "config": "Configuration",

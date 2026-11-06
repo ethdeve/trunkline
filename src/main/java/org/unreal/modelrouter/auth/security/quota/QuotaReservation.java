@@ -5,6 +5,7 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -26,6 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 @Slf4j
 public final class QuotaReservation {
@@ -187,6 +189,47 @@ public final class QuotaReservation {
         } catch (Exception e) {
             log.warn("配额明细维度追加失败（忽略，不影响主链路）: scope={}, error={}",
                     dimension, e.toString());
+        }
+    }
+
+    /**
+     * 追加一个<b>带限额判定</b>的维度（厂商模型维度）。
+     *
+     * <p>与 {@link #appendDimension(QuotaDimension)} 的差别：后者只按「不限额」记账，
+     * 本方法走 {@link QuotaLedgerService#reserveWithLimits(QuotaRequest, QuotaLimitSet)}
+     * 的 CAS 预扣——<b>判定与记账一次完成</b>，超限时该维度的增量已被账本内部回滚，
+     * 本方法不再登记该维度（不记账 = 不冲正 = 不留残量）。</p>
+     *
+     * <p>限额各窗口取值 {@code <= 0}（{@link QuotaLimitSet#UNLIMITED}）时，
+     * CAS 预扣退化为普通累加（只记账、不判定），与 {@code appendDimension} 行为一致——
+     * 这样「未配置限额的模型」也能保持维度用量连续。</p>
+     *
+     * @param dimension 待追加的维度（{@code null} 时忽略）
+     * @param limits    该维度的限额集合（{@code null} 视为不限额）
+     * @return 超限结果；放行时为 {@link Optional#empty()}
+     */
+    public Optional<QuotaLimitViolation> appendDimensionWithLimits(final QuotaDimension dimension,
+                                                                  final QuotaLimitSet limits) {
+        if (dimension == null || settled.get()) {
+            return Optional.empty();
+        }
+        if (appendedDimensions.contains(dimension)) {
+            return Optional.empty();
+        }
+        try {
+            final QuotaLimitSet effective = limits == null ? QuotaLimitSet.UNLIMITED : limits;
+            final Optional<QuotaLimitViolation> violation =
+                    ledgerService.reserveWithLimits(QuotaRequest.of(dimension, estimatedTokens), effective);
+            if (violation.isPresent()) {
+                // CAS 已回滚本次增量：不登记维度，避免结算时对不存在的计数冲正
+                return violation;
+            }
+            appendedDimensions.add(dimension);
+            return Optional.empty();
+        } catch (Exception e) {
+            log.warn("配额限额维度追加失败（忽略，不影响主链路）: scope={}, error={}",
+                    dimension, e.toString());
+            return Optional.empty();
         }
     }
 

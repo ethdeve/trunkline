@@ -20,6 +20,18 @@ public interface JwtBlacklistService {
      * @return 操作结果
      */
     Mono<Void> addToBlacklist(String tokenHash, String reason, String addedBy);
+
+    /**
+     * 将令牌添加到黑名单，指定 TTL（秒）。
+     * C3: 撤销令牌的黑名单 TTL 应为令牌剩余寿命，而非固定 24h/30d。
+     *
+     * @param tokenHash 令牌哈希值
+     * @param reason 加入黑名单的原因
+     * @param addedBy 添加者
+     * @param ttlSeconds 过期时间（秒）
+     * @return 操作结果
+     */
+    Mono<Void> addToBlacklist(String tokenHash, String reason, String addedBy, long ttlSeconds);
     
     /**
      * 检查令牌是否在黑名单中

@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "jairouter.security.metrics.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.security.metrics.enabled", havingValue = "true", matchIfMissing = true)
 public class SecurityMetrics {
     
     private final MeterRegistry meterRegistry;
@@ -52,67 +52,67 @@ public class SecurityMetrics {
         this.meterRegistry = meterRegistry;
         
         // 初始化认证指标
-        this.authenticationAttempts = Counter.builder("jairouter.security.authentication.attempts")
+        this.authenticationAttempts = Counter.builder("trunkline.security.authentication.attempts")
                 .description("认证尝试总数")
                 .register(meterRegistry);
                 
-        this.authenticationSuccesses = Counter.builder("jairouter.security.authentication.successes")
+        this.authenticationSuccesses = Counter.builder("trunkline.security.authentication.successes")
                 .description("认证成功总数")
                 .register(meterRegistry);
                 
-        this.authenticationFailures = Counter.builder("jairouter.security.authentication.failures")
+        this.authenticationFailures = Counter.builder("trunkline.security.authentication.failures")
                 .description("认证失败总数")
                 .register(meterRegistry);
                 
-        this.authenticationDuration = Timer.builder("jairouter.security.authentication.duration")
+        this.authenticationDuration = Timer.builder("trunkline.security.authentication.duration")
                 .description("认证处理时间")
                 .register(meterRegistry);
         
         // 初始化JWT指标
-        this.jwtTokenValidations = Counter.builder("jairouter.security.jwt.validations")
+        this.jwtTokenValidations = Counter.builder("trunkline.security.jwt.validations")
                 .description("JWT令牌验证总数")
                 .register(meterRegistry);
                 
-        this.jwtTokenRefreshes = Counter.builder("jairouter.security.jwt.refreshes")
+        this.jwtTokenRefreshes = Counter.builder("trunkline.security.jwt.refreshes")
                 .description("JWT令牌刷新总数")
                 .register(meterRegistry);
                 
-        this.jwtTokenExpired = Counter.builder("jairouter.security.jwt.expired")
+        this.jwtTokenExpired = Counter.builder("trunkline.security.jwt.expired")
                 .description("JWT令牌过期总数")
                 .register(meterRegistry);
                 
-        this.jwtValidationDuration = Timer.builder("jairouter.security.jwt.validation.duration")
+        this.jwtValidationDuration = Timer.builder("trunkline.security.jwt.validation.duration")
                 .description("JWT验证处理时间")
                 .register(meterRegistry);
         
         // 初始化脱敏指标
-        this.sanitizationOperations = Counter.builder("jairouter.security.sanitization.operations")
+        this.sanitizationOperations = Counter.builder("trunkline.security.sanitization.operations")
                 .description("数据脱敏操作总数")
                 .register(meterRegistry);
                 
-        this.sanitizationRuleMatches = Counter.builder("jairouter.security.sanitization.rule.matches")
+        this.sanitizationRuleMatches = Counter.builder("trunkline.security.sanitization.rule.matches")
                 .description("脱敏规则匹配总数")
                 .register(meterRegistry);
                 
-        this.sanitizationDuration = Timer.builder("jairouter.security.sanitization.duration")
+        this.sanitizationDuration = Timer.builder("trunkline.security.sanitization.duration")
                 .description("数据脱敏处理时间")
                 .register(meterRegistry);
         
         // 初始化安全事件指标
-        this.securityViolations = Counter.builder("jairouter.security.violations")
+        this.securityViolations = Counter.builder("trunkline.security.violations")
                 .description("安全违规事件总数")
                 .register(meterRegistry);
                 
-        this.suspiciousActivities = Counter.builder("jairouter.security.suspicious.activities")
+        this.suspiciousActivities = Counter.builder("trunkline.security.suspicious.activities")
                 .description("可疑活动总数")
                 .register(meterRegistry);
         
         // 注册实时统计Gauge
-        Gauge.builder("jairouter.security.active.users", activeAuthenticatedUsers, AtomicLong::doubleValue)
+        Gauge.builder("trunkline.security.active.users", activeAuthenticatedUsers, AtomicLong::doubleValue)
                 .description("当前活跃认证用户数")
                 .register(meterRegistry);
                 
-        Gauge.builder("jairouter.security.apikeys.active", totalApiKeysInUse, AtomicLong::doubleValue)
+        Gauge.builder("trunkline.security.apikeys.active", totalApiKeysInUse, AtomicLong::doubleValue)
                 .description("当前使用中的API Key数量")
                 .register(meterRegistry);
         
@@ -132,7 +132,7 @@ public class SecurityMetrics {
      * 记录认证成功
      */
     public void recordAuthenticationSuccess(final String authType) {
-        Counter.builder("jairouter.security.authentication.successes")
+        Counter.builder("trunkline.security.authentication.successes")
                 .tag("auth_type", authType != null ? authType : "unknown")
                 .register(meterRegistry)
                 .increment();
@@ -142,7 +142,7 @@ public class SecurityMetrics {
      * 记录认证失败
      */
     public void recordAuthenticationFailure(final String authType, final String failureReason) {
-        Counter.builder("jairouter.security.authentication.failures")
+        Counter.builder("trunkline.security.authentication.failures")
                 .tag("auth_type", authType != null ? authType : "unknown")
                 .tag("failure_reason", categorizeFailureReason(failureReason))
                 .register(meterRegistry)
@@ -173,7 +173,7 @@ public class SecurityMetrics {
      * 记录JWT令牌验证
      */
     public void recordJwtValidation(final boolean success) {
-        Counter.builder("jairouter.security.jwt.validations")
+        Counter.builder("trunkline.security.jwt.validations")
                 .tag("result", success ? "success" : "failure")
                 .register(meterRegistry)
                 .increment();
@@ -213,7 +213,7 @@ public class SecurityMetrics {
      * 记录脱敏操作
      */
     public void recordSanitizationOperation(final String contentType, final String direction) {
-        Counter.builder("jairouter.security.sanitization.operations")
+        Counter.builder("trunkline.security.sanitization.operations")
                 .tag("content_type", contentType != null ? contentType : "unknown")
                 .tag("direction", direction != null ? direction : "unknown")
                 .register(meterRegistry)
@@ -224,7 +224,7 @@ public class SecurityMetrics {
      * 记录脱敏规则匹配
      */
     public void recordSanitizationRuleMatch(final String ruleId, final String ruleType, final int matchCount) {
-        Counter ruleMatchCounter = Counter.builder("jairouter.security.sanitization.rule.matches")
+        Counter ruleMatchCounter = Counter.builder("trunkline.security.sanitization.rule.matches")
                 .tag("rule_id", ruleId != null ? ruleId : "unknown")
                 .tag("rule_type", ruleType != null ? ruleType : "unknown")
                 .register(meterRegistry);
@@ -244,7 +244,7 @@ public class SecurityMetrics {
      * 完成脱敏计时
      */
     public void recordSanitizationDuration(final Timer.Sample sample, final String operation) {
-        sample.stop(Timer.builder("jairouter.security.sanitization.duration")
+        sample.stop(Timer.builder("trunkline.security.sanitization.duration")
                 .tag("operation", operation != null ? operation : "unknown")
                 .register(meterRegistry));
     }
@@ -255,7 +255,7 @@ public class SecurityMetrics {
      * 记录安全违规事件
      */
     public void recordSecurityViolation(final String violationType, final String severity) {
-        Counter.builder("jairouter.security.violations")
+        Counter.builder("trunkline.security.violations")
                 .tag("violation_type", violationType != null ? violationType : "unknown")
                 .tag("severity", severity != null ? severity : "medium")
                 .register(meterRegistry)
@@ -266,7 +266,7 @@ public class SecurityMetrics {
      * 记录可疑活动
      */
     public void recordSuspiciousActivity(final String activityType, final String clientIp) {
-        Counter.builder("jairouter.security.suspicious.activities")
+        Counter.builder("trunkline.security.suspicious.activities")
                 .tag("activity_type", activityType != null ? activityType : "unknown")
                 .tag("client_ip_hash", hashClientIp(clientIp))
                 .register(meterRegistry)

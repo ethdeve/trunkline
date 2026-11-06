@@ -1,0 +1,206 @@
+package org.unreal.modelrouter.auth.security.access;
+
+import org.springframework.http.HttpMethod;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * 固定角色访问矩阵（社区版权权固定化）——权限唯一权威源。
+ *
+ * <p><b>设计决策（2026-11-04 用户决策）</b>：社区版不做可配置 RBAC。权限写死为
+ * 「角色 × 菜单分组」固定矩阵，与前端菜单（{@code frontend/src/config/menu.ts}）严格对应：</p>
+ * <ul>
+ *   <li><b>USER（员工）</b>＝「我的」分组：我的额度 / 我的密钥 / 快速上手 / 测试场 / 我的账单，
+ *       对应各类 {@code /mine} 自助端点 + 网关信息 + 测试场代理面；</li>
+ *   <li><b>OPERATOR（运维）</b>＝「我的」+「团队」「策略」分组：技术总览 / 团队用量 /
+ *       接入管理 / 虚拟模型 / 全部密钥 / 调用观测 / 链路追踪 / 状态监控 / 策略中心；</li>
+ *   <li><b>ADMIN（管理员）</b>＝全部（含「系统」分组与未登记端点的兜底）。</li>
+ * </ul>
+ *
+ * <p><b>规则顺序即匹配顺序</b>（首条命中优先）：更具体的路径（{@code /mine}、
+ * {@code /billing/my/recent} 等）必须登记在更宽泛的通配模式之前。</p>
+ *
+ * <p><b>未登记端点</b>维持 fail-closed（仅 ADMIN 直通），豁免清单见
+ * {@link AccessExemptEndpoints}——与替换前的 DENY_ALL 姿态一致，本次改造不放宽任何默认边界。</p>
+ *
+ * <p><b>顺手修正的两个存量不一致</b>（旧权限码矩阵下运维实际 403，但菜单承诺可见）：</p>
+ * <ul>
+ *   <li>「调用观测」（{@code GET /api/call-history/**}）：旧码 {@code callhistory:view}
+ *       不在运维模板（不以 :read/:write 结尾），运维打开必 403 → 现登记为 OPS；</li>
+ *   <li>「全部密钥」（{@code /api/auth/api-keys/**}）：旧码 {@code security:apikeys:manage}
+ *       被运维模板排除（security:*:manage）→ 现登记为 OPS。</li>
+ * </ul>
+ *
+ * @author JAiRouter Team
+ * @since 3.5.1
+ * @modified Trunkline Team
+ */
+@Component
+public class FixedRoleAccessPolicy {
+
+    private final List<AccessRule> rules = buildRules();
+
+    /**
+     * 查找匹配指定方法与路径的访问级别规则。
+     *
+     * @param method 请求方法
+     * @param path   请求路径
+     * @return 命中的规则（无匹配返回 empty，调用方按未登记姿态处理）
+     */
+    public Optional<AccessRule> findRule(final HttpMethod method, final String path) {
+        for (final AccessRule rule : rules) {
+            if (rule.matches(method, path)) {
+                return Optional.of(rule);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** 全部登记规则（只读，供测试与审计逐条断言） */
+    public List<AccessRule> getRules() {
+        return rules;
+    }
+
+    private static List<AccessRule> buildRules() {
+        return List.of(
+                // ===== 系统管理（ADMIN） =====
+                AccessRule.any("/api/security/jwt/accounts/**", AccessLevel.ADMIN),
+                AccessRule.any("/api/security/blacklist/**", AccessLevel.ADMIN),
+
+                // ===== 员工自助（SELF，「我的」分组） =====
+                // 「我的调用记录」+ 导出（任务 58）：归属由服务端从 principal 强制解析，
+                // 必须登记在 /api/call-history/** 通配规则之前（首条命中优先）。
+                AccessRule.get("/api/call-history/mine", AccessLevel.SELF),
+                AccessRule.get("/api/call-history/mine/export", AccessLevel.SELF),
+                // 调用观测（团队分组）：旧码 callhistory:view 不在运维模板导致运维 403 的存量
+                // 不一致，此处按菜单承诺登记为 OPS（见类注释）。
+                AccessRule.get("/api/call-history/**", AccessLevel.OPS),
+                // 调用历史配置（全局配置 tab）：读 OPS / 写 OPS
+                AccessRule.get("/api/config/call-history/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/call-history/**", AccessLevel.OPS),
+
+                // 追踪安全配置（ADMIN）
+                AccessRule.any("/api/config/tracing/security/**", AccessLevel.ADMIN),
+
+                // ===== 团队/策略分组（OPS） =====
+                // 服务子路径规则（前端 service.ts 仍在使用）
+                AccessRule.get("/api/services/*/circuitbreaker/**", AccessLevel.OPS),
+                AccessRule.write("/api/services/*/circuitbreaker/**", AccessLevel.OPS),
+                AccessRule.get("/api/services/*/ratelimit/**", AccessLevel.OPS),
+                AccessRule.write("/api/services/*/ratelimit/**", AccessLevel.OPS),
+
+                // 实例配置（接入管理/虚拟模型）
+                AccessRule.get("/api/config/instance/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/instance/**", AccessLevel.OPS),
+                // 员工自助：实例清单（脱敏后，不含上游密钥）。注意路径是 /api/instance/mine
+                // （不是 /api/config/instance/mine），且必须先于上面的通配语义思考——
+                // 两者前缀不同无冲突，这里登记在 providers 之前保持与旧注册表一致的顺序。
+                AccessRule.get("/api/instance/mine", AccessLevel.SELF),
+
+                // 模型供应商 / 价格 / 服务类型（接入管理）
+                AccessRule.get("/api/config/providers/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/providers/**", AccessLevel.OPS),
+                AccessRule.get("/api/config/prices/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/prices/**", AccessLevel.OPS),
+                AccessRule.get("/api/config/type/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/type/**", AccessLevel.OPS),
+
+                // 熔断器 / 适配器 / 规则 / 资源池配置
+                AccessRule.get("/api/config/circuit-breaker/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/circuit-breaker/**", AccessLevel.OPS),
+                AccessRule.get("/api/config/adapter/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/adapter/**", AccessLevel.OPS),
+                AccessRule.get("/api/config/rules/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/rules/**", AccessLevel.OPS),
+                AccessRule.get("/api/config/pools/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/pools/**", AccessLevel.OPS),
+
+                // 监控（Token 用量 / 熔断监控 / 限流监控 / 路由监控 / 指标）
+                AccessRule.get("/api/token-usage/**", AccessLevel.OPS),
+                AccessRule.get("/api/v1/circuit-breaker-monitor/**", AccessLevel.OPS),
+                AccessRule.write("/api/v1/circuit-breaker-monitor/**", AccessLevel.OPS),
+                AccessRule.any("/api/rate-limiter/**", AccessLevel.OPS),
+                AccessRule.get("/api/v1/routing-monitor/**", AccessLevel.OPS),
+                AccessRule.write("/api/v1/routing-monitor/**", AccessLevel.OPS),
+                AccessRule.get("/api/monitoring/metrics/**", AccessLevel.OPS),
+
+                // 负载均衡
+                AccessRule.get("/api/loadbalancer/**", AccessLevel.OPS),
+                AccessRule.write("/api/loadbalancer/**", AccessLevel.OPS),
+
+                // 响应缓存配置
+                AccessRule.get("/api/config/cache/response", AccessLevel.OPS),
+                AccessRule.write("/api/config/cache/**", AccessLevel.OPS),
+
+                // 网关运行形态（快速上手去硬编码）：只返回当前访问地址与部署形态，无敏感信息
+                AccessRule.get("/api/gateway/info", AccessLevel.SELF),
+
+                // API Key 管理：自助端点在前（首条命中优先）
+                AccessRule.get("/api/auth/api-keys/mine", AccessLevel.SELF),
+                // 员工取回自己的密钥明文（「我的密钥」页复制，2026-11 用户决策）：
+                // 归属校验在服务层（holder/createdBy 必须等于当前登录名），此处仅要求登录
+                AccessRule.any("/api/auth/api-keys/mine/*/reveal", AccessLevel.SELF),
+                // 「全部密钥」菜单对运维可见 → OPS（修正存量 security:apikeys:manage 仅 ADMIN 的不一致）
+                AccessRule.any("/api/auth/api-keys/**", AccessLevel.OPS),
+
+                // 员工自助：账单/额度（我的额度 / 我的账单）
+                AccessRule.get("/api/billing/my/recent", AccessLevel.SELF),
+                AccessRule.get("/api/billing/my", AccessLevel.SELF),
+
+                // 安全审计扩展（后端维持与旧矩阵一致的 OPS 有效权限；菜单仅管理员可见）
+                AccessRule.get("/api/security/audit/extended/**", AccessLevel.OPS),
+                AccessRule.write("/api/security/audit/extended/**", AccessLevel.OPS),
+
+                // 慢查询 / 模型统计
+                AccessRule.get("/api/monitoring/slow-queries/**", AccessLevel.OPS),
+                AccessRule.get("/api/models/stats/**", AccessLevel.OPS),
+
+                // 配置版本 / 状态持久化
+                AccessRule.get("/api/config/version/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/version/**", AccessLevel.OPS),
+                AccessRule.get("/api/state-persistence/**", AccessLevel.OPS),
+                AccessRule.write("/api/state-persistence/**", AccessLevel.OPS),
+
+                // 追踪：读 OPS，配置写 ADMIN（旧码 tracing:config:manage 不在运维模板）
+                AccessRule.get("/api/tracing/actuator/**", AccessLevel.OPS),
+                AccessRule.write("/api/tracing/actuator/**", AccessLevel.ADMIN),
+                AccessRule.get("/api/tracing/performance/**", AccessLevel.OPS),
+                AccessRule.write("/api/tracing/performance/**", AccessLevel.ADMIN),
+                AccessRule.get("/api/tracing/query/**", AccessLevel.OPS),
+                AccessRule.write("/api/tracing/query/**", AccessLevel.ADMIN),
+
+                // 概览仪表盘（技术总览）
+                AccessRule.get("/api/dashboard/**", AccessLevel.OPS),
+
+                // 配额配置 / 配额监控
+                AccessRule.get("/api/config/quota/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/quota/**", AccessLevel.OPS),
+                AccessRule.get("/api/monitoring/quota/**", AccessLevel.OPS),
+
+                // 监控配置/运维端点：必须登记在 metrics/slow-queries/quota 的具体 GET 之后（首条命中优先）
+                AccessRule.get("/api/monitoring/**", AccessLevel.OPS),
+                AccessRule.write("/api/monitoring/**", AccessLevel.OPS),
+
+                // 异常管理
+                AccessRule.get("/api/exceptions/**", AccessLevel.OPS),
+                AccessRule.write("/api/exceptions/**", AccessLevel.OPS),
+
+                // 配置校验/来源指南
+                AccessRule.get("/api/config/sources", AccessLevel.OPS),
+                AccessRule.get("/api/config/environment-variables", AccessLevel.OPS),
+                AccessRule.get("/api/config/validation-rules", AccessLevel.OPS),
+
+                // PII / 脱敏配置管理（ADMIN）
+                AccessRule.any("/api/config/sanitization/**", AccessLevel.ADMIN),
+
+                // JWT 令牌运维端点（ADMIN；自助 refresh/revoke/tokens 走豁免清单 + 方法级 @PreAuthorize）
+                AccessRule.get("/api/auth/jwt/blacklist/stats", AccessLevel.ADMIN),
+                AccessRule.get("/api/auth/jwt/cleanup/stats", AccessLevel.ADMIN),
+                AccessRule.write("/api/auth/jwt/cleanup", AccessLevel.ADMIN),
+                AccessRule.write("/api/auth/jwt/revoke/batch", AccessLevel.ADMIN),
+                AccessRule.get("/api/auth/jwt/tokens/{tokenId}", AccessLevel.ADMIN)
+        );
+    }
+}

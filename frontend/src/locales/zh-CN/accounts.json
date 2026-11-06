@@ -48,7 +48,8 @@
       "passwordMinLength": "密码长度至少 6 位",
       "confirmPasswordRequired": "请确认密码",
       "passwordMismatch": "两次输入的密码不一致",
-      "rolesRequired": "请选择角色"
+      "rolesRequired": "请选择角色",
+      "departmentRequired": "请选择或填写部门"
     },
     "messages": {
       "fetchFailed": "获取账户列表失败",
@@ -65,6 +66,10 @@
       "confirmDelete": "确定删除",
       "deleteSuccess": "账户删除成功",
       "deleteFailed": "账户删除失败"
-    }
+    },
+    "department": "部门",
+    "departmentPlaceholder": "选择或输入部门（如 研发部）",
+    "departmentHint": "部门用于「团队用量」按部门统计；同一部门的用量会汇总在一起。",
+    "departmentUnassigned": "未分配部门"
   }
 }

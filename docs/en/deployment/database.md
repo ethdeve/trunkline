@@ -1,6 +1,6 @@
 # Database Deployment
 
-JAiRouter uses an **embedded H2 database** by default, which is suitable for single-instance deployments and development. As soon as you need **multiple replicas (`replicas > 1`)**, you must switch to an **external shared database** — this page explains how to connect to PostgreSQL.
+Trunkline uses an **embedded H2 database** by default, which is suitable for single-instance deployments and development. As soon as you need **multiple replicas (`replicas > 1`)**, you must switch to an **external shared database** — this page explains how to connect to PostgreSQL.
 
 ## Why multiple replicas require an external database
 
@@ -8,7 +8,7 @@ An H2 single-file database can be **opened by only one process at a time**. Meas
 
 ```
 [B] 失败: org.h2.jdbc.JdbcSQLNonTransientConnectionException:
-    Database may be already in use: ".../data/jairouter.mv.db".
+    Database may be already in use: ".../data/trunkline.mv.db".
     Possible solutions: close all other connection(s); use the server mode [90020-232]
 ```
 
@@ -40,7 +40,7 @@ The data source is externalized through three environment variables, and the **d
 # config/config-service/core.yml
 spring:
   datasource:
-    url: ${DATABASE_URL:jdbc:h2:file:./data/jairouter;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE}
+    url: ${DATABASE_URL:jdbc:h2:file:./data/trunkline;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE}
     username: ${DATABASE_USERNAME:sa}
     password: ${DATABASE_PASSWORD:}
 ```
@@ -48,8 +48,8 @@ spring:
 To connect to PostgreSQL:
 
 ```bash
-export DATABASE_URL="jdbc:postgresql://pg.internal:5432/jairouter"
-export DATABASE_USERNAME="jairouter"
+export DATABASE_URL="jdbc:postgresql://pg.internal:5432/trunkline"
+export DATABASE_USERNAME="trunkline"
 export DATABASE_PASSWORD="<strong-password>"
 ```
 
@@ -57,7 +57,7 @@ Notes:
 
 - **Do not set `spring.jpa.properties.hibernate.dialect`.** The dialect is auto-detected by Hibernate from the connection; hardcoding it is silently carried over when you switch databases, producing wrong DDL with hard-to-diagnose errors.
 - The driver needs no explicit declaration (`driver-class-name` was removed); Spring infers it from the URL prefix.
-- The database must be **created beforehand** (`CREATE DATABASE jairouter;`). The application only creates tables.
+- The database must be **created beforehand** (`CREATE DATABASE trunkline;`). The application only creates tables.
 
 ### Connection pool
 
@@ -161,7 +161,7 @@ Measured on H2 2.3.232 + Hibernate 6.6: the application's default URL carries `D
 3. **Import into PostgreSQL**:
 
    ```bash
-   psql -h pg.internal -U jairouter -d jairouter \
+   psql -h pg.internal -U trunkline -d trunkline \
      -c "\copy api_call_history FROM '/tmp/export/api_call_history.csv' CSV HEADER"
    ```
 

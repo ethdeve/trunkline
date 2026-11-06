@@ -11,19 +11,63 @@
 
 ## 概述
 
-JAiRouter 的 API Key 认证功能为系统提供了安全的访问控制机制。通过 API Key，您可以控制谁可以访问您的 AI 模型服务，并为不同的用户分配不同的权限级别。
+Trunkline 的 API Key 认证功能为系统提供了安全的访问控制机制。通过 API Key，您可以控制谁可以访问您的 AI 模型服务。
+
+> **v3.5 治理口径（重要）**：对外调用的唯一入口是**模型分组（虚拟模型名）**。密钥不再登记上游实例名（原 `allowedModels` 已移除，实例不可被直调），而是通过「模型分类 → 模型分组白名单 → 运行约束」三道闸门串联放行。
+
+## 三道闸门权限模型
+
+一次请求放行必须**依次**穿过三道闸门，任一不满足即被拒绝：
+
+| 闸门 | 字段 | 含义 | 不满足的结果 |
+|------|------|------|--------------|
+| **闸门一·模型分类** | `permissions` | 该密钥可调用哪些模型分类。请求先按 URL 端点确定分类 C，要求 C ∈ permissions | 403 |
+| **闸门二·模型分组白名单** | `allowedGroups` | 该密钥可使用哪些模型分组（池名 / 虚拟模型名）。为空表示不限制；分组名的分类归属必须落在 permissions 内 | 403 / 404 |
+| **闸门三·运行约束** | `allowedIpAddresses` / `expiresAt` / 配额与告警 | 来源 IP、有效期、多窗口配额与告警阈值 | 403 / 429 |
+
+**模型分类**固定为 7 种（`org.unreal.modelrouter.common.constants.ServiceTypeConstants`）：
+
+| 取值 | 含义 |
+|------|------|
+| `chat` | 聊天模型 |
+| `embedding` | 嵌入模型 |
+| `rerank` | 重排序模型 |
+| `tts` | 语音合成 |
+| `stt` | 语音识别 |
+| `imgGen` | 图像生成 |
+| `imgEdit` | 图像编辑 |
+
+> 旧权限格式中的 `admin`（不区分大小写）在运行时放行所有分类，不参与闸门二的分类一致性校验。
+
+### 闸门二的一致性校验
+
+保存密钥时，`ApiKeyWhitelistValidator` 会校验：白名单（`allowedGroups`）里每个分组名所属的模型分类，必须落在该密钥被授权的分类集合（`permissions`）内，否则返回 `400 INVALID_REQUEST`。三类常见错配：
+
+| permissions | allowedGroups | 运行时结果 |
+|-------------|---------------|------------|
+| `chat` | `xxx-chat` | 正常 |
+| `tts` | `xxx-chat` | 闸门一直接 403 |
+| `chat` | `xxx-tts` | 闸门一放行，但池按分类匹配不上 → 404/503 |
+
+> 白名单里查不到的名字（可能已删除或外部模型名）、以及分类目录读取失败时，校验**保守放行**（仅告警不阻断）。
+
+### 密钥与分组绑定语义
+
+- 创建/更新密钥时通过 `allowedGroups` 填入允许访问的**分组名（池名）**，不是实例名；
+- 客户端调用时 `model` 参数填分组名，网关在该分组内选实例；
+- 快速接入向导（`/quick-start`）自动建分组并把分组名写入测试密钥的 `allowedGroups`，`permissions` 填所导入的分类集合。
 
 ## 功能特性
 
 ### 核心功能
 
-- **多级权限控制**：支持 admin、read、write、delete 等不同权限级别
+- **三道闸门访问控制**：模型分类（permissions）→ 模型分组白名单（allowedGroups）→ IP/有效期/配额告警
 - **过期时间管理**：支持设置 API Key 的过期时间
 - **使用统计**：记录每个 API Key 的使用情况
 - **缓存优化**：支持 Redis 和本地缓存，提升认证性能
-- **动态管理**：支持运行时添加、删除和更新 API Key
+- **动态管理**：支持运行时添加、删除和更新 API Key（管理面 `hasRole('ADMIN')`）
 - **持久化存储**：支持将 API Key 信息存储在 H2 数据库中
-- **H2 数据库默认存储**：H2 数据库现在是 API Key 数据的默认持久化存储方式，提供更好的性能和可靠性
+- **H2 数据库默认存储**：H2 数据库是 API Key 数据的默认持久化存储方式
 
 ### 安全增强功能 (v1.6.1+)
 
@@ -46,7 +90,7 @@ JAiRouter 的 API Key 认证功能为系统提供了安全的访问控制机制�
 在 `application.yml` 中启用安全功能：
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -57,14 +101,15 @@ jairouter:
 ### 2. 配置 API Key
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
         - key-id: "admin-key-001"
           key-value: "${ADMIN_API_KEY}"
           description: "管理员API密钥"
-          permissions: ["admin", "read", "write", "delete"]
+          permissions: ["admin"]                 # 闸门一：模型分类；admin=旧格式放行全部分类
+          allowed-groups: ["OpenAI-chat"]        # 闸门二：允许访问的模型分组（池名，留空=不限制）
           expires-at: "2027-12-31T23:59:59"
           enabled: true
 ```
@@ -101,7 +146,9 @@ curl -H "X-API-Key: your-api-key-here" \
 - key-id: "unique-key-identifier"      # 唯一标识符
   key-value: "actual-api-key-string"   # 实际的 API Key 值
   description: "Key description"        # 描述信息
-  permissions: ["read", "write"]        # 权限列表
+  permissions: ["chat", "embedding"]   # 闸门一：允许调用的模型分类
+  allowed-groups: ["OpenAI-chat", "OpenAI-embedding"]  # 闸门二：模型分组白名单（池名）
+  allowed-ip-addresses: ["10.0.0.0/8"] # 闸门三：来源 IP 白名单（可选）
   expires-at: "2027-12-31T23:59:59"    # 过期时间
   enabled: true                         # 是否启用
   daily-token-limit: 100000            # 每日 Token 使用限额（可选）
@@ -114,28 +161,33 @@ curl -H "X-API-Key: your-api-key-here" \
 
 ### 配额管理配置 (v2.7.6+)
 
-JAiRouter 支持全面的 API Key 配额管理功能，包括每日 Token 使用限额、请求速率限制和告警阈值。
+Trunkline 支持全面的 API Key 配额管理功能，包括每日 Token 使用限额、请求速率限制和告警阈值。
 
 #### 配置参数
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `daily-token-limit` | long | 0（无限制） | 每日 Token 使用上限 |
-| `daily-request-limit` | long | 0（无限制） | 每日请求数上限 |
-| `rate-limit-per-minute` | int | 0（无限制） | 每分钟请求次数上限 |
-| `quota-alert-threshold` | double | 0.8 | 告警阈值（0.0–1.0，如 0.8 = 80%） |
+| `dailyRequestLimit` | long | 0（无限制） | 每日请求数上限 |
+| `dailyTokenLimit` | long | 0（无限制） | 每日 Token 使用上限 |
+| `hourlyRequestLimit` | long | 0（无限制） | 每小时请求数上限（对齐上游多窗口配额） |
+| `hourlyTokenLimit` | long | 0（无限制） | 每小时 Token 使用上限 |
+| `monthlyRequestLimit` | long | 0（无限制） | 每月请求数上限 |
+| `monthlyTokenLimit` | long | 0（无限制） | 每月 Token 使用上限 |
+| `rateLimitPerMinute` | int | 0（无限制） | 每分钟请求次数上限 |
+| `quotaAlertThreshold` | double | 0.8 | 告警阈值（0.0–1.0，如 0.8 = 用到 80% 触发告警） |
 
 #### 配置示例
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
         - key-id: "limited-api-key"
           key-value: "${LIMITED_API_KEY}"
           description: "带配额限制的 API Key"
-          permissions: ["read"]
+          permissions: ["chat"]
+          allowed-groups: ["OpenAI-chat"]
           expires-at: "2027-12-31T23:59:59"
           enabled: true
           daily-token-limit: 100000      # 每日 10 万 Token
@@ -157,10 +209,10 @@ jairouter:
 
 您可以通过以下方式监控 API Key 配额使用情况：
 
-1. **Prometheus 指标**：
-   - `jairouter_security_api_key_daily_token_usage`：当日 Token 使用量
-   - `jairouter_security_api_key_daily_request_count`：当日请求次数
-   - `jairouter_security_api_key_quota_exceeded_total`：配额超限总次数
+1. **管理 API 查询**（配额用量未单独注册 Prometheus 指标）：
+   - `GET /api/auth/api-keys/{keyId}/quota`：单密钥配额详情（含今日请求/Token、是否触发告警）
+   - `GET /api/auth/api-keys/quota/overview`：全部密钥配额概览
+   - `GET /api/auth/api-keys/quota/alerts`：触发告警阈值的密钥列表
 
 2. **审计日志**：配额相关事件会记录在审计日志中。
 
@@ -179,14 +231,17 @@ jairouter:
 
 详见 [管理 API](../api-reference/management-api.md)。
 
-### 权限级别说明
+### 闸门一：可调用的模型分类（permissions）
 
-| 权限 | 说明 | 适用场景 |
-|------|------|----------|
-| `read` | 只读权限，可以查询模型和发送推理请求 | 普通用户、客户端应用 |
-| `write` | 写权限，可以修改配置（不包括安全配置） | 服务管理员 |
-| `delete` | 删除权限，可以删除配置和数据 | 高级管理员 |
-| `admin` | 管理员权限，可以管理所有功能包括安全配置 | 系统管理员 |
+`permissions` 是该密钥可调用的模型分类集合（见上表 7 种分类），不是旧版的 read/write/delete：
+
+| 取值示例 | 说明 |
+|------|------|
+| `["chat"]` | 仅允许调用聊天分类 |
+| `["chat","embedding"]` | 允许聊天与嵌入两类 |
+| `["admin"]`（旧格式） | 放行全部分类，跳过闸门二分类一致性校验 |
+
+> 运行时按 URL 端点确定请求分类，分类不在 `permissions` 内即返回 403。
 
 ## 环境变量配置
 
@@ -225,7 +280,7 @@ set PROD_READONLY_KEY_EXPIRES=2027-12-31T23:59:59
 ```
 # 生产环境 Docker 部署
 docker run -d \
-  --name jairouter-prod \
+  --name trunkline-prod \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e PROD_ADMIN_API_KEY="your-production-admin-api-key-here" \
@@ -237,7 +292,7 @@ docker run -d \
   -e REDIS_PASSWORD="your-redis-password" \
   -v $(pwd)/config:/app/config:ro \
   -v $(pwd)/logs:/app/logs \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 ## 缓存配置
@@ -245,7 +300,7 @@ docker run -d \
 ### Redis 缓存
 
 ```
-jairouter:
+trunkline:
   security:
     performance:
       cache:
@@ -260,7 +315,7 @@ jairouter:
 ### 本地缓存
 
 ```
-jairouter:
+trunkline:
   security:
     performance:
       cache:
@@ -275,10 +330,10 @@ jairouter:
 
 ### 启用 API Key 持久化
 
-JAiRouter 支持将 API Key 持久化存储以增强管理和监控：
+Trunkline 支持将 API Key 持久化存储以增强管理和监控：
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       # API Key 持久化配置
@@ -415,7 +470,7 @@ API Key 存储包含以下元数据：
 启用审计功能后，系统会记录所有认证相关的事件：
 
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       enabled: true
@@ -430,22 +485,32 @@ jairouter:
 
 ### 监控指标
 
-系统提供以下 Prometheus 指标：
+安全指标由 `monitor/monitoring/security/SecurityMetrics.java` 注册（Micrometer，Prometheus 端点下 Counter 自动加 `_total` 后缀）：
 
-- `jairouter_security_authentication_attempts_total`：认证尝试总数
-- `jairouter_security_authentication_successes_total`：认证成功总数
-- `jairouter_security_authentication_failures_total`：认证失败总数
-- `jairouter_security_authentication_duration_seconds`：认证耗时
-- `jairouter_security_api_keys_created_total`：创建的 API Key 总数
-- `jairouter_security_api_keys_used_total`：API Key 使用总数
-- `jairouter_security_api_keys_revoked_total`：撤销的 API Key 总数
+| 指标名（Micrometer / Prometheus） | 类型 | 说明 |
+|-----------------------------------|------|------|
+| `trunkline.security.authentication.attempts(_total)` | Counter | 认证尝试总数 |
+| `trunkline.security.authentication.successes(_total)` | Counter | 认证成功总数（tag: `auth_type`） |
+| `trunkline.security.authentication.failures(_total)` | Counter | 认证失败总数（tag: `auth_type`、`failure_reason`） |
+| `trunkline.security.authentication.duration` | Timer | 认证处理耗时 |
+| `trunkline.security.jwt.validations(_total)` | Counter | JWT 验证总数（tag: `result`） |
+| `trunkline.security.jwt.refreshes(_total)` | Counter | JWT 刷新总数 |
+| `trunkline.security.jwt.expired(_total)` | Counter | JWT 过期总数 |
+| `trunkline.security.sanitization.operations(_total)` | Counter | 数据脱敏操作总数 |
+| `trunkline.security.sanitization.rule.matches(_total)` | Counter | 脱敏规则匹配总数 |
+| `trunkline.security.violations(_total)` | Counter | 安全违规事件总数 |
+| `trunkline.security.suspicious.activities(_total)` | Counter | 可疑活动总数 |
+| `trunkline.security.active.users` | Gauge | 当前活跃认证用户数 |
+| `trunkline.security.apikeys.active` | Gauge | 当前使用中的 API Key 数量 |
+
+> 说明：早期文档列出的 `trunkline_security_api_key_daily_token_usage`、`trunkline_security_api_key_quota_exceeded_total` 等指标未在当前代码注册，配额用量请通过管理 API（`GET /api/auth/api-keys/{keyId}/quota`、`/quota/overview`）查询。
 
 ## 安全审计和监控
 
 ### 增强的审计配置
 
 ```yaml
-jairouter:
+trunkline:
   security:
     # 增强的审计配置
     audit:
@@ -663,7 +728,7 @@ http://localhost:8080/actuator/health
 
 ### 批量导入/导出 (v1.6.2+)
 
-JAiRouter 支持批量导入导出 API Key，便于迁移、备份和批量管理。
+Trunkline 支持批量导入导出 API Key，便于迁移、备份和批量管理。
 
 #### 导出 API Key
 
@@ -680,7 +745,7 @@ curl -X GET "http://localhost:8080/api/auth/api-keys/export" \
     {
       "keyId": "admin-key-001",
       "description": "管理员密钥",
-      "permissions": ["admin", "read", "write", "delete"],
+      "permissions": ["admin"],
       "expiresAt": "2027-12-31T23:59:59",
       "enabled": true,
       "allowedIpAddresses": ["192.168.1.100"],
@@ -706,7 +771,7 @@ curl -X POST "http://localhost:8080/api/auth/api-keys/import" \
          {
            "keyId": "new-key-001",
            "description": "新导入的密钥",
-           "permissions": ["read"],
+           "permissions": ["chat"],
            "expiresAt": "2026-12-31T23:59:59"
          }
        ]
@@ -743,7 +808,7 @@ curl -X POST "http://localhost:8080/api/auth/api-keys/import" \
 #### 配置轮换周期
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
@@ -774,7 +839,7 @@ curl -X POST "http://localhost:8080/api/auth/api-keys/{keyId}/reset" \
 #### 配置 IP 白名单
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
@@ -805,7 +870,7 @@ curl -X PUT "http://localhost:8080/api/auth/api-keys/{keyId}" \
 #### 配置每日限制
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
@@ -832,22 +897,22 @@ jairouter:
 
 ### 管理接口速率限制 (v1.6.1+)
 
-为防止管理 API 被滥用，添加了速率限制：
+为防止管理 API（`/api/auth/api-keys/**`）被滥用，`AdminApiRateLimiter` 按客户端 IP 限流（可通过 `trunkline.auth.admin-api-rate-limit.*` 覆盖）：
 
-| 操作类型 | 限制 |
-|---------|-----|
-| 一般管理操作 | 30 次/分钟 |
-| 每小时总限制 | 100 次/小时 |
-| 创建密钥 | 10 次/小时 |
+| 操作类型 | 每分钟 | 每小时 |
+|---------|-------|-------|
+| 读操作（GET/HEAD） | 120 | 2000 |
+| 写操作（POST/PUT/PATCH/DELETE） | 30 | 200 |
+| 创建密钥（POST） | — | 10 |
 
-超限后将返回 429 Too Many Requests 错误。
+超限后返回 `429 Too Many Requests`（body `{"code":"RATE_LIMIT_EXCEEDED"}`）。
 
 ## 示例配置
 
 ### 开发环境
 
 ```
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -856,14 +921,14 @@ jairouter:
       keys:
         - key-id: "dev-admin"
           key-value: "dev-admin-key-12345"
-          permissions: ["admin", "read", "write", "delete"]
+          permissions: ["admin"]
           expires-at: "2027-12-31T23:59:59"
 ```
 
 ### 生产环境
 
 ```
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -872,11 +937,12 @@ jairouter:
       keys:
         - key-id: "prod-admin"
           key-value: "${PROD_ADMIN_API_KEY}"
-          permissions: ["admin", "read", "write", "delete"]
+          permissions: ["admin"]
           expires-at: "${PROD_ADMIN_KEY_EXPIRES}"
         - key-id: "prod-service"
           key-value: "${PROD_SERVICE_API_KEY}"
-          permissions: ["read", "write"]
+          permissions: ["chat"]
+          allowed-groups: ["prod-chat"]
           expires-at: "${PROD_SERVICE_KEY_EXPIRES}"
     performance:
       cache:

@@ -25,13 +25,14 @@ import java.util.Set;
  * 
  * @author JAiRouter Team
  * @since 2.4.4
+ * @modified Trunkline Team
  */
 @Service
-@ConditionalOnProperty(name = "jairouter.persistence.redis.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.persistence.redis.enabled", havingValue = "true")
 public class RedisStatePersistenceServiceImpl implements StatePersistenceService {
 
     private static final Logger logger = LoggerFactory.getLogger(RedisStatePersistenceServiceImpl.class);
-    private static final String KEY_PREFIX = "jairouter:state:";
+    private static final String KEY_PREFIX = "trunkline:state:";
     private static final int TIER_PRIORITY = 1;
 
     @Autowired(required = false)

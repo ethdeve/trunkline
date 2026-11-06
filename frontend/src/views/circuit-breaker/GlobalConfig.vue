@@ -1,71 +1,84 @@
 <template>
   <PageSkeleton :title="t('circuitBreaker.globalConfig.title')">
     <el-card class="config-card">
-      <el-form :model="globalConfig" label-width="150px" class="config-form">
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="t('circuitBreaker.globalConfig.adaptiveThresholdEnabled')">
-              <div class="adaptive-switch-container">
-                <el-switch v-model="globalConfig.adaptiveThresholdEnabled" />
-                <span class="adaptive-hint" v-if="globalConfig.adaptiveThresholdEnabled">
-                  <el-tag type="success" size="small">{{ t('circuitBreaker.globalConfig.enabled') }}</el-tag>
-                  <span class="hint-text">{{ t('circuitBreaker.globalConfig.adaptiveHint') }}</span>
-                </span>
-                <span class="adaptive-hint" v-else>
-                  <el-tag type="info" size="small">{{ t('circuitBreaker.globalConfig.disabled') }}</el-tag>
-                </span>
-              </div>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('circuitBreaker.globalConfig.stateSyncInterval')">
-              <el-input-number
-                v-model="globalConfig.stateSyncIntervalMinutes"
-                :min="1"
-                :max="60"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="t('circuitBreaker.globalConfig.cleanupInterval')">
-              <el-input-number
-                v-model="globalConfig.cleanupIntervalMinutes"
-                :min="1"
-                :max="120"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('circuitBreaker.globalConfig.historyRetentionDays')">
-              <el-input-number
-                v-model="globalConfig.historyRetentionDays"
-                :min="1"
-                :max="365"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
+      <el-form :model="globalConfig" label-width="180px" class="config-form">
+        <!-- 主字段：三个默认阈值 -->
         <el-row :gutter="20">
           <el-col :span="8">
             <el-form-item :label="t('circuitBreaker.globalConfig.defaultFailureThreshold')">
               <el-input-number v-model="globalConfig.defaultFailureThreshold" :min="1" :max="100" />
+              <div class="field-hint">{{ t('circuitBreaker.globalConfig.defaultFailureHint') }}</div>
             </el-form-item>
           </el-col>
           <el-col :span="8">
             <el-form-item :label="t('circuitBreaker.globalConfig.defaultSuccessThreshold')">
               <el-input-number v-model="globalConfig.defaultSuccessThreshold" :min="1" :max="20" />
+              <div class="field-hint">{{ t('circuitBreaker.globalConfig.defaultSuccessHint') }}</div>
             </el-form-item>
           </el-col>
           <el-col :span="8">
             <el-form-item :label="t('circuitBreaker.globalConfig.defaultTimeout')">
               <el-input-number v-model="globalConfig.defaultTimeoutMs" :min="1000" :max="300000" :step="1000" />
+              <div class="field-hint">{{ t('circuitBreaker.globalConfig.defaultTimeoutHint') }}</div>
             </el-form-item>
           </el-col>
         </el-row>
+
+        <!-- 自适应/同步/清理/保留：纯内部参数，收进高级折叠 -->
+        <el-collapse class="advanced-collapse">
+          <el-collapse-item :title="t('circuitBreaker.globalConfig.advancedTitle')" name="advanced">
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item :label="t('circuitBreaker.globalConfig.adaptiveThresholdEnabled')">
+                  <div class="adaptive-switch-container">
+                    <el-switch v-model="globalConfig.adaptiveThresholdEnabled" />
+                    <span class="adaptive-hint" v-if="globalConfig.adaptiveThresholdEnabled">
+                      <el-tag type="success" size="small">{{ t('circuitBreaker.globalConfig.enabled') }}</el-tag>
+                      <span class="hint-text">{{ t('circuitBreaker.globalConfig.adaptiveHint') }}</span>
+                    </span>
+                    <span class="adaptive-hint" v-else>
+                      <el-tag type="info" size="small">{{ t('circuitBreaker.globalConfig.disabled') }}</el-tag>
+                    </span>
+                  </div>
+                  <div class="field-hint">{{ t('circuitBreaker.globalConfig.adaptiveFieldHint') }}</div>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item :label="t('circuitBreaker.globalConfig.stateSyncInterval')">
+                  <el-input-number
+                    v-model="globalConfig.stateSyncIntervalMinutes"
+                    :min="1"
+                    :max="60"
+                  />
+                  <div class="field-hint">{{ t('circuitBreaker.globalConfig.stateSyncHint') }}</div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item :label="t('circuitBreaker.globalConfig.cleanupInterval')">
+                  <el-input-number
+                    v-model="globalConfig.cleanupIntervalMinutes"
+                    :min="1"
+                    :max="120"
+                  />
+                  <div class="field-hint">{{ t('circuitBreaker.globalConfig.cleanupHint') }}</div>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item :label="t('circuitBreaker.globalConfig.historyRetentionDays')">
+                  <el-input-number
+                    v-model="globalConfig.historyRetentionDays"
+                    :min="1"
+                    :max="365"
+                  />
+                  <div class="field-hint">{{ t('circuitBreaker.globalConfig.retentionHint') }}</div>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-collapse-item>
+        </el-collapse>
 
         <el-form-item>
           <el-button v-if="canWrite" type="primary" @click="saveGlobalConfig" :loading="savingConfig">{{ t('circuitBreaker.globalConfig.save') }}</el-button>
@@ -82,6 +95,7 @@ import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { effectMessage } from '@/utils/effectScope'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 
 interface GlobalConfig {
@@ -137,7 +151,7 @@ const saveGlobalConfig = async () => {
   try {
     const response = await request.put('/config/circuit-breaker/global-config', globalConfig.value)
     if (response.data?.success) {
-      ElMessage.success(t('circuitBreaker.globalConfig.messages.saveSuccess'))
+      ElMessage.success(effectMessage(t('circuitBreaker.globalConfig.messages.saveSuccess'), 'config'))
     } else {
       ElMessage.error(response.data?.message || t('circuitBreaker.globalConfig.messages.saveFailed'))
     }
@@ -195,5 +209,30 @@ onMounted(() => {
 .hint-text {
   color: var(--ja-text-regular);
   font-size: 12px;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* 高级折叠：弱化视觉权重 */
+.advanced-collapse {
+  width: 100%;
+  margin-bottom: 18px;
+  border-top: 1px dashed var(--el-border-color-lighter);
+  border-bottom: none;
+}
+
+.advanced-collapse :deep(.el-collapse-item__header) {
+  font-size: 13px;
+  color: var(--ja-text-secondary);
+  border-bottom: none;
+}
+
+.advanced-collapse :deep(.el-collapse-item__wrap) {
+  border-bottom: none;
 }
 </style>

@@ -9,9 +9,10 @@ import org.springframework.stereotype.Component;
  *
  * @author JAiRouter Team
  * @since 2.7.0
+ * @modified Trunkline Team
  */
 @Component
-@ConfigurationProperties(prefix = "jairouter.circuit-breaker.monitor")
+@ConfigurationProperties(prefix = "trunkline.circuit-breaker.monitor")
 public class CircuitBreakerMonitorConfig {
 
     /**

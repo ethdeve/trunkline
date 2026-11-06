@@ -2,7 +2,7 @@
   <el-dialog
     v-model="visible"
     :title="t('adapter.wizard.title')"
-    width="720px"
+    width="min(800px, 92vw)"
     :close-on-click-modal="false"
     :before-close="handleClose"
     destroy-on-close

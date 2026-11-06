@@ -11,7 +11,7 @@
 
 ## Overview
 
-The JAiRouter project adopts strict code quality standards, combining automated tools and manual reviews to ensure code readability, maintainability, and security.
+The Trunkline project adopts strict code quality standards, combining automated tools and manual reviews to ensure code readability, maintainability, and security.
 
 ## Code Quality Tools
 
@@ -518,4 +518,4 @@ jobs:
 </plugin>
 ```
 
-By following these code quality standards, the JAiRouter project can maintain a high-quality codebase, improving development efficiency and system stability.
+By following these code quality standards, the Trunkline project can maintain a high-quality codebase, improving development efficiency and system stability.

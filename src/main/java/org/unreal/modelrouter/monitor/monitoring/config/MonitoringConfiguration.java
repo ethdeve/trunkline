@@ -44,7 +44,7 @@ public class MonitoringConfiguration {
             List<Tag> tags = new ArrayList<>();
             
             // 添加应用程序标签
-            tags.add(Tag.of("application", "jairouter"));
+            tags.add(Tag.of("application", "trunkline"));
             
             // 添加自定义标签
             Map<String, String> customTags = monitoringProperties.getCustomTags();

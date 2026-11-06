@@ -9,7 +9,7 @@
 
 ## Overview
 
-JAiRouter supports JWT (JSON Web Token) authentication, which can be integrated with existing identity authentication systems. JWT authentication provides a stateless authentication mechanism and supports token refresh and blacklist functionalities.
+Trunkline supports JWT (JSON Web Token) authentication, which can be integrated with existing identity authentication systems. JWT authentication provides a stateless authentication mechanism and supports token refresh and blacklist functionalities.
 
 ## Features
 
@@ -29,7 +29,7 @@ JAiRouter supports JWT (JSON Web Token) authentication, which can be integrated 
 Configuration file: `config/auth/jwt.yml`
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: true
@@ -63,7 +63,7 @@ export JWT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nyour-private-key-here\n----
 ### 3. Configure User Accounts
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: true
@@ -71,7 +71,7 @@ jairouter:
       algorithm: "HS256"
       expiration-minutes: 60
       refresh-expiration-days: 7
-      issuer: "jairouter"
+      issuer: "trunkline"
       blacklist-enabled: true
       # User Account Configuration
       accounts:
@@ -148,7 +148,7 @@ curl -X POST http://localhost:8080/api/auth/jwt/login \
 | `algorithm` | string | "HS256" | JWT signing algorithm |
 | `expiration-minutes` | int | 60 | Access token expiration (minutes) |
 | `refresh-expiration-days` | int | 7 | Refresh token expiration (days) |
-| `issuer` | string | "jairouter" | JWT issuer identifier |
+| `issuer` | string | "trunkline" | JWT issuer identifier |
 | `blacklist-enabled` | boolean | true | Enable blacklist functionality |
 | `jwt-header` | string | "Jairouter_Token" | Custom JWT header name |
 | `accounts` | array | [] | User account list |
@@ -164,7 +164,7 @@ curl -X POST http://localhost:8080/api/auth/jwt/login \
 - **HS512**: HMAC using SHA-512
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       algorithm: "HS256"
@@ -178,7 +178,7 @@ jairouter:
 - **RS512**: RSASSA-PKCS1-v1_5 using SHA-512
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       algorithm: "RS256"
@@ -199,7 +199,7 @@ jairouter:
 ### Configure Refresh Token
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       expiration-minutes: 15        # Access token expires in 15 minutes
@@ -235,7 +235,7 @@ curl -X POST http://localhost:8080/api/auth/jwt/refresh \
 ### Enable Token Persistence
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -264,7 +264,7 @@ jairouter:
 ### Enable Blacklist
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       blacklist-enabled: true
@@ -338,7 +338,7 @@ curl -X GET "http://localhost:8080/api/auth/jwt/blacklist/stats" \
 JWT authentication can be used alongside API Key authentication:
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:

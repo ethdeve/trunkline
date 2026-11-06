@@ -65,6 +65,14 @@ class PostgresFlywayMigrationEquivalenceTest {
             ALTER TABLE service_instance DROP COLUMN IF EXISTS tags;
             ALTER TABLE service_instance DROP COLUMN IF EXISTS headers;
             ALTER TABLE security_blacklist ALTER COLUMN expires_at SET NOT NULL;
+            -- V16（多租户预埋，S2 任务 35）：租户列同样属于「老库没有的补丁列」
+            ALTER TABLE jwt_accounts DROP COLUMN IF EXISTS tenant_id;
+            ALTER TABLE token_usage DROP COLUMN IF EXISTS tenant_id;
+            ALTER TABLE api_call_history DROP COLUMN IF EXISTS tenant_id;
+            ALTER TABLE security_audit DROP COLUMN IF EXISTS tenant_id;
+            ALTER TABLE model_provider DROP COLUMN IF EXISTS tenant_id;
+            ALTER TABLE config_data DROP COLUMN IF EXISTS tenant_id;
+            ALTER TABLE service_config DROP COLUMN IF EXISTS tenant_id;
             """;
 
     /** 同上，且 tags / headers 是早期补成的 text（类型分歧形态，issue #190） */
@@ -76,6 +84,15 @@ class PostgresFlywayMigrationEquivalenceTest {
             ALTER TABLE service_instance ADD COLUMN tags text;
             ALTER TABLE service_instance ALTER COLUMN headers TYPE text USING headers::text;
             ALTER TABLE security_blacklist ALTER COLUMN expires_at SET NOT NULL;
+            ALTER TABLE security_blacklist ALTER COLUMN expires_at SET NOT NULL;
+            -- V16（多租户预埋，S2 任务 35）：租户列同样属于「老库没有的补丁列」
+            ALTER TABLE jwt_accounts DROP COLUMN IF EXISTS tenant_id;
+            ALTER TABLE token_usage DROP COLUMN IF EXISTS tenant_id;
+            ALTER TABLE api_call_history DROP COLUMN IF EXISTS tenant_id;
+            ALTER TABLE security_audit DROP COLUMN IF EXISTS tenant_id;
+            ALTER TABLE model_provider DROP COLUMN IF EXISTS tenant_id;
+            ALTER TABLE config_data DROP COLUMN IF EXISTS tenant_id;
+            ALTER TABLE service_config DROP COLUMN IF EXISTS tenant_id;
             """;
 
     @Test

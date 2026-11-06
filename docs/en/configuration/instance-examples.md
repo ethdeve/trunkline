@@ -242,6 +242,46 @@ Headers:      None required
 
 ---
 
+## Built-in Provider Presets
+
+The admin UI's "Provider Presets" ships the following upstream catalog (per `frontend/src/constants/providerPresets.ts`). Adding an instance/upstream can one-click prefill the base URL and default models:
+
+### Domestic providers (OpenAI-compatible)
+
+| Preset | Base URL | Notes |
+|--------|----------|-------|
+| DeepSeek | `https://api.deepseek.com` | deepseek-chat / deepseek-reasoner |
+| 智谱 AI (GLM) | `https://open.bigmodel.cn/api/paas/v4` | GLM series |
+| Moonshot (Kimi) | `https://api.moonshot.cn/v1` | moonshot series |
+| 百川智能 (Baichuan) | `https://api.baichuan-ai.com/v1` | Baichuan series |
+| 通义千问 (Qwen) | `https://dashscope.aliyuncs.com/compatible-mode/v1` | Qwen series |
+| MiniMax | `https://api.minimaxi.com/v1` | MiniMax series |
+| StepFun (阶跃星辰) | `https://api.stepfun.com/v1` | Step series |
+| SiliconFlow (硅基流动) | `https://api.siliconflow.cn/v1` | multi-model aggregation |
+
+### International providers (OpenAI-compatible)
+
+| Preset | Base URL | Notes |
+|--------|----------|-------|
+| Groq | `https://api.groq.com/openai/v1` | fast inference |
+| OpenRouter | `https://openrouter.ai/api/v1` | multi-model routing |
+| Together AI | `https://api.together.xyz/v1` | open-source model hosting |
+
+### Local inference
+
+| Preset | Base URL | Adapter |
+|--------|----------|---------|
+| Local Ollama | `http://localhost:11434` | `ollama` |
+
+## Custom Upstreams
+
+Upstreams beyond the presets are integrated in two ways:
+
+1. **Register a provider via admin API**: `/api/config/providers` (`ModelProviderController`) registers a custom provider and its default model list, then reference it in instance management.
+2. **Config-driven adapter**: define an OpenAI-compatible adapter via `adapter-definitions` (custom auth header/prefix), then add an instance pointing to your upstream — see [Adapter Config](adapter-config.md).
+
+---
+
 ## Adapter Reference
 
 | Adapter | Supported Services | Authentication |
@@ -296,7 +336,7 @@ Instance 3: gpt-3.5-turbo Weight 2
 
 ### Q: Will the API Key in headers be exposed?
 
-A: API Keys are displayed as password fields on the page and transmitted over HTTPS. JAiRouter masks stored keys internally.
+A: API Keys are displayed as password fields on the page and transmitted over HTTPS. Trunkline masks stored keys internally.
 
 ### Q: Do I need to manually configure the `anthropic-version` header for Claude?
 

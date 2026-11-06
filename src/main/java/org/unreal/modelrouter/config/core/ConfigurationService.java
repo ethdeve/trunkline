@@ -1,5 +1,6 @@
 package org.unreal.modelrouter.config.core;
 
+import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +17,6 @@ import org.unreal.modelrouter.config.core.manager.InstanceManager;
 import org.unreal.modelrouter.config.core.manager.TracingConfigManager;
 import org.unreal.modelrouter.config.dto.UpdateServiceConfigRequest;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
-import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 import org.unreal.modelrouter.persistence.store.StoreManager;
 import org.unreal.modelrouter.monitor.tracing.config.SamplingConfigurationValidator;
 import org.unreal.modelrouter.common.util.SecurityUtils;
@@ -39,7 +39,8 @@ import org.unreal.modelrouter.config.core.service.ServiceConfigUpdateService;
  * <h3>【配置协调层】协调器职责，管理配置生命周期</h3>
  * <ul>
  *   <li>postConstructInit() - 初始化配置</li>
- *   <li>setModelServiceRegistry() / setConfigSyncService() - 延迟注入避免循环依赖</li>
+ *   <li>setConfigSyncService() - 延迟注入避免循环依赖（E2/R9: ModelServiceRegistry 死注入点已删，
+ *       运行时投影刷新由 ServiceInstanceManager.saveVersion 单点触发）</li>
  *   <li>saveAsNewVersionIfChanged() - 保存为新版本（委托到 InstanceConfigService）</li>
  *   <li>batchUpdateConfigurations() - 批量更新配置</li>
  *   <li>resetToDefaultConfig() - 重置为默认配置</li>
@@ -102,7 +103,6 @@ public class ConfigurationService {
     private final ConfigQueryService configQueryService;
     private final InstanceOperationService instanceOperationService;
     private final ServiceConfigUpdateService serviceConfigUpdateService;
-    private ModelServiceRegistry modelServiceRegistry; // 延迟注入避免循环依赖
     // v1.5.6: 配置同步服务，用于版本回滚时同步实例到数据库
     private ConfigSyncService configSyncService;
     private final ConfigComparisonService configComparisonService;
@@ -153,15 +153,6 @@ public class ConfigurationService {
     @PostConstruct
     public void postConstructInit() {
         configVersionManager.initializeVersionControl();
-    }
-
-    /**
-     * 设置ModelServiceRegistry引用 用于避免循环依赖问题
-     *
-     * @param modelServiceRegistry ModelServiceRegistry实例
-     */
-    public void setModelServiceRegistry(final ModelServiceRegistry modelServiceRegistry) {
-        this.modelServiceRegistry = modelServiceRegistry;
     }
 
     /**
@@ -260,7 +251,7 @@ public class ConfigurationService {
                     serviceConfigUpdateService.buildServiceConfigUpdate(existingServiceConfig, request);
 
             services.put(serviceType, newConfig);
-            storeManager.saveConfig("model-router-config", currentConfig);
+            storeManager.saveConfig(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY, currentConfig);
             configVersionManager.saveAsNewVersion(
                     currentConfig, "更新服务配置: " + serviceType, SecurityUtils.getCurrentUserId());
             instanceConfigService.refreshRuntimeConfig();

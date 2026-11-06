@@ -34,8 +34,17 @@ public final class DefaultTracingContext implements TracingContext {
     
     private final Tracer tracer;
     private final W3CTraceContextPropagator propagator;
-    private Context context;
-    private Span currentSpan;
+    /**
+     * v3.5 修复：TracingContext 实例在请求生命周期内被多个线程共享
+     * （Netty 事件循环 → boundedElastic → 上游响应回调线程），
+     * currentSpan / context 在入口线程写入、在完成回调线程读取，
+     * 非 volatile 字段在无同步动作的线程间没有 happens-before 保证，
+     * 回调线程可能读到 null（getTraceId() 返回空串），导致入口 span、
+     * Adapter/Controller 子 span 落库被跳过（finishHttpSpan 的 isActive()
+     * 检查与 recordChildSpan 的空 traceId 防御都会失效）。
+     */
+    private volatile Context context;
+    private volatile Span currentSpan;
     
     /**
      * 构造函数

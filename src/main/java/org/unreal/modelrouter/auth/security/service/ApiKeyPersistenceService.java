@@ -34,6 +34,10 @@ public class ApiKeyPersistenceService {
     @Autowired(required = false)
     private ApiKeyConfigManager apiKeyConfigManager;
 
+    /** O(1) 查找索引（C6 整改）：在明文 keyValue 可用时补全确定性 lookupHash */
+    @Autowired(required = false)
+    private ApiKeyLookupIndex apiKeyLookupIndex;
+
     public ApiKeyPersistenceService(final StoreManager storeManager,
                                      final ObjectMapper objectMapper) {
         this.storeManager = storeManager;
@@ -95,10 +99,12 @@ public class ApiKeyPersistenceService {
             if (apiKeyConfigManager != null) {
                 apiKeyConfigManager.saveNewVersion(defaultConfig);
             } else {
-                // 兼容旧实现：直接使用 storeManager
+                // 兼容旧实现：直接使用 storeManager（E1: saveNewVersion 等价于
+                // 追加快照 + 刷新 v0 当前行，这里手工对齐两步）
                 List<Integer> versions = storeManager.getConfigVersions(API_KEYS_STORE_KEY);
                 int version = versions.isEmpty() ? 1 : versions.stream().max(Integer::compareTo).orElse(0) + 1;
                 storeManager.saveConfigVersion(API_KEYS_STORE_KEY, defaultConfig, version);
+                storeManager.saveConfig(API_KEYS_STORE_KEY, defaultConfig);
             }
 
             // 迁移并加载到缓存
@@ -107,6 +113,9 @@ public class ApiKeyPersistenceService {
                 if (item.getKeyValue() != null && !ApiKeyHashUtil.isHashedFormat(item.getKeyValue())) {
                     String keyHash = ApiKeyHashUtil.hashApiKey(item.getKeyValue());
                     item.setKeyHash(keyHash);
+                    if (apiKeyLookupIndex != null) {
+                        apiKeyLookupIndex.attachLookupHash(item, item.getKeyValue());
+                    }
                     item.setKeyValue(null);  // 清除明文
                     item.setKeyPrefix("sk-");
                     log.info("迁移API Key {} 从明文存储到哈希存储", item.getKeyId());
@@ -140,16 +149,14 @@ public class ApiKeyPersistenceService {
         log.info("发现持久化API Key配置，加载最新版本");
 
         try {
-            int currentVersion = apiKeyConfigManager != null
-                    ? apiKeyConfigManager.getCurrentVersion()
-                    : storeManager.getConfigVersions(API_KEYS_STORE_KEY).stream().max(Integer::compareTo).orElse(0);
+            // E1: 当前值 = v0 当前行（运行期追加的密钥只在这里；快照行是只读历史）。
+            // 旧路径「getConfigVersions(max) + getConfigByVersion(max)」会读到冻结快照，已废弃。
+            Map<String, Object> versionConfig = storeManager.getConfig(API_KEYS_STORE_KEY);
 
-            Map<String, Object> versionConfig = apiKeyConfigManager != null
-                    ? apiKeyConfigManager.getVersionConfig(currentVersion)
-                    : storeManager.getConfigByVersion(API_KEYS_STORE_KEY, currentVersion);
-
-            List<Map<String, Object>> keys = (List<Map<String, Object>>) versionConfig.get(STORE_API_KEYS);
-            log.debug("从版本 {} 加载了 {} 个API Key配置", currentVersion, keys != null ? keys.size() : 0);
+            List<Map<String, Object>> keys = versionConfig != null
+                    ? (List<Map<String, Object>>) versionConfig.get(STORE_API_KEYS)
+                    : null;
+            log.debug("从当前配置加载了 {} 个API Key配置", keys != null ? keys.size() : 0);
 
             // 如果持久化数据为空或无效，从 YAML 重新初始化
             if (keys == null || keys.isEmpty()) {
@@ -167,6 +174,9 @@ public class ApiKeyPersistenceService {
                         if (item.getKeyValue() != null && !ApiKeyHashUtil.isHashedFormat(item.getKeyValue())) {
                             String keyHash = ApiKeyHashUtil.hashApiKey(item.getKeyValue());
                             item.setKeyHash(keyHash);
+                            if (apiKeyLookupIndex != null) {
+                                apiKeyLookupIndex.attachLookupHash(item, item.getKeyValue());
+                            }
                             item.setKeyValue(null);
                             item.setKeyPrefix("sk-");
                             log.info("迁移API Key {} 从明文存储到哈希存储", item.getKeyId());
@@ -189,7 +199,7 @@ public class ApiKeyPersistenceService {
 
             // 保存迁移后的配置
             saveApiKeysToStore(apiKeyCache);
-            log.info("已加载API Key配置版本 {}，共 {} 个密钥", currentVersion, apiKeyCache.size());
+            log.info("已加载API Key当前配置（v0 行），共 {} 个密钥", apiKeyCache.size());
         } catch (Exception e) {
             log.error("加载持久化API Key配置失败", e);
             throw new RuntimeException("Failed to load persisted API key config", e);
@@ -210,20 +220,11 @@ public class ApiKeyPersistenceService {
         log.info("合并持久化API Key配置与YAML配置（YAML优先）");
         
         try {
-            // 1. 先加载持久化配置
-            int currentVersion = apiKeyConfigManager != null
-                    ? apiKeyConfigManager.getCurrentVersion()
-                    : storeManager.getConfigVersions(API_KEYS_STORE_KEY).stream().max(Integer::compareTo).orElse(0);
-            
-            Map<String, Object> versionConfig = null;
-            if (currentVersion > 0) {
-                versionConfig = apiKeyConfigManager != null
-                        ? apiKeyConfigManager.getVersionConfig(currentVersion)
-                        : storeManager.getConfigByVersion(API_KEYS_STORE_KEY, currentVersion);
-            }
-            
-            List<Map<String, Object>> persistedKeys = versionConfig != null 
-                    ? (List<Map<String, Object>>) versionConfig.get(STORE_API_KEYS) 
+            // 1. 先加载持久化配置（E1: 当前值 = v0 当前行）
+            Map<String, Object> versionConfig = storeManager.getConfig(API_KEYS_STORE_KEY);
+
+            List<Map<String, Object>> persistedKeys = versionConfig != null
+                    ? (List<Map<String, Object>>) versionConfig.get(STORE_API_KEYS)
                     : null;
             
             // 2. 加载持久化的 API Key 到缓存
@@ -237,6 +238,9 @@ public class ApiKeyPersistenceService {
                             if (item.getKeyValue() != null && !ApiKeyHashUtil.isHashedFormat(item.getKeyValue())) {
                                 String keyHash = ApiKeyHashUtil.hashApiKey(item.getKeyValue());
                                 item.setKeyHash(keyHash);
+                                if (apiKeyLookupIndex != null) {
+                                    apiKeyLookupIndex.attachLookupHash(item, item.getKeyValue());
+                                }
                                 item.setKeyValue(null);
                                 item.setKeyPrefix("sk-");
                                 log.info("迁移API Key {} 从明文存储到哈希存储", item.getKeyId());
@@ -327,10 +331,16 @@ public class ApiKeyPersistenceService {
     /**
      * 加载指定版本的配置
      *
+     * <p>E1: version=0 统一语义为「当前生效配置」（走 v0 当前行）；
+     * version>=1 读不可变快照行。</p>
+     *
      * @param version 版本号
      * @return 配置数据
      */
     public Map<String, Object> getVersionConfig(final int version) {
+        if (version == 0) {
+            return storeManager.getConfig(API_KEYS_STORE_KEY);
+        }
         if (apiKeyConfigManager != null) {
             return apiKeyConfigManager.getVersionConfig(version);
         }
@@ -340,6 +350,12 @@ public class ApiKeyPersistenceService {
     /**
      * 初始化使用统计
      *
+     * <p>P0-A：除日桶外，一并初始化小时 / 月窗口桶（多窗口配额判定口径）。
+     * 存量密钥从存储反序列化时这四个桶为 {@code null}，若不补空 Map，
+     * 首次写入用量会走懒初始化分支——但判定侧读的是 {@code getOrDefault}，
+     * 空 Map 与 null 行为一致；此处显式补空是为了让「已初始化」的语义一致，
+     * 避免后续新增字段时再出现半初始化状态。</p>
+     *
      * @param apiKey ApiKey 实体
      */
     public void initializeUsageStatistics(final ApiKey apiKey) {
@@ -347,6 +363,10 @@ public class ApiKeyPersistenceService {
             apiKey.setUsage(UsageStatistics.builder()
                     .dailyUsage(new HashMap<>())
                     .dailyTokenUsage(new HashMap<>())
+                    .hourlyUsage(new HashMap<>())
+                    .hourlyTokenUsage(new HashMap<>())
+                    .monthlyUsage(new HashMap<>())
+                    .monthlyTokenUsage(new HashMap<>())
                     .failedRequests(0L)
                     .lastUsedAt(null)
                     .successfulRequests(0L)
@@ -358,6 +378,18 @@ public class ApiKeyPersistenceService {
             }
             if (apiKey.getUsage().getDailyTokenUsage() == null) {
                 apiKey.getUsage().setDailyTokenUsage(new HashMap<>());
+            }
+            if (apiKey.getUsage().getHourlyUsage() == null) {
+                apiKey.getUsage().setHourlyUsage(new HashMap<>());
+            }
+            if (apiKey.getUsage().getHourlyTokenUsage() == null) {
+                apiKey.getUsage().setHourlyTokenUsage(new HashMap<>());
+            }
+            if (apiKey.getUsage().getMonthlyUsage() == null) {
+                apiKey.getUsage().setMonthlyUsage(new HashMap<>());
+            }
+            if (apiKey.getUsage().getMonthlyTokenUsage() == null) {
+                apiKey.getUsage().setMonthlyTokenUsage(new HashMap<>());
             }
         }
     }
@@ -380,29 +412,27 @@ public class ApiKeyPersistenceService {
      * @param keyIdIndex  待刷新的 ID 索引（keyId → keyHash）
      * @return 刷新后的条目数；未发生刷新时返回 {@code -1}
      */
+    /**
+     * 刷新 API Key 缓存（跨副本最终一致，#162）。
+     *
+     * <p>E1: 当前值 = v0 当前行（运行期变更只落当前行，快照行是只读历史）。</p>
+     *
+     * @param apiKeyCache 待刷新的缓存（keyHash → ApiKey）
+     * @param keyIdIndex  待刷新的 ID 索引（keyId → keyHash）
+     * @return 刷新后的条目数；未发生刷新时返回 {@code -1}
+     */
     public int refreshApiKeyCache(final Map<String, ApiKey> apiKeyCache,
                                   final Map<String, String> keyIdIndex) {
         try {
-            int currentVersion = apiKeyConfigManager != null
-                    ? apiKeyConfigManager.getCurrentVersion()
-                    : storeManager.getConfigVersions(API_KEYS_STORE_KEY).stream()
-                        .max(Integer::compareTo).orElse(0);
-            if (currentVersion <= 0) {
-                log.debug("刷新 API Key 缓存：存储中暂无配置版本，保留现有缓存");
-                return -1;
-            }
-
-            Map<String, Object> versionConfig = apiKeyConfigManager != null
-                    ? apiKeyConfigManager.getVersionConfig(currentVersion)
-                    : storeManager.getConfigByVersion(API_KEYS_STORE_KEY, currentVersion);
+            Map<String, Object> versionConfig = storeManager.getConfig(API_KEYS_STORE_KEY);
             if (versionConfig == null) {
-                log.debug("刷新 API Key 缓存：版本 {} 内容为空，保留现有缓存", currentVersion);
+                log.debug("刷新 API Key 缓存：存储中暂无当前配置，保留现有缓存");
                 return -1;
             }
 
             Object raw = versionConfig.get(STORE_API_KEYS);
             if (!(raw instanceof List<?> items) || items.isEmpty()) {
-                log.debug("刷新 API Key 缓存：版本 {} 无 API Key 条目，保留现有缓存", currentVersion);
+                log.debug("刷新 API Key 缓存：当前配置无 API Key 条目，保留现有缓存");
                 return -1;
             }
 
@@ -418,7 +448,7 @@ public class ApiKeyPersistenceService {
                 freshIndex.put(apiKey.getKeyId(), apiKey.getKeyHash());
             }
             if (fresh.isEmpty()) {
-                log.warn("刷新 API Key 缓存：版本 {} 的条目均缺少 keyHash，保留现有缓存", currentVersion);
+                log.warn("刷新 API Key 缓存：当前配置的条目均缺少 keyHash，保留现有缓存");
                 return -1;
             }
 
@@ -427,7 +457,7 @@ public class ApiKeyPersistenceService {
             keyIdIndex.putAll(freshIndex);
             keyIdIndex.keySet().retainAll(freshIndex.keySet());
 
-            log.debug("API Key 缓存已按存储版本 {} 刷新，共 {} 个密钥", currentVersion, fresh.size());
+            log.debug("API Key 缓存已按当前配置刷新，共 {} 个密钥", fresh.size());
             return fresh.size();
         } catch (Exception e) {
             log.warn("刷新 API Key 缓存失败，保留现有缓存: {}", e.getMessage());
@@ -452,6 +482,12 @@ public class ApiKeyPersistenceService {
         }
         if (apiKey.getDailyRequestLimit() <= 0L) {
             apiKey.setDailyRequestLimit(0L);
+        }
+        // 持有人兜底：存量密钥没有 holder 字段，回落为创建者，
+        // 保证「全部密钥」列表的「持有人」列口径统一（无需等用户编辑一次才生效）
+        if ((apiKey.getHolder() == null || apiKey.getHolder().isBlank())
+                && apiKey.getCreatedBy() != null && !apiKey.getCreatedBy().isBlank()) {
+            apiKey.setHolder(apiKey.getCreatedBy());
         }
     }
 }

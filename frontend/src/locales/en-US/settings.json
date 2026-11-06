@@ -1,23 +1,20 @@
 {
   "settings": {
-    "tabs": {
-      "access": "Accounts & Permissions",
-      "modelConfig": "Model Config",
-      "auditVersions": "Audit & Versions",
-      "monitoring": "Monitoring"
-    },
     "subTabs": {
       "accounts": "Accounts",
       "permissions": "Permissions",
       "providerTemplates": "Provider Templates",
       "modelCategories": "Model Categories",
-      "protocolAdapters": "Model Adapters",
+      "protocolAdapters": "Custom Protocols",
       "audit": "Audit Log",
       "versions": "Config Versions",
-      "persistence": "State Persistence"
+      "persistence": "Data Storage"
     },
     "monitoring": {
-      "persistenceAlert": "One-time deployment decision: the persistence medium (redis / h2 / file) does not need to change after installation"
+      "persistenceAlert": "The gateway keeps data after restart by storing it in shared storage. Where to store is a one-time deployment decision (Redis / built-in database / local files); standalone deployments can ignore this tab",
+      "templatesAlert": "Vendor presets shared by provider selection and the template-based wizard. No daily changes needed",
+      "categoriesAlert": "Override default settings per model category. Defaults from global settings apply when empty",
+      "adaptersAlert": "Chosen automatically when connecting a new vendor; only needed when a vendor API is non-standard"
     }
   }
 }

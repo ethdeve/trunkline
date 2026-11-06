@@ -9,11 +9,11 @@
 
 
 
-This document outlines the future development plans and feature roadmap for the JAiRouter project.
+This document outlines the future development plans and feature roadmap for the Trunkline project.
 
 ## Project Vision
 
-JAiRouter aims to become the best open-source AI model service routing gateway, providing users with:
+Trunkline aims to become the best open-source AI model service routing gateway, providing users with:
 
 - **Unified Access**: One gateway to access all AI model services
 - **Intelligent Routing**: Smart load balancing based on multiple strategies
@@ -376,8 +376,8 @@ Monolithic App → Modular Design → Reactive Programming
 
 ### Feedback Channels
 
-- **GitHub Issues**: [https://github.com/Lincoln-cn/JAiRouter/issues](https://github.com/Lincoln-cn/JAiRouter/issues)
-- **GitHub Discussions**: [https://github.com/Lincoln-cn/JAiRouter/discussions](https://github.com/Lincoln-cn/JAiRouter/discussions)
+- **GitHub Issues**: [https://github.com/Lincoln-cn/Trunkline/issues](https://github.com/Lincoln-cn/Trunkline/issues)
+- **GitHub Discussions**: [https://github.com/Lincoln-cn/Trunkline/discussions](https://github.com/Lincoln-cn/Trunkline/discussions)
 - **Documentation Feedback**: Submit via GitHub PR
 
 ---
@@ -405,7 +405,7 @@ Monolithic App → Modular Design → Reactive Programming
 
 ## Summary
 
-JAiRouter will continue to uphold the open-source spirit and is committed to providing users with the best AI model service routing solution. We welcome community participation and contributions to jointly promote the project's development and progress.
+Trunkline will continue to uphold the open-source spirit and is committed to providing users with the best AI model service routing solution. We welcome community participation and contributions to jointly promote the project's development and progress.
 
 ### Recent Focus (2026)
 1. ✅ Complete v2.7.x performance optimization series + RBAC permission control
@@ -433,4 +433,4 @@ JAiRouter will continue to uphold the open-source spirit and is committed to pro
 
 **Last Updated**: September 22, 2026
 
-For any suggestions or ideas, feel free to communicate with us via [GitHub Discussions](https://github.com/Lincoln-cn/JAiRouter/discussions).
+For any suggestions or ideas, feel free to communicate with us via [GitHub Discussions](https://github.com/Lincoln-cn/Trunkline/discussions).

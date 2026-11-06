@@ -105,13 +105,13 @@
     },
     "globalConfig": {
       "title": "Circuit Breaker Global Configuration",
-      "adaptiveThresholdEnabled": "Enable Adaptive Threshold Adjustment",
-      "stateSyncInterval": "State Sync Interval (minutes)",
-      "cleanupInterval": "Expired Cleanup Interval (minutes)",
-      "historyRetentionDays": "History Retention (days)",
-      "defaultFailureThreshold": "Default Failure Threshold",
-      "defaultSuccessThreshold": "Default Success Threshold",
-      "defaultTimeout": "Default Timeout (ms)",
+      "adaptiveThresholdEnabled": "Auto-adjust thresholds",
+      "stateSyncInterval": "State sync interval (min)",
+      "cleanupInterval": "Cleanup interval (min)",
+      "historyRetentionDays": "History retention (days)",
+      "defaultFailureThreshold": "Failures before pausing",
+      "defaultSuccessThreshold": "Successes to recover",
+      "defaultTimeout": "No response counts as failure after",
       "enabled": "Enabled",
       "disabled": "Disabled",
       "adaptiveHint": "Thresholds are adjusted automatically based on the failure rate",
@@ -122,7 +122,8 @@
         "saveFailed": "Failed to save global config",
         "resetSuccess": "Reset to default config",
         "resetFailed": "Failed to reset global config"
-      }
+      },
+      "advancedTitle": "Advanced (usually no change needed)"
     }
   }
 }

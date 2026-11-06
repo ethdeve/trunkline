@@ -9,7 +9,7 @@
 
 ## 概述
 
-JAiRouter 提供优化的 Docker 镜像构建方案，通过多阶段构建和 Alpine 基础镜像，将镜像体积从 440MB 降至 **281MB**（减少 36%）。
+Trunkline 提供优化的 Docker 镜像构建方案，通过多阶段构建和 Alpine 基础镜像，将镜像体积从 440MB 降至 **281MB**（减少 36%）。
 
 ### JLink 优化方案说明
 
@@ -155,7 +155,7 @@ mvn clean package -DskipTests -Pfast
 
 # 构建优化版镜像
 docker build -f Dockerfile.optimized \
-    -t sodlinken/jairouter:latest-optimized \
+    -t trunkline/trunkline:latest-optimized \
     .
 ```
 
@@ -165,31 +165,31 @@ docker build -f Dockerfile.optimized \
 
 ```bash
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
-  -e JAIROUTER_SECURITY_ENABLED=true \
-  -e JAIROUTER_SECURITY_JWT_ENABLED=true \
-  -e JAIROUTER_SECURITY_JWT_SECRET="your-32-char-secret-key-here" \
-  sodlinken/jairouter:latest-optimized
+  -e TRUNKLINE_SECURITY_ENABLED=true \
+  -e TRUNKLINE_SECURITY_JWT_ENABLED=true \
+  -e TRUNKLINE_SECURITY_JWT_SECRET="your-32-char-secret-key-here" \
+  trunkline/trunkline:latest-optimized
 ```
 
 ### 生产环境运行
 
 ```bash
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
-  -e JAIROUTER_SECURITY_ENABLED=true \
-  -e JAIROUTER_SECURITY_JWT_ENABLED=true \
-  -e JAIROUTER_SECURITY_JWT_SECRET="your-very-strong-jwt-secret-key-at-least-32-characters-long" \
-  -e JAIROUTER_SECURITY_API_KEY_ENABLED=true \
+  -e TRUNKLINE_SECURITY_ENABLED=true \
+  -e TRUNKLINE_SECURITY_JWT_ENABLED=true \
+  -e TRUNKLINE_SECURITY_JWT_SECRET="your-very-strong-jwt-secret-key-at-least-32-characters-long" \
+  -e TRUNKLINE_SECURITY_API_KEY_ENABLED=true \
   -v $(pwd)/config:/app/config:ro \
   -v $(pwd)/logs:/app/logs \
   -v $(pwd)/data:/app/data \
   --restart unless-stopped \
-  sodlinken/jairouter:latest-optimized
+  trunkline/trunkline:latest-optimized
 ```
 
 ### 使用运行脚本
@@ -208,13 +208,13 @@ docker run -d \
 
 ```bash
 # 查看镜像大小
-docker images sodlinken/jairouter
+docker images trunkline/trunkline
 
 # 输出示例
 REPOSITORY            TAG               SIZE
-sodlinken/jairouter   latest-optimized  281MB
-sodlinken/jairouter   latest-jlink      281MB
-sodlinken/jairouter   latest            440MB
+trunkline/trunkline   latest-optimized  281MB
+trunkline/trunkline   latest-jlink      281MB
+trunkline/trunkline   latest            440MB
 ```
 
 ### 启动时间
@@ -238,10 +238,10 @@ sodlinken/jairouter   latest            440MB
 优化版镜像使用非 root 用户运行：
 
 ```dockerfile
-RUN addgroup -g 10010 -S jairouter && \
-    adduser -u 10010 -S jairouter -G jairouter
+RUN addgroup -g 10010 -S trunkline && \
+    adduser -u 10010 -S trunkline -G trunkline
 
-USER jairouter
+USER trunkline
 ```
 
 ### 最小权限
@@ -257,10 +257,10 @@ RUN chmod -R 755 /app
 
 ```bash
 # 使用 Docker Scout
-docker scout cve sodlinken/jairouter:latest-optimized
+docker scout cve trunkline/trunkline:latest-optimized
 
 # 使用 Trivy
-trivy image sodlinken/jairouter:latest-optimized
+trivy image trunkline/trunkline:latest-optimized
 ```
 
 ## 最佳实践
@@ -272,19 +272,19 @@ trivy image sodlinken/jairouter:latest-optimized
 ```yaml
 # docker-compose.yml
 services:
-  jairouter:
-    image: sodlinken/jairouter:latest-optimized
-    container_name: jairouter
+  trunkline:
+    image: trunkline/trunkline:latest-optimized
+    container_name: trunkline
 ```
 
 ### 2. 镜像标签管理
 
 ```bash
 # 使用具体版本标签
-docker pull sodlinken/jairouter:v3.1.1-optimized
+docker pull trunkline/trunkline:v3.1.1-optimized
 
 # 避免在生产环境使用 latest 标签
-# docker pull sodlinken/jairouter:latest-optimized  # 不推荐用于生产
+# docker pull trunkline/trunkline:latest-optimized  # 不推荐用于生产
 ```
 
 ### 3. 镜像更新策略
@@ -299,10 +299,10 @@ FROM eclipse-temurin:17-jre-alpine:latest
 
 ```bash
 # 使用 docker history 查看镜像层
-docker history sodlinken/jairouter:latest-optimized
+docker history trunkline/trunkline:latest-optimized
 
 # 使用 dive 工具分析镜像层
-dive sodlinken/jairouter:latest-optimized
+dive trunkline/trunkline:latest-optimized
 ```
 
 ## 故障排查
@@ -317,20 +317,20 @@ ls -la target/model-router-*.jar
 docker builder prune -a
 
 # 重新构建
-docker build --no-cache -f Dockerfile.optimized -t sodlinken/jairouter:latest-optimized .
+docker build --no-cache -f Dockerfile.optimized -t trunkline/trunkline:latest-optimized .
 ```
 
 ### 容器启动失败
 
 ```bash
 # 查看容器日志
-docker logs jairouter
+docker logs trunkline
 
 # 进入容器调试
-docker exec -it jairouter sh
+docker exec -it trunkline sh
 
 # 检查 JVM 参数
-docker exec jairouter java -XX:+PrintFlagsFinal -version
+docker exec trunkline java -XX:+PrintFlagsFinal -version
 ```
 
 ### 镜像拉取慢

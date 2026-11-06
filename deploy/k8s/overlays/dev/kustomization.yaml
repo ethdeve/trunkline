@@ -7,33 +7,33 @@ kind: Kustomization
 # 注意：单副本仍会读到 base 中开启共享态开关的 ConfigMap——那是多副本才需要的，
 # 单副本保留它们只是多一个 Redis 依赖，可在此 overlay 中按需关闭。
 
-namespace: jairouter-dev
+namespace: trunkline-dev
 
 resources:
   - ../../base
 
 replicas:
-  - name: jairouter
+  - name: trunkline
     count: 1
 
 patches:
   # 单副本 + minAvailable=1 会让节点驱逐被无限阻塞，故移除 PDB
   - target:
       kind: PodDisruptionBudget
-      name: jairouter
+      name: trunkline
     patch: |-
       $patch: delete
       apiVersion: policy/v1
       kind: PodDisruptionBudget
       metadata:
-        name: jairouter
+        name: trunkline
   # 单副本无并发 DDL 问题，移除迁移 Job
   - target:
       kind: Job
-      name: jairouter-schema-init
+      name: trunkline-schema-init
     patch: |-
       $patch: delete
       apiVersion: batch/v1
       kind: Job
       metadata:
-        name: jairouter-schema-init
+        name: trunkline-schema-init

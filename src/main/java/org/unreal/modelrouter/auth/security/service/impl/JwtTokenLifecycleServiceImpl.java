@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "jairouter.security.jwt.persistence.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.jwt.persistence.enabled", havingValue = "true")
 public class JwtTokenLifecycleServiceImpl implements JwtTokenLifecycleService {
     
     private final SecurityProperties securityProperties;

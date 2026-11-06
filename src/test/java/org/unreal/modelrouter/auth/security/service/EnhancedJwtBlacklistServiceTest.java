@@ -70,7 +70,7 @@ class EnhancedJwtBlacklistServiceTest {
         @DisplayName("BLK-002: 本地缓存命中的令牌不依赖存储，降级期间仍被拦截")
         void locallyCachedTokenStillBlocked() {
             // 存储可用时命中主键 → 写入本地缓存
-            when(redisTemplate.hasKey("jwt:blacklist:token-1")).thenReturn(Mono.just(true));
+            when(redisTemplate.hasKey("jwt:blacklist:jti:token-1")).thenReturn(Mono.just(true));
             StepVerifier.create(service.isBlacklisted("token-1")).expectNext(true).verifyComplete();
 
             // 存储转为不可用后，本地缓存仍应判定为黑名单
@@ -91,7 +91,7 @@ class EnhancedJwtBlacklistServiceTest {
 
             // 存储恢复：应重新查询并返回真实结果（且降级状态被清除）
             reset(redisTemplate);
-            when(redisTemplate.hasKey("jwt:blacklist:token-1")).thenReturn(Mono.just(true));
+            when(redisTemplate.hasKey("jwt:blacklist:jti:token-1")).thenReturn(Mono.just(true));
             StepVerifier.create(service.isBlacklisted("token-1")).expectNext(true).verifyComplete();
             verify(redisTemplate, times(1)).hasKey(anyString());
         }
@@ -99,11 +99,13 @@ class EnhancedJwtBlacklistServiceTest {
         @Test
         @DisplayName("BLK-004: 存储可用时正常返回（未降级）")
         void normalPathReturnsRedisVerdict() {
-            when(redisTemplate.hasKey("jwt:blacklist:token-1")).thenReturn(Mono.just(false));
-            when(redisTemplate.hasKey("jwt:blacklist:backup:token-1")).thenReturn(Mono.just(false));
+            when(redisTemplate.hasKey("jwt:blacklist:jti:token-1")).thenReturn(Mono.just(false));
+            when(redisTemplate.hasKey("jwt:blacklist:backup:jti:token-1")).thenReturn(Mono.just(false));
+            // C2：新增 entry（按令牌哈希撤销）命名空间键查询，未命中时返回 false
+            when(redisTemplate.hasKey("jwt:blacklist:entry:token-1")).thenReturn(Mono.just(false));
 
             StepVerifier.create(service.isBlacklisted("token-1")).expectNext(false).verifyComplete();
-            verify(redisTemplate, times(2)).hasKey(anyString());
+            verify(redisTemplate, times(3)).hasKey(anyString());
         }
     }
 }

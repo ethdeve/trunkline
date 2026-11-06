@@ -4,7 +4,7 @@
 # 挂载到 /app/config/auth/jwt.yml
 # 敏感配置使用环境变量
 
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: ${JWT_ENABLED:true}
@@ -22,7 +22,7 @@ jairouter:
       refresh-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:7}
       
       # 发行者
-      issuer: "${JWT_ISSUER:jairouter}"
+      issuer: "${JWT_ISSUER:trunkline}"
       
       # 持久化配置
       persistence:

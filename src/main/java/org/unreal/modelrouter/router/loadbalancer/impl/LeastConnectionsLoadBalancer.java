@@ -2,7 +2,6 @@ package org.unreal.modelrouter.router.loadbalancer.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.unreal.modelrouter.router.loadbalancer.LoadBalancer;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
 import org.unreal.modelrouter.monitor.monitoring.collector.MetricsCollector;
@@ -19,9 +18,17 @@ public class LeastConnectionsLoadBalancer implements LoadBalancer {
     private static final Logger logger = LoggerFactory.getLogger(LeastConnectionsLoadBalancer.class);
 
     private final Map<String, AtomicLong> connectionCounts = new ConcurrentHashMap<>();
-    
-    @Autowired(required = false)
-    private MetricsCollector metricsCollector;
+
+    // R2: 由 ComponentFactory 在创建时注入(原 @Autowired 字段在 new 出的实例上恒为 null)
+    private final MetricsCollector metricsCollector;
+
+    public LeastConnectionsLoadBalancer() {
+        this(null);
+    }
+
+    public LeastConnectionsLoadBalancer(final MetricsCollector metricsCollector) {
+        this.metricsCollector = metricsCollector;
+    }
 
     @Override
     public ModelRouterProperties.ModelInstance selectInstance(

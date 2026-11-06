@@ -303,16 +303,18 @@ public class RuleConfigController {
     /**
      * 规则命中统计
      * 返回各规则命中次数(ruleId+actionType),仅统计在生效规则列表中的规则
+     *
+     * <p>每项含累计命中 {@code hits} 与本自然月命中 {@code monthHits}（跨月归零）。</p>
      */
     @GetMapping("/stats")
-    @Operation(summary = "规则命中统计", description = "返回各规则的命中次数与动作类型(基于内存计数)")
+    @Operation(summary = "规则命中统计", description = "返回各规则的累计命中与本月命中次数(基于内存计数)")
     public ResponseEntity<RouterResponse<List<RuleStat>>> getRuleStats() {
         Map<String, RuleDefinition> activeById = activeRules.stream()
                 .collect(Collectors.toMap(RuleDefinition::getId, r -> r, (a, b) -> a));
         List<RuleStat> stats = ruleStatsService.getStats().stream()
                 .filter(s -> activeById.containsKey(s.getRuleId()))
                 .map(s -> new RuleStat(s.getRuleId(), activeById.get(s.getRuleId()).getName(),
-                        s.getActionType(), s.getHits()))
+                        s.getActionType(), s.getHits(), s.getMonthHits()))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(RouterResponse.success(stats));
     }

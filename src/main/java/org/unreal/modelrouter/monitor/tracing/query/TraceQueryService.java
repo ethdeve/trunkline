@@ -9,11 +9,13 @@ import org.unreal.modelrouter.monitor.tracing.memory.model.CachedTraceData;
 import org.unreal.modelrouter.monitor.tracing.statistics.TraceStatisticsCalculator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -62,7 +64,9 @@ public class TraceQueryService {
             } else {
                 log.debug("未找到追踪链路: traceId={}", traceId);
             }
-        });
+        })
+        // X1: 链内 block() 必须在 boundedElastic 上执行，避免占用 Netty 事件循环线程
+        .subscribeOn(Schedulers.boundedElastic());
     }
 
     public Flux<TraceSummary> searchTraces(final TraceSearchCriteria criteria) {
@@ -97,6 +101,23 @@ public class TraceQueryService {
 
     public Mono<TraceStatistics> getTraceStatistics(final long startTime, final long endTime) {
         return Mono.fromCallable(() -> statisticsCalculator.getTraceStatistics(traceStore, startTime, endTime));
+    }
+
+    /**
+     * 获取时间范围内的原始追踪记录（供性能分析端点按小时分桶计算真实趋势）。
+     *
+     * @param startTime 开始时间戳（毫秒，含）
+     * @param endTime   结束时间戳（毫秒，含）
+     * @return 时间范围内的追踪记录列表
+     */
+    public Mono<List<TraceRecord>> getTracesInTimeRange(final long startTime, final long endTime) {
+        return Mono.fromCallable(() -> {
+            Instant start = Instant.ofEpochMilli(startTime);
+            Instant end = Instant.ofEpochMilli(endTime);
+            return traceStore.values().stream()
+                .filter(trace -> !trace.getCreatedAt().isBefore(start) && !trace.getCreatedAt().isAfter(end))
+                .collect(Collectors.toList());
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     public Flux<TraceSummary> getRecentTraces(final int limit) {
@@ -199,7 +220,58 @@ public class TraceQueryService {
         boolean hasError = trace.getSpans().stream().anyMatch(SpanRecord::isError);
         return new TraceSummary(trace.getTraceId(), trace.getServiceName(),
             rootSpan != null ? rootSpan.getOperationName() : "unknown",
-            trace.getDuration(), trace.getSpans().size(), hasError, trace.getCreatedAt());
+            trace.getDuration(), trace.getSpans().size(), hasError, trace.getCreatedAt(),
+            extractApiPath(rootSpan), buildNodePath(trace.getSpans()));
+    }
+
+    /**
+     * 提取 API 路径（v3.5 Trunkline「链路追踪」列表列）。
+     *
+     * <p>取 root span 的 {@code http.target} 属性（OTel 语义约定的请求路径），
+     * 无该属性时返回 {@code null}，前端显示 {@code -}。</p>
+     */
+    private static String extractApiPath(final SpanRecord rootSpan) {
+        if (rootSpan == null || rootSpan.getAttributes() == null) {
+            return null;
+        }
+        final Object target = rootSpan.getAttributes().get("http.target");
+        if (target == null) {
+            return null;
+        }
+        final String path = String.valueOf(target);
+        return path.isBlank() ? null : path;
+    }
+
+    /**
+     * 构造「经过节点」链（v3.5 Trunkline「链路追踪」列表列）。
+     *
+     * <p>按 span 开始时间排序，取各 span 的 {@code operationName} 并<b>去重</b>（保留首次出现），
+     * 再用 {@code →} 连接，得到 {@code Trunkline → OpenAI} 这样的可读链路。
+     * 去重是必要的：同一次上游调用会产生多个同名 span（如重试 / 流式分片）。</p>
+     *
+     * <p>节点名做长度截断，避免超长 operationName 撑爆列表；总长上限 200 字符。</p>
+     */
+    private static String buildNodePath(final List<SpanRecord> spans) {
+        if (spans == null || spans.isEmpty()) {
+            return null;
+        }
+        final List<String> nodes = new ArrayList<>();
+        final Set<String> seen = new LinkedHashSet<>();
+        spans.stream()
+                .sorted(Comparator.comparing(SpanRecord::getStartTime))
+                .map(SpanRecord::getOperationName)
+                .filter(name -> name != null && !name.isBlank())
+                .forEach(name -> {
+                    final String trimmed = name.length() > 40 ? name.substring(0, 40) + "…" : name;
+                    if (seen.add(trimmed)) {
+                        nodes.add(trimmed);
+                    }
+                });
+        if (nodes.isEmpty()) {
+            return null;
+        }
+        final String joined = String.join(" → ", nodes);
+        return joined.length() > 200 ? joined.substring(0, 200) + "…" : joined;
     }
 
     private TraceRecord convertFromCachedData(final CachedTraceData cachedData) {
@@ -307,8 +379,17 @@ public class TraceQueryService {
         private final int spanCount;
         private final boolean hasError;
         private final Instant startTime;
+        /** API 路径（v3.5 Trunkline）：取 root span 的 {@code http.target} 属性，如 {@code /v1/chat/completions} */
+        private final String apiPath;
+        /** 经过节点（v3.5 Trunkline）：按时间序去重后的节点名，以 {@code →} 连接，如 {@code Trunkline → OpenAI} */
+        private final String nodePath;
         public TraceSummary(String traceId, String serviceName, String operationName,
                            double duration, int spanCount, boolean hasError, Instant startTime) {
+            this(traceId, serviceName, operationName, duration, spanCount, hasError, startTime, null, null);
+        }
+        public TraceSummary(String traceId, String serviceName, String operationName,
+                           double duration, int spanCount, boolean hasError, Instant startTime,
+                           String apiPath, String nodePath) {
             this.traceId = traceId;
             this.serviceName = serviceName;
             this.operationName = operationName;
@@ -316,6 +397,8 @@ public class TraceQueryService {
             this.spanCount = spanCount;
             this.hasError = hasError;
             this.startTime = startTime;
+            this.apiPath = apiPath;
+            this.nodePath = nodePath;
         }
         public String getTraceId() { return traceId; }
         public String getServiceName() { return serviceName; }
@@ -324,6 +407,8 @@ public class TraceQueryService {
         public int getSpanCount() { return spanCount; }
         public boolean isHasError() { return hasError; }
         public Instant getStartTime() { return startTime; }
+        public String getApiPath() { return apiPath; }
+        public String getNodePath() { return nodePath; }
     }
 
     public static class TraceSearchCriteria {

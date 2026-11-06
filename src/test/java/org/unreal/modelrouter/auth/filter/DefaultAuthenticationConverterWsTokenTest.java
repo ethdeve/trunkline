@@ -30,7 +30,7 @@ class DefaultAuthenticationConverterWsTokenTest {
     void setUp() {
         securityProperties = new SecurityProperties();
         securityProperties.getJwt().setEnabled(true);
-        securityProperties.getJwt().setJwtHeader("Jairouter_Token");
+        securityProperties.getJwt().setJwtHeader("Trunkline_Token");
         securityProperties.getApiKey().setEnabled(true);
         securityProperties.getApiKey().setHeaderName("X-API-Key");
         converter = new DefaultAuthenticationConverter(securityProperties);
@@ -64,7 +64,7 @@ class DefaultAuthenticationConverterWsTokenTest {
     @DisplayName("JWT：请求头优先于 query（header 与 query 同时存在）")
     void jwt_headerWinsOverQuery() {
         MockServerHttpRequest request = MockServerHttpRequest.get("/ws/routing-monitor?token=query-tok")
-                .header("Jairouter_Token", "header-tok")
+                .header("Trunkline_Token", "header-tok")
                 .build();
         MockServerWebExchange exchange = MockServerWebExchange.from(request);
 
@@ -72,6 +72,20 @@ class DefaultAuthenticationConverterWsTokenTest {
 
         assertInstanceOf(JwtAuthentication.class, auth);
         assertEquals("header-tok", auth.getCredentials());
+    }
+
+    @Test
+    @DisplayName("JWT：配置头未命中时回落读取旧品牌头（品牌切换双读过渡，S2 任务 26a①）")
+    void jwt_fallbackToLegacyHeader() {
+        MockServerHttpRequest request = MockServerHttpRequest.get("/ws/routing-monitor")
+                .header("Jairouter_Token", "legacy-tok")
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        Authentication auth = converter.convert(exchange).block();
+
+        assertInstanceOf(JwtAuthentication.class, auth);
+        assertEquals("legacy-tok", auth.getCredentials());
     }
 
     @Test

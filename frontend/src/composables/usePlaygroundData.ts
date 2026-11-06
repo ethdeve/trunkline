@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { getCachedInstances, getCachedModels, getCachedGroups } from '@/stores/playgroundCache'
 import { getInstanceServiceType } from '@/api/models'
 import { i18n } from '@/i18n'
+import { useEmployeeModelScope } from '@/composables/useEmployeeModelScope'
 const { t: gt } = i18n.global as unknown as {
   t: (key: string, named?: Record<string, string | number>) => string
 }
@@ -18,18 +19,28 @@ export interface ServiceInstance {
   baseUrl?: string
   // 标记该条为模型分组（资源池）虚拟模型，用于测试场选择分组
   isGroup?: boolean
+  // 分组友好名（P0-L）：来自「我的密钥」的 modelScope；未配置时为空
+  displayName?: string
   type?: string
   [key: string]: any
 }
 
 // 将分组（资源池）名合并为与实例同构的伪实例，使测试场模型下拉可直选分组作为虚拟模型
-const mergeGroups = (instances: ServiceInstance[], groups: string[]): ServiceInstance[] => {
+//
+// P0-L：`displayName` 为分组友好名（来自「我的密钥」的 modelScope，服务端按白名单下发），
+// 不再需要员工侧拉取全公司资源池；`name` 始终保持分组名本身 —— 它是发给网关的模型名。
+const mergeGroups = (
+  instances: ServiceInstance[],
+  groups: string[],
+  displayNameOf?: (groupName: string) => string
+): ServiceInstance[] => {
   const groupItems: ServiceInstance[] = (groups || [])
     .filter((name) => Boolean(name))
     .map((name) => ({
       id: name,
       instanceId: name,
       name,
+      displayName: displayNameOf?.(name) || '',
       status: 'active',
       healthStatus: 'UNKNOWN',
       isGroup: true,
@@ -39,6 +50,9 @@ const mergeGroups = (instances: ServiceInstance[], groups: string[]): ServiceIns
 }
 
 export const usePlaygroundData = (playgroundServiceType: string) => {
+  // P1 员工侧⑤：员工侧只显示自己密钥白名单内的虚拟模型（运维侧不受影响）
+  const { filterGroups, loadEmployeeAllowedGroups, groupDisplayName } = useEmployeeModelScope()
+
   // 响应式状态
   const availableInstances = ref<ServiceInstance[]>([])
   const availableModels = ref<string[]>([])
@@ -70,6 +84,9 @@ export const usePlaygroundData = (playgroundServiceType: string) => {
     }
 
     try {
+      // P1 员工侧⑤：先取员工白名单，再按白名单收窄分组候选
+      await loadEmployeeAllowedGroups()
+
       // 并行获取实例、模型与分组数据（模型数据会复用实例数据，不会重复请求）
       const [instances, models, groups] = await Promise.all([
         getCachedInstances(actualServiceType, forceRefresh),
@@ -82,7 +99,7 @@ export const usePlaygroundData = (playgroundServiceType: string) => {
         instances.some(inst => inst.instanceId === selectedInstanceId.value)
 
       // 更新数据（分组作为虚拟模型并入下拉，使测试场可选择分组）
-      availableInstances.value = mergeGroups(instances, groups)
+      availableInstances.value = mergeGroups(instances, filterGroups(groups), groupDisplayName)
       availableModels.value = models
       
       console.log(`[${playgroundServiceType}] 数据已更新到界面:`, {
@@ -127,16 +144,19 @@ export const usePlaygroundData = (playgroundServiceType: string) => {
     }
 
     try {
+      // P1 员工侧⑤：先取员工白名单，再按白名单收窄分组候选
+      await loadEmployeeAllowedGroups()
+
       const [instances, groups] = await Promise.all([
         getCachedInstances(actualServiceType, forceRefresh),
         getCachedGroups(actualServiceType, forceRefresh)
       ])
-      
+
       // 检查当前选择的实例是否还存在
       const currentInstanceExists = selectedInstanceId.value &&
         instances.some(inst => inst.instanceId === selectedInstanceId.value)
 
-      const merged = mergeGroups(instances, groups)
+      const merged = mergeGroups(instances, filterGroups(groups), groupDisplayName)
       availableInstances.value = merged
 
       if (selectedInstanceId.value && !currentInstanceExists) {

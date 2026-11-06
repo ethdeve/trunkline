@@ -1,10 +1,10 @@
-site_name: JAiRouter 文档
-site_description: JAiRouter - AI模型服务统一网关，OpenAI兼容API，支持Ollama/vLLM/GPUStack负载均衡、限流熔断、认证鉴权
+site_name: Trunkline 文档
+site_description: Trunkline - AI模型服务统一网关，OpenAI兼容API，支持Ollama/vLLM/GPUStack负载均衡、限流熔断、认证鉴权
 site_author: Lincoln
-site_url: https://jairouter.com/
+site_url: https://trunkline.com/
 
-repo_name: Lincoln-cn/jairouter
-repo_url: https://github.com/Lincoln-cn/jairouter
+repo_name: Lincoln-cn/trunkline
+repo_url: https://github.com/Lincoln-cn/trunkline
 edit_uri: edit/main/docs/
 
 theme:
@@ -59,11 +59,11 @@ plugins:
           default: true
           name: 中文
           build: true
-          site_name: "JAiRouter 文档"
+          site_name: "Trunkline 文档"
         - locale: en
           name: English
           build: true
-          site_name: "JAiRouter Documentation"
+          site_name: "Trunkline Documentation"
           nav_translations:
             首页: Home
             入门: Getting Started
@@ -87,6 +87,7 @@ plugins:
             验证规则: Validation Rules
             Adapter配置: Adapter Configuration
             路由规则: Routing Rules
+            模型分组: Model Pools
             响应缓存: Response Cache
             配额配置: Quota Ledger
             安全功能: Security Features
@@ -94,7 +95,6 @@ plugins:
             JWT认证: JWT Authentication
             安全黑名单: Security Blacklist
             审计日志管理: Audit Log Management
-            权限管理: RBAC Permission Management
             数据脱敏: Data Sanitization
             可信代理: Trusted Proxies
             故障排除: Troubleshooting
@@ -149,6 +149,7 @@ plugins:
             FAQ: FAQ
             术语表: Glossary
             适配器更新: Adapter Updates
+            版本对照: Editions
   - git-revision-date-localized:
       type: date
       enable_creation_date: true
@@ -203,6 +204,7 @@ nav:
     - 验证规则: zh/configuration/validation-rules.md
     - Adapter配置: zh/configuration/adapter-config.md
     - 路由规则: zh/configuration/routing-rules.md
+    - 模型分组: zh/configuration/model-pools.md
     - KV缓存: zh/configuration/kv-cache.md
     - 响应缓存: zh/configuration/response-cache.md
     - 配额配置: zh/configuration/quota.md
@@ -212,7 +214,6 @@ nav:
     - JWT认证: zh/security/jwt-authentication.md
     - 安全黑名单: zh/security/blacklist-management.md
     - 审计日志管理: zh/security/audit-log-management.md
-    - 权限管理: zh/security/rbac-permissions.md
     - 数据脱敏: zh/security/data-sanitization.md
     - 可信代理: zh/security/trusted-proxies.md
     - 故障排除: zh/security/troubleshooting.md
@@ -276,11 +277,12 @@ nav:
     - FAQ: zh/reference/faq.md
     - 术语表: zh/reference/glossary.md
     - 适配器更新: zh/reference/adapter-updates.md
+    - 版本对照: product/editions.md
 
 extra:
   # SEO Meta Tags
   seo:
-    title: "JAiRouter - AI 模型服务统一网关"
+    title: "Trunkline - AI 模型服务统一网关"
     keywords:
       - AI gateway
       - Ollama proxy
@@ -293,10 +295,10 @@ extra:
       - 限流熔断
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/Lincoln-cn/jairouter
+      link: https://github.com/Lincoln-cn/trunkline
       name: GitHub Repository
     - icon: fontawesome/solid/book
-      link: https://lincoln-cn.github.io/JAiRouter
+      link: https://lincoln-cn.github.io/Trunkline
       name: Documentation
   alternate:
     - name: 中文
@@ -329,4 +331,4 @@ extra_javascript:
   - javascripts/language-switcher.js
   - https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8229708772289943
 
-copyright: Copyright &copy; 2025 JAiRouter Team
+copyright: "Copyright &copy; 2025 Trunkline Team (derived from Trunkline, upstream: Lincoln-cn/Trunkline)"

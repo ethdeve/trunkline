@@ -40,7 +40,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @RestController
 @RequestMapping("/api/config/pools")
 @CrossOrigin(origins = "*")
-@Tag(name = "资源池管理", description = "资源池(池名即虚拟模型名,如 auto-model)的增删改查")
+@Tag(name = "资源池管理", description = "资源池(池名即虚拟模型名,如 company-chat)的增删改查")
 public class PoolConfigController {
 
     private static final Logger logger = LoggerFactory.getLogger(PoolConfigController.class);

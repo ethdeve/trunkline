@@ -33,12 +33,11 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "jairouter.security.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.enabled", havingValue = "true")
 public class AccountManager implements UserDetailsService {
 
     private final SecurityProperties securityProperties;
     private final PasswordEncoder passwordEncoder;
-    private final RolePermissionService rolePermissionService;
     private final JwtAccountRepository jwtAccountRepository;
     private final ObjectMapper objectMapper;
 
@@ -171,12 +170,9 @@ public class AccountManager implements UserDetailsService {
                 .map(org.springframework.security.core.GrantedAuthority::getAuthority)
                 .collect(Collectors.toList());
 
-        // v2.9.8 RBAC: 按角色从 role_permissions 表查询权限码，写入 permissions claim
-        List<String> permissions = rolePermissionService.getPermissionCodesForRoles(roles);
-
         // 设置过期时间
         Date now = new Date();
-        Date expiration = new Date(now.getTime() 
+        Date expiration = new Date(now.getTime()
         + securityProperties.getJwt().getExpirationMinutes() * 60 * 1000L);
 
         // 创建签名密钥（使用JJWT 0.12.x API）
@@ -184,10 +180,10 @@ public class AccountManager implements UserDetailsService {
                 securityProperties.getJwt().getSecret().getBytes(StandardCharsets.UTF_8));
 
         // 构建JWT令牌（使用JJWT 0.12.x API）
+        // 社区版已移除权限码体系：令牌只携带角色，URL 级授权由固定角色矩阵按角色裁决
         return Jwts.builder()
                 .subject(userDetails.getUsername())
                 .claim("roles", roles)
-                .claim("permissions", permissions)
                 .issuer(securityProperties.getJwt().getIssuer())
                 .issuedAt(now)
                 .expiration(expiration)
@@ -253,13 +249,20 @@ public class AccountManager implements UserDetailsService {
     /**
      * 将角色列表转为大写并封装为授权对象（与 YAML 账户逻辑一致）
      *
+     * <p>已废弃角色 VIEWER（P0-2）在此归一化为替代角色 USER：
+     * YAML 静态账户不在 {@code jwt_accounts} 表内，{@link JwtAccountRoleMigration}
+     * 迁不到它；若不在签发前降级，这类账户会拿到空权限集合（角色已从
+     * {@code role_permissions} 删除）而处处 403。归一化只影响「废弃角色」，
+     * 其余角色按原逻辑大写化。</p>
+     *
      * @param roles 角色列表（可为空）
      * @return 授权列表
      */
     private List<SimpleGrantedAuthority> buildAuthorities(final List<String> roles) {
         return roles.stream()
                 .filter(role -> role != null && !role.isBlank())
-                .map(role -> role.toUpperCase())
+                .map(DeprecatedRoles::normalizeRole)
+                .filter(role -> !role.isEmpty())
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());
     }

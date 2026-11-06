@@ -24,23 +24,24 @@ import java.util.Map;
  *
  * @author JAiRouter Team
  * @since 3.2.3
+ * @modified Trunkline Team
  */
 @Slf4j
 @Component
 @ConditionalOnProperty(
-        name = "jairouter.cluster.shared-state-check.enabled",
+        name = "trunkline.cluster.shared-state-check.enabled",
         havingValue = "true",
         matchIfMissing = true)
 public class MultiReplicaSharedStateChecker implements ApplicationListener<ApplicationReadyEvent> {
 
     /** 检查模式配置键。 */
-    public static final String MODE_KEY = "jairouter.cluster.shared-state-check.mode";
+    public static final String MODE_KEY = "trunkline.cluster.shared-state-check.mode";
 
     /** WARN 模式下是否同时把健康端点置为 DOWN。 */
-    public static final String FAIL_HEALTH_KEY = "jairouter.cluster.shared-state-check.fail-health";
+    public static final String FAIL_HEALTH_KEY = "trunkline.cluster.shared-state-check.fail-health";
 
     /** 副本数配置键。 */
-    public static final String REPLICAS_KEY = "jairouter.cluster.replicas";
+    public static final String REPLICAS_KEY = "trunkline.cluster.replicas";
 
     private final Environment environment;
 

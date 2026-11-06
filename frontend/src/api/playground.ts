@@ -30,7 +30,7 @@ playgroundRequest.interceptors.request.use(
     // 添加JWT token
     const token = localStorage.getItem('admin_token')
     if (token && config.headers) {
-      config.headers['Jairouter_Token'] = token
+      config.headers['Trunkline_Token'] = token
     }
     
     return config

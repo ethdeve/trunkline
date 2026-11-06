@@ -9,7 +9,7 @@
 
 
 
-本文档介绍如何设置和配置 JAiRouter 的监控功能，包括基础配置、监控栈部署和验证步骤。
+本文档介绍如何设置和配置 Trunkline 的监控功能，包括基础配置、监控栈部署和验证步骤。
 
 ## 环境要求
 
@@ -21,7 +21,7 @@
 - **磁盘**: 至少 10GB 可用空间
 
 ### 网络端口
-- **JAiRouter**: 8080 (应用端口), 8081 (管理端口)
+- **Trunkline**: 8080 (应用端口), 8081 (管理端口)
 - **Prometheus**: 9090
 - **Grafana**: 3000
 - **AlertManager**: 9093
@@ -78,7 +78,7 @@ docker-compose -f docker-compose-monitoring.yml logs
 
 ## 基础配置
 
-### JAiRouter 应用配置
+### Trunkline 应用配置
 
 在 `application.yml` 中启用监控功能：
 
@@ -90,7 +90,7 @@ monitoring:
     enabled: true
     
     # 指标前缀
-    prefix: "jairouter"
+    prefix: "trunkline"
     
     # 指标收集间隔
     collection-interval: 10s
@@ -142,9 +142,9 @@ rule_files:
   - "rules/*.yml"
 
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 10s
     scrape_timeout: 5s
@@ -175,15 +175,15 @@ datasources:
 ```
 
 #### 仪表板自动导入
-创建 `monitoring/grafana/provisioning/dashboards/jairouter-dashboards.yml`：
+创建 `monitoring/grafana/provisioning/dashboards/trunkline-dashboards.yml`：
 
 ```yaml
 apiVersion: 1
 
 providers:
-  - name: 'jairouter'
+  - name: 'trunkline'
     orgId: 1
-    folder: 'JAiRouter'
+    folder: 'Trunkline'
     type: file
     disableDeletion: false
     updateIntervalSeconds: 10
@@ -202,8 +202,8 @@ providers:
 version: '3.8'
 
 services:
-  jairouter:
-    image: sodlinken/jairouter:latest
+  trunkline:
+    image: trunkline/trunkline:latest
     ports:
       - "8080:8080"
     environment:
@@ -236,14 +236,14 @@ services:
     networks:
       - monitoring
     depends_on:
-      - jairouter
+      - trunkline
 
   grafana:
     image: grafana/grafana:latest
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=jairouter2024
+      - GF_SECURITY_ADMIN_PASSWORD=trunkline2024
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
     volumes:
@@ -287,7 +287,7 @@ networks:
 # 检查所有服务状态
 docker-compose -f docker-compose-monitoring.yml ps
 
-# 检查 JAiRouter 健康状态
+# 检查 Trunkline 健康状态
 curl http://localhost:8080/actuator/health
 
 # 检查 Prometheus 目标状态
@@ -301,13 +301,13 @@ curl http://localhost:9090/api/v1/targets
 curl http://localhost:8080/actuator/prometheus
 
 # 检查特定指标
-curl http://localhost:8080/actuator/metrics/jairouter.requests.total
+curl http://localhost:8080/actuator/metrics/trunkline.requests.total
 ```
 
 ### 3. 验证 Grafana 仪表板
 
 1. 访问 http://localhost:3000
-2. 使用 admin/jairouter2024 登录
+2. 使用 admin/trunkline2024 登录
 3. 检查数据源连接状态
 4. 验证仪表板是否正常显示数据
 
@@ -493,8 +493,8 @@ monitoring:
 ### 日志检查
 
 ```bash
-# 检查 JAiRouter 日志
-docker logs jairouter
+# 检查 Trunkline 日志
+docker logs trunkline
 
 # 检查 Prometheus 日志
 docker logs prometheus

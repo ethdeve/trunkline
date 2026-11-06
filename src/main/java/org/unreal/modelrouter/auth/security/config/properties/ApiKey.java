@@ -75,10 +75,70 @@ public class ApiKey {
     private String keyHash;
 
     /**
+     * API Key 的<b>确定性</b>查找哈希（HMAC-SHA256(serverPepper, keyValue)）。
+     *
+     * <p><b>C6 整改：</b>原 {@link #keyHash} 为随机盐 SHA-256，相同 {@code keyValue} 每次哈希结果
+     * 都不同，无法据提交值反查，导致校验路径只能 O(n) 全表扫描。本字段是<b>确定性</b>派生值，
+     * 凭客户端提交的 {@code keyValue} 即可算得，用作 O(1) 定位候选密钥的索引；实际真伪仍由
+     * {@code keyHash} 的恒定时间比较完成。无明文 {@code keyValue} 的存量密钥（仅含随机盐哈希）
+     * 该字段为 {@code null}，校验时回落 O(n) 扫描，并在首次成功使用时惰性补全（灰度迁移）。</p>
+     *
+     * <p>该值与 {@code keyHash} 同属敏感派生数据，<b>禁止</b>出现在任何对外响应中。</p>
+     */
+    @JsonProperty
+    private String lookupHash;
+
+    /**
      * API Key 前缀（如 "sk-"）
      * 用于识别密钥类型
      */
     private String keyPrefix;
+
+    /**
+     * 密钥脱敏展示串（如 {@code sk-9fK2********4aQz}：前 7 位 + 星号 + 末 4 位）。
+     *
+     * <p>C6 整改后<b>不再存储明文</b>，但「我的密钥」「全部密钥」页面需要一个可展示的
+     * 脱敏串。因此只在<b>明文可得的那一刻</b>（创建 / 轮换 / 导入）调用 {@link #maskKey(String)}
+     * 算好存下来；存量无明文密钥该字段为 {@code null}，前端显示「—」，不臆造。</p>
+     *
+     * <p>该串<b>不是完整密钥</b>，无法用于认证，可安全展示与持久化。</p>
+     */
+    private String keyMasked;
+
+    /**
+     * 密钥明文的加密存储（AES-256-GCM，密钥来源见 {@code ApiKeyPlaintextCipher}）。
+     *
+     * <p>2026-11 用户决策：员工需要在「我的密钥」页随时复制自己的密钥，而 C6 的
+     * 「明文不落盘」导致创建后无法找回。改为在明文可得的那一刻（创建/轮换/导入）
+     * 加密存一份，需要时经 {@code POST /api/auth/api-keys/mine/{keyId}/reveal}
+     * 解密下发——该端点服务端校验归属（仅本人）。</p>
+     *
+     * <p><b>禁止</b>出现在任何列表 VO / 安全副本 / 导出格式中；该字段仅服务于
+     * 归属人自助取回，不能替代 {@code keyHash} 的认证校验。</p>
+     */
+    private String keyEncrypted;
+
+    /**
+     * 生成密钥的脱敏展示串：保留前 7 位（含 {@code sk-} 前缀）、末 4 位，中间星号遮蔽。
+     *
+     * <p>必须在明文可得时调用并持久化结果（{@link #keyMasked}），明文随即丢弃。</p>
+     *
+     * @param keyValue 完整密钥明文
+     * @return 脱敏串；入参为空时返回 {@code null}
+     */
+    public static String maskKey(final String keyValue) {
+        if (keyValue == null || keyValue.isBlank()) {
+            return null;
+        }
+        final String prefix = "sk-";
+        if (keyValue.length() <= 12) {
+            // 太短，无法安全地保留首尾——整体遮蔽
+            return prefix + "****";
+        }
+        return keyValue.substring(0, 7)
+                + "********"
+                + keyValue.substring(keyValue.length() - 4);
+    }
 
     /**
      * 允许使用的 IP 白名单
@@ -178,6 +238,18 @@ public class ApiKey {
      * 创建者用户名
      */
     private String createdBy;
+
+    /**
+     * 密钥持有人（分配给谁）。
+     *
+     * <p>与 {@code createdBy} 的区别：{@code createdBy} 是<b>操作者</b>（谁在控制台点了创建），
+     * {@code holder} 是<b>使用者</b>（这个密钥发给谁用）。原型「创建密钥」表单里的
+     * 「分配给谁？」落到本字段；为空时回落为 {@code createdBy}。</p>
+     *
+     * <p>存储复用同一份 JSON store（{@code config_data}），无独立表结构，
+     * 因此无需 Flyway 迁移脚本。</p>
+     */
+    private String holder;
 
     /**
      * 创建者 IP 地址
@@ -318,6 +390,147 @@ public class ApiKey {
         return todayTokens != null && todayTokens.longValue() >= dailyTokenLimit;
     }
 
+    // ==================== P0-A：小时 / 月窗口配额判定 ====================
+    //
+    // 此前 hourlyRequestLimit / hourlyTokenLimit / monthlyRequestLimit / monthlyTokenLimit
+    // 四个限额字段「可配置、可展示、但不生效」——认证链只校验日配额，导致
+    // 「以为配了月额度、实际上无限用」。这里补齐判定，口径与日配额完全一致：
+    // 限额为 0 表示不限制；用量 >= 限额即视为超限。
+    //
+    // 【多副本一致性局限（P0-A 必读）】
+    // 本组判定基于 UsageStatistics 的「单副本内存计数 + 持久化」用量统计，不是全局精确配额：
+    //   ① 多副本部署时各副本各自计数，实际用量会被低估约 N 倍（N = 副本数），
+    //      因此这里的拦截在多副本下是「尽力而为」的软拦截；
+    //   ② 精确拦截必须启用配额账本（trunkline.quota.enabled=true）——
+    //      账本路径（QuotaLedgerService / QuotaEnforcementService）的 QuotaLimitSet
+    //      已包含 monthTokens 等月度额度字段，账本开启时月额度本就支持；
+    //   ③ 本组判定解决的是「账本关闭（默认）时配了额度完全不生效」这个更严重的问题。
+    // 详见 UsageStatistics 类注释（同段说明）与 ApiKeyValidator 的相应说明。
+
+    /**
+     * 检查是否超过每小时请求限制（P0-A）
+     *
+     * <p><b>判定口径</b>：自然小时窗口（本地时区、整点对齐，与配额账本
+     * {@code QuotaWindow.HOUR} 同口径）；{@code hourlyRequestLimit <= 0} 表示不限制；
+     * 本小时累计请求数 {@code >= } 限额即视为超限（与日配额口径一致）。</p>
+     *
+     * <p><b>一致性局限</b>：用量来自单副本内存计数，多副本部署下会被低估约 N 倍（N = 副本数），
+     * 非全局精确配额；需要精确拦截必须启用配额账本（{@code trunkline.quota.enabled=true}）。</p>
+     *
+     * @return 是否超限
+     */
+    public boolean isHourlyRequestLimitExceeded() {
+        if (hourlyRequestLimit <= 0) {
+            return false;
+        }
+        return getCurrentHourRequestCount() >= hourlyRequestLimit;
+    }
+
+    /**
+     * 检查是否超过每小时 Token 使用限制（P0-A）
+     *
+     * <p><b>判定口径</b>：自然小时窗口（本地时区、整点对齐，与配额账本
+     * {@code QuotaWindow.HOUR} 同口径）；{@code hourlyTokenLimit <= 0} 表示不限制；
+     * 本小时累计 Token 数 {@code >= } 限额即视为超限。</p>
+     *
+     * <p><b>一致性局限</b>：用量来自单副本内存计数，多副本部署下会被低估约 N 倍（N = 副本数），
+     * 非全局精确配额；需要精确拦截必须启用配额账本（{@code trunkline.quota.enabled=true}）。</p>
+     *
+     * @return 是否超限
+     */
+    public boolean isHourlyTokenLimitExceeded() {
+        if (hourlyTokenLimit <= 0) {
+            return false;
+        }
+        return getCurrentHourTokenUsage() >= hourlyTokenLimit;
+    }
+
+    /**
+     * 检查是否超过每月请求限制（P0-A）
+     *
+     * <p><b>判定口径</b>：自然月窗口（本地时区、当月 1 日 0 点，与配额账本
+     * {@code QuotaWindow.MONTH} 同口径）；{@code monthlyRequestLimit <= 0} 表示不限制；
+     * 本月累计请求数 {@code >= } 限额即视为超限（与日配额口径一致）。</p>
+     *
+     * <p><b>一致性局限</b>：用量来自单副本内存计数，多副本部署下会被低估约 N 倍（N = 副本数），
+     * 非全局精确配额；需要精确拦截必须启用配额账本（{@code trunkline.quota.enabled=true}）。</p>
+     *
+     * @return 是否超限
+     */
+    public boolean isMonthlyRequestLimitExceeded() {
+        if (monthlyRequestLimit <= 0) {
+            return false;
+        }
+        return getCurrentMonthRequestCount() >= monthlyRequestLimit;
+    }
+
+    /**
+     * 检查是否超过每月 Token 使用限制（P0-A）
+     *
+     * <p><b>判定口径</b>：自然月窗口（本地时区、当月 1 日 0 点，与配额账本
+     * {@code QuotaWindow.MONTH} 同口径）；{@code monthlyTokenLimit <= 0} 表示不限制；
+     * 本月累计 Token 数 {@code >= } 限额即视为超限。</p>
+     *
+     * <p><b>一致性局限</b>：用量来自单副本内存计数，多副本部署下会被低估约 N 倍（N = 副本数），
+     * 非全局精确配额；需要精确拦截必须启用配额账本（{@code trunkline.quota.enabled=true}）。</p>
+     *
+     * @return 是否超限
+     */
+    public boolean isMonthlyTokenLimitExceeded() {
+        if (monthlyTokenLimit <= 0) {
+            return false;
+        }
+        return getCurrentMonthTokenUsage() >= monthlyTokenLimit;
+    }
+
+    /**
+     * 获取当前小时窗口的请求数（P0-A）
+     *
+     * @return 当前自然小时窗口内的请求数
+     */
+    public long getCurrentHourRequestCount() {
+        if (usage == null || usage.getHourlyUsage() == null) {
+            return 0L;
+        }
+        return usage.getHourlyUsage().getOrDefault(UsageStatistics.currentHourKey(), 0L);
+    }
+
+    /**
+     * 获取当前小时窗口的 Token 用量（P0-A）
+     *
+     * @return 当前自然小时窗口内的 Token 数
+     */
+    public long getCurrentHourTokenUsage() {
+        if (usage == null || usage.getHourlyTokenUsage() == null) {
+            return 0L;
+        }
+        return usage.getHourlyTokenUsage().getOrDefault(UsageStatistics.currentHourKey(), 0L);
+    }
+
+    /**
+     * 获取当前月窗口的请求数（P0-A）
+     *
+     * @return 当前自然月窗口内的请求数
+     */
+    public long getCurrentMonthRequestCount() {
+        if (usage == null || usage.getMonthlyUsage() == null) {
+            return 0L;
+        }
+        return usage.getMonthlyUsage().getOrDefault(UsageStatistics.currentMonthKey(), 0L);
+    }
+
+    /**
+     * 获取当前月窗口的 Token 用量（P0-A）
+     *
+     * @return 当前自然月窗口内的 Token 数
+     */
+    public long getCurrentMonthTokenUsage() {
+        if (usage == null || usage.getMonthlyTokenUsage() == null) {
+            return 0L;
+        }
+        return usage.getMonthlyTokenUsage().getOrDefault(UsageStatistics.currentMonthKey(), 0L);
+    }
+
     /**
      * 获取今日 Token 使用量
      *
@@ -419,7 +632,10 @@ public class ApiKey {
                 .keyId(this.keyId)
                 .keyValue(null)
                 .keyHash(null)
+                .lookupHash(null)
                 .keyPrefix(this.keyPrefix)
+                .keyMasked(this.keyMasked)
+                .keyEncrypted(null)
                 .allowedIpAddresses(this.allowedIpAddresses)
                 .dailyRequestLimit(this.dailyRequestLimit)
                 .dailyTokenLimit(this.dailyTokenLimit)
@@ -435,6 +651,7 @@ public class ApiKey {
                 .expiresAt(this.expiresAt)
                 .createdAt(this.createdAt)
                 .createdBy(this.createdBy)
+                .holder(this.holder)
                 .creatorIpAddress(this.creatorIpAddress)
                 .rotationPeriodDays(this.rotationPeriodDays)
                 .lastRotatedAt(this.lastRotatedAt)
@@ -456,7 +673,10 @@ public class ApiKey {
                 .keyId(this.keyId)
                 .keyValue(originalKeyValue)
                 .keyHash(null)
+                .lookupHash(null)
                 .keyPrefix(this.keyPrefix)
+                .keyMasked(this.keyMasked)
+                .keyEncrypted(null)
                 .allowedIpAddresses(this.allowedIpAddresses)
                 .dailyRequestLimit(this.dailyRequestLimit)
                 .dailyTokenLimit(this.dailyTokenLimit)
@@ -472,6 +692,7 @@ public class ApiKey {
                 .expiresAt(this.expiresAt)
                 .createdAt(this.createdAt)
                 .createdBy(this.createdBy)
+                .holder(this.holder)
                 .creatorIpAddress(this.creatorIpAddress)
                 .rotationPeriodDays(this.rotationPeriodDays)
                 .lastRotatedAt(this.lastRotatedAt)

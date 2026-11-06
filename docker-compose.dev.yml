@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  jairouter-dev:
-    image: sodlinken/jairouter:dev
-    container_name: jairouter-dev
+  trunkline-dev:
+    image: trunkline/trunkline:dev
+    container_name: trunkline-dev
     ports:
       - "9900:8080"
       - "5005:5005"
@@ -22,7 +22,7 @@ services:
       - ./src:/app/src:ro
       - ./data:/app/data
     networks:
-      - jairouter-network
+      - trunkline-network
     depends_on:
       - redis-dev
     # 停机宽限期须大于 spring.lifecycle.timeout-per-shutdown-phase(30s)，
@@ -37,7 +37,7 @@ services:
 
   redis-dev:
     image: redis:7-alpine
-    container_name: jairouter-redis-dev
+    container_name: trunkline-redis-dev
     ports:
       - "6379:6379"
     environment:
@@ -54,7 +54,7 @@ services:
       - redis-dev-data:/data
     restart: unless-stopped
     networks:
-      - jairouter-network
+      - trunkline-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -66,5 +66,5 @@ volumes:
     driver: local
 
 networks:
-  jairouter-network:
+  trunkline-network:
     driver: bridge

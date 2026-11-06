@@ -57,7 +57,7 @@ class DockerComposeDeployConfigTest {
     @Test
     @DisplayName("缺陷1: prod 端口映射应为 9900:8080（宿主9900→容器8080）")
     void testProdPortMapping() throws Exception {
-        List<String> ports = stringList(loadService(PROD, "jairouter"), "ports");
+        List<String> ports = stringList(loadService(PROD, "trunkline"), "ports");
         assertTrue(ports.contains("9900:8080"),
                 "prod 端口映射必须是 9900:8080，当前: " + ports);
         assertFalse(ports.contains("9900:9900"),
@@ -67,7 +67,7 @@ class DockerComposeDeployConfigTest {
     @Test
     @DisplayName("缺陷1: dev 端口映射应为 9900:8080")
     void testDevPortMapping() throws Exception {
-        List<String> ports = stringList(loadService(DEV, "jairouter-dev"), "ports");
+        List<String> ports = stringList(loadService(DEV, "trunkline-dev"), "ports");
         assertTrue(ports.contains("9900:8080"),
                 "dev 端口映射必须是 9900:8080，当前: " + ports);
         assertFalse(ports.contains("9900:9900"),
@@ -77,14 +77,14 @@ class DockerComposeDeployConfigTest {
     @Test
     @DisplayName("基线 docker-compose.yml 端口映射应为 9900:8080")
     void testBasePortMapping() throws Exception {
-        List<String> ports = stringList(loadService(BASE, "jairouter"), "ports");
+        List<String> ports = stringList(loadService(BASE, "trunkline"), "ports");
         assertTrue(ports.contains("9900:8080"), "基线 compose 端口映射应为 9900:8080，当前: " + ports);
     }
 
     @Test
     @DisplayName("缺陷2: prod healthcheck 应探容器内 8080")
     void testProdHealthcheckPort() throws Exception {
-        Map<String, Object> service = loadService(PROD, "jairouter");
+        Map<String, Object> service = loadService(PROD, "trunkline");
         @SuppressWarnings("unchecked")
         Map<String, Object> healthcheck = (Map<String, Object>) service.get("healthcheck");
         assertNotNull(healthcheck, "prod 应配置 healthcheck");
@@ -100,7 +100,7 @@ class DockerComposeDeployConfigTest {
     @Test
     @DisplayName("缺陷2: dev healthcheck 应探容器内 8080")
     void testDevHealthcheckPort() throws Exception {
-        Map<String, Object> service = loadService(DEV, "jairouter-dev");
+        Map<String, Object> service = loadService(DEV, "trunkline-dev");
         @SuppressWarnings("unchecked")
         Map<String, Object> healthcheck = (Map<String, Object>) service.get("healthcheck");
         assertNotNull(healthcheck, "dev 应配置 healthcheck");
@@ -116,7 +116,7 @@ class DockerComposeDeployConfigTest {
     @Test
     @DisplayName("缺陷3: prod 数据卷应挂载 ./data:/app/data（H2 落盘路径）")
     void testProdDataVolume() throws Exception {
-        List<String> volumes = stringList(loadService(PROD, "jairouter"), "volumes");
+        List<String> volumes = stringList(loadService(PROD, "trunkline"), "volumes");
         assertTrue(volumes.contains("./data:/app/data"),
                 "H2 数据卷必须是 ./data:/app/data，当前: " + volumes);
         assertFalse(volumes.stream().anyMatch(v -> v.contains("r2dbc:h2:file")),
@@ -126,7 +126,7 @@ class DockerComposeDeployConfigTest {
     @Test
     @DisplayName("缺陷3: dev 数据卷应挂载 ./data:/app/data")
     void testDevDataVolume() throws Exception {
-        List<String> volumes = stringList(loadService(DEV, "jairouter-dev"), "volumes");
+        List<String> volumes = stringList(loadService(DEV, "trunkline-dev"), "volumes");
         assertTrue(volumes.contains("./data:/app/data"),
                 "H2 数据卷必须是 ./data:/app/data，当前: " + volumes);
         assertFalse(volumes.stream().anyMatch(v -> v.contains("r2dbc:h2:file")),
@@ -136,14 +136,14 @@ class DockerComposeDeployConfigTest {
     @Test
     @DisplayName("基线 docker-compose.yml 数据卷应为 ./data:/app/data")
     void testBaseDataVolume() throws Exception {
-        List<String> volumes = stringList(loadService(BASE, "jairouter"), "volumes");
+        List<String> volumes = stringList(loadService(BASE, "trunkline"), "volumes");
         assertTrue(volumes.contains("./data:/app/data"), "基线 compose 数据卷应为 ./data:/app/data，当前: " + volumes);
     }
 
     @Test
     @DisplayName("优雅停机: stop_grace_period 必须大于 shutdown 阶段超时，否则 Docker 先 SIGKILL")
     void testStopGracePeriodCoversShutdownTimeout() throws Exception {
-        for (Map.Entry<Path, String> entry : Map.of(PROD, "jairouter", DEV, "jairouter-dev").entrySet()) {
+        for (Map.Entry<Path, String> entry : Map.of(PROD, "trunkline", DEV, "trunkline-dev").entrySet()) {
             Map<String, Object> service = loadService(entry.getKey(), entry.getValue());
             Object grace = service.get("stop_grace_period");
             assertNotNull(grace, entry.getKey() + " 应配置 stop_grace_period，否则默认 10s 会截断 30s 优雅停机");

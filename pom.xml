@@ -11,7 +11,7 @@
 
     <groupId>org.unreal</groupId>
     <artifactId>model-router</artifactId>
-    <version>3.3.1</version>
+    <version>0.1.0</version>
     <packaging>jar</packaging>
 
     <name>model-router</name>
@@ -23,7 +23,7 @@
         <java.version>17</java.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
-        <docker.image.prefix>jairouter</docker.image.prefix>
+        <docker.image.prefix>trunkline</docker.image.prefix>
         <docker.image.name>${docker.image.prefix}/${project.artifactId}</docker.image.name>
         <opentelemetry.version>1.35.0</opentelemetry.version>
         <opentelemetry-instrumentation.version>1.32.0</opentelemetry-instrumentation.version>
@@ -427,6 +427,17 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- Maven Surefire Plugin：JDK 21+ 需显式允许动态 agent 加载，
+                 否则 Mockito inline mock maker 的 byte-buddy 自挂载会失败
+                 （部分环境对外部 attach 进程创建有限制，见 S1 记录） -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-XX:+EnableDynamicAgentLoading -Djdk.attach.allowAttachSelf=true</argLine>
+                </configuration>
             </plugin>
 
             <!-- Maven Compiler Plugin -->

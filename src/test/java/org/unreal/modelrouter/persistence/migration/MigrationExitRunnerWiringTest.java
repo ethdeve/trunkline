@@ -23,9 +23,9 @@ class MigrationExitRunnerWiringTest {
             .withUserConfiguration(MigrationExitRunner.class);
 
     @Test
-    @DisplayName("jairouter.migration.exit-after-run=true 时应注册退出器")
+    @DisplayName("trunkline.migration.exit-after-run=true 时应注册退出器")
     void registeredWhenEnabled() {
-        runner.withPropertyValues("jairouter.migration.exit-after-run=true")
+        runner.withPropertyValues("trunkline.migration.exit-after-run=true")
                 .run(context -> assertEquals(1,
                         context.getBeanNamesForType(MigrationExitRunner.class).length,
                         "开关打开时应注册退出器"));

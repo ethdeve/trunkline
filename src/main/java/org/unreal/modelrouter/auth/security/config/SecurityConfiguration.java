@@ -24,7 +24,7 @@ import org.unreal.modelrouter.auth.filter.DefaultAuthenticationConverter;
 import org.unreal.modelrouter.auth.filter.SpringSecurityAuthenticationFilter;
 import org.unreal.modelrouter.auth.security.authentication.JwtTokenValidator;
 import org.unreal.modelrouter.auth.security.config.properties.SecurityProperties;
-import org.unreal.modelrouter.auth.security.permission.PermissionAuthorizationManager;
+import org.unreal.modelrouter.auth.security.access.FixedRoleAuthorizationManager;
 import org.unreal.modelrouter.auth.security.service.ApiKeyService;
 import org.unreal.modelrouter.monitor.tracing.config.TracingSecurityConfiguration;
 
@@ -43,13 +43,13 @@ import java.util.List;
 @Configuration
 @RequiredArgsConstructor
 @EnableReactiveMethodSecurity
-@ConditionalOnProperty(name = "jairouter.security.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.enabled", havingValue = "true")
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
 public class SecurityConfiguration {
 
     private final SecurityProperties securityProperties;
     private final ApiKeyService apiKeyService;
-    private final PermissionAuthorizationManager permissionAuthorizationManager;
+    private final FixedRoleAuthorizationManager fixedRoleAuthorizationManager;
     private JwtTokenValidator jwtTokenValidator;
 
     private final ApplicationContext applicationContext;
@@ -116,7 +116,7 @@ public class SecurityConfiguration {
                 .authorizeExchange();
 
         // 配置公共路径
-        // R3-P1：API 文档默认需认证；仅 jairouter.security.docs-public=true 时匿名
+        // R3-P1：API 文档默认需认证；仅 trunkline.security.docs-public=true 时匿名
         final boolean docsPublic = ApiDocsAccessPolicy.isPublic(securityProperties.isDocsPublic());
         ExcludedPathsConfig.setApiDocsAuthExcluded(docsPublic);
 
@@ -135,6 +135,10 @@ public class SecurityConfiguration {
         authorizeExchangeSpec
                 // Web管理界面静态资源允许匿名访问（前端会处理认证）
                 .pathMatchers("/admin/**").permitAll()
+                // 内置帮助文档静态资源（docs md 配图/附件，由前端 <img>/<a> 直接加载，
+                // 浏览器无法携带自定义认证头）——与 /admin/** 同级匿名放行；
+                // 文档正文 md 仍经 /api/docs/content 认证后读取
+                .pathMatchers("/docs-res/**").permitAll()
                 // favicon.ico 允许匿名访问
                 .pathMatchers("/favicon.ico").permitAll()
                 // 健康状态 SSE / 监控 WebSocket：均需认证
@@ -150,13 +154,11 @@ public class SecurityConfiguration {
                 .pathMatchers("/api/model-stats/**").hasRole("ADMIN")
                 // AI服务端点需要认证（API Key权限由适配器层按服务类型控制）
                 .pathMatchers("/v1/**").authenticated()
-                // v2.9.8 RBAC: /api/** 采用数据驱动 URL 权限矩阵（PermissionRuleRegistry +
-                // PermissionAuthorizationManager），同步返回 controller 的权限全靠 URL 规则。
-                // #128 阶段 2/3：未命中规则时不再一律回退 authenticated —— 命中 RbacExemptEndpoints
-                // 的端点仅需认证（显式豁免、逐条带理由），其余由 RbacUnmatchedPolicy 决定，
-                // 默认 DENY_ALL（仅 ROLE_ADMIN 直通）。可用 jairouter.security.rbac.unmatched-policy
-                // 回退到 DENY_WRITES（阶段 2）或 AUTHENTICATED（改动前的 fail-open）。
-                .pathMatchers("/api/**").access(permissionAuthorizationManager)
+                // 2026-11 固定权限矩阵：/api/** 由固定角色矩阵裁决
+                // （FixedRoleAccessPolicy：SELF/OPS/ADMIN 三档，未登记端点 fail-closed 仅 ADMIN，
+                // 豁免清单 AccessExemptEndpoints 按「已认证」放行）。不再有可配置 RBAC，
+                // 权限与前端菜单分组一一对应（我的=SELF、团队/策略=OPS、系统=ADMIN）。
+                .pathMatchers("/api/**").access(fixedRoleAuthorizationManager)
                 // 监控端点需要管理员权限（除了已明确允许的健康检查端点）
                 .pathMatchers("/actuator/**").hasRole("ADMIN")
                 // 其他所有请求需要认证

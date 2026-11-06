@@ -33,6 +33,14 @@ public final class ApiKeyUpdateRequest {
     private String description;
 
     /**
+     * 密钥持有人（分配给谁）。
+     *
+     * <p>为 null 时不修改（保持原持有人）；传空串表示清空、回落到创建者。</p>
+     */
+    @Size(max = 64, message = "持有人长度不能超过64字符")
+    private String holder;
+
+    /**
      * 权限列表
      */
     private List<String> permissions;

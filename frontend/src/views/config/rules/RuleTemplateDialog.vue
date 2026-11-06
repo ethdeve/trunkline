@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="visible" :title="t('rule.template.title')" width="680px">
+  <el-dialog v-model="visible" :title="t('rule.template.title')" width="min(640px, 92vw)">
     <el-form label-width="80px">
       <el-form-item :label="t('rule.template.name')">
         <el-input v-model="name" :placeholder="t('rule.template.namePlaceholder')" />

@@ -11,7 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.core.Ordered;
+
 import org.springframework.http.HttpMethod;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
@@ -30,6 +30,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
@@ -82,7 +83,7 @@ class TracingWebFilterTest {
         when(mockSpan.setStatus(any(StatusCode.class))).thenReturn(mockSpan);
         when(mockSpan.setStatus(any(StatusCode.class), anyString())).thenReturn(mockSpan);
         when(tracingService.createRootSpan(any(ServerWebExchange.class))).thenReturn(Mono.just(tracingContext));
-        doNothing().when(tracingService).finishHttpSpan(any(ServerWebExchange.class), any(TracingContext.class), anyLong());
+        doNothing().when(tracingService).finishHttpSpan(any(ServerWebExchange.class), any(TracingContext.class), anyLong(), anyLong(), anyString(), any(Span.class));
         when(tracingService.triggerPerformanceOptimization()).thenReturn(Mono.empty());
         when(performanceMonitor.recordOperationPerformance(anyString(), anyLong(), anyLong(), anyBoolean(), any(Map.class)))
             .thenReturn(Mono.empty());
@@ -98,9 +99,11 @@ class TracingWebFilterTest {
     class OrderTests {
 
         @Test
-        @DisplayName("TRACE-001: 过滤器具有最高优先级")
+        @DisplayName("TRACE-001: 过滤器顺序符合 FilterOrderContract（CachedBody 之后、Security 之前）")
         void testGetOrder_HighestPrecedence() {
-            assertEquals(Ordered.HIGHEST_PRECEDENCE, filter.getOrder());
+            assertEquals(org.unreal.modelrouter.common.filter.FilterOrderContract.TRACING, filter.getOrder());
+            assertTrue(filter.getOrder() > org.unreal.modelrouter.common.filter.FilterOrderContract.CACHED_BODY,
+                    "Tracing 必须晚于 CachedBody 执行（body 缓存在前）");
         }
     }
 
@@ -327,7 +330,7 @@ class TracingWebFilterTest {
             StepVerifier.create(result).verifyComplete();
             verify(filterChain, times(1)).filter(any());
             // 前置失败 → 本次不进入追踪收尾
-            verify(tracingService, never()).finishHttpSpan(any(), any(), anyLong());
+            verify(tracingService, never()).finishHttpSpan(any(), any(), anyLong(), anyLong(), anyString(), any());
         }
 
         @Test
@@ -365,7 +368,7 @@ class TracingWebFilterTest {
             StepVerifier.create(result).verifyComplete();
             verify(filterChain, times(1)).filter(any());
             verify(tracingService, times(1))
-                .finishHttpSpan(any(), any(TracingContext.class), anyLong());
+                .finishHttpSpan(any(), any(TracingContext.class), anyLong(), anyLong(), anyString(), any());
         }
     }
 }

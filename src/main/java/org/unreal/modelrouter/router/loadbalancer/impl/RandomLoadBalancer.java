@@ -2,33 +2,45 @@ package org.unreal.modelrouter.router.loadbalancer.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.unreal.modelrouter.router.circuitbreaker.CircuitBreaker;
-import org.unreal.modelrouter.router.circuitbreaker.DefaultCircuitBreaker;
+import org.unreal.modelrouter.router.circuitbreaker.CircuitBreakerManager;
 import org.unreal.modelrouter.router.loadbalancer.LoadBalancer;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
 import org.unreal.modelrouter.monitor.monitoring.collector.MetricsCollector;
 import org.unreal.modelrouter.router.loadbalancer.utils.WeightCalculator;
 
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
  * 随机负载均衡策略
+ *
+ * <p>B1 收敛：熔断判定统一走 {@link CircuitBreakerManager} 单一注册表，
+ * 不再持有私有熔断器 Map（原私有表与 Manager 各自为政，同一实例两套熔断状态，
+ * 且无法参与实例生命周期淘汰）。Manager 未注入（纯单测场景）时不做熔断过滤。</p>
  */
 // 修改 RandomLoadBalancer 实现
 public class RandomLoadBalancer implements LoadBalancer {
     private static final Logger logger = LoggerFactory.getLogger(RandomLoadBalancer.class);
     private final java.security.SecureRandom random = new java.security.SecureRandom();
-    private final Map<String, CircuitBreaker> circuitBreakers = new ConcurrentHashMap<>();
-    private final int failureThreshold = 5;
-    private final long timeout = 60000; // 60秒
-    private final int successThreshold = 2;
-    
-    @Autowired(required = false)
-    private MetricsCollector metricsCollector;
+
+    // R2: 由 ComponentFactory 在创建时注入(原 @Autowired 字段在 new 出的实例上恒为 null)
+    private final MetricsCollector metricsCollector;
+    // B1: 单一熔断注册表，由 ComponentFactory 在创建时注入
+    private final CircuitBreakerManager circuitBreakerManager;
+
+    public RandomLoadBalancer() {
+        this(null, null);
+    }
+
+    public RandomLoadBalancer(final MetricsCollector metricsCollector) {
+        this(metricsCollector, null);
+    }
+
+    public RandomLoadBalancer(final MetricsCollector metricsCollector,
+                              final CircuitBreakerManager circuitBreakerManager) {
+        this.metricsCollector = metricsCollector;
+        this.circuitBreakerManager = circuitBreakerManager;
+    }
 
     @Override
     public ModelRouterProperties.ModelInstance selectInstance(
@@ -46,15 +58,10 @@ public class RandomLoadBalancer implements LoadBalancer {
             throw new IllegalArgumentException("No instances available");
         }
 
-        // 过滤掉熔断状态的实例
+        // 过滤掉熔断状态的实例（B1: 统一走 CircuitBreakerManager，无 Manager 时不过滤）
         List<ModelRouterProperties.ModelInstance> availableInstances =
                 instances.stream()
-                        .filter(instance -> {
-                            CircuitBreaker cb = circuitBreakers.computeIfAbsent(
-                                    instance.getBaseUrl(),
-                                    id -> new DefaultCircuitBreaker(id, failureThreshold, timeout, successThreshold));
-                            return cb.canExecute();
-                        })
+                        .filter(instance -> isInstanceAvailable(instance))
                         .collect(Collectors.toList());
 
         if (availableInstances.isEmpty()) {
@@ -106,18 +113,27 @@ public class RandomLoadBalancer implements LoadBalancer {
 
     @Override
     public void recordCallComplete(final ModelRouterProperties.ModelInstance instance) {
-        CircuitBreaker cb = circuitBreakers.get(instance.getBaseUrl());
-        if (cb != null) {
-            cb.onSuccess();
+        if (circuitBreakerManager != null && instance != null) {
+            circuitBreakerManager.recordSuccess(instance.getInstanceId(), instance.getBaseUrl());
         }
     }
 
     @Override
     public void recordCallFailure(final ModelRouterProperties.ModelInstance instance) {
-        CircuitBreaker cb = circuitBreakers.get(instance.getBaseUrl());
-        if (cb != null) {
-            cb.onFailure();
+        if (circuitBreakerManager != null && instance != null) {
+            circuitBreakerManager.recordFailure(instance.getInstanceId(), instance.getBaseUrl());
         }
+    }
+
+    /**
+     * B1: 熔断可用性判定统一走 CircuitBreakerManager（单一注册表）。
+     * 键语义与 Manager 一致：优先 instanceId，URL 兜底。
+     */
+    private boolean isInstanceAvailable(final ModelRouterProperties.ModelInstance instance) {
+        if (circuitBreakerManager == null) {
+            return true;
+        }
+        return circuitBreakerManager.canExecute(instance.getInstanceId(), instance.getBaseUrl());
     }
 
     /**

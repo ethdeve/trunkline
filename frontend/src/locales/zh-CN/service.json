@@ -55,40 +55,42 @@
     },
     "form": {
       "serviceType": "模型分类",
-      "adapter": "适配器",
-      "loadBalanceType": "负载均衡策略",
+      "adapter": "接入方式（一般自动选好）",
+      "loadBalanceType": "分流方式",
       "description": "说明（可选）",
       "selectServiceType": "请选择模型分类",
-      "selectAdapter": "请选择适配器",
-      "selectLoadBalance": "请选择负载均衡策略",
+      "selectAdapter": "请选择接入方式",
+      "selectLoadBalance": "请选择分流方式",
       "descriptionPlaceholder": "对该服务做简短说明，方便识别（例如：用于客服对话）"
     },
     "rateLimit": {
-      "section": "服务级别限流配置",
-      "enable": "启用限流",
-      "algorithm": "算法",
-      "selectAlgorithm": "请选择算法",
-      "tokenBucket": "令牌桶",
-      "leakyBucket": "漏桶",
-      "slidingWindow": "滑动窗口",
-      "scope": "作用域",
+      "section": "用量上限",
+      "enable": "给这类模型设用量上限",
+      "algorithm": "超了怎么办",
+      "selectAlgorithm": "请选择超出后的处理方式",
+      "tokenBucket": "允许突发，空闲时攒额度",
+      "leakyBucket": "严格匀速放行",
+      "slidingWindow": "按固定时间窗口统计",
+      "scope": "按谁计算",
       "selectScope": "请选择作用域",
-      "serviceScope": "服务级别",
-      "capacity": "容量",
-      "rate": "速率",
+      "serviceScope": "这类模型合计",
+      "capacity": "同一时刻最多放行几次",
+      "rate": "每秒恢复几次额度",
       "key": "限流键值",
       "keyPlaceholder": "请输入限流键值（可选）",
-      "clientIp": "客户端IP限流"
+      "clientIp": "按来源电脑限次"
     },
     "circuitBreaker": {
-      "section": "服务级别熔断器配置",
-      "enable": "启用熔断器",
-      "failureThreshold": "失败阈值",
-      "timeoutMs": "超时时间(毫秒)",
-      "successThreshold": "成功阈值"
+      "section": "故障自动停用",
+      "enable": "连续失败时自动停用这类模型",
+      "failureThreshold": "连续失败几次算故障",
+      "timeoutMs": "停用多久后试探恢复（毫秒）",
+      "successThreshold": "连续成功几次算恢复"
     },
     "actions": {
       "versionHistory": "版本历史"
-    }
+    },
+    "advancedTitle": "覆盖默认设置（高级）",
+    "advancedHint": "这里的设置只影响这一类模型；不填就用「全局配置」里的默认值"
   }
 }

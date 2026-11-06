@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 @Slf4j
 @Service("enhancedSecurityAuditService")
-@ConditionalOnProperty(name = "jairouter.security.audit.enhanced", havingValue = "true", matchIfMissing = false)
+@ConditionalOnProperty(name = "trunkline.security.audit.enhanced", havingValue = "true", matchIfMissing = false)
 public class EnhancedSecurityAuditService implements SecurityAuditService {
 
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");

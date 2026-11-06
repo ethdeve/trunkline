@@ -29,7 +29,10 @@ public interface ConfigRepository extends JpaRepository<ConfigEntity, Long> {
 
     /**
      * 查找配置键的所有版本号
+     * @deprecated E1 后版本列表请用 {@link #findAllSnapshotVersionsByConfigKey(String)}
+     *             （只含 version>=1 快照行；本方法会混入 v0 当前行）。
      */
+    @Deprecated
     @Query("SELECT c.version FROM ConfigEntity c WHERE c.configKey = :configKey ORDER BY c.version ASC")
     List<Integer> findAllVersionsByConfigKey(@Param("configKey") String configKey);
 
@@ -60,7 +63,10 @@ public interface ConfigRepository extends JpaRepository<ConfigEntity, Long> {
 
     /**
      * 将指定配置键的所有版本标记为非最新
+     * @deprecated E1 后版本快照恒为 isLatest=false、当前值由 v0 行承载，
+     *             「全量翻牌」不再有任何合法用途。
      */
+    @Deprecated
     @Modifying
     @Query("UPDATE ConfigEntity c SET c.isLatest = false WHERE c.configKey = :configKey")
     void markAllAsNotLatest(@Param("configKey") String configKey);
@@ -74,4 +80,14 @@ public interface ConfigRepository extends JpaRepository<ConfigEntity, Long> {
      * 检查指定版本是否存在
      */
     boolean existsByConfigKeyAndVersion(String configKey, Integer version);
+
+    /**
+     * E1: 查找配置键的所有「版本快照」行（version >= 1，只追加、不改写）。
+     * v0 是当前配置行，不属于版本序列。
+     */
+    @Query("SELECT c.version FROM ConfigEntity c WHERE c.configKey = :configKey AND c.version >= 1 ORDER BY c.version ASC")
+    List<Integer> findAllSnapshotVersionsByConfigKey(@Param("configKey") String configKey);
+
+    // findByConfigKeyAndVersion(configKey, version) 沿用上方既有声明：
+    // E1 后它同时承担两类语义——version=0 时命中「当前配置行」，version>=1 命中「快照行」。
 }

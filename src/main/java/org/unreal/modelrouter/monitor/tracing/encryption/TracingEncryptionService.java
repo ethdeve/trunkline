@@ -8,6 +8,7 @@ import org.unreal.modelrouter.monitor.tracing.config.TracingConfiguration;
 import org.unreal.modelrouter.monitor.tracing.logger.StructuredLogger;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -37,6 +38,7 @@ import java.util.concurrent.TimeUnit;
  * 
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @Service
@@ -308,7 +310,9 @@ public class TracingEncryptionService {
                 recordKeyRotationAudit(traceId, false, e.getMessage());
                 return false;
             }
-        });
+        })
+        // X1: 链内 block()（AES 解密/加密为 CPU 阻塞）必须在 boundedElastic 上执行
+        .subscribeOn(Schedulers.boundedElastic());
     }
     
     /**

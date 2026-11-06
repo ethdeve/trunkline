@@ -507,18 +507,8 @@ class ConfigurationServiceTest {
     @DisplayName("延迟注入测试")
     class LazyInjectionTests {
 
-        @Test
-        @DisplayName("CONFIG-019: 设置ModelServiceRegistry")
-        void testSetModelServiceRegistry() {
-            // Given
-            ModelServiceRegistry registry = mock(ModelServiceRegistry.class);
-
-            // When
-            configurationService.setModelServiceRegistry(registry);
-
-            // Then - 无异常即成功
-            assertDoesNotThrow(() -> configurationService.setModelServiceRegistry(registry));
-        }
+        // E2/R9: CONFIG-019（setModelServiceRegistry）已随死注入点删除——
+        // ConfigurationService 从不读取该引用，setter 已移除。
 
         @Test
         @DisplayName("CONFIG-020: 设置ConfigSyncService")

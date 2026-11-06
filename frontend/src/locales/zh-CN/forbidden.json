@@ -1,0 +1,30 @@
+{
+  "forbidden": {
+    "title": "你没有权限查看这个页面",
+    "fromLabel": "你刚才访问的是",
+    "missingLabel": "缺少的权限",
+    "roleLabel": "这个页面对应的角色",
+    "roleAdmin": "仅系统管理员",
+    "roleOps": "运维或管理员",
+    "purposeLabel": "这个页面用来做什么",
+    "unknownPage": "（页面名称未知）",
+    "unknownPurpose": "这是一个需要权限才能打开的功能页面。",
+    "actionTitle": "接下来怎么办",
+    "contactAdmin": "联系管理员开通",
+    "copied": "申请内容已复制，粘贴给管理员即可",
+    "copyFailed": "复制失败，请手动选中下方文本复制",
+    "backHome": "回到我的额度",
+    "backPrev": "返回上一页",
+    "askTextTemplate": "你好，我需要「{page}」页面的权限（{codes}），用于{purpose}。",
+    "askTextNoCode": "你好，我需要「{page}」页面的访问权限，用于{purpose}。",
+    "roleAskTextTemplate": "你好，我是{role}，需要「{page}」页面的访问权限，用于{purpose}。",
+    "roleAskTextNoCode": "你好，我是{role}，需要「{page}」页面的访问权限，用于{purpose}。",
+    "roleNames": {
+      "user": "普通员工",
+      "ops": "运维",
+      "admin": "系统管理员"
+    },
+    "technicalCode": "技术权限码",
+    "noPermissionCode": "未找到对应的权限码，请直接联系管理员说明用途"
+  }
+}

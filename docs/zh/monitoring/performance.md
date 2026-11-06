@@ -9,7 +9,7 @@
 
 
 
-本文档介绍如何优化 JAiRouter 监控系统的性能，减少监控对应用性能的影响，并提高监控系统本身的效率。
+本文档介绍如何优化 Trunkline 监控系统的性能，减少监控对应用性能的影响，并提高监控系统本身的效率。
 
 ## 性能影响评估
 
@@ -227,12 +227,12 @@ global:
   evaluation_interval: 30s
 
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     scrape_interval: 15s  # 重要服务保持较短间隔
     scrape_timeout: 10s
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     
     # 指标重新标记以减少存储
     metric_relabel_configs:
@@ -263,58 +263,58 @@ command:
 
 #### 1. 预聚合常用查询
 ```yaml
-# rules/jairouter-recording-rules.yml
+# rules/trunkline-recording-rules.yml
 groups:
-  - name: jairouter.recording
+  - name: trunkline.recording
     interval: 30s
     rules:
       # 基础指标预聚合
-      - record: jairouter:request_rate_5m
-        expr: sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:request_rate_5m
+        expr: sum(rate(trunkline_requests_total[5m]))
       
-      - record: jairouter:error_rate_5m
-        expr: sum(rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:error_rate_5m
+        expr: sum(rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum(rate(trunkline_requests_total[5m]))
       
-      - record: jairouter:response_time_p95_5m
-        expr: histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))
+      - record: trunkline:response_time_p95_5m
+        expr: histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))
       
       # 按服务分组的预聚合
-      - record: jairouter:request_rate_by_service_5m
-        expr: sum by (service) (rate(jairouter_requests_total[5m]))
+      - record: trunkline:request_rate_by_service_5m
+        expr: sum by (service) (rate(trunkline_requests_total[5m]))
       
-      - record: jairouter:error_rate_by_service_5m
-        expr: sum by (service) (rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum by (service) (rate(jairouter_requests_total[5m]))
+      - record: trunkline:error_rate_by_service_5m
+        expr: sum by (service) (rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum by (service) (rate(trunkline_requests_total[5m]))
 ```
 
 #### 2. 分层 Recording Rules
 ```yaml
 groups:
   # 高频率基础规则
-  - name: jairouter.recording.basic
+  - name: trunkline.recording.basic
     interval: 15s
     rules:
-      - record: jairouter:up
-        expr: up{job="jairouter"}
+      - record: trunkline:up
+        expr: up{job="trunkline"}
       
-      - record: jairouter:request_rate_1m
-        expr: sum(rate(jairouter_requests_total[1m]))
+      - record: trunkline:request_rate_1m
+        expr: sum(rate(trunkline_requests_total[1m]))
   
   # 中频率聚合规则
-  - name: jairouter.recording.aggregate
+  - name: trunkline.recording.aggregate
     interval: 60s
     rules:
-      - record: jairouter:request_rate_5m
-        expr: sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:request_rate_5m
+        expr: sum(rate(trunkline_requests_total[5m]))
       
-      - record: jairouter:backend_health_ratio
-        expr: sum(jairouter_backend_health) / count(jairouter_backend_health)
+      - record: trunkline:backend_health_ratio
+        expr: sum(trunkline_backend_health) / count(trunkline_backend_health)
   
   # 低频率复杂规则
-  - name: jairouter.recording.complex
+  - name: trunkline.recording.complex
     interval: 300s
     rules:
-      - record: jairouter:sla_availability_24h
-        expr: avg_over_time(jairouter:up[24h])
+      - record: trunkline:sla_availability_24h
+        expr: avg_over_time(trunkline:up[24h])
 ```
 
 ## Grafana 优化
@@ -324,10 +324,10 @@ groups:
 #### 1. 使用 Recording Rules
 ```promql
 # 优化前：复杂查询
-sum(rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum(rate(jairouter_requests_total[5m])) * 100
+sum(rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum(rate(trunkline_requests_total[5m])) * 100
 
 # 优化后：使用预聚合
-jairouter:error_rate_5m * 100
+trunkline:error_rate_5m * 100
 ```
 
 #### 2. 查询缓存配置
@@ -347,7 +347,7 @@ max_cache_size_mb = 100
 {
   "targets": [
     {
-      "expr": "jairouter:request_rate_5m",
+      "expr": "trunkline:request_rate_5m",
       "interval": "30s",
       "maxDataPoints": 100,
       "refId": "A"
@@ -388,7 +388,7 @@ max_cache_size_mb = 100
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     params:
       format: ['prometheus']
     honor_labels: true
@@ -456,13 +456,13 @@ public class CachedMetricsCollector {
 ```yaml
 # 添加监控系统自身的指标
 - record: monitoring:collection_duration_seconds
-  expr: histogram_quantile(0.95, rate(jairouter_metrics_collection_duration_seconds_bucket[5m]))
+  expr: histogram_quantile(0.95, rate(trunkline_metrics_collection_duration_seconds_bucket[5m]))
 
 - record: monitoring:memory_usage_bytes
-  expr: jvm_memory_used_bytes{area="heap", application="jairouter"}
+  expr: jvm_memory_used_bytes{area="heap", application="trunkline"}
 
 - record: monitoring:cpu_usage_percent
-  expr: rate(process_cpu_seconds_total{application="jairouter"}[5m]) * 100
+  expr: rate(process_cpu_seconds_total{application="trunkline"}[5m]) * 100
 ```
 
 #### 2. 性能告警
@@ -626,7 +626,7 @@ def analyze_performance(baseline_file, monitoring_file):
 #### 2. 性能趋势监控
 ```promql
 # 监控性能趋势
-increase(jairouter_request_duration_seconds_sum[24h]) / increase(jairouter_request_duration_seconds_count[24h])
+increase(trunkline_request_duration_seconds_sum[24h]) / increase(trunkline_request_duration_seconds_count[24h])
 ```
 
 ## 最佳实践总结

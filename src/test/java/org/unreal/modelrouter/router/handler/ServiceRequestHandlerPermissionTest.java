@@ -183,14 +183,14 @@ class ServiceRequestHandlerPermissionTest {
     class JwtPermissionTests {
 
         /**
-         * 控制台页面请求只带 {@code Jairouter_Token}（JWT），不带 API Key。此前实现用
+         * 控制台页面请求只带 {@code Trunkline_Token}（JWT），不带 API Key。此前实现用
          * {@code instanceof ApiKeyAuthentication} 过滤认证对象，JWT 被直接丢弃，导致 5 个
          * Playground 在登录态下全部不可用。
          */
         @Test
         @DisplayName("ADMIN 角色的 JWT 应该可以访问所有服务")
         void adminJwtShouldAccessAllServices() {
-            JwtAuthentication auth = jwtAuth(List.of("ADMIN"), List.of());
+            JwtAuthentication auth = jwtAuth(List.of("ADMIN"));
 
             for (ServiceType serviceType : ServiceType.values()) {
                 assertTrue(invokeHasServicePermission(auth, serviceType),
@@ -199,24 +199,18 @@ class ServiceRequestHandlerPermissionTest {
         }
 
         @Test
-        @DisplayName("持有 ai:playground:use 的 JWT 应该可以访问所有服务")
-        void playgroundPermissionJwtShouldAccessAllServices() {
-            JwtAuthentication auth = jwtAuth(List.of("USER"), List.of("ai:playground:use"));
+        @DisplayName("非 ADMIN 角色（USER/OPERATOR）的 JWT 也放行——测试场属「我的」分组，全角色可用")
+        void nonAdminJwtShouldAccessAllServices() {
+            // 固定权限矩阵（2026-11）：控制台登录态一律放行（/v1/** 入口已要求 authenticated），
+            // 旧实现要求的 ai:playground:use 权限码 authority 已随 RBAC 移除而停发。
+            JwtAuthentication userAuth = jwtAuth(List.of("USER"));
+            JwtAuthentication opsAuth = jwtAuth(List.of("OPERATOR"));
 
             for (ServiceType serviceType : ServiceType.values()) {
-                assertTrue(invokeHasServicePermission(auth, serviceType),
-                    "JWT with ai:playground:use should access " + serviceType + " service");
-            }
-        }
-
-        @Test
-        @DisplayName("无 ADMIN 且无 ai:playground:use 的 JWT 应该被拒绝")
-        void jwtWithoutPlaygroundPermissionShouldBeRejected() {
-            JwtAuthentication auth = jwtAuth(List.of("USER"), List.of("overview:dashboard:read"));
-
-            for (ServiceType serviceType : ServiceType.values()) {
-                assertFalse(invokeHasServicePermission(auth, serviceType),
-                    "JWT without ADMIN/ai:playground:use should be rejected for " + serviceType);
+                assertTrue(invokeHasServicePermission(userAuth, serviceType),
+                    "USER JWT should access " + serviceType + " service");
+                assertTrue(invokeHasServicePermission(opsAuth, serviceType),
+                    "OPERATOR JWT should access " + serviceType + " service");
             }
         }
 
@@ -224,14 +218,14 @@ class ServiceRequestHandlerPermissionTest {
         @DisplayName("JWT 不按 ROLE_<服务类型> 判定（控制台准入与 API Key 服务角色是两套语义）")
         void jwtIsNotJudgedByServiceRole() {
             // 角色 CHAT 会映射为 ROLE_CHAT authority，但控制台登录态不以服务角色为判据
-            JwtAuthentication auth = jwtAuth(List.of("CHAT"), List.of());
+            JwtAuthentication auth = jwtAuth(List.of("CHAT"));
 
-            assertFalse(invokeHasServicePermission(auth, ServiceType.chat),
-                "JWT 缺少 ADMIN/ai:playground:use 时应拒绝，即使带有与语义同名的服务角色");
+            assertTrue(invokeHasServicePermission(auth, ServiceType.chat),
+                "控制台登录态一律放行（测试场属「我的」分组），与是否带服务角色无关");
         }
 
-        private JwtAuthentication jwtAuth(final List<String> roles, final List<String> permissions) {
-            JwtAuthentication auth = new JwtAuthentication("admin", "jwt-token", roles, permissions);
+        private JwtAuthentication jwtAuth(final List<String> roles) {
+            JwtAuthentication auth = new JwtAuthentication("admin", "jwt-token", roles);
             auth.setAuthenticated(true);
             return auth;
         }
@@ -255,7 +249,7 @@ class ServiceRequestHandlerPermissionTest {
         @DisplayName("JwtAuthentication 取 jwt:<用户名>（与 API Key 键空间隔离）")
         void jwtCallerIsNamespaced() {
             JwtAuthentication auth = new JwtAuthentication(
-                "admin", "jwt-token", List.of("ADMIN"), List.of());
+                "admin", "jwt-token", List.of("ADMIN"));
 
             assertEquals("jwt:admin", invokeResolveCallerId(auth));
         }

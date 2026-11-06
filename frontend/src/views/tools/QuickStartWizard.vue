@@ -220,6 +220,12 @@ async function discover() {
   }
 }
 
+/** 跳过明细提示（最多列 3 条，其余计数） */
+function warnSkipped(items: Array<{ modelId: string; reason: string }>) {
+  const preview = items.slice(0, 3).map(s => `${s.modelId}：${s.reason}`).join('；')
+  ElMessage.warning(t('quickStart.importSkipped', { count: items.length, detail: preview }))
+}
+
 /**
  * 导入勾选的模型（按生效分类分组逐类调用后端）。
  * @returns 是否导入成功（至少有一个模型落地）
@@ -228,6 +234,7 @@ async function importSelected(): Promise<boolean> {
   if (providerId.value == null || selectedModels.value.length === 0) return false
   importing.value = true
   let created = 0
+  const skippedItems: Array<{ modelId: string; reason: string }> = []
   try {
     const groups = new Map<string, string[]>()
     for (const m of selectedModels.value) {
@@ -242,7 +249,10 @@ async function importSelected(): Promise<boolean> {
           serviceType: st,
           items: items.map(m => ({ modelId: m }))
         })
-        if (resp.data?.success) created += resp.data.data?.created ?? 0
+        if (resp.data?.success) {
+          created += resp.data.data?.created ?? 0
+          for (const s of resp.data.data?.skipped ?? []) skippedItems.push(s)
+        }
         else ElMessage.error(`${getServiceTypeLabel(st)}: ${resp.data?.message || ''}`)
       } catch (e: any) {
         ElMessage.error(`${getServiceTypeLabel(st)}: ${e?.message || ''}`)
@@ -258,9 +268,16 @@ async function importSelected(): Promise<boolean> {
           ? t('quickStart.importSuccess', { count: created })
           : t('quickStart.partialImport', { count: created })
       )
+      if (skippedItems.length > 0) {
+        warnSkipped(skippedItems)
+      }
       return true
     }
-    ElMessage.error(t('quickStart.importFailed', { msg: '' }))
+    if (skippedItems.length > 0) {
+      warnSkipped(skippedItems)
+    } else {
+      ElMessage.error(t('quickStart.importFailed', { msg: '' }))
+    }
     return false
   } finally {
     importing.value = false
@@ -751,7 +768,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
         <div class="qs-done-actions">
           <el-button @click="router.push('/keys')">{{ t('quickStart.gotoKeys') }}</el-button>
           <el-button @click="router.push('/model-pools')">{{ t('quickStart.gotoGroups') }}</el-button>
-          <el-button @click="router.push('/models')">{{ t('quickStart.gotoModels') }}</el-button>
+          <el-button @click="router.push('/providers?tab=models')">{{ t('quickStart.gotoModels') }}</el-button>
           <el-button type="primary" @click="router.push('/playground')">{{ t('quickStart.testInPlayground') }}</el-button>
           <el-button text @click="restart">{{ t('quickStart.restart') }}</el-button>
         </div>
@@ -784,7 +801,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
 }
 .qs-title-icon {
   font-size: 32px;
-  color: var(--ja-primary, #409eff);
+  color: var(--ja-primary, #176C6B);
 }
 .qs-title h1 {
   margin: 0;
@@ -835,18 +852,18 @@ async function copyToClipboard(text: string): Promise<boolean> {
   background: var(--el-bg-color);
 }
 .qs-provider:hover {
-  border-color: var(--ja-primary, #409eff);
+  border-color: var(--ja-primary, #176C6B);
   box-shadow: 0 2px 10px rgba(64, 158, 255, 0.12);
 }
 .qs-provider.active {
-  border-color: var(--ja-primary, #409eff);
+  border-color: var(--ja-primary, #176C6B);
   background: var(--el-color-primary-light-9, #ecf5ff);
 }
 .qs-check {
   position: absolute;
   top: 10px;
   right: 10px;
-  color: var(--ja-primary, #409eff);
+  color: var(--ja-primary, #176C6B);
   font-size: 18px;
 }
 .qs-provider-name {
@@ -1013,7 +1030,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
 }
 .qs-key-value {
   display: block;
-  font-family: var(--el-font-family-monospace, 'Consolas', monospace);
+  font-family: var(--ja-font-mono);
   font-size: 13px;
   word-break: break-all;
   background: var(--el-bg-color);
@@ -1038,14 +1055,15 @@ async function copyToClipboard(text: string): Promise<boolean> {
   font-size: 14px;
 }
 .qs-code {
+  /* 接入代码块刻意恒为深底（VSCode 风格，亮暗主题一致） */
   background: var(--el-fill-color-dark, #1e1e1e);
-  color: #d4d4d4;
+  color: #d4d4d4; /* verify-disable: 深底代码块刻意用色 */
   padding: 16px;
   border-radius: 8px;
   overflow-x: auto;
   font-size: 13px;
   line-height: 1.6;
-  font-family: var(--el-font-family-monospace, 'Consolas', monospace);
+  font-family: var(--ja-font-mono);
   margin: 0;
   white-space: pre;
 }

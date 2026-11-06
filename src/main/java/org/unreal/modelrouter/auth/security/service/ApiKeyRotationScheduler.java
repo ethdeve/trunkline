@@ -23,7 +23,7 @@ import java.time.Duration;
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(
-        name = "jairouter.security.api-key.rotation.enabled",
+        name = "trunkline.security.api-key.rotation.enabled",
         havingValue = "true", matchIfMissing = false)
 public class ApiKeyRotationScheduler {
 

@@ -7,6 +7,8 @@ export interface JwtAccount {
   username: string
   password?: string
   roles: string[]
+  /** 所属部门（团队用量按部门统计的维度来源；历史数据可能为空） */
+  department?: string
   enabled: boolean
   createdAt?: string
   updatedAt?: string
@@ -18,6 +20,8 @@ export interface CreateJwtAccountRequest {
   username: string
   password: string
   roles: string[]
+  /** 所属部门（如「研发部」） */
+  department?: string
   enabled: boolean
 }
 
@@ -71,5 +75,16 @@ export const toggleJwtAccountStatus = async (username: string, enabled: boolean)
   } catch (error) {
     console.error('切换账户状态失败:', error)
     throw error
+  }
+}
+
+// 部门清单（去重排序，供部门下拉使用）
+export const getJwtAccountDepartments = async (): Promise<string[]> => {
+  try {
+    const response = await request.get<RouterResponse<string[]>>('/security/jwt/accounts/departments')
+    return response.data.data || []
+  } catch (error) {
+    console.error('获取部门列表失败:', error)
+    return []
   }
 }

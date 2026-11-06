@@ -5,8 +5,8 @@
 # 注意: Distroless 没有 shell，无法使用健康检查命令
 # 建议使用 Kubernetes liveness/readiness probe
 #
-# 构建命令: docker build -f Dockerfile.distroless -t jairouter:distroless .
-# 运行命令: docker run -p 8080:8080 -e JWT_SECRET=your-secret jairouter:distroless
+# 构建命令: docker build -f Dockerfile.distroless -t trunkline:distroless .
+# 运行命令: docker run -p 8080:8080 -e JWT_SECRET=your-secret trunkline:distroless
 
 # =============================================================================
 # 阶段 1: 提取 Spring Boot 分层内容
@@ -30,7 +30,7 @@ FROM gcr.io/distroless/java17-debian12:latest
 LABEL maintainer="JAiRouter Team"
 LABEL description="JAiRouter - AI Model Service Routing Gateway (Distroless)"
 LABEL version="3.1.1"
-LABEL org.opencontainers.image.source="https://github.com/sodlinken/jairouter"
+LABEL org.opencontainers.image.source="https://github.com/sodlinken/trunkline"
 
 WORKDIR /app
 

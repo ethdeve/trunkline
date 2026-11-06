@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * @author JAiRouter Team
  * @since v2.7.12
+ * @modified Trunkline Team
  */
 @Component
 public final class MetricsBatchReporter {
@@ -222,7 +223,7 @@ public final class MetricsBatchReporter {
                 requestBody = objectMapper.writeValueAsString(Map.of(
                         "metrics", batch,
                         "timestamp", Instant.now().toString(),
-                        "source", "jairouter"
+                        "source", "trunkline"
                 ));
                 contentType = MediaType.APPLICATION_JSON;
             }
@@ -315,7 +316,7 @@ public final class MetricsBatchReporter {
                 content = objectMapper.writeValueAsString(Map.of(
                         "metrics", batch,
                         "timestamp", Instant.now().toString(),
-                        "source", "jairouter",
+                        "source", "trunkline",
                         "count", batch.size()
                 )) + "\n";
             } else {

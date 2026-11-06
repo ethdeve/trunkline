@@ -11,20 +11,20 @@ kind: Kustomization
 # 本 overlay 不修改镜像 tag——生产请用 kustomize edit set image 或在此显式覆盖，
 # 不要沿用 latest。
 
-namespace: jairouter
+namespace: trunkline
 
 resources:
   - ../../base
 
 replicas:
-  - name: jairouter
+  - name: trunkline
     count: 3
 
 patches:
   # 3 副本时保证至少 2 个在线（滚动升级/节点驱逐期间容量不塌陷）
   - target:
       kind: PodDisruptionBudget
-      name: jairouter
+      name: trunkline
     patch: |-
       - op: replace
         path: /spec/minAvailable
@@ -33,7 +33,7 @@ patches:
   # 也使 replicas 与 PDB 的取值在同一处可见。
   - target:
       kind: Deployment
-      name: jairouter
+      name: trunkline
     patch: |-
       - op: add
         path: /spec/template/spec/containers/0/env/-

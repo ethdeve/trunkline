@@ -4,12 +4,12 @@
 > **Document Version**: 2.0.0
 > **Last Updated**: 2026-06-15
 > **Git Commit**: 0f56b957
-> **Author**: JAiRouter Team
+> **Author**: Trunkline Team
 <!-- /版本信息 -->
 
 ## Overview
 
-JAiRouter is a reactive AI model service routing gateway built on Spring Boot 3.5.x and Spring WebFlux. It adopts a modular design, supporting multiple load balancing strategies, rate limiting algorithms, circuit breaker mechanisms, and dynamic configuration management.
+Trunkline is a reactive AI model service routing gateway built on Spring Boot 3.5.x and Spring WebFlux. It adopts a modular design, supporting multiple load balancing strategies, rate limiting algorithms, circuit breaker mechanisms, and dynamic configuration management.
 
 ## Overall Architecture
 
@@ -425,4 +425,4 @@ public class CustomRateLimiter implements RateLimiter {
 
 ---
 
-This architecture design ensures JAiRouter's scalability, maintainability, and high performance, providing a stable and reliable foundation platform for AI model service routing.
+This architecture design ensures Trunkline's scalability, maintainability, and high performance, providing a stable and reliable foundation platform for AI model service routing.

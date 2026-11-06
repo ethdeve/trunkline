@@ -1,5 +1,6 @@
 package org.unreal.modelrouter.config.core.manager;
 
+import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -21,13 +22,14 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * @author AI Assistant
  * @since v2.28.0
+ * @modified Trunkline Team
  */
 @Component
 public class VersionMetadataManager {
 
     private static final Logger logger = LoggerFactory.getLogger(VersionMetadataManager.class);
 
-    private static final String CURRENT_KEY = "model-router-config";
+    private static final String CURRENT_KEY = ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY;
 
     // 版本元数据映射表
     private final Map<String, ConfigMetadata> configMetadataMap = new HashMap<>();

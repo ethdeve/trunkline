@@ -9,7 +9,7 @@
 
 ## 概述
 
-JAiRouter 审计日志功能记录了系统中所有重要的安全相关操作和配置变更，为安全分析、问题排查和合规审计提供完整的数据支持。
+Trunkline 审计日志功能记录了系统中所有重要的安全相关操作和配置变更，为安全分析、问题排查和合规审计提供完整的数据支持。
 
 ## 功能特性
 
@@ -213,7 +213,7 @@ CREATE TABLE config_change_audit_log (
 定期清理过期的审计日志：
 
 ```yaml
-jairouter:
+trunkline:
   security:
     audit-log:
       cleanup:
@@ -227,7 +227,7 @@ jairouter:
 支持将历史日志归档到外部存储：
 
 ```yaml
-jairouter:
+trunkline:
   security:
     audit-log:
       archive:
@@ -259,17 +259,17 @@ curl -X POST "http://localhost:8080/api/security/audit-logs/export" \
 
 ### 监控指标
 
-- `jairouter_audit_logs_total`：审计日志总数
-- `jairouter_audit_logs_by_operation`：按操作类型统计
-- `jairouter_audit_logs_by_status`：按状态统计
-- `jairouter_audit_logs_failed`：失败的操作数
+- `trunkline_audit_logs_total`：审计日志总数
+- `trunkline_audit_logs_by_operation`：按操作类型统计
+- `trunkline_audit_logs_by_status`：按状态统计
+- `trunkline_audit_logs_failed`：失败的操作数
 
 ### 告警配置
 
-安全告警的配置面是 `jairouter.security.monitoring.alerts`（此前文档里写的 `jairouter.security.audit-log.alerts.*` 前缀在代码中不存在，已更正）：
+安全告警的配置面是 `trunkline.security.monitoring.alerts`（此前文档里写的 `trunkline.security.audit-log.alerts.*` 前缀在代码中不存在，已更正）：
 
 ```yaml
-jairouter:
+trunkline:
   security:
     monitoring:
       alerts:
@@ -287,7 +287,7 @@ jairouter:
           cooldown-minutes: 15
 ```
 
-出口为 Prometheus 指标 `jairouter.security.violations` 与 WARN 日志（`安全告警触发: type=..., severity=...`）。
+出口为 Prometheus 指标 `trunkline.security.violations` 与 WARN 日志（`安全告警触发: type=..., severity=...`）。
 
 ## 最佳实践
 
@@ -326,7 +326,7 @@ jairouter:
 - 日志表空间不足
 
 **解决方案**：
-1. 检查配置 `jairouter.security.audit-log.enabled`
+1. 检查配置 `trunkline.security.audit-log.enabled`
 2. 检查数据库空间和连接
 
 #### 2. 日志查询缓慢

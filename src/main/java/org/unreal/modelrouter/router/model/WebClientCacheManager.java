@@ -46,7 +46,7 @@ public class WebClientCacheManager {
                     ApplicationContextProvider.getBean(TracingWebClientFactory.class);
             return tracingFactory.createTracingWebClient(safeBaseUrl);
         } catch (Exception e) {
-            // 追踪不可用（如 jairouter.tracing.enabled=false）：仍走 WebClientPool —— 出站解析守卫
+            // 追踪不可用（如 trunkline.tracing.enabled=false）：仍走 WebClientPool —— 出站解析守卫
             // （#266）只挂在它创建的客户端上，自建 WebClient 会绕过校验结果的绑定
             WebClientPool webClientPool = ApplicationContextProvider.getBean(WebClientPool.class);
             return webClientPool.getOrCreate(safeBaseUrl);

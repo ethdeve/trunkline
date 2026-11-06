@@ -9,7 +9,7 @@ store:
   security-migration:
     enabled: false  # 默认关闭安全数据迁移，首次启动时手动启用
 
-jairouter:
+trunkline:
   security:
     jwt:
       # 令牌持久化配置

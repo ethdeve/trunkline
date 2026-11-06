@@ -9,7 +9,7 @@
 
 
 
-本文档提供 JAiRouter 的调试技巧、工具使用和问题定位方法。
+本文档提供 Trunkline 的调试技巧、工具使用和问题定位方法。
 
 ## 调试环境配置
 
@@ -46,7 +46,7 @@ Run/Debug Configurations:
 ```json
 {
   "type": "java",
-  "name": "Debug JAiRouter",
+  "name": "Debug Trunkline",
   "request": "launch",
   "mainClass": "org.unreal.modelrouter.ModelRouterApplication",
   "projectName": "model-router",
@@ -72,8 +72,8 @@ java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 \
 # docker-compose-debug.yml
 version: '3.8'
 services:
-  jairouter:
-    image: sodlinken/jairouter:latest
+  trunkline:
+    image: trunkline/trunkline:latest
     ports:
       - "8080:8080"
       - "5005:5005"  # 调试端口
@@ -101,7 +101,7 @@ logging:
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
     
   file:
-    name: logs/jairouter-debug.log
+    name: logs/trunkline-debug.log
     max-size: 100MB
     max-history: 30
 ```
@@ -161,16 +161,16 @@ public class LoadBalancerService {
 #### 实时日志监控
 ```bash
 # 实时查看日志
-tail -f logs/jairouter-debug.log
+tail -f logs/trunkline-debug.log
 
 # 过滤特定内容
-tail -f logs/jairouter-debug.log | grep -i "error\|exception"
+tail -f logs/trunkline-debug.log | grep -i "error\|exception"
 
 # 统计错误数量
-grep -c "ERROR" logs/jairouter-debug.log
+grep -c "ERROR" logs/trunkline-debug.log
 
 # 查看最近的错误
-grep "ERROR" logs/jairouter-debug.log | tail -10
+grep "ERROR" logs/trunkline-debug.log | tail -10
 ```
 
 #### 日志分析脚本
@@ -178,10 +178,10 @@ grep "ERROR" logs/jairouter-debug.log | tail -10
 #!/bin/bash
 # log-analyzer.sh
 
-LOG_FILE="logs/jairouter-debug.log"
+LOG_FILE="logs/trunkline-debug.log"
 REPORT_FILE="log-analysis-report.txt"
 
-echo "=== JAiRouter 日志分析报告 ===" > $REPORT_FILE
+echo "=== Trunkline 日志分析报告 ===" > $REPORT_FILE
 echo "分析时间: $(date)" >> $REPORT_FILE
 echo "" >> $REPORT_FILE
 
@@ -278,10 +278,10 @@ sudo firewall-cmd --list-all
 #### 网络抓包分析
 ```bash
 # 使用 tcpdump 抓包
-sudo tcpdump -i any -w jairouter.pcap port 8080
+sudo tcpdump -i any -w trunkline.pcap port 8080
 
 # 使用 wireshark 分析
-wireshark jairouter.pcap
+wireshark trunkline.pcap
 
 # 分析 HTTP 流量
 sudo tcpdump -i any -A -s 0 port 8080
@@ -606,11 +606,11 @@ public class CustomMetrics {
     private final Timer requestTimer;
     
     public CustomMetrics(MeterRegistry meterRegistry) {
-        this.requestCounter = Counter.builder("jairouter.requests.custom")
+        this.requestCounter = Counter.builder("trunkline.requests.custom")
             .description("自定义请求计数器")
             .register(meterRegistry);
             
-        this.requestTimer = Timer.builder("jairouter.request.duration.custom")
+        this.requestTimer = Timer.builder("trunkline.request.duration.custom")
             .description("自定义请求耗时")
             .register(meterRegistry);
     }
@@ -718,4 +718,4 @@ management:
 - **async-profiler**: CPU 性能分析
 - **Arthas**: 在线诊断工具
 
-通过掌握这些调试技巧和工具，可以快速定位和解决 JAiRouter 运行中遇到的各种问题。
+通过掌握这些调试技巧和工具，可以快速定位和解决 Trunkline 运行中遇到的各种问题。

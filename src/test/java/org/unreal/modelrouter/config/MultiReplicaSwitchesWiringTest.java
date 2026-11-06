@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 /**
  * 多副本必需开关打开后的类型消歧（issue #196）。
  *
- * <p>背景：开启 {@code jairouter.security.jwt.persistence.redis.enabled=true} 后，JWT 侧原先会
+ * <p>背景：开启 {@code trunkline.security.jwt.persistence.redis.enabled=true} 后，JWT 侧原先会
  * 自建一套 Redis（专用连接工厂 + 专用模板），与应用默认那套同类型并存，于是全仓十余处未限定的
  * {@code ReactiveRedisConnectionFactory} / {@code ReactiveRedisTemplate<String, String>} 注入点
  * 变成"候选不唯一"，按文档开启全套开关后应用直接启动失败。整改方向（用户裁决）：**取消 JWT 独立
@@ -33,7 +33,7 @@ class MultiReplicaSwitchesWiringTest {
 
     private final ApplicationContextRunner jwtRedisRunner = new ApplicationContextRunner()
             .withUserConfiguration(RedisJwtCacheConfiguration.class)
-            .withPropertyValues("jairouter.security.jwt.persistence.redis.enabled=true")
+            .withPropertyValues("trunkline.security.jwt.persistence.redis.enabled=true")
             .withBean("reactiveStringRedisTemplate", ReactiveRedisTemplate.class,
                     () -> Mockito.mock(ReactiveRedisTemplate.class));
 

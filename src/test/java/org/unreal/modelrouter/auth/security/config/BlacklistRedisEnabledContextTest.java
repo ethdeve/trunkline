@@ -38,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 开启 {@code jairouter.security.jwt.blacklist.redis.enabled} 时的上下文装配测试（issue #194）。
+ * 开启 {@code trunkline.security.jwt.blacklist.redis.enabled} 时的上下文装配测试（issue #194）。
  *
  * <p>背景：该开关打开时有两处定义争抢同一个 bean 名 {@code redisJwtBlacklistService} ——
  * {@code EnhancedJwtBlacklistService} 类上的 {@code @Service("redisJwtBlacklistService")}
@@ -63,7 +63,7 @@ class BlacklistRedisEnabledContextTest {
         try (ConfigurableApplicationContext context = new SpringApplication(IsolatedApp.class).run(
                 "--server.port=0",
                 "--spring.main.banner-mode=off",
-                "--jairouter.security.jwt.blacklist.redis.enabled=true")) {
+                "--trunkline.security.jwt.blacklist.redis.enabled=true")) {
 
             assertTrue(context.isActive(), "上下文应处于活动状态");
 

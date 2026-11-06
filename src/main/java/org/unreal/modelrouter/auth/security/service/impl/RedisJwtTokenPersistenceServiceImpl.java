@@ -27,7 +27,7 @@ import java.util.Objects;
 @Slf4j
 @Service("redisJwtTokenPersistenceService")
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "jairouter.security.jwt.persistence.redis.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.jwt.persistence.redis.enabled", havingValue = "true")
 public class RedisJwtTokenPersistenceServiceImpl implements JwtPersistenceService {
     
     private final ReactiveRedisTemplate<String, String> redisTemplate;

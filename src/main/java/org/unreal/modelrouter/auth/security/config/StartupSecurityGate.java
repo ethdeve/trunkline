@@ -6,7 +6,7 @@ import java.util.Locale;
  * 生产环境启动安全门闩（R4-P1）。
  *
  * <p>密钥/密码检查失败时在生产必须 fail-fast，禁止只打日志后带着默认密钥上线。
- * 逃生舱：{@code JAIRouter_SKIP_AUTH_WARNING=true}（需显式设置）。</p>
+ * 逃生舱：{@code TRUNKLINE_SKIP_AUTH_WARNING=true}（需显式设置）。</p>
  */
 public final class StartupSecurityGate {
 
@@ -17,7 +17,7 @@ public final class StartupSecurityGate {
     public static final String DEFAULT_JWT_SECRET = "ThisIsADefaultSecretKeyForDevOnly12345678";
 
     /** 显式跳过生产安全检查的环境变量 */
-    public static final String SKIP_ENV = "JAIRouter_SKIP_AUTH_WARNING";
+    public static final String SKIP_ENV = "TRUNKLINE_SKIP_AUTH_WARNING";
 
     private StartupSecurityGate() {
     }

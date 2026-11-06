@@ -15,6 +15,8 @@ import org.unreal.modelrouter.monitor.tracing.TracingContextHolder;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Supplier;
 
 /**
@@ -103,6 +105,18 @@ public class ControllerTracingInterceptor {
 
         Instant startTime = Instant.now();
 
+        // 入口线程捕获 traceId 快照：Controller 完成回调可能在其它线程上执行，
+        // 届时共享上下文的 currentSpan 存在可见性竞态，实时取值可能为空
+        final String capturedTraceId = tracingContext.getTraceId();
+
+        // 附加到链路记录的属性（前端链路详情的步骤副标题取自这里）
+        final Map<String, Object> spanAttrs = new HashMap<>();
+        spanAttrs.put("controller.method", methodName);
+        spanAttrs.put("service.type", serviceType.name());
+        spanAttrs.put("model.name", modelName);
+        spanAttrs.put("http.method", httpRequest.getMethod().name());
+        spanAttrs.put("http.path", httpRequest.getPath().value());
+
         // 创建Controller层Span
         String operationName = String.format("Controller.%s", methodName);
         Span controllerSpan = tracingContext.createChildSpan(
@@ -133,7 +147,8 @@ public class ControllerTracingInterceptor {
                 if (controllerSpan.isRecording()) {
                     controllerSpan.end();
                 }
-                tracingSpanHelper.recordChildSpan(controllerSpan, tracingContext, startTime, operationName);
+                tracingSpanHelper.recordChildSpan(controllerSpan, tracingContext, startTime, operationName,
+                    capturedTraceId, spanAttrs, signalType == reactor.core.publisher.SignalType.ON_ERROR);
             });
     }
 

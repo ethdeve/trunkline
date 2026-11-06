@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * 监控Redis连接状态、内存使用情况等存储相关指标
  */
 @Service
-@ConditionalOnProperty(name = "jairouter.security.monitoring.jwt-persistence.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.monitoring.jwt-persistence.enabled", havingValue = "true")
 public class StorageHealthMetricsService {
     
     private static final Logger log = LoggerFactory.getLogger(StorageHealthMetricsService.class);
@@ -62,7 +62,7 @@ public class StorageHealthMetricsService {
     /**
      * 定期检查存储系统健康状态
      */
-    @Scheduled(fixedRateString = "${jairouter.security.monitoring.jwt-persistence.health-checks.check-interval:60}000")
+    @Scheduled(fixedRateString = "${trunkline.security.monitoring.jwt-persistence.health-checks.check-interval:60}000")
     public void checkStorageHealth() {
         checkRedisHealth();
         checkMemoryHealth();

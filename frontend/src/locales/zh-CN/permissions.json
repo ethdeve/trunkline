@@ -14,9 +14,9 @@
     "pickRoleHint": "先在上方选择一个角色，即可查看并调整它拥有的权限",
     "showRawCodes": "显示原始权限码",
     "roleDescriptions": {
-      "ADMIN": "拥有全部功能权限，可管理所有配置与账号",
-      "OPERATOR": "可查看和管理模型接入、策略、观测等业务功能，不含系统账号与安全设置",
-      "USER": "日常使用：可查看模型、使用测试场，配置仅可查看不可修改",
+      "ADMIN": "全部功能：「我的」+「团队/策略」+「系统」分组，含账号管理、安全设置，以及未单独登记端点的兜底访问",
+      "OPERATOR": "日常运维：「我的」+「团队/策略」分组——技术总览、团队用量、模型接入与虚拟模型、全部密钥、调用观测、链路追踪、策略中心；不含「系统」分组（账号管理、安全设置）",
+      "USER": "普通员工：仅「我的」分组——我的额度、我的密钥、快速上手、测试场、我的账单；看不到团队/策略与系统功能",
       "VIEWER": "只读权限：仅可查看各页面数据，不能修改任何配置"
     },
     "groups": {
@@ -24,7 +24,7 @@
       "modelAccess": "模型接入",
       "apiKeys": "API Keys",
       "observe": "观测（观测中心 / 链路追踪）",
-      "strategy": "策略（策略中心）",
+      "strategy": "路由规则",
       "systemSettings": "系统设置",
       "overview": "概览",
       "config": "配置",
@@ -49,8 +49,8 @@
       "config:persistence:write": "管理数据持久化配置",
       "config:adapters:read": "查看模型适配器",
       "config:adapters:write": "管理模型适配器",
-      "config:rules:read": "查看路由规则",
-      "config:rules:write": "管理路由规则",
+      "config:rules:read": "查看分配规则",
+      "config:rules:write": "管理分配规则",
       "config:pools:read": "查看模型分组",
       "config:pools:write": "管理模型分组",
       "config:circuitbreaker:read": "查看熔断配置",

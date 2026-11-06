@@ -10,7 +10,7 @@ import org.springframework.data.redis.core.ReactiveRedisTemplate;
  * JWT 侧的 Redis 健康检查配置。
  *
  * <p><b>issue #196（按「取消 JWT 独立 Redis」裁决整改）</b>：本类原先还会自建一套 JWT 专用 Redis
- * —— {@code jwtRedisConnectionFactory}（按 {@code jairouter.security.jwt.persistence.redis.*} 的
+ * —— {@code jwtRedisConnectionFactory}（按 {@code trunkline.security.jwt.persistence.redis.*} 的
  * host/port/database 建 Lettuce 工厂）+ {@code jwtReactiveRedisTemplate}。它与 Spring Boot 自动
  * 装配的那套**并存**，于是同一类型出现两个候选：
  *
@@ -30,14 +30,14 @@ import org.springframework.data.redis.core.ReactiveRedisTemplate;
  */
 @Slf4j
 @Configuration
-@ConditionalOnProperty(name = "jairouter.security.jwt.persistence.redis.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.jwt.persistence.redis.enabled", havingValue = "true")
 public class RedisJwtCacheConfiguration {
 
     /**
      * Redis 健康检查 Bean（使用应用默认的 String 序列化模板，不再自建连接）
      */
     @Bean("redisJwtHealthChecker")
-    @ConditionalOnProperty(name = "jairouter.security.jwt.persistence.redis.enabled", havingValue = "true")
+    @ConditionalOnProperty(name = "trunkline.security.jwt.persistence.redis.enabled", havingValue = "true")
     public RedisJwtHealthChecker redisJwtHealthChecker(
             final ReactiveRedisTemplate<String, String> reactiveRedisTemplate) {
         return new RedisJwtHealthChecker(reactiveRedisTemplate);

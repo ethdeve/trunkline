@@ -42,9 +42,9 @@ public final class ConfigSourceTracker implements ApplicationListener<Applicatio
      */
     private static final String[] TRACKED_PROPERTIES = {
         "server.port",
-        "jairouter.security.jwt.secret",
-        "jairouter.security.jwt.expiration-minutes",
-        "jairouter.security.jwt.jwt-header",
+        "trunkline.security.jwt.secret",
+        "trunkline.security.jwt.expiration-minutes",
+        "trunkline.security.jwt.jwt-header",
         "model.load-balance.type",
         "model.rate-limit.enabled",
         "model.circuit-breaker.enabled",

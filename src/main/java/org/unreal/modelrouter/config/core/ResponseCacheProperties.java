@@ -13,9 +13,10 @@ import java.time.Duration;
  *
  * @author JAiRouter Team
  * @since 2.9.9
+ * @modified Trunkline Team
  */
 @Data
-@ConfigurationProperties(prefix = "jairouter.response-cache")
+@ConfigurationProperties(prefix = "trunkline.response-cache")
 public final class ResponseCacheProperties {
 
     /**

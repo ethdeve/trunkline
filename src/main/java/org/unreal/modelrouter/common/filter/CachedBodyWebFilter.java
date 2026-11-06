@@ -21,10 +21,12 @@ import reactor.core.publisher.Mono;
  *
  * 特别优化了multipart请求的处理，确保边界信息不被破坏。
  *
- * 优先级设置为最高（比 TracingWebFilter 更高），确保在所有其他过滤器之前执行。
+ * 优先级设置为最高，确保在所有其他过滤器之前执行（顺序唯一化见
+ * {@link FilterOrderContract}）。
  *
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Slf4j
 public class CachedBodyWebFilter implements WebFilter, Ordered {
@@ -32,11 +34,11 @@ public class CachedBodyWebFilter implements WebFilter, Ordered {
     private static final int MAX_CACHE_SIZE = 10 * 1024 * 1024; // 10MB
 
     /**
-     * 设置比 HIGHEST_PRECEDENCE 更高的优先级，确保在所有过滤器之前执行
+     * 链首优先级：必须先于所有其他过滤器（顺序契约见 {@link FilterOrderContract}）。
      */
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE;
+        return FilterOrderContract.CACHED_BODY;
     }
 
     @Override

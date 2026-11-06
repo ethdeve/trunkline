@@ -20,12 +20,12 @@
               <el-icon class="tier-icon" :class="tierHealth.redis?.healthy ? 'healthy' : 'unhealthy'">
                 <component :is="tierHealth.redis?.healthy ? 'SuccessFilled' : 'CircleCloseFilled'" />
               </el-icon>
-              <span class="tier-name">Redis</span>
+              <span class="tier-name">{{ t('statePersistence.tierNames.redis') }}</span>
               <el-tag v-if="currentTier === 'redis'" type="success" size="small">{{ t('statePersistence.active') }}</el-tag>
             </div>
             <div class="tier-status">
               <el-tag :type="tierHealth.redis?.healthy ? 'success' : 'danger'" size="small">
-                {{ tierHealth.redis?.healthy ? 'UP' : 'DOWN' }}
+                {{ tierHealth.redis?.healthy ? t('statePersistence.tierHealth.up') : t('statePersistence.tierHealth.down') }}
               </el-tag>
             </div>
             <div class="tier-info">
@@ -41,12 +41,12 @@
               <el-icon class="tier-icon" :class="tierHealth.h2?.healthy ? 'healthy' : 'unhealthy'">
                 <component :is="tierHealth.h2?.healthy ? 'SuccessFilled' : 'CircleCloseFilled'" />
               </el-icon>
-              <span class="tier-name">H2 Database</span>
+              <span class="tier-name">{{ t('statePersistence.tierNames.h2') }}</span>
               <el-tag v-if="currentTier === 'h2'" type="success" size="small">{{ t('statePersistence.active') }}</el-tag>
             </div>
             <div class="tier-status">
               <el-tag :type="tierHealth.h2?.healthy ? 'success' : 'danger'" size="small">
-                {{ tierHealth.h2?.healthy ? 'UP' : 'DOWN' }}
+                {{ tierHealth.h2?.healthy ? t('statePersistence.tierHealth.up') : t('statePersistence.tierHealth.down') }}
               </el-tag>
             </div>
             <div class="tier-info">
@@ -62,12 +62,12 @@
               <el-icon class="tier-icon" :class="tierHealth.file?.healthy ? 'healthy' : 'unhealthy'">
                 <component :is="tierHealth.file?.healthy ? 'SuccessFilled' : 'CircleCloseFilled'" />
               </el-icon>
-              <span class="tier-name">File Storage</span>
+              <span class="tier-name">{{ t('statePersistence.tierNames.file') }}</span>
               <el-tag v-if="currentTier === 'file'" type="success" size="small">{{ t('statePersistence.active') }}</el-tag>
             </div>
             <div class="tier-status">
               <el-tag :type="tierHealth.file?.healthy ? 'success' : 'danger'" size="small">
-                {{ tierHealth.file?.healthy ? 'UP' : 'DOWN' }}
+                {{ tierHealth.file?.healthy ? t('statePersistence.tierHealth.up') : t('statePersistence.tierHealth.down') }}
               </el-tag>
             </div>
             <div class="tier-info">
@@ -170,7 +170,7 @@
         </div>
       </template>
 
-      <el-table :data="stateDetails" stripe v-loading="loadingDetails" class="flex-table">
+      <el-table ref="stateDetailsTableRef" :data="stateDetails" :max-height="stateDetailsMaxHeight" stripe v-loading="loadingDetails" class="flex-table">
         <el-table-column prop="instanceId" :label="t('statePersistence.instanceId')" min-width="180">
           <template #default="{ row }">
             <span>{{ row.instanceId || row.serviceType || '-' }}</span>
@@ -186,7 +186,7 @@
         <el-table-column prop="state" :label="t('statePersistence.status')" min-width="100">
           <template #default="{ row }">
             <el-tag :type="getStateTagType(row.state)" size="small">
-              {{ row.state || '-' }}
+              {{ getStateValueDisplayName(row.state) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -195,7 +195,7 @@
             <span>{{ formatTime(row.lastModified) }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('statePersistence.actions')" min-width="150">
+        <el-table-column :label="t('statePersistence.actions')" min-width="150" fixed="right">
           <template #default="{ row }">
             <el-button v-if="canWrite" size="small" type="primary" @click="recoverSingle(row)">
               {{ t('statePersistence.recover') }}
@@ -212,14 +212,14 @@
     <el-dialog
       v-model="switchTierDialogVisible"
       :title="t('statePersistence.switchDialogTitle')"
-      width="400px"
+      width="min(480px, 92vw)"
     >
       <el-form label-width="100px">
         <el-form-item :label="t('statePersistence.targetTier')">
           <el-select v-model="targetTier" :placeholder="t('statePersistence.selectTier')">
-            <el-option label="Redis (Tier 1)" value="redis" :disabled="!tierHealth.redis?.healthy" />
-            <el-option label="H2 Database (Tier 2)" value="h2" :disabled="!tierHealth.h2?.healthy" />
-            <el-option label="File Storage (Tier 3)" value="file" :disabled="!tierHealth.file?.healthy" />
+            <el-option :label="t('statePersistence.tierNames.redis')" value="redis" :disabled="!tierHealth.redis?.healthy" />
+            <el-option :label="t('statePersistence.tierNames.h2')" value="h2" :disabled="!tierHealth.h2?.healthy" />
+            <el-option :label="t('statePersistence.tierNames.file')" value="file" :disabled="!tierHealth.file?.healthy" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -233,12 +233,12 @@
     <el-dialog
       v-model="stateDetailDialogVisible"
       :title="t('statePersistence.detailDialogTitle')"
-      width="600px"
+      width="min(640px, 92vw)"
     >
       <el-descriptions :column="2" border>
         <el-descriptions-item :label="t('statePersistence.instanceId')">{{ currentDetail?.instanceId || currentDetail?.serviceType }}</el-descriptions-item>
         <el-descriptions-item :label="t('statePersistence.stateType')">{{ getStateTypeDisplayName(currentDetail?.stateType) }}</el-descriptions-item>
-        <el-descriptions-item :label="t('statePersistence.currentState')">{{ currentDetail?.state }}</el-descriptions-item>
+        <el-descriptions-item :label="t('statePersistence.currentState')">{{ getStateValueDisplayName(currentDetail?.state) }}</el-descriptions-item>
         <el-descriptions-item :label="t('statePersistence.lastModified')">{{ formatTime(currentDetail?.lastModified) }}</el-descriptions-item>
         <el-descriptions-item :label="t('statePersistence.tier')">{{ getTierDisplayName(currentDetail?.tier) }}</el-descriptions-item>
         <el-descriptions-item :label="t('statePersistence.dataSize')">{{ currentDetail?.dataSize || '-' }}</el-descriptions-item>
@@ -254,6 +254,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
+import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { ElMessage } from 'element-plus'
 import { Refresh, RefreshRight, Switch, Upload, View, SuccessFilled, CircleCloseFilled } from '@element-plus/icons-vue'
 import request from '@/utils/request'
@@ -313,6 +314,9 @@ const stats = ref({
 })
 const stateDetails = ref<StateDetail[]>([])
 
+const stateDetailsTableRef = ref()
+const { maxHeight: stateDetailsMaxHeight } = useTableMaxHeight(stateDetailsTableRef)
+
 const loadingDetails = ref(false)
 const recovering = ref(false)
 const syncing = ref(false)
@@ -334,9 +338,9 @@ const currentTierPriority = computed(() => {
 
 const getTierDisplayName = (tier?: string) => {
   switch (tier) {
-    case 'redis': return 'Redis'
-    case 'h2': return 'H2 Database'
-    case 'file': return 'File Storage'
+    case 'redis': return t('statePersistence.tierNames.redis')
+    case 'h2': return t('statePersistence.tierNames.h2')
+    case 'file': return t('statePersistence.tierNames.file')
     default: return '-'
   }
 }
@@ -356,6 +360,18 @@ const getStateTypeTag = (type?: string) => {
     case 'LOAD_BALANCER': return 'success'
     case 'RATE_LIMITER': return 'warning'
     default: return 'info'
+  }
+}
+
+/** 状态枚举白话化：熔断三态（CLOSED/OPEN/HALF_OPEN）与分流在用状态（active/inactive） */
+const getStateValueDisplayName = (state?: string) => {
+  switch (state) {
+    case 'CLOSED': return t('statePersistence.stateValues.closed')
+    case 'OPEN': return t('statePersistence.stateValues.open')
+    case 'HALF_OPEN': return t('statePersistence.stateValues.halfOpen')
+    case 'active': return t('statePersistence.stateValues.active')
+    case 'inactive': return t('statePersistence.stateValues.inactive')
+    default: return state || '-'
   }
 }
 

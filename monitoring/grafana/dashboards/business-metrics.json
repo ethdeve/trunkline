@@ -90,7 +90,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (service) (rate(jairouter_requests_total[5m]))",
+          "expr": "sum by (service) (rate(trunkline_requests_total[5m]))",
           "interval": "",
           "legendFormat": "{{service}}",
           "refId": "A"
@@ -152,7 +152,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate(jairouter_backend_calls_total{status=\"success\"}[5m])) / sum(rate(jairouter_backend_calls_total[5m])) * 100",
+          "expr": "sum(rate(trunkline_backend_calls_total{status=\"success\"}[5m])) / sum(rate(trunkline_backend_calls_total[5m])) * 100",
           "interval": "",
           "legendFormat": "成功率",
           "refId": "A"
@@ -205,7 +205,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (strategy) (jairouter_loadbalancer_selections_total)",
+          "expr": "sum by (strategy) (trunkline_loadbalancer_selections_total)",
           "interval": "",
           "legendFormat": "{{strategy}}",
           "refId": "A"
@@ -286,13 +286,13 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, rate(jairouter_backend_call_duration_seconds_bucket[5m]))",
+          "expr": "histogram_quantile(0.95, rate(trunkline_backend_call_duration_seconds_bucket[5m]))",
           "interval": "",
           "legendFormat": "{{adapter}} P95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.50, rate(jairouter_backend_call_duration_seconds_bucket[5m]))",
+          "expr": "histogram_quantile(0.50, rate(trunkline_backend_call_duration_seconds_bucket[5m]))",
           "interval": "",
           "legendFormat": "{{adapter}} P50",
           "refId": "B"
@@ -373,13 +373,13 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, rate(jairouter_request_size_bytes_bucket[5m]))",
+          "expr": "histogram_quantile(0.95, rate(trunkline_request_size_bytes_bucket[5m]))",
           "interval": "",
           "legendFormat": "请求大小 P95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, rate(jairouter_response_size_bytes_bucket[5m]))",
+          "expr": "histogram_quantile(0.95, rate(trunkline_response_size_bytes_bucket[5m]))",
           "interval": "",
           "legendFormat": "响应大小 P95",
           "refId": "B"
@@ -460,7 +460,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (adapter) (rate(jairouter_backend_calls_total[5m]))",
+          "expr": "sum by (adapter) (rate(trunkline_backend_calls_total[5m]))",
           "interval": "",
           "legendFormat": "{{adapter}}",
           "refId": "A"
@@ -473,7 +473,7 @@
   "schemaVersion": 27,
   "style": "dark",
   "tags": [
-    "jairouter",
+    "trunkline",
     "business"
   ],
   "templating": {
@@ -485,7 +485,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "JAiRouter - 业务指标",
-  "uid": "jairouter-business-metrics",
+  "title": "Trunkline - 业务指标",
+  "uid": "trunkline-business-metrics",
   "version": 1
 }

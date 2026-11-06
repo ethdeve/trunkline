@@ -21,6 +21,8 @@ public final class JwtAccountDTO {
     private Long id;
     private String username;
     private List<String> roles;
+    /** 所属部门（团队用量按部门统计的维度来源；历史数据可能为 null） */
+    private String department;
     private Boolean enabled;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -38,12 +38,13 @@ import java.util.Map;
  * 
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
 @EnableConfigurationProperties(TracingConfiguration.class)
-@ConditionalOnProperty(name = "jairouter.tracing.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.tracing.enabled", havingValue = "true", matchIfMissing = true)
 public class OpenTelemetryAutoConfiguration {
     
     private final TracingConfiguration tracingConfig;
@@ -81,7 +82,7 @@ public class OpenTelemetryAutoConfiguration {
      */
     @Bean
     public Tracer tracer(final OpenTelemetry openTelemetry) {
-        return openTelemetry.getTracer("jairouter");
+        return openTelemetry.getTracer("trunkline");
     }
     
     /**

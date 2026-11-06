@@ -1,29 +1,30 @@
 ﻿# API 参考
 
 <!-- 版本信息 -->
-> **文档版本**: 1.0.3  
-> **最后更新**: 2026-09-15  
+> **文档版本**: 1.0.4  
+> **最后更新**: 2026-10-28  
 > **Git 提交**: 61384b4a  
 > **作者**: Lincoln
 <!-- /版本信息 -->
 
 
 
-JAiRouter 为各种 AI 服务提供 OpenAI 兼容的 API，以及用于配置和监控的管理 API。
+Trunkline 为各种 AI 服务提供 OpenAI 兼容的 API，以及用于配置和监控的管理 API。
 
 ## API 分类
 
 ### 1. 统一 API (`/v1/*`)
 
-AI 服务的 OpenAI 兼容端点：
+AI 服务的 OpenAI / Anthropic 兼容端点：
 
-- **[统一 API](universal-api.md)** - 聊天、嵌入、TTS、STT、图像生成
-- 与 OpenAI SDK 和工具兼容
+- **[统一 API](universal-api.md)** - 聊天、嵌入、重排、模型列表；另有 Anthropic 原生 `/v1/messages`、`/v1/messages/count_tokens`
+- 与 OpenAI SDK 和工具兼容（Anthropic SDK 指向 `/v1/messages`）
 - 一致的请求/响应格式
+- `model` 字段必须是**模型分组名**（不是实例名），详见统一 API 文档的「密钥与分组调用语义」章节
 
 ### 2. 管理 API (`/api/*`)
 
-JAiRouter 特定的管理端点：
+Trunkline 特定的管理端点：
 
 - **[管理 API](management-api.md)** - 动态配置管理
 - **[监控 API](monitoring-api.md)** - 健康检查和指标
@@ -38,7 +39,7 @@ JAiRouter 特定的管理端点：
 
 ## 基础 URL
 
-所有 API 都从您的 JAiRouter 实例提供服务：
+所有 API 都从您的 Trunkline 实例提供服务：
 
 ```
 http://localhost:8080
@@ -46,7 +47,7 @@ http://localhost:8080
 
 ## 认证
 
-**认证默认是开启的**：`jairouter.security.enabled` 默认 `true`（`config/auth/jwt.yml`），因此 `/v1/**` 需要凭据、`/api/**` 走权限校验，只有豁免清单允许匿名访问（`/actuator/health`、`/actuator/info`、`/actuator/prometheus`、登录接口、Swagger 文档、`/admin/**` 与 `/favicon.ico` 静态资源 —— 见 `SecurityConfiguration.java` 与 `AnonymousEndpointPaths.java`）。
+**认证默认是开启的**：`trunkline.security.enabled` 默认 `true`（`config/auth/jwt.yml`），因此 `/v1/**` 需要凭据、`/api/**` 走权限校验，只有豁免清单允许匿名访问（`/actuator/health`、`/actuator/info`、`/actuator/prometheus`、登录接口、Swagger 文档、`/admin/**` 与 `/favicon.ico` 静态资源 —— 见 `SecurityConfiguration.java` 与 `AnonymousEndpointPaths.java`）。
 
 网关自身的凭据有两种：
 
@@ -55,7 +56,7 @@ http://localhost:8080
 
 `Authorization` 头**不参与网关认证**，它被透传给下游 AI 服务（实例级 `headers` 优先）。
 
-确实要关闭认证时，请显式设置 `jairouter.security.enabled: false`（不建议用于生产），不要依赖「默认不需要认证」。
+确实要关闭认证时，请显式设置 `trunkline.security.enabled: false`（不建议用于生产），不要依赖「默认不需要认证」。
 
 ## 限流
 
@@ -131,8 +132,8 @@ http://localhost:8080
 
 ### 请求内容类型
 
-- `application/json` - JSON 请求（绝大多数 API，含图像生成与图像编辑）
-- `multipart/form-data` - 只有 `/api/v1/audio/transcriptions`（STT）声明了该消费类型
+- `application/json` - JSON 请求（绝大多数 API，含图像生成）
+- `multipart/form-data` - `/api/v1/audio/transcriptions`（STT）与 `/api/v1/images/edits`（图像编辑）声明了该消费类型
 
 ### 响应内容类型
 
@@ -150,7 +151,7 @@ POST /v1/chat/completions
 Content-Type: application/json
 
 {
-  "model": "qwen2.5:7b",
+  "model": "chat-groups",
   "messages": [
     {
       "role": "user",
@@ -171,7 +172,7 @@ Content-Type: application/json
   "id": "chatcmpl-123",
   "object": "chat.completion",
   "created": 1677652288,
-  "model": "qwen2.5:7b",
+  "model": "chat-groups",
   "choices": [
     {
       "index": 0,
@@ -192,7 +193,7 @@ Content-Type: application/json
 
 ## 流式响应
 
-JAiRouter 支持聊天对话的流式响应：
+Trunkline 支持聊天对话的流式响应：
 
 **请求：**
 ```http
@@ -200,7 +201,7 @@ POST /v1/chat/completions
 Content-Type: application/json
 
 {
-  "model": "qwen2.5:7b",
+  "model": "chat-groups",
   "messages": [{"role": "user", "content": "你好！"}],
   "stream": true
 }
@@ -222,7 +223,7 @@ data: [DONE]
 
 ## SDK 兼容性
 
-JAiRouter 与 OpenAI SDK 兼容。只需更改基础 URL：
+Trunkline 与 OpenAI SDK 兼容。只需更改基础 URL：
 
 ### Python (openai)
 ```python
@@ -248,8 +249,55 @@ const openai = new OpenAI({
 ```bash
 curl -X POST http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model": "qwen2.5:7b", "messages": [{"role": "user", "content": "你好！"}]}'
+  -d '{"model": "chat-groups", "messages": [{"role": "user", "content": "你好！"}]}'
 ```
+
+## API 版本与入口面
+
+Trunkline 的「版本」体现在**路径前缀**上，而不是独立的版本号段：
+
+- `/v1/**` —— OpenAI / Anthropic 原生推理面（`OpenAiNativeController` / `AnthropicMessagesController`），供 SDK 直连；
+- `/api/v1/**` —— 控制台推理面（`UniversalController`），`RouterResponse` 包裹；
+- `/api/**` —— 管理与监控面（控制台 JWT/API Key 鉴权）。
+
+产品语义版本见 `pom.xml` 的 `project.version`（当前 **3.3.1**）；路径前缀 `/v1` 保持稳定，后续演进以增量、向后兼容为主。
+
+## 分页
+
+部分列表接口支持 `?page=&size=` 分页参数（代码依据：`JwtTokenController#tokens`、`SecurityBlacklistController#list`、`ExtendedSecurityAuditController`、`CircuitBreakerConfigController` 历史记录、`TracingQueryController#search`）：
+
+```http
+GET /api/auth/jwt/tokens?page=0&size=20
+```
+
+**响应示例（Spring Data Page 形状）：**
+```json
+{
+  "content": [...],
+  "page": {
+    "number": 0,
+    "size": 20,
+    "totalElements": 25,
+    "totalPages": 2
+  }
+}
+```
+
+> 注意：各接口的页码基址不一致——多数接口默认 `page=0`（0 基），追踪查询接口默认 `page=1`（1 基），调用前以对应接口说明为准。并非所有列表接口都分页。
+
+## CORS 支持
+
+Trunkline 允许浏览器跨域调用：全局 CORS 在 `SecurityConfiguration:97` 被显式关闭（`.cors(cors -> cors.disable())`），改由**控制器类级** `@CrossOrigin(origins = "*")` 注解生效（代码中 15+ 个控制器声明了该注解）。
+
+实际响应头形如：
+
+```http
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Authorization
+```
+
+> 注：未标注 `@CrossOrigin` 的控制器不返回 CORS 头；浏览器直连前端只访问经注解放行的端点。
 
 ## 健康检查
 

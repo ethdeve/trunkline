@@ -20,7 +20,7 @@ import java.util.List;
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "jairouter.security.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.enabled", havingValue = "true")
 public class PasswordSecurityChecker {
 
     private final SecurityProperties securityProperties;
@@ -29,7 +29,7 @@ public class PasswordSecurityChecker {
 
     private static final String NOOP_PREFIX = "{noop}";
     private static final String BCrypt_PREFIX = "{bcrypt}";
-    private static final String SKIP_WARNING_ENV = "JAROUTER_SKIP_PASSWORD_WARNING";
+    private static final String SKIP_WARNING_ENV = "TRUNKLINE_SKIP_PASSWORD_WARNING";
 
     @Autowired
     public PasswordSecurityChecker(final SecurityProperties securityProperties,
@@ -110,7 +110,7 @@ public class PasswordSecurityChecker {
         log.warn("║  2. 使用 BCrypt 加密密码：{bcrypt}$2a$10$...                    ║");
         log.warn("║  3. 运行密码加密工具生成安全的密码哈希                           ║");
         log.warn("║                                                                  ║");
-        log.warn("║  跳过警告：export JAROUTER_SKIP_PASSWORD_WARNING=true            ║");
+        log.warn("║  跳过警告：export TRUNKLINE_SKIP_PASSWORD_WARNING=true            ║");
         log.warn("╚══════════════════════════════════════════════════════════════════╝");
     }
 
@@ -122,7 +122,7 @@ public class PasswordSecurityChecker {
         log.error("║              ⚠️  生产环境密码安全警告 ⚠️                         ║");
         log.error("║  生产环境禁止使用明文密码！                                     ║");
         log.error("║  请立即升级为 BCrypt 加密密码                                   ║");
-        log.error("║  或设置环境变量 JAROUTER_SKIP_PASSWORD_WARNING=true 跳过检查    ║");
+        log.error("║  或设置环境变量 TRUNKLINE_SKIP_PASSWORD_WARNING=true 跳过检查    ║");
         log.error("╚══════════════════════════════════════════════════════════════════╝");
     }
 

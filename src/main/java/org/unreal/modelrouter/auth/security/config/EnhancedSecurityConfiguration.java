@@ -13,7 +13,7 @@ import org.unreal.modelrouter.auth.security.service.EnhancedJwtBlacklistService;
  */
 @Slf4j
 @Configuration
-@ConditionalOnProperty(name = "jairouter.security.jwt.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.jwt.enabled", havingValue = "true")
 public class EnhancedSecurityConfiguration {
     
     /**
@@ -21,7 +21,7 @@ public class EnhancedSecurityConfiguration {
      */
     @Bean
     @ConditionalOnProperty(
-            name = "jairouter.security.jwt.blacklist-enabled",
+            name = "trunkline.security.jwt.blacklist-enabled",
             havingValue = "true", matchIfMissing = true)
     public EnhancedJwtBlacklistService enhancedJwtBlacklistService(final ReactiveStringRedisTemplate redisTemplate) {
         log.info("配置增强的JWT黑名单服务");

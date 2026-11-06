@@ -132,21 +132,21 @@ public class DashboardMetricsController {
         Map<String, Object> security = new HashMap<>();
 
         // 认证统计
-        security.put("authSuccesses", getCounterValue("jairouter.security.authentication.successes.total"));
-        security.put("authFailures", getCounterValue("jairouter.security.authentication.failures.total"));
-        security.put("authAttempts", getCounterValue("jairouter.security.authentication.attempts.total"));
-        security.put("activeUsers", getGaugeValue("jairouter.security.active.users"));
-        security.put("activeApiKeys", getGaugeValue("jairouter.security.apikeys.active"));
+        security.put("authSuccesses", getCounterValue("trunkline.security.authentication.successes.total"));
+        security.put("authFailures", getCounterValue("trunkline.security.authentication.failures.total"));
+        security.put("authAttempts", getCounterValue("trunkline.security.authentication.attempts.total"));
+        security.put("activeUsers", getGaugeValue("trunkline.security.active.users"));
+        security.put("activeApiKeys", getGaugeValue("trunkline.security.apikeys.active"));
 
         // JWT 统计
-        security.put("jwtValidations", getCounterValue("jairouter.security.jwt.validations.total"));
-        security.put("jwtRefreshes", getCounterValue("jairouter.security.jwt.refreshes.total"));
-        security.put("jwtExpired", getCounterValue("jairouter.security.jwt.expired.total"));
+        security.put("jwtValidations", getCounterValue("trunkline.security.jwt.validations.total"));
+        security.put("jwtRefreshes", getCounterValue("trunkline.security.jwt.refreshes.total"));
+        security.put("jwtExpired", getCounterValue("trunkline.security.jwt.expired.total"));
 
         // 安全缓存
-        security.put("cacheHits", getCounterValue("jairouter.security.cache.hits.total"));
-        security.put("cacheMisses", getCounterValue("jairouter.security.cache.misses.total"));
-        security.put("cacheSize", getGaugeValue("jairouter.security.cache.size"));
+        security.put("cacheHits", getCounterValue("trunkline.security.cache.hits.total"));
+        security.put("cacheMisses", getCounterValue("trunkline.security.cache.misses.total"));
+        security.put("cacheSize", getGaugeValue("trunkline.security.cache.size"));
 
         return security;
     }
@@ -154,11 +154,11 @@ public class DashboardMetricsController {
     private Map<String, Object> getAuditMetrics() {
         Map<String, Object> audit = new HashMap<>();
 
-        audit.put("totalEvents", getCounterValue("jairouter.audit.events.total"));
-        audit.put("successEvents", getCounterValue("jairouter.audit.events.success.total"));
-        audit.put("failureEvents", getCounterValue("jairouter.audit.events.failure.total"));
-        audit.put("bufferSize", getGaugeValue("jairouter.audit.buffer.size"));
-        audit.put("healthScore", getGaugeValue("jairouter.audit.health.score"));
+        audit.put("totalEvents", getCounterValue("trunkline.audit.events.total"));
+        audit.put("successEvents", getCounterValue("trunkline.audit.events.success.total"));
+        audit.put("failureEvents", getCounterValue("trunkline.audit.events.failure.total"));
+        audit.put("bufferSize", getGaugeValue("trunkline.audit.buffer.size"));
+        audit.put("healthScore", getGaugeValue("trunkline.audit.health.score"));
 
         return audit;
     }
@@ -190,22 +190,22 @@ public class DashboardMetricsController {
         Map<String, Object> monitoring = new HashMap<>();
 
         // 监控系统缓存（注意：这是监控系统自身的缓存）
-        monitoring.put("cacheHits", getCounterValue("jairouter.metrics.cache.hits.total"));
-        monitoring.put("cacheMisses", getCounterValue("jairouter.metrics.cache.misses.total"));
-        monitoring.put("cacheSize", getGaugeValue("jairouter.metrics.cache.size"));
+        monitoring.put("cacheHits", getCounterValue("trunkline.metrics.cache.hits.total"));
+        monitoring.put("cacheMisses", getCounterValue("trunkline.metrics.cache.misses.total"));
+        monitoring.put("cacheSize", getGaugeValue("trunkline.metrics.cache.size"));
 
         // 重试统计
-        monitoring.put("retryAttempts", getCounterValue("jairouter.metrics.retry.attempts.total"));
-        monitoring.put("retrySuccesses", getCounterValue("jairouter.metrics.retry.successes.total"));
-        monitoring.put("retryFailures", getCounterValue("jairouter.metrics.retry.failures.total"));
-        monitoring.put("retryActive", getGaugeValue("jairouter.metrics.retry.active"));
+        monitoring.put("retryAttempts", getCounterValue("trunkline.metrics.retry.attempts.total"));
+        monitoring.put("retrySuccesses", getCounterValue("trunkline.metrics.retry.successes.total"));
+        monitoring.put("retryFailures", getCounterValue("trunkline.metrics.retry.failures.total"));
+        monitoring.put("retryActive", getGaugeValue("trunkline.metrics.retry.active"));
 
         // 降级统计
-        monitoring.put("degradationLevel", getGaugeValue("jairouter.metrics.degradation.level"));
-        monitoring.put("degradations", getCounterValue("jairouter.metrics.degradations.total"));
+        monitoring.put("degradationLevel", getGaugeValue("trunkline.metrics.degradation.level"));
+        monitoring.put("degradations", getCounterValue("trunkline.metrics.degradations.total"));
 
         // 错误统计
-        monitoring.put("errorsTotal", getCounterValue("jairouter.metrics.errors.total"));
+        monitoring.put("errorsTotal", getCounterValue("trunkline.metrics.errors.total"));
 
         return monitoring;
     }

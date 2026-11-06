@@ -2,7 +2,10 @@ package org.unreal.modelrouter.auth.security.util;
 
 import lombok.extern.slf4j.Slf4j;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -148,4 +151,38 @@ public final class ApiKeyHashUtil {
         }
         return storedHash.split(":")[0];
     }
+
+    /**
+     * 计算 API Key 的<b>确定性</b>查找哈希：HMAC-SHA256(serverPepper, keyValue)，十六进制小写。
+     *
+     * <p>与 {@link #hashApiKey(String)}（随机盐、每次结果不同、不可反查）不同，本方法<b>确定性</b>——
+     * 同一 {@code (pepper, keyValue)} 始终得到同一结果，因此可作为 O(1) 查找索引
+     * （C6 整改：消除校验路径 O(n) 全表扫描）。</p>
+     *
+     * @param pepper   服务端保密密钥（pepper），不可为空
+     * @param keyValue 原始 API Key 值
+     * @return 十六进制小写 HMAC 摘要；pepper 或 keyValue 为空时返回 {@code null}
+     */
+    public static String computeLookupHash(final String pepper, final String keyValue) {
+        if (pepper == null || pepper.isEmpty() || keyValue == null || keyValue.isEmpty()) {
+            return null;
+        }
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(pepper.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] raw = mac.doFinal(keyValue.getBytes(StandardCharsets.UTF_8));
+            char[] hexChars = new char[raw.length * 2];
+            for (int i = 0; i < raw.length; i++) {
+                int v = raw[i] & 0xFF;
+                hexChars[i * 2] = HEX[v >>> 4];
+                hexChars[i * 2 + 1] = HEX[v & 0x0F];
+            }
+            return new String(hexChars);
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            log.error("HMAC-SHA256 算法/密钥不可用", e);
+            throw new RuntimeException("HMAC-SHA256 不可用", e);
+        }
+    }
+
+    private static final char[] HEX = "0123456789abcdef".toCharArray();
 }

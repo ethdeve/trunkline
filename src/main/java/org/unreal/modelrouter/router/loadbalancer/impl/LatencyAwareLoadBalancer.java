@@ -2,7 +2,6 @@ package org.unreal.modelrouter.router.loadbalancer.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.unreal.modelrouter.monitor.monitoring.collector.MetricsCollector;
 import org.unreal.modelrouter.router.loadbalancer.LoadBalancer;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
@@ -43,8 +42,8 @@ public class LatencyAwareLoadBalancer implements LoadBalancer {
     /** 实例Key → 当前EWMA延迟值（Double） */
     private final ConcurrentHashMap<String, AtomicReference<Double>> ewmaMap = new ConcurrentHashMap<>();
 
-    @Autowired(required = false)
-    private MetricsCollector metricsCollector;
+    // R2: 由 ComponentFactory 在创建时注入(原 @Autowired 字段在 new 出的实例上恒为 null)
+    private final MetricsCollector metricsCollector;
 
     /**
      * 使用默认 alpha (0.2) 构造
@@ -59,7 +58,18 @@ public class LatencyAwareLoadBalancer implements LoadBalancer {
      * @param alpha EWMA平滑因子 (0.0, 1.0]，值越大对新样本越敏感
      */
     public LatencyAwareLoadBalancer(final double alpha) {
+        this(alpha, null);
+    }
+
+    /**
+     * 使用指定 alpha 与指标采集器构造(R2: 由工厂注入 MetricsCollector)
+     *
+     * @param alpha EWMA平滑因子 (0.0, 1.0]，值越大对新样本越敏感
+     * @param metricsCollector 指标采集器(可为 null)
+     */
+    public LatencyAwareLoadBalancer(final double alpha, final MetricsCollector metricsCollector) {
         this.alpha = (alpha > 0.0 && alpha <= 1.0) ? alpha : DEFAULT_ALPHA;
+        this.metricsCollector = metricsCollector;
     }
 
     @Override

@@ -35,6 +35,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -71,9 +72,6 @@ class AccountManagerTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
-
-    @Mock
-    private RolePermissionService rolePermissionService;
 
     @Mock
     private JwtAccountRepository jwtAccountRepository;
@@ -119,8 +117,8 @@ class AccountManagerTest {
         }
 
         @Test
-        @DisplayName("YAML 未命中 + DB 账户存在且密码正确 → 登录成功，JWT 含 DB 角色对应 permissions")
-        void yamlMissDbAccountLoginSucceedsWithPermissions() {
+        @DisplayName("YAML 未命中 + DB 账户存在且密码正确 → 登录成功，JWT 含 DB 角色（无 permissions claim）")
+        void yamlMissDbAccountLoginSucceedsWithRoles() {
             // Given
             when(jwtConfig.getAccounts()).thenReturn(List.of(
                     yamlAccount("yamluser", "{noop}pw", true, List.of("ADMIN"))));
@@ -128,8 +126,6 @@ class AccountManagerTest {
                     dbAccount("dbuser", "{bcrypt}encoded", "[\"OPERATOR\",\"user\"]", true);
             when(jwtAccountRepository.findByUsername("dbuser")).thenReturn(Optional.of(entity));
             when(passwordEncoder.matches("dbpw", "{bcrypt}encoded")).thenReturn(true);
-            when(rolePermissionService.getPermissionCodesForRoles(any()))
-                    .thenReturn(List.of("CALL_HISTORY_READ"));
 
             // When
             assertTrue(accountManager.validateCredentials("dbuser", "dbpw"));
@@ -141,8 +137,8 @@ class AccountManagerTest {
                     .assertNext(token -> {
                         Claims claims = parseClaims(token);
                         assertEquals(List.of("OPERATOR", "USER"), claims.get("roles", List.class));
-                        assertEquals(List.of("CALL_HISTORY_READ"),
-                                claims.get("permissions", List.class));
+                        // 固定权限矩阵：JWT 不再签发 permissions claim
+                        assertNull(claims.get("permissions"));
                     })
                     .verifyComplete();
         }

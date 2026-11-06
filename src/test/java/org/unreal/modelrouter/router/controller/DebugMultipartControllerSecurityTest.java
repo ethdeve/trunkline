@@ -51,7 +51,7 @@ class DebugMultipartControllerSecurityTest {
         MockServerHttpRequest request = MockServerHttpRequest.post("/v1/debug/multipart-info")
                 .header("Authorization", "Bearer super-secret-jwt-value-abcdef")
                 .header("X-API-Key", "sk-live-should-not-appear-here-xxxx")
-                .header("Jairouter_Token", "jwt-token-should-not-appear-here")
+                .header("Trunkline_Token", "jwt-token-should-not-appear-here")
                 .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                 .build();
         MockServerWebExchange exchange = MockServerWebExchange.from(request);

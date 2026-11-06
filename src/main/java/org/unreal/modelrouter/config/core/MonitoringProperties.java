@@ -13,7 +13,7 @@ import java.util.Set;
 public final class MonitoringProperties {
 
     private boolean enabled = true;
-    private String prefix = "jairouter";
+    private String prefix = "trunkline";
     private Duration collectionInterval = Duration.ofSeconds(10);
     private Set<String> enabledCategories = new HashSet<String>() {{
         add("system");

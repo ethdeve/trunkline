@@ -6,7 +6,7 @@
 #
 # 单副本部署不受影响：只有确认处于多副本环境（见 replicas / K8s 环境变量）时才会判定。
 
-jairouter:
+trunkline:
   cluster:
     # 副本数。
     #   0 = 未知，回退到运行环境探测（存在 KUBERNETES_SERVICE_HOST 或 POD_NAME 即判为多副本）

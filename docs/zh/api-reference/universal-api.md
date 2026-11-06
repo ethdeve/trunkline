@@ -1,9 +1,9 @@
 # 统一 API 接口
 
 <!-- 版本信息 -->
-> **文档版本**: 2.1.0
-> **最后更新**: 2026-09-13
-> **主要变更**: v3.1 双入口面（/v1 OpenAI 原生面 + /api/v1 控制台面）+ 鉴权约定
+> **文档版本**: 2.2.0
+> **最后更新**: 2026-10-28
+> **主要变更**: 以 Controller 为真相源核验——补录 `/v1/models`、`/v1/messages`、`/v1/messages/count_tokens`；修正 `/api/v1/images/edits` 为 multipart/form-data；新增「密钥与分组调用语义」章节
 > **作者**: Lincoln
 <!-- /版本信息 -->
 
@@ -40,13 +40,14 @@
 
 
 
-JAiRouter 提供兼容 OpenAI 格式的统一 API 接口，支持多种 AI 模型服务。OpenAI 兼容面在 `/v1` 下；TTS / STT / 图像接口**只在控制台面** `/api/v1/**` 暴露（见下表）。
+Trunkline 提供兼容 OpenAI 格式的统一 API 接口，支持多种 AI 模型服务。OpenAI 兼容面在 `/v1` 下（另含 Anthropic 原生 `/v1/messages`）；TTS / STT / 图像接口**只在控制台面** `/api/v1/**` 暴露（见下表）。
 
 ## 两个入口面（v3.1 起）
 
 | 入口面 | 路径 | 响应形态 | 用途 |
 |---|---|---|---|
 | **OpenAI 原生面** | `/v1/**` | 非流式：**原生 JSON**（`{id, object:"chat.completion", choices, usage}`）；流式：**原生 SSE**（`data: {...}`，以 `\n\n` 分隔） | OpenAI SDK / LangChain / LlamaIndex 直连：`base_url=http://<host>:8080/v1` |
+| **Anthropic 原生面** | `/v1/messages`、`/v1/messages/count_tokens` | Anthropic Messages 原生形状（`{"type":"error","error":{"type","message"}}`） | Anthropic SDK 直连 |
 | **控制台面** | `/api/v1/**` | 统一 `RouterResponse` 包裹（`{success, message, data}`） | Web 控制台 / AI 试验场内部调用；**不对外承诺 OpenAI 兼容** |
 
 **鉴权约定**
@@ -57,6 +58,30 @@ JAiRouter 提供兼容 OpenAI 格式的统一 API 接口，支持多种 AI 模�
 - 未携带凭据返回 `401`，权限不足返回 `403`，配额超限返回 `429`（带 `Retry-After` 与 `X-Quota-*`）。
 
 > **v3.1 变更**：此前 `/v1/**` 由一个路径改写过滤器转发到 `/api/v1/**`，且转发后请求体丢失（恒返回 `400 Failed to read HTTP message`）。现已由 `OpenAiNativeController` 直接提供原生响应，`/v1` 才真正可作为 OpenAI SDK 的 `base_url`。
+
+## 模型列表接口
+
+### `GET /v1/models`
+
+返回当前密钥/会话**可调用的模型分组（虚拟模型名）**，OpenAI 形状：
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "chat-groups",
+      "object": "model",
+      "created": 1677652288,
+      "owned_by": "trunkline"
+    }
+  ]
+}
+```
+
+> 代码依据：`OpenAiNativeController#listModels` → `ModelCatalogService.listCallableModelsAsOpenAiList()`。v3.5 单线治理下，实例名（物理模型名）已不可对外直调（路由层关闭实例直调、密钥白名单只认分组），因此本接口只列分组。
+>
+> 控制台侧另有 `GET /api/models`（`ModelInfoController`），返回 `RouterResponse` 包裹的全量清单（分组 + 实例），供控制台内部使用，**不是** OpenAI 形状。
 
 ## 聊天完成接口
 
@@ -313,11 +338,53 @@ data: [DONE]
 }
 ```
 
+## Anthropic Messages 接口
+
+### `POST /v1/messages`
+
+以 Anthropic Messages 原生形状提供聊天完成服务（代码依据：`AnthropicMessagesController`，路由到 chat 服务池）。
+
+#### 请求参数
+
+```json
+{
+  "model": "chat-groups",
+  "max_tokens": 1024,
+  "system": "你是一个有用的助手。",
+  "messages": [
+    {"role": "user", "content": "你好！"}
+  ],
+  "stream": false,
+  "temperature": 0.7
+}
+```
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `model` | string | 是 | 模型分组名（同 OpenAI 面，必须是分组而非实例名） |
+| `messages` | array | 是 | Anthropic 消息列表（`role` / `content`） |
+| `max_tokens` | integer | 是 | 生成的最大令牌数 |
+| `system` | string | 否 | 系统提示 |
+| `stream` | boolean | 否 | 是否流式（SSE），默认 false |
+| `temperature` | number | 否 | 采样温度 |
+
+#### 响应格式
+
+非流式为 Anthropic 形状（`id` / `type:"message"` / `role` / `content` / `model` / `stop_reason` / `usage`）；`stream:true` 时返回 Anthropic 事件流 SSE。
+
+> **错误体差异**：`/v1/messages*` 的错误响应是 Anthropic 形状 `{"type":"error","error":{"type","message"}}`——**没有 `code` 字段**；而其他 `/v1/**` 错误是 OpenAI 形状 `{"error":{"message","type","code"}}`（代码依据：`V1ErrorBodyMapper#toBody`）。
+
+### `POST /v1/messages/count_tokens`
+
+统计 `messages` 的 token 数（代码依据：`AnthropicMessagesController#countTokens`），请求体与 `/v1/messages` 相同（无需 `max_tokens`），返回 Anthropic 计数形状（含 `input_tokens`）。该接口为**本地估算、不触达下游模型**。
+
+> 鉴权与其他 `/v1/**` 一致：`X-API-Key` 或 `Jairouter_Token`。
+
 ## 文本转语音接口
 
 ### `POST /api/v1/audio/speech`
 
-> **仅控制台面**：`/v1` 面只注册了 `GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/embeddings`、`POST /v1/rerank`，本端点没有 `/v1/...` 映射。
+> **仅控制台面**：`/v1` 面注册了 `GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/embeddings`、`POST /v1/rerank`、`POST /v1/messages`、`POST /v1/messages/count_tokens`，本端点没有 `/v1/...` 映射。
 
 将文本转换为语音音频文件。
 
@@ -351,7 +418,7 @@ data: [DONE]
 
 ### `POST /api/v1/audio/transcriptions`
 
-> **仅控制台面**：`/v1` 面只注册了 `GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/embeddings`、`POST /v1/rerank`，本端点没有 `/v1/...` 映射。
+> **仅控制台面**：`/v1` 面注册了 `GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/embeddings`、`POST /v1/rerank`、`POST /v1/messages`、`POST /v1/messages/count_tokens`，本端点没有 `/v1/...` 映射。
 
 将音频文件转换为文本。
 
@@ -390,7 +457,7 @@ temperature: 0
 
 ### `POST /api/v1/images/generations`
 
-> **仅控制台面**：`/v1` 面只注册了 `GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/embeddings`、`POST /v1/rerank`，本端点没有 `/v1/...` 映射。
+> **仅控制台面**：`/v1` 面注册了 `GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/embeddings`、`POST /v1/rerank`、`POST /v1/messages`、`POST /v1/messages/count_tokens`，本端点没有 `/v1/...` 映射。
 
 根据文本描述生成图像。
 
@@ -440,27 +507,35 @@ temperature: 0
 
 ### `POST /api/v1/images/edits`
 
-> **仅控制台面**：`/v1` 面只注册了 `GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/embeddings`、`POST /v1/rerank`，本端点没有 `/v1/...` 映射。
+> **仅控制台面**：`/v1` 面注册了 `GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/embeddings`、`POST /v1/rerank`、`POST /v1/messages`、`POST /v1/messages/count_tokens`，本端点没有 `/v1/...` 映射。
 
 编辑现有图像。
 
 #### 请求参数
 
-**JSON** 请求体（`@RequestBody ImageEditDTO.Request`），**不是** `multipart/form-data`：
+**`multipart/form-data`** 请求（代码依据：`UniversalController#editImages` 现声明 `consumes = MediaType.MULTIPART_FORM_DATA_VALUE`，与 STT 一致；旧的 `@RequestBody ImageEditDTO.Request` JSON 写法会得到 `415 Unsupported Media Type`）：
 
-```json
-{
-  "image": ["<图像引用>"],
-  "prompt": "编辑描述",
-  "model": "dall-e-2",
-  "n": 1,
-  "size": "1024x1024",
-  "response_format": "url",
-  "user": "user-123"
-}
+```
+image: (图片文件，可多份)
+prompt: 编辑描述
+model: dall-e-2
+n: 1
+size: 1024x1024
+response_format: url
+user: user-123
 ```
 
-> 对照：`/api/v1/audio/transcriptions` **是** `multipart/form-data`，且那里的部件名是 `responseFormat`（驼峰）。
+| 字段 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `image` | file | 是 | 待编辑图片文件（可多份） |
+| `prompt` | string | 是 | 编辑描述 |
+| `model` | string | 是 | 图像编辑模型分组名 |
+| `n` | integer | 否 | 生成数量，默认 1 |
+| `size` | string | 否 | 图像尺寸，默认 1024x1024 |
+| `response_format` | string | 否 | 响应格式，url 或 b64_json |
+| `user` | string | 否 | 用户标识符 |
+
+> 对照：`/api/v1/audio/transcriptions` 同样是 `multipart/form-data`，其部件名 `responseFormat` 为驼峰。
 
 #### 响应格式
 
@@ -474,6 +549,56 @@ temperature: 0
   ]
 }
 ```
+
+## 密钥与分组调用语义（`model` 字段如何被路由）
+
+本章只讲**请求侧** `model` 字段如何解析到模型分组（模型池）并受密钥约束；密钥的创建/轮换/配额管理本身见安全板块。
+
+### 核心规则：`model` 必须是「模型分组名」
+
+v3.5 单线治理下，`model` 字段**只接受模型分组名（pool 名，即对外虚拟模型名）**；实例名（物理模型名）已不可对外直调。
+
+解析顺序（代码依据：`ModelServiceRegistry#selectInstance` → `PoolSelector#findPool`）：
+
+1. `model` 为空 → `400`（`IllegalArgumentException`）。
+2. **规则引擎先评估**（v2.8.5 起）：管理员侧配置的路由规则可能改写目标模型（`TARGET_MODEL`）、锁定实例（`TARGET_INSTANCE`）、覆盖负载均衡策略、触发限流（`RATE_LIMIT`）——这是控制台配置，**客户端不可控**。
+3. **标签过滤**：请求头 `X-Trunkline-Tags`（或规则 `TARGET_TAGS`）从候选实例中按标签过滤。
+4. **分组精确匹配**：在当前端点决定的服务类型（`chat` / `embedding` / `rerank` / `tts` / `stt` / `imgGen` / `imgEdit`）下，按字符串精确比较已启用分组名（`pool.getPoolName().equals(modelName)`）。命中 → 以该分组的成员为候选实例，并使用该分组配置的负载均衡策略。
+5. **系统分组 `auto-model`**：内置虚拟分组名，等于当前服务类型下的全部健康实例。
+6. **都不命中 → `404`**，message 形如：`Model 'X' is not a model group. Requests must target a model group (pool); direct model access is not allowed.`
+
+分组命中但候选实例为空（无健康成员）→ **`503`**（`PoolUnavailableException`），响应带 `Retry-After: 60` 与各成员不可用原因。
+
+### 不存在「pool/model」锁定语法
+
+代码中**没有**任何对 `model` 字段做 `/` 切分的逻辑——`model` 整体作为分组名做精确字符串匹配，不支持 `pool/model`、`group/instance` 之类的写法。要让请求落到指定实例，只能由管理员在规则引擎中配置 `TARGET_INSTANCE`，或开启调试后从响应头观察实际选中实例。
+
+### 密钥白名单对 `model` 解析的约束
+
+API Key 的 `allowedGroups` 字段（模型分组白名单，代码依据：`auth/security/config/properties/ApiKey.java`）：
+
+| `allowedGroups` | 行为 |
+|---|---|
+| `null` / 空 | **不限制**（兼容历史）：该密钥可调用其服务权限内的任意分组 |
+| 非空 | 请求的 `model` 必须 `allowedGroups.contains(modelName)`，否则 **`403`** |
+
+代码依据：`ServiceRequestHandler#hasModelPermission`（`allowedGroups == null || isEmpty() → true`；否则 `allowedGroups.contains(modelName)`）。
+
+要点：
+
+- 该白名单**只对 API Key 调用方生效**；控制台 JWT 调用方豁免模型白名单检查（`hasModelPermission` 内 `caller.isJwtCaller() → return true`）。
+- 服务级权限是另一道闸门：API Key 需持有对应服务角色（`CHAT` / `EMBEDDING` / `RERANK` / `TTS` / `STT` / `IMG_GEN` / `IMG_EDIT`，或 `ADMIN`），否则 `403`（`ServiceRequestHandler#hasServicePermission`）。
+- v3.5 起旧的实例级 `allowedModels` 白名单已移除，白名单**只认分组**。
+
+### 调试观测
+
+调试开关开启时，响应头会回显本次路由决策（代码依据：`ServiceRequestHandler` 写 `X-Trunkline-*` 头）：
+
+| 响应头 | 含义 |
+|---|---|
+| `X-Trunkline-Instance` | 实际选中的实例 |
+| `X-Trunkline-Pool` | 命中的分组名 |
+| `X-Trunkline-Strategy` | 本次使用的负载均衡策略 |
 
 ## 错误处理
 

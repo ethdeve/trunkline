@@ -11,7 +11,7 @@ logging:
     org.unreal.modelrouter: INFO
     org.springframework: WARN
   file:
-    name: logs/jairouter-staging.log
+    name: logs/trunkline-staging.log
 
 # 管理端点（预发布环境部分开放）
 management:
@@ -24,14 +24,14 @@ management:
       enabled: true
 
 # 安全配置（预发布环境）
-jairouter:
+trunkline:
   security:
     enabled: true
 
     jwt:
       enabled: true
       secret: "${JWT_SECRET:${STAGING_JWT_SECRET:}}"
-      issuer: "jairouter-staging"
+      issuer: "trunkline-staging"
 
       persistence:
         enabled: true

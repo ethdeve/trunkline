@@ -48,6 +48,20 @@ public class JwtAccountService {
     }
 
     /**
+     * 判断账户是否存在（用于「分配给谁」这类引用完整性校验）。
+     *
+     * <p>YAML 中配置的初始账户会被 {@code JpaDatabaseInitializer} 播种进库，
+     * 因此查库即可覆盖「配置账户 + 控制台新建账户」全部来源。</p>
+     *
+     * @param username 用户名
+     * @return 存在返回 true
+     */
+    public boolean accountExists(final String username) {
+        return username != null && !username.isBlank()
+                && jwtAccountRepository.existsByUsername(username.trim());
+    }
+
+    /**
      * 创建账户
      */
     @Transactional
@@ -61,6 +75,7 @@ public class JwtAccountService {
                     .username(request.getUsername())
                     .password(passwordEncoder.encode(request.getPassword()))
                     .roles(objectMapper.writeValueAsString(request.getRoles()))
+                    .department(normalizeDepartment(request.getDepartment()))
                     .enabled(request.getEnabled() != null ? request.getEnabled() : true)
                     .build();
 
@@ -89,6 +104,10 @@ public class JwtAccountService {
             } catch (JsonProcessingException e) {
                 throw new RuntimeException("Failed to serialize roles", e);
             }
+        }
+        // 部门：null = 不修改（保持原值）；空串 = 清空
+        if (request.getDepartment() != null) {
+            entity.setDepartment(normalizeDepartment(request.getDepartment()));
         }
 
         JwtAccountEntity saved = jwtAccountRepository.save(entity);
@@ -129,6 +148,32 @@ public class JwtAccountService {
         return convertToDTO(saved);
     }
 
+    /**
+     * 获取全部部门列表（去重、按名称排序）。
+     *
+     * <p>供账号页部门下拉与「团队用量」部门维度筛选使用，避免前端硬编码部门清单。</p>
+     */
+    public List<String> getDepartments() {
+        return jwtAccountRepository.findAll().stream()
+                .map(JwtAccountEntity::getDepartment)
+                .filter(d -> d != null && !d.isBlank())
+                .map(String::trim)
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    /**
+     * 归一化部门：去空白，空串归 null（表示「未分配部门」）。
+     */
+    private static String normalizeDepartment(final String department) {
+        if (department == null) {
+            return null;
+        }
+        final String trimmed = department.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     private JwtAccountDTO convertToDTO(final JwtAccountEntity entity) {
         List<String> roles = List.of();
         try {
@@ -143,6 +188,7 @@ public class JwtAccountService {
                 .id(entity.getId())
                 .username(entity.getUsername())
                 .roles(roles)
+                .department(entity.getDepartment())
                 .enabled(entity.getEnabled() != null ? entity.getEnabled() : true)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

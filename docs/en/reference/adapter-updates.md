@@ -6,7 +6,7 @@
 > **Author**: Lincoln
 <!-- /Version Information -->
 
-This document details updates to all adapters in JAiRouter to support the latest API features.
+This document details updates to all adapters in Trunkline to support the latest API features.
 
 ## Update Overview
 

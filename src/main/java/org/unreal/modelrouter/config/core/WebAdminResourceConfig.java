@@ -28,6 +28,15 @@ public class WebAdminResourceConfig implements WebFluxConfigurer {
                 .resourceChain(true)
                 .addResolver(new SpaPathResourceResolver());
 
+        // 内置帮助文档静态资源（markdown 内引用的图片等）：
+        // 前端渲染后把 md 内相对图片路径重写为 /docs-res/{lang}/{相对路径}，
+        // 此处直接映射 classpath:/docs/ 目录（zh/en 双语内容）。
+        registry.addResourceHandler("/docs-res/**")
+                .addResourceLocations("classpath:/docs/")
+                .setCacheControl(org.springframework.http.CacheControl.maxAge(
+                        java.time.Duration.ofHours(1)).cachePublic())
+                .resourceChain(true);
+
         log.info("Web 管理界面静态资源配置完成");
     }
 

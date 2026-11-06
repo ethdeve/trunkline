@@ -9,11 +9,11 @@
 
 
 
-This document describes how to test the JAiRouter monitoring system functionalities, including unit testing, integration testing, performance testing, and end-to-end testing.
+This document describes how to test the Trunkline monitoring system functionalities, including unit testing, integration testing, performance testing, and end-to-end testing.
 
 ## Test Overview
 
-JAiRouter monitoring system testing is divided into the following layers:
+Trunkline monitoring system testing is divided into the following layers:
 
 | Test Type      | Test Scope             | Test Objective     | Run Frequency     |
 |----------------|------------------------|--------------------|-------------------|
@@ -33,7 +33,7 @@ Create a test-specific configuration `application-test.yml`:
 monitoring:
   metrics:
     enabled: true
-    prefix: "test_jairouter"
+    prefix: "test_trunkline"
     collection-interval: 1s  # Speed up testing
     
     enabled-categories:
@@ -79,8 +79,8 @@ Create `docker-compose-test.yml`:
 version: '3.8'
 
 services:
-  jairouter-test:
-    image: sodlinken/jairouter:test
+  trunkline-test:
+    image: trunkline/trunkline:test
     ports:
       - "8080:8080"
     environment:
@@ -173,7 +173,7 @@ class MetricsCollectorTest {
         
         // Then
         ArgumentCaptor<Tags> tagsCaptor = ArgumentCaptor.forClass(Tags.class);
-        verify(meterRegistry).counter(eq("jairouter_requests_total"), tagsCaptor.capture());
+        verify(meterRegistry).counter(eq("trunkline_requests_total"), tagsCaptor.capture());
         
         Tags capturedTags = tagsCaptor.getValue();
         assertEquals(service, capturedTags.stream()
@@ -364,7 +364,7 @@ class PrometheusEndpointIntegrationTest {
     }
     
     @Test
-    void shouldIncludeJAiRouterMetrics() {
+    void shouldIncludeTrunklineMetrics() {
         // Given - Trigger some requests to generate metrics
         restTemplate.getForEntity("http://localhost:" + port + "/actuator/health", String.class);
         
@@ -376,8 +376,8 @@ class PrometheusEndpointIntegrationTest {
         
         // Then
         String body = response.getBody();
-        assertTrue(body.contains("jairouter_requests_total"));
-        assertTrue(body.contains("jairouter_request_duration_seconds"));
+        assertTrue(body.contains("trunkline_requests_total"));
+        assertTrue(body.contains("trunkline_request_duration_seconds"));
     }
     
     @Test
@@ -391,7 +391,7 @@ class PrometheusEndpointIntegrationTest {
         // Then
         String body = response.getBody();
         assertTrue(body.contains("environment=\"test\""));
-        assertTrue(body.contains("application=\"jairouter\""));
+        assertTrue(body.contains("application=\"trunkline\""));
     }
     
     @Test
@@ -451,7 +451,7 @@ class MonitoringDataFlowEndToEndTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         
         // Verify metrics recording
-        Counter requestCounter = meterRegistry.find("jairouter_requests_total")
+        Counter requestCounter = meterRegistry.find("trunkline_requests_total")
             .tag("method", "GET")
             .tag("status", "200")
             .counter();
@@ -465,7 +465,7 @@ class MonitoringDataFlowEndToEndTest {
             String.class
         );
         
-        assertTrue(metricsResponse.getBody().contains("jairouter_requests_total"));
+        assertTrue(metricsResponse.getBody().contains("trunkline_requests_total"));
     }
     
     @Test
@@ -493,7 +493,7 @@ class MonitoringDataFlowEndToEndTest {
         Thread.sleep(3000); // Wait for async processing
         
         // Then
-        Counter requestCounter = meterRegistry.find("jairouter_requests_total").counter();
+        Counter requestCounter = meterRegistry.find("trunkline_requests_total").counter();
         assertNotNull(requestCounter);
         assertTrue(requestCounter.count() >= concurrentRequests);
     }

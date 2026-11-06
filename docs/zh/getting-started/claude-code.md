@@ -10,8 +10,8 @@
 
 ## 概述
 
-JAiRouter 从 **v3.1** 起提供 **Anthropic Messages 协议入口**（`POST /v1/messages`），Claude Code 只需把
-`ANTHROPIC_BASE_URL` 指向 JAiRouter 即可**零改造直连**：请求经网关的 API Key 鉴权 → 配额 → 限流/熔断 →
+Trunkline 从 **v3.1** 起提供 **Anthropic Messages 协议入口**（`POST /v1/messages`），Claude Code 只需把
+`ANTHROPIC_BASE_URL` 指向 Trunkline 即可**零改造直连**：请求经网关的 API Key 鉴权 → 配额 → 限流/熔断 →
 负载均衡落到任意下游实例（OpenAI / DeepSeek / vLLM / Ollama / Claude …），响应再翻译回 Anthropic 形状。
 
 | 能力 | 端点 | 说明 |
@@ -26,7 +26,7 @@ JAiRouter 从 **v3.1** 起提供 **Anthropic Messages 协议入口**（`POST /v1
 
 ## 前置条件
 
-1. JAiRouter 已启动（默认 `http://localhost:8080`）。
+1. Trunkline 已启动（默认 `http://localhost:8080`）。
 2. 已在控制台创建 **API Key**（`/api/**` 与 `/v1/**` 都用它做网关鉴权）。
 3. 目标模型已注册为**实例或池**（chat 服务类型），例如 `deepseek-chat`、`qwen2:7b`。
 4. 下游 AI 服务的凭据已配置好（推荐放在实例 `headers` 里，见下文「认证分层」）。
@@ -37,10 +37,10 @@ JAiRouter 从 **v3.1** 起提供 **Anthropic Messages 协议入口**（`POST /v1
 # 1) 网关地址：ANTHROPIC_BASE_URL=http://<host>:8080（不要带 /v1 后缀；<host> 换成网关所在主机/IP）
 export ANTHROPIC_BASE_URL=http://localhost:8080
 
-# 2) 网关凭据（JAiRouter 控制台创建的 API Key）
-export ANTHROPIC_API_KEY=<JAiRouter API Key>
+# 2) 网关凭据（Trunkline 控制台创建的 API Key）
+export ANTHROPIC_API_KEY=<Trunkline API Key>
 
-# 3) 使用已在 JAiRouter 注册的模型名（必须与实例/池名称一致，无别名）
+# 3) 使用已在 Trunkline 注册的模型名（必须与实例/池名称一致，无别名）
 export ANTHROPIC_MODEL=deepseek-chat
 
 # 4) 启动 Claude Code
@@ -51,7 +51,7 @@ PowerShell：
 
 ```powershell
 $env:ANTHROPIC_BASE_URL = "http://localhost:8080"
-$env:ANTHROPIC_API_KEY  = "<JAiRouter API Key>"
+$env:ANTHROPIC_API_KEY  = "<Trunkline API Key>"
 $env:ANTHROPIC_MODEL    = "deepseek-chat"
 claude
 ```
@@ -59,7 +59,7 @@ claude
 Claude Code 会把 `ANTHROPIC_API_KEY` 放进 **`x-api-key`** 请求头。HTTP 头名本身大小写不敏感，
 所以 `x-api-key` 与 `X-API-Key` **等价**（网关侧均已实测可用）。
 
-> **重要**：`x-api-key` 在 JAiRouter 里是**网关凭据**，由安全层消费后**不会转发给下游**。
+> **重要**：`x-api-key` 在 Trunkline 里是**网关凭据**，由安全层消费后**不会转发给下游**。
 > 下游 AI 服务的密钥必须另行配置，见下一节。
 
 ## 认证分层（务必先读）
@@ -68,7 +68,7 @@ Claude Code 会把 `ANTHROPIC_API_KEY` 放进 **`x-api-key`** 请求头。HTTP �
 
 | 请求头 | 归属 | 是否转发下游 | 说明 |
 |--------|------|--------------|------|
-| `x-api-key`（`X-API-Key` 同义） | **网关凭据** | ❌ **不转发** | JAiRouter 控制台创建的 API Key，用于网关鉴权 + 服务权限（`ROLE_CHAT`） |
+| `x-api-key`（`X-API-Key` 同义） | **网关凭据** | ❌ **不转发** | Trunkline 控制台创建的 API Key，用于网关鉴权 + 服务权限（`ROLE_CHAT`） |
 | `Jairouter_Token` | **网关凭据（JWT）** | ❌ 不转发 | 控制台/登录接口签发的 JWT；与 `x-api-key` 同时存在时 **JWT 优先** |
 | `Authorization` | **下游凭据** | ✅ **透传** | 例如 `Bearer sk-xxx`（OpenAI/DeepSeek）、`Bearer <token>`；网关**从不消费**它 |
 | 实例 `headers` | **下游凭据** | ✅ 由网关注入 | 实例配置里的自定义请求头，用于给下游带 `Authorization` / `x-api-key` 等 |
@@ -80,7 +80,7 @@ Claude Code 会把 `ANTHROPIC_API_KEY` 放进 **`x-api-key`** 请求头。HTTP �
 3. **认证优先级**：`Jairouter_Token`（JWT） > `X-API-Key`（API Key）。`Authorization` 与网关认证**无关**，它只影响下游。
 
 > **原生面认证说明**：`/v1/**` 同时接受 `X-API-Key`（API Key）与 `Jairouter_Token`（JWT），
-> 两者同存时 **JWT 优先**。JWT 需已启用（`jairouter.security.jwt.enabled`）且 token 未过期、未被拉黑。
+> 两者同存时 **JWT 优先**。JWT 需已启用（`trunkline.security.jwt.enabled`）且 token 未过期、未被拉黑。
 > Claude Code 场景下使用 `ANTHROPIC_API_KEY`（即 `x-api-key`）最简单；如需使用 JWT，
 > 请确保上述前提满足。控制台面 `/api/**` 不受此限制。
 
@@ -98,7 +98,7 @@ Claude Code 会把 `ANTHROPIC_API_KEY` 放进 **`x-api-key`** 请求头。HTTP �
 # 以 DeepSeek 为例：下游密钥配置在实例 headers 上（网关注入，客户端不持有）
 curl -X POST "http://localhost:8080/api/config/instance/add/chat" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: <JAiRouter API Key>" \
+  -H "X-API-Key: <Trunkline API Key>" \
   -d '{
     "name": "deepseek-chat",
     "baseUrl": "https://api.deepseek.com",
@@ -110,7 +110,7 @@ curl -X POST "http://localhost:8080/api/config/instance/add/chat" \
   }'
 ```
 
-之后 Claude Code 只需 `ANTHROPIC_API_KEY=<JAiRouter API Key>` 即可，客户端**不保存也不发送**下游密钥。
+之后 Claude Code 只需 `ANTHROPIC_API_KEY=<Trunkline API Key>` 即可，客户端**不保存也不发送**下游密钥。
 
 ### 方案 B：按请求携带下游密钥（透传 `Authorization`）
 
@@ -119,7 +119,7 @@ curl -X POST "http://localhost:8080/api/config/instance/add/chat" \
 ```bash
 curl -N -X POST "http://localhost:8080/v1/messages" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: <JAiRouter API Key>" \
+  -H "x-api-key: <Trunkline API Key>" \
   -H "Authorization: Bearer <DeepSeek API Key>" \
   -d '{"model":"deepseek-chat","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}'
 ```
@@ -131,7 +131,7 @@ curl -N -X POST "http://localhost:8080/v1/messages" \
 ```bash
 curl -X POST "http://localhost:8080/api/config/instance/add/chat" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: <JAiRouter API Key>" \
+  -H "X-API-Key: <Trunkline API Key>" \
   -d '{
     "name": "claude-sonnet",
     "baseUrl": "https://api.anthropic.com",
@@ -148,14 +148,14 @@ curl -X POST "http://localhost:8080/api/config/instance/add/chat" \
 
 ## 接口示例
 
-以下示例统一使用 `x-api-key: <JAiRouter API Key>` 作为网关凭据。
+以下示例统一使用 `x-api-key: <Trunkline API Key>` 作为网关凭据。
 
 ### 非流式对话
 
 ```bash
 curl -X POST "http://localhost:8080/v1/messages" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: <JAiRouter API Key>" \
+  -H "x-api-key: <Trunkline API Key>" \
   -H "anthropic-version: 2023-06-01" \
   -d '{
     "model": "deepseek-chat",
@@ -187,7 +187,7 @@ curl -X POST "http://localhost:8080/v1/messages" \
 ```bash
 curl -N -X POST "http://localhost:8080/v1/messages" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: <JAiRouter API Key>" \
+  -H "x-api-key: <Trunkline API Key>" \
   -H "anthropic-version: 2023-06-01" \
   -d '{
     "model": "deepseek-chat",
@@ -274,7 +274,7 @@ data:{"type":"error","error":{"type":"api_error","message":"…"}}
 ```bash
 curl -X POST "http://localhost:8080/v1/messages" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: <JAiRouter API Key>" \
+  -H "x-api-key: <Trunkline API Key>" \
   -H "anthropic-version: 2023-06-01" \
   -d '{
     "model": "deepseek-chat",
@@ -385,9 +385,9 @@ data:{"type":"message_stop"}
 #### Claude Code 实测（工具能力）
 
 ```bash
-# 1) 指向网关（模型为 JAiRouter 已注册的实例/池名，下游需支持 function calling，如 deepseek-chat）
+# 1) 指向网关（模型为 Trunkline 已注册的实例/池名，下游需支持 function calling，如 deepseek-chat）
 export ANTHROPIC_BASE_URL=http://localhost:8080
-export ANTHROPIC_API_KEY=<JAiRouter API Key>
+export ANTHROPIC_API_KEY=<Trunkline API Key>
 export ANTHROPIC_MODEL=deepseek-chat
 
 # 2) 非交互式触发一次工具调用（Claude Code 会自动带上 Read/Bash 等工具定义）
@@ -408,7 +408,7 @@ claude -p "用 Bash 工具执行 pwd 并原样告诉我输出" --allowedTools "B
 ```bash
 curl -X POST "http://localhost:8080/v1/messages/count_tokens" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: <JAiRouter API Key>" \
+  -H "x-api-key: <Trunkline API Key>" \
   -d '{
     "model": "deepseek-chat",
     "system": "你是一个简洁的助手",
@@ -429,7 +429,7 @@ curl -X POST "http://localhost:8080/v1/messages/count_tokens" \
 ### 模型目录
 
 ```bash
-curl -H "x-api-key: <JAiRouter API Key>" "http://localhost:8080/v1/models"
+curl -H "x-api-key: <Trunkline API Key>" "http://localhost:8080/v1/models"
 ```
 
 返回 OpenAI 形状 `{"object":"list","data":[{"id":"deepseek-chat","object":"model",…}]}`，
@@ -447,14 +447,14 @@ curl -H "x-api-key: <JAiRouter API Key>" "http://localhost:8080/v1/models"
 | **流式 `message_start.id` / `model` 由网关给出** | `id` 为网关生成的 `msg_*`（该事件先于首个下游块发出，下游 id 尚不可知）；`model` 为**请求侧**模型名 | 需要下游真实 id 时使用非流式（透传下游 `id`） |
 | **流式产出文本块 + `tool_use` 块** | 文本块恒为 `index: 0`，工具块按出现顺序递增；不产出 `thinking` / `redacted_thinking` 块（请求中的 `thinking` 字段仅接收不消费） | 需要 thinking 时直连 Anthropic |
 | **`tool_choice:"none"` 不传 `tools`** | 按协议该取值表示禁用工具，网关整体不向下游传 `tools` / `tool_choice`（而非传 `"none"`） | 需要「不给工具」时直接用该取值 |
-| **响应缓存命中（非流式）** | 开启 `jairouter.response-cache.enabled=true` 且命中时，原生面（`/v1/**`）返回**原生 JSON**（v3.1 起修复，不再返回控制台面包裹体）；缓存键已包含 `tools` / `tool_choice` / 工具会话消息（PR-5），不同工具轮次不会互相命中 | 流式请求默认不参与缓存（`skip-streaming: true`）；置 `false` 时缓存命中按逐块回放重放为事件序列 |
+| **响应缓存命中（非流式）** | 开启 `trunkline.response-cache.enabled=true` 且命中时，原生面（`/v1/**`）返回**原生 JSON**（v3.1 起修复，不再返回控制台面包裹体）；缓存键已包含 `tools` / `tool_choice` / 工具会话消息（PR-5），不同工具轮次不会互相命中 | 流式请求默认不参与缓存（`skip-streaming: true`）；置 `false` 时缓存命中按逐块回放重放为事件序列 |
 | **`count_tokens` 为估算** | 不含 `tools` JSON Schema、`tool_use` / `tool_result` 块正文、图片块与下游真实分词差异 | 视作上界参考 |
 
 ## 故障排查
 
 | 现象 | 原因 | 处理 |
 |------|------|------|
-| `401 Unauthorized` | `x-api-key` 不是有效的 JAiRouter API Key，或误把**下游密钥**放在了 `x-api-key` | 生成/复制控制台的 API Key；下游密钥改到实例 `headers` 或 `Authorization` |
+| `401 Unauthorized` | `x-api-key` 不是有效的 Trunkline API Key，或误把**下游密钥**放在了 `x-api-key` | 生成/复制控制台的 API Key；下游密钥改到实例 `headers` 或 `Authorization` |
 | 请求成功但下游报 401/403 | 下游密钥未配置或失效（`x-api-key` 不转发下游） | 检查实例 `headers`；用 `/api/config/instance/type/chat` 确认配置 |
 | `404` / `503`（模型不可用） | `model` 未注册、实例不健康或服务被熔断 | `GET /v1/models` 核对模型名；检查实例健康状态与熔断器 |
 | Claude Code 报「空响应」/无输出 | `x-api-key` 无效或缺失，且 `Jairouter_Token` 未启用/已过期/已被拉黑 | 设置有效的 `ANTHROPIC_API_KEY`，或确认 JWT 已启用且 token 有效 |

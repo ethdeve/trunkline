@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -28,7 +29,10 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "service_instance")
+// X4：provider_id 索引与 V3__model_provider.sql 的 idx_service_instance_provider_id 对齐
+// （H2BaselineMatchesEntityModelTest 要求实体模型与迁移侧 schema 逐项一致）
+@Table(name = "service_instance",
+        indexes = @Index(name = "idx_service_instance_provider_id", columnList = "provider_id"))
 public class ServiceInstanceEntity {
 
     @Id

@@ -14,7 +14,7 @@ import java.util.Set;
  * 采样策略管理器
  *
  * <p>负责按配置装配采样器、并在运行时更新（issue #234 接线）。策略由
- * {@code jairouter.tracing.sampling.strategy} 选择：{@code ratio}（默认）/ {@code rule} / {@code adaptive}。</p>
+ * {@code trunkline.tracing.sampling.strategy} 选择：{@code ratio}（默认）/ {@code rule} / {@code adaptive}。</p>
  *
  * <p><b>这里的采样器都是「root sampler」</b>：{@code OpenTelemetryAutoConfiguration#otelSampler()} 会用
  * {@code Sampler.parentBased(new DelegatingSampler(...))} 包一层 —— 有父 span 时沿用父级决策，
@@ -26,6 +26,7 @@ import java.util.Set;
  *
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @Component

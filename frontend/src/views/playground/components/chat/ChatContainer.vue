@@ -81,18 +81,27 @@
         </div>
         <div class="empty-note">{{ t('playgroundChat.empty.failureHint') }}</div>
 
-        <!-- 完全没有可用模型时，直接给出接入入口 -->
+        <!--
+          完全没有可用模型时给出下一步：
+          - 运维：直接去「接入管理」接模型（有权限，按钮可点）；
+          - 员工：不能给跳转按钮——员工没有 config:instances:read，点进去会被路由守卫
+            踢回总览，变成"点了没反应"。改为只说明现状 + 指向管理员。
+        -->
         <div
           v-if="availableInstances.length === 0"
           class="empty-no-model"
         >
           <el-button
+            v-if="isStaff"
             type="primary"
             size="small"
             @click="goConnectModels"
           >
             {{ t('playgroundChat.empty.connectModels') }}
           </el-button>
+          <span v-else class="empty-no-model-hint">
+            你还没有可用的模型，请联系管理员为你开通
+          </span>
         </div>
 
         <div class="suggestions">
@@ -156,10 +165,14 @@ import { useRoutePreselect, preselectInstanceName } from '@/composables/useRoute
 import { sendServiceRequest } from '@/api/playground'
 import type { ChatMessage, ChatRequestConfig } from '../../types/playground'
 import { parseErrorMessage, getErrorSuggestion } from '../../utils/errorHandler'
+import { isStaff as readIsStaff } from '@/constants/employeeTerms'
 import { throttle } from '@/utils/throttle'
 
 const { t } = useI18n()
 const router = useRouter()
+
+/** 是否运维视角（ops / admin）；员工侧不给跨权限页面的跳转按钮 */
+const isStaff = computed(() => readIsStaff())
 
 // Refs
 const messageListRef = ref<HTMLElement>()
@@ -265,7 +278,8 @@ const emptySteps = computed(() => [
 
 /** 跳到「接入模型」页配置供应商与模型 */
 const goConnectModels = () => {
-  router.push({ path: '/models', query: { tab: 'providers' } })
+  // P0-0：/models 已下线并重定向到 /providers（A 套「接入管理」）
+  router.push({ path: '/providers', query: { tab: 'providers' } })
 }
 
 // 初始化
@@ -641,7 +655,8 @@ defineExpose({
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--ja-text-secondary);
-  color: #fff;
+  /* 暗色下该灰底变浅，白字对比不足；用卡片底色文字（亮=白 / 暗=深） */
+  color: var(--ja-bg-card);
   font-size: 12px;
   display: flex;
   align-items: center;
@@ -664,6 +679,14 @@ defineExpose({
 
 .empty-no-model {
   margin-bottom: 16px;
+}
+
+/* 员工侧的空态说明（无跳转按钮）：弱化、不抢注意力，但必须看得见 */
+.empty-no-model-hint {
+  display: inline-block;
+  font-size: 12.5px;
+  color: var(--ja-text-secondary);
+  line-height: 1.6;
 }
 
 .suggestions {

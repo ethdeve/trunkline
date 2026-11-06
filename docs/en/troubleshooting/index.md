@@ -9,11 +9,11 @@
 
 
 
-This section provides solutions and troubleshooting guides for common JAiRouter issues, helping users quickly identify and resolve various problems encountered during system operation.
+This section provides solutions and troubleshooting guides for common Trunkline issues, helping users quickly identify and resolve various problems encountered during system operation.
 
 ## Troubleshooting Overview
 
-When JAiRouter encounters issues, it is recommended to follow this systematic approach for troubleshooting:
+When Trunkline encounters issues, it is recommended to follow this systematic approach for troubleshooting:
 
 ### Troubleshooting Process
 1. **Quick Diagnosis** - Check basic service status and connectivity
@@ -26,7 +26,7 @@ When JAiRouter encounters issues, it is recommended to follow this systematic ap
 - **Health Check Endpoint**: `/actuator/health`
 - **Monitoring Metrics Endpoint**: `/actuator/metrics`
 - **Configuration Information Endpoint**: `/actuator/configprops`
-- **Log Files**: `logs/jairouter-debug.log`
+- **Log Files**: `logs/trunkline-debug.log`
 
 ## Issue Classification
 
@@ -100,10 +100,10 @@ Provides detailed debugging techniques and tool usage methods:
 curl http://localhost:8080/actuator/health
 
 # Request statistics
-curl http://localhost:8080/actuator/metrics/jairouter_requests_total
+curl http://localhost:8080/actuator/metrics/trunkline_requests_total
 
 # Response time
-curl http://localhost:8080/actuator/metrics/jairouter_request_duration_seconds
+curl http://localhost:8080/actuator/metrics/trunkline_request_duration_seconds
 
 # JVM memory usage
 curl http://localhost:8080/actuator/metrics/jvm.memory.used
@@ -172,7 +172,7 @@ curl http://localhost:8080/actuator/metrics/system.cpu.usage
 If you still cannot resolve the issue following this guide, you can get help through the following methods:
 
 ### Community Support
-- Check [GitHub Issues](https://github.com/Lincoln-cn/JAiRouter/issues) for known issues
+- Check [GitHub Issues](https://github.com/Lincoln-cn/Trunkline/issues) for known issues
 - Search related discussions and solutions
 - Participate in community discussions for advice
 

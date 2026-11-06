@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
  *
  * @author JAiRouter Team
  * @since 3.3.2
+ * @modified Trunkline Team
  */
 public class DependencyReport {
 

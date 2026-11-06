@@ -8,7 +8,7 @@
 # 现已逐个接上或删除。`TracingConfigBindingGuardTest` 会按 NoUnboundElementsBindHandler
 # 把本文件绑一遍，任何「配了没人读」的键都会让测试变红。
 
-jairouter:
+trunkline:
   # 追踪配置
   tracing:
     # 追踪功能总开关

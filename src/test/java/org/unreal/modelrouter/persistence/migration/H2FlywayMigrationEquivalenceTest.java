@@ -59,9 +59,42 @@ class H2FlywayMigrationEquivalenceTest {
                     "「fresh」与「legacy」的 " + section + " 不一致");
         }
 
-        assertEquals(List.of("1|SQL|true", "2|SQL|true"), history(freshUrl), "空库应顺序执行 V1、V2");
-        assertEquals(List.of("1|BASELINE|true", "2|SQL|true"), history(legacyUrl),
-                "老库应记为基线 1 且不重放 V1，再执行 V2");
+        // X4（2026-10-28）：版本清单从 classpath 动态推导，不再写死「只执行 V1、V2」——
+        // V3（供应商）/V4（审计数据）/V5（配额分组维度）/V6（当前配置分离）加入后此处曾假红
+        List<String> expectedFresh = new ArrayList<>();
+        List<String> expectedLegacy = new ArrayList<>(List.of("1|BASELINE|true"));
+        for (int version : migrationVersions()) {
+            expectedFresh.add(version + "|SQL|true");
+            if (version > 1) {
+                expectedLegacy.add(version + "|SQL|true");
+            }
+        }
+        assertEquals(expectedFresh, history(freshUrl), "空库应顺序执行全部迁移脚本");
+        assertEquals(expectedLegacy, history(legacyUrl),
+                "老库应记为基线 1 且不重放 V1，再顺序执行其余迁移");
+    }
+
+    /**
+     * 从 classpath 扫描 {@code db/migration/h2/V*.sql}，返回升序版本号。
+     */
+    private static List<Integer> migrationVersions() {
+        try {
+            var resolver = new org.springframework.core.io.support.PathMatchingResourcePatternResolver();
+            var resources = resolver.getResources("classpath*:db/migration/h2/V*.sql");
+            List<Integer> versions = new ArrayList<>();
+            for (var resource : resources) {
+                var matcher = java.util.regex.Pattern.compile("V(\\d+)__")
+                        .matcher(resource.getFilename());
+                if (matcher.find()) {
+                    versions.add(Integer.parseInt(matcher.group(1)));
+                }
+            }
+            versions.sort(Integer::compareTo);
+            assertTrue(versions.size() >= 2, "至少应发现 V1、V2 两个迁移脚本");
+            return versions;
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("扫描 H2 迁移脚本失败", e);
+        }
     }
 
     // ==================== 迁移执行 ====================
@@ -81,6 +114,12 @@ class H2FlywayMigrationEquivalenceTest {
             statement.execute("ALTER TABLE service_instance DROP COLUMN tags");
             statement.execute("ALTER TABLE service_instance DROP COLUMN headers");
             statement.execute("ALTER TABLE security_blacklist ALTER COLUMN expires_at SET NOT NULL");
+            // V16（多租户预埋，S2 任务 35）加的租户列同样属于「老库没有的补丁列」，
+            // 退化时一并剥掉（索引随列级联删除），让 Flyway 重放 V16 重建
+            for (String table : List.of("jwt_accounts", "token_usage", "api_call_history",
+                    "security_audit", "model_provider", "config_data", "service_config")) {
+                statement.execute("ALTER TABLE " + table + " DROP COLUMN tenant_id");
+            }
             // 老库本来没有这张表 —— 删掉才能让 Flyway 把它当成「非空且无历史」的库
             statement.execute("DROP TABLE " + HISTORY_TABLE);
         }
@@ -136,7 +175,11 @@ class H2FlywayMigrationEquivalenceTest {
         for (String row : rows) {
             normalized.add(row
                     .replaceAll("(PRIMARY_KEY|CONSTRAINT_INDEX)_[0-9A-F]+", "$1_<id>")
-                    .replaceAll("(_INDEX_)[0-9A-F]+\\b", "$1<id>"));
+                    .replaceAll("(_INDEX_)[0-9A-F]+\\b", "$1<id>")
+                    // X4（2026-10-28）：自动命名唯一约束的背书索引，H2 对「列级 unique」与
+                    // 「表级 unique 约束」取的名字前缀不同。约束本身已在 constraints 节比较过，
+                    // 这里把背书索引名归一化，避免内部 ID 噪音假红。
+                    .replaceAll("(?i)CONSTRAINT\\S*_INDEX_<id>", "CONSTRAINT_BACKED_INDEX"));
         }
         return normalized;
     }

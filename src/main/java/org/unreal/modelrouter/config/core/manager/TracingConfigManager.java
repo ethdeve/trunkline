@@ -1,5 +1,6 @@
 package org.unreal.modelrouter.config.core.manager;
 
+import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,7 @@ import java.util.Map;
  *
  * @author JAiRouter Team
  * @since v2.22.0
+ * @modified Trunkline Team
  */
 @Component("configTracingConfigManager")
 public class TracingConfigManager {
@@ -31,7 +33,7 @@ public class TracingConfigManager {
     private final ConfigVersionManager configVersionManager;
     private final SamplingConfigurationValidator samplingValidator;
 
-    private static final String CURRENT_KEY = "model-router-config";
+    private static final String CURRENT_KEY = ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY;
 
     public TracingConfigManager(final StoreManager storeManager,
                                 final ConfigMergeService configMergeService,

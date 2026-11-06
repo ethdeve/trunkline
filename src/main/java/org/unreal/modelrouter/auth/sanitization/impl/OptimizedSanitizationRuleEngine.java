@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Component
 @Primary
-@ConditionalOnProperty(name = "jairouter.security.sanitization.optimized", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.security.sanitization.optimized", havingValue = "true", matchIfMissing = true)
 public class OptimizedSanitizationRuleEngine implements SanitizationRuleEngine {
     
     /**

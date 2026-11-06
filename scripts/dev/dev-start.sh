@@ -41,7 +41,7 @@ echo ""
 echo "========================================"
 echo "  启动后端服务（端口 8080）"
 echo "========================================"
-cd /home/ubuntu/jairouter/modelrouter
+cd /home/ubuntu/trunkline/modelrouter
 nohup java -jar target/model-router-1.2.5.jar \
   --server.port=8080 \
   --spring.profiles.active=dev \
@@ -64,7 +64,7 @@ echo ""
 echo "========================================"
 echo "  启动前端服务（端口 3000）"
 echo "========================================"
-cd /home/ubuntu/jairouter/modelrouter/frontend
+cd /home/ubuntu/trunkline/modelrouter/frontend
 
 # 检查 node_modules
 if [ ! -d "node_modules" ]; then

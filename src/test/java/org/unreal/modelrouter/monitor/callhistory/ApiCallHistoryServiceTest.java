@@ -31,6 +31,7 @@ import static org.mockito.Mockito.*;
  *
  * @author JAiRouter Team
  * @since 2.7.8
+ * @modified Trunkline Team
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ApiCallHistoryService 测试")
@@ -154,13 +155,17 @@ class ApiCallHistoryServiceTest {
         @DisplayName("分页查询调用历史")
         void testQuery() {
             Page<ApiCallHistoryEntity> page = new PageImpl<>(Collections.emptyList());
-            when(repository.findWithFilters(any(), any(), any(), any(), any(), any(), any(), any(PageRequest.class)))
+            // 参数序：startTime, endTime, modelName, virtualModel, userId, serviceType,
+            //         apiKeyId, isSuccess, rateLimited, httpStatusCode, keyword, pageable
+            when(repository.findWithFilters(any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                    any(), any(), any(PageRequest.class)))
                     .thenReturn(page);
 
             var result = service.query(new org.unreal.modelrouter.monitor.callhistory.dto.CallHistoryQueryDTO());
 
             assertNotNull(result);
-            verify(repository).findWithFilters(any(), any(), any(), any(), any(), any(), any(), any(PageRequest.class));
+            verify(repository).findWithFilters(any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                    any(), any(), any(PageRequest.class));
         }
 
         @Test

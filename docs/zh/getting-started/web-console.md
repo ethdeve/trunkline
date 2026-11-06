@@ -1,13 +1,15 @@
 # Web 控制台操作手册
 
 <!-- 版本信息 -->
-> **文档版本**: 1.0.0
-> **最后更新**: 2026-09-15
-> **适用版本**: v3.1.1
+> **文档版本**: 2.0.0
+> **最后更新**: 2026-10-28
+> **适用版本**: 新台控制台（Trunkline Console）
 > **作者**: Lincoln
 <!-- /版本信息 -->
 
-本手册面向首次使用 JAiRouter Web 控制台的操作者，覆盖从登录到首次接通模型服务、配额管理、观测排查、权限控制的完整动线。
+本手册面向首次使用 Trunkline Web 控制台（下文简称「新台」）的操作者，覆盖登录、界面结构、快速接入、测试场、密钥与配额、观测与追踪、策略与系统管理的完整动线。
+
+> 新台按任务流组织菜单，与早期「9 组 39 页」的旧管理后台不同；本文所有页面路径、菜单分组、权限码均以前端 `src/config/menu.ts` 与 `src/router/index.ts` 为准。
 
 ## 1. 登录与首次启动
 
@@ -15,441 +17,245 @@
 
 | 部署方式 | 地址 | 说明 |
 |----------|------|------|
-| 本地开发（Vite） | `http://localhost:3000/admin` | Vite dev server，热更新 |
-| 生产/独立部署 | `http://<host>:8080/admin` | 后端直接托管 SPA |
+| 本地开发（Vite） | `http://localhost:3000/` | Vite dev server，热更新 |
+| 生产/独立部署 | `http://<host>:8080/` | 后端直接托管 SPA，未登录自动跳转 `/login` |
 
-两个入口指向同一套前端代码，功能完全一致。
+### 1.2 页面标题
 
-### 1.2 默认账号
+- 登录页大标题显示「**Trunkline 控制台**」；
+- 语言包应用标题为「**Trunkline 管理后台**」（英文：**Trunkline Admin**）；
+- 浏览器标签页标题格式为「**<当前页名> · Trunkline 控制台**」（由路由 `afterEach` 设置，如「总览 · Trunkline 控制台」）。
 
-| 用户名 | 默认密码 | 角色 | 说明 |
-|--------|----------|------|------|
-| `admin` | `ChangeMeOnFirstStartup123456` | ADMIN, USER | 超级管理员，拥有全部 53 个权限码 |
-| `user` | `user123456` | USER | 普通用户，只读为主 |
+> 技术标识仍保留 `trunkline.*`（包名、指标名、配置前缀、容器名等），不影响产品展示名为 Trunkline。
 
-> ⚠️ **首次部署务必修改 `admin` 密码**。密码通过环境变量 `INITIAL_ADMIN_PASSWORD` 设置（见 `src/main/resources/config/auth/jwt.yml`），修改后重启服务即生效。
+### 1.3 默认账号
 
-```bash
-# 示例：启动前设置环境变量
-export INITIAL_ADMIN_PASSWORD="YourStr0ngPassword#2026"
-```
+| 用户名 | 默认密码 | 说明 |
+|--------|----------|------|
+| `admin` | `ChangeMeOnFirstStartup123456` | 仅在账号表为空时自动创建，超级管理员 |
 
-### 1.3 Token 存储
+> ⚠️ **首次部署务必修改 `admin` 密码**。生产环境通过环境变量 `INITIAL_ADMIN_PASSWORD` 覆盖，或首次登录后立即修改。
 
-登录成功后，JWT 存储于浏览器 `localStorage`，键名为 `admin_token`。
+### 1.4 Token 存储与路由守卫
 
-> ⚠️ **不建议手动注入 token**。前端路由守卫（`router.beforeEach`）在每次导航时会：
->
-> 1. 检查 `localStorage` 中是否存在 `admin_token`；
-> 2. 解码 JWT 检查是否过期（提前 60 秒判定过期）；
-> 3. 校验路由 `meta.roles` / `meta.permissions` 是否满足。
->
-> 仅满足全部条件才放行，否则重定向到 `/login`。手动写入的 token 如果过期或缺失 `permissions` claim，控制台将无法正常使用。
+登录成功后，JWT 存储于浏览器 `localStorage`，键名为 `admin_token`。前端路由守卫（`router.beforeEach`）在每次导航时依次判定：
 
-### 1.4 登录流程
+1. 公开路由（如 `/login`）直接放行，已登录访问登录页则重定向到 `/overview`；
+2. 未登录 → 重定向到 `/login`；
+3. 读取 `localStorage` 中的 `admin_token`，解码 JWT 的 `exp` 字段判定是否过期，过期则清空 token 并回登录页；
+4. 路由 `meta.permissions` 要求的权限码必须全部持有（ADMIN 恒通过），缺权限回 `/overview`。
 
-1. 在浏览器打开控制台地址；
-2. 页面标题显示「**JAiRouter 管理后台**」（英文：**JAiRouter Admin**）；
-3. 输入用户名和密码，点击「**登录**」（**Login**）按钮；
-4. 登录成功后自动跳转到「**仪表板**」（**Dashboard**）页面。
+> ⚠️ 不建议手动注入 token。手动写入的 token 若过期、或缺失 `permissions` claim，控制台将无法正常使用。
+
+### 1.5 登录流程
+
+1. 浏览器打开控制台地址，未登录自动进入 `/login`；
+2. 页面标题显示「**Trunkline 控制台**」；
+3. 输入用户名和密码，点击「**登录**」；
+4. 登录成功后自动跳转到「**总览**」（`/overview`）。
 
 ![登录页面](images/login-zh-CN.png)
 
 ---
 
-## 2. 界面结构
+## 2. 界面结构（新台 5 组菜单）
 
-### 2.1 左侧导航
+新台左侧为可折叠侧边栏，按任务流分为 **5 个菜单分组**，共 **13 个菜单项**。菜单可见性由权限码控制——缺少对应权限码的菜单项不会显示；普通调用角色默认仅见工作台/接入的模型/测试场/密钥等少数几项。
 
-控制台左侧为可折叠侧边栏，包含 **9 个菜单分组**，共 **39 个页面**。菜单可见性由权限码控制——缺少对应权限码的分组/页面不会显示。
+![总览界面](images/dashboard-zh-CN.png)
 
-![仪表板界面](images/dashboard-zh-CN.png)
+| 分组 | 菜单项 | 路由路径 | 权限码 | 说明 |
+|------|--------|----------|--------|------|
+| **工作台** | 总览 | `/overview` | `overview:dashboard:read` | 一站式总览 |
+| **接入** | 快速接入 | `/quick-start` | `config:instances:read` | 四步向导：选服务商 → 填密钥 → 导入模型 → 拿密钥调用 |
+| **接入** | 接入模型 | `/models` | `config:instances:read` | 已接入模型 / 公共模型库 |
+| **接入** | 模型分组 | `/model-pools` | `config:instances:read` | 把多个模型通道归为一组，统一调用、自动分流与容灾 |
+| **接入** | 密钥管理 | `/keys` | `security:apikeys:manage` | 签发 / 吊销 / 配额 |
+| **接入** | 测试场 | `/playground` | `ai:playground:use` | 对话 / 向量 / 重排 / 语音 / 图像 |
+| **运营观测** | 观测中心 | `/observe` | `monitoring:tokenusage:read` | 调用历史 / Token / 慢查询 / 异常 / 配额 / 熔断 / 限流 |
+| **运营观测** | 链路追踪 | `/tracing` | `tracing:dashboard:read` | 请求链路查询与追踪仪表 |
+| **高级策略** | 策略中心 | `/strategy` | `config:rules:read` | 路由规则 / 负载均衡 / 熔断阈值 / 响应缓存 / 用量配额 |
+| **系统管理** | 账号与权限 | `/settings/accounts` | `system:accounts:manage` | 账号 / 角色权限 |
+| **系统管理** | 模型配置 | `/settings/model-config` | `system:accounts:manage` | 供应商模板 / 模型分类 / 模型适配器 |
+| **系统管理** | 审计与版本 | `/settings/audit-versions` | `system:accounts:manage` | 审计日志 / 配置版本 |
+| **系统管理** | 状态监控 | `/settings/monitoring` | `system:accounts:manage` | 状态持久化 |
 
-| # | 分组（zh） | 分组（en） | 子页面 |
-|---|-----------|-----------|--------|
-| 1 | 概览 | Overview | 仪表板 |
-| 2 | 模型服务 | Model Services | 服务管理、实例管理、版本管理、Adapter管理 |
-| 3 | 流量治理 | Traffic Governance | 路由规则、负载均衡监控、负载均衡策略、熔断器监控、熔断器历史、熔断器配置、限流监控、资源池、响应缓存管理、配额运行时配置 |
-| 4 | 数据记录 | Data Records | 调用历史仪表盘、调用列表、Token 统计、慢调用、慢查询分析、配额用量监控、异常事件管理、异常统计分析 |
-| 5 | 链路追踪 | Distributed Tracing | 追踪仪表盘、追踪搜索、追踪配置 |
-| 6 | 安全管理 | Security | API 密钥管理、PII 脱敏管理、JWT 令牌管理、黑名单管理、审计日志 |
-| 7 | 系统管理 | System | 账户管理、权限管理、状态持久化 |
-| 8 | AI 试验场 | AI Playground | 对话测试、向量生成、重排序、语音服务、图像服务 |
-| 9 | 开发者工具 | Developer Tools | 客户端接入指南 |
+### 2.1 不在侧边栏、但可直达的路由
+
+下列页面存在于路由表中，但已收敛为某页内的 Tab 或由入口跳转，不再单独占菜单项：
+
+| 页面 | 路由路径 | 权限码 | 入口 |
+|------|----------|--------|------|
+| 模型分类 | `/model-categories` | `config:instances:read` | 「接入模型」页内 / 模型配置 |
+| 模型适配器 | `/protocol-adapters` | `config:instances:read` | 「模型配置」页内 |
+| 用量配额 | `/quota` | `config:quota:read` | 「策略中心」页内 Tab |
+| 接入指南 | `/guide` | 已登录 | 顶栏帮助图标 + 快速向导第 3 步 |
+
+> 旧深链 `/settings?tab=xxx` 会按路由表映射重定向到上述 4 个系统管理子路径。
 
 ### 2.2 顶栏
 
 | 区域 | 元素 | 说明 |
 |------|------|------|
-| 左侧 | 面包屑 | 格式：首页 / 分组名 / 当前页名 |
-| 右侧 | 语言切换 | 胶囊按钮，下拉选择「中文」或「English」，切换即时生效 |
-| 右侧 | 主题切换 | 圆形按钮，☀️/🌙 图标，切换亮色/暗色主题 |
-| 右侧 | 用户菜单 | 头像 + 用户名（如 `admin`），下拉包含「个人资料」（Profile）和「退出登录」（Log Out） |
-
-### 2.3 面包屑
-
-页面顶部显示当前导航路径，如：`首页 / 概览 / 仪表板`。面包屑随页面切换自动更新。
+| 左侧 | 品牌标识 | `brand-mark.svg` + 「Trunkline」字样 |
+| 右侧 | 帮助图标 | 跳转「接入指南」`/guide` |
+| 右侧 | 语言切换 / 主题切换 | 中/English、亮/暗主题 |
+| 右侧 | 用户菜单 | 用户名 + 退出登录 |
 
 ---
 
-## 3. 首次接通一个模型服务的最小动线
+## 3. 总览页（`/overview`）
 
-以下步骤按照依赖顺序，以配置一个 Ollama 模型服务为例。
+总览页聚合真实业务指标，数据来自 `GET /api/dashboard/metrics`，返回六个分组：
 
-![服务管理页](images/service-management-zh-CN.png)
-
-### 步骤 1：配置服务
-
-**菜单路径**：模型服务 → 服务管理
-
-1. 进入「**服务管理**」页面；
-2. 点击「**添加服务**」（**Add Service**）按钮；
-3. 填写表单：
-
-| 字段 | 说明 | 必填 |
-|------|------|:----:|
-| 服务类型（Service Type） | 下拉选择，如 `chat`、`embedding`、`completion` 等 | ✅ |
-| 适配器（Adapter） | 下拉选择适配器类型 | ✅ |
-| 负载均衡策略（Load Balance Strategy） | 随机 / 轮询 / 最少连接 / IP 哈希 | ✅ |
-| 说明（Description） | 可选备注 | ❌ |
-
-4. 点击「**保存**」（**Save**）；
-5. 保存成功后，服务类型出现在列表中，状态为「**已启用**」（**Enabled**）。
-
-### 步骤 2：配置实例
-
-**菜单路径**：模型服务 → 实例管理
-
-![实例管理页](images/instance-management-zh-CN.png)
-
-1. 进入「**实例管理**」页面；
-2. 选择对应的服务类型（左侧下拉）；
-3. 点击「**添加实例**」（**Add Instance**）按钮；
-4. 填写表单：
-
-| 字段 | 说明 | 必填 | 示例 |
-|------|------|:----:|------|
-| 服务类型（Service Type） | 关联的服务类型 | ✅ | `chat` |
-| 实例名称（Instance Name） | 实例标识 | ✅ | `ollama-local` |
-| 基础URL（Base URL） | 下游服务地址 | ✅ | `http://localhost:11434` |
-| 路径（Path） | 请求路径（可选） | ❌ | `/v1/chat/completions` |
-| 权重（Weight） | 负载均衡权重 | ✅ | `1` |
-| 适配器（Adapter） | 留空使用全局配置 | ❌ | — |
-
-5. 展开「**请求头配置**」（**Request Header Config**），添加下游所需认证头：
-
-| 头名称 | 头值 | 说明 |
-|--------|------|------|
-| `Authorization` | `Bearer <your-api-key>` | 透传给下游模型服务的认证凭据 |
-
-> 💡 `Authorization` 头是**透传给下游服务**的，不是网关自身的凭据。网关凭据为 `Jairouter_Token`（JWT）。
-
-6. 可选：展开「**标签配置**」（**Tag Config**），添加标签用于路由规则筛选；
-7. 点击「**保存**」（**Save**）；
-8. 保存成功后，实例出现在列表中，状态列显示健康状态（健康/异常）。
-
-### 步骤 3：版本与 Adapter（如需）
-
-- **版本管理**（模型服务 → 版本管理）：如果模型服务需要指定版本信息，可在此配置。非必须步骤。
-- **Adapter管理**（模型服务 → Adapter管理）：查看和管理已注册的适配器。如果步骤 1 中已正确选择适配器，此步可跳过。
-
-### 步骤 4：验证连通性
-
-配置完成后，可通过以下方式验证：
-
-1. **仪表板**（概览 → 仪表板）：查看「服务配置速览」区域，确认服务实例数量、健康实例数是否正确；
-2. **实例管理**页面：实例状态列应显示绿色「**健康**」标签（非「**异常**」）；
-3. **负载均衡监控**（流量治理 → 负载均衡监控）：查看实时负载均衡状态。
-
-### 步骤 5：在 Playground 试调用
-
-**菜单路径**：AI 试验场 → 对话测试
-
-1. 进入「**对话测试**」（**Chat Playground**）页面；
-2. 选择模型（Model）为步骤 1 中配置的服务类型对应的模型；
-3. 输入消息并发送；
-4. 如果收到回复，说明整个链路（控制台 → 网关 → 模型服务）已打通。
-
-> 💡 Playground 需要 `ai:playground:use` 权限码。ADMIN 和 USER 角色默认拥有此权限。
+| 分组 | 关键字段 | 含义 |
+|------|----------|------|
+| `jvm` | heapUsedMB / heapUsagePercent、threadCount、GC 次数与耗时 | JVM 内存、线程、GC |
+| `http` | totalRequests、avgResponseTimeMs、maxResponseTimeMs、activeRequests | HTTP 请求量与延迟（基于 `http.server.requests`） |
+| `security` | authSuccesses / authFailures / authAttempts、activeUsers、activeApiKeys、jwtValidations | 认证与安全指标 |
+| `audit` | totalEvents、successEvents、failureEvents、healthScore | 审计事件统计 |
+| `system` | availableProcessors、systemLoadAverage、processCpuUsage、uptimeSeconds | 操作系统与进程 |
+| `monitoring` | retryAttempts、degradationLevel、errorsTotal | 监控系统自身的重试/降级/错误 |
 
 ---
 
-## 4. 配额怎么用
+## 4. 快速接入向导（`/quick-start`）
 
-### 4.1 配额运行时配置
+新台把「从 0 到第一次调通」收敛为四步傻瓜式向导（`QuickStartWizard.vue`），全程无需手写配置文件：
 
-**菜单路径**：流量治理 → 配额运行时配置
+1. **选服务商**：从供应商模板目录（国内 / 国际 / 本地三组）选择预设，或选「自定义」填写名称、Base URL、路径、适配器（普通 OpenAI 兼容 / Ollama 本地）。本地预设或本地地址（localhost / 127.0.0.1 / host.docker.internal）自动免填上游密钥。
+2. **填上游密钥**：填写发给下游模型服务商的 API Key（本地推理可跳过）。随后向导自动创建/复用供应商并「发现模型」。
+3. **导入模型**：列出发现到的模型，按模型 ID 自动识别模型分类（chat / embedding / rerank / tts / stt / imgGen / imgEdit，识别不出归入默认分类，可逐个手改）；勾选要导入的模型（视频生成等暂不支持项自动剔除）。
+4. **完成**：向导自动——
+   - 按模型分类**自动建模型分组（池）**，命名规则为 `<服务商名>-<分类>`（如 `OpenAI-chat`），负载策略 `weighted-random`，成员为已导入实例；
+   - **自动签发一个测试密钥**，`permissions` 填所导入的分类集合、`allowedGroups` 填新建的分组名；
+   - 展示可复制的 **curl** 与 **Python (OpenAI SDK)** 调用示例。
 
-配额功能**默认关闭**。要启用配额：
+> ⚠️ **v3.5 单线治理**：对外调用的 `model` 参数必须填**分组（虚拟模型名）**，不是上游实例名。向导生成的示例 curl 已按此口径填写。测试密钥值仅此一次展示，请立即复制保存。
 
-![配额运行时配置页](images/quota-config-zh-CN.png)
+示例（向导自动生成）：
 
-1. 进入「**配额运行时配置**」页面；
-2. 找到「**热编辑配置**」（Hot-Editable Configuration）区域；
-3. 打开「**启用配额**」（Enable Quota）开关；
-4. 可选配置：
-   - **降级放行**（Fail Open）：配额系统异常时是否放行请求；
-   - **统计窗口**（Stat Windows）：选择统计维度；
-5. 点击「**保存配置**」（Save Configuration）；
+```bash
+curl http://<host>:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <测试密钥>" \
+  -d '{"model": "<服务商>-chat", "messages": [{"role":"user","content":"你好"}], "stream": true}'
+```
 
-**可热改的字段**（无需重启）：
+---
 
-| 字段 | 说明 |
+## 5. 接入模型与模型分组
+
+### 5.1 接入模型（`/models`）
+
+「接入模型」页管理已导入的实例与公共模型库：查看某模型分类下的可用模型、发现模型、配置供应商模板与模型适配器。模型分类固定为 7 种：`chat`、`embedding`、`rerank`、`tts`、`stt`、`imgGen`（图像生成）、`imgEdit`（图像编辑）。
+
+### 5.2 模型分组（`/model-pools`）
+
+模型分组（池 / pool）是对外调用的唯一入口：把同分类下多个上游实例归为一组，按策略（如加权随机 `weighted-random`）自动分流与容灾。一个分组对外暴露为一个「虚拟模型名」，客户端用它调用，网关在池内选实例。
+
+### 5.3 三道闸门权限模型
+
+密钥的放行是串联的三道闸门，详见 [API Key 管理](../security/api-key-management.md)：
+
+1. **闸门一·模型分类**：`permissions` 限定该密钥可调用哪些分类（chat/embedding/…）。请求先按 URL 端点确定分类，分类不在 `permissions` 内 → 403。
+2. **闸门二·模型分组白名单**：`allowedGroups` 限定该密钥可用哪些分组（虚拟模型名）。v3.5 起原 `allowedModels`（实例名白名单）已移除，实例不可被直调。
+3. **闸门三·运行约束**：`allowedIpAddresses`（IP 白名单）、`expiresAt`（有效期）、多窗口配额与告警阈值。
+
+---
+
+## 6. 密钥管理（`/keys`）
+
+在「密钥管理」页签发、查看、禁用/启用、删除、重置/轮换密钥，并配置配额与告警。
+
+- **签发**：填描述、勾选可调用的模型分类（闸门一）、勾选可访问的模型分组（闸门二）、可选 IP 白名单 / 有效期 / 配额。创建后密钥值**仅此一次**展示。
+- **配额抽屉**：列表操作列「配额」可只改配额字段（每日 / 每小时 / 每月的请求与 Token 上限、每分钟速率、告警阈值），并可重置当日计数。
+- **重置 / 轮换**：`reset` 保留原属性重发新值；`rotate` 保留 keyId 与全部属性、仅换 keyValue 并更新轮换时间。
+
+> 密钥管理接口均要求 `security:apikeys:manage` 权限（管理面 `hasRole('ADMIN')`）。
+
+---
+
+## 7. 测试场（`/playground`）
+
+测试场把统一接口 `/api/v1` 的全部模态收敛到一页，对应后端 `UniversalController`：
+
+| 模态 | 页内 Tab | 后端端点 | 分类 |
+|------|----------|----------|------|
+| 对话 | Chat | `POST /api/v1/chat/completions` | `chat` |
+| 向量 | Embedding | `POST /api/v1/embeddings` | `embedding` |
+| 重排 | Rerank | `POST /api/v1/rerank` | `rerank` |
+| 语音合成 | TTS | `POST /api/v1/audio/speech` | `tts` |
+| 语音识别 | STT | `POST /api/v1/audio/transcriptions`（multipart） | `stt` |
+| 图像生成 | Image | `POST /api/v1/images/generations` | `imgGen` |
+| 图像编辑 | Image Edit | `POST /api/v1/images/edits`（multipart） | `imgEdit` |
+
+在测试场选择模型分组（虚拟模型名）后即可试调用，验证整条链路是否打通。测试场需要 `ai:playground:use` 权限码。
+
+---
+
+## 8. 运营观测
+
+### 8.1 观测中心（`/observe`）
+
+一页聚合调用历史、Token 用量、慢查询、异常事件、配额、熔断、限流八个切面。Token 用量数据接口为：
+
+| 端点 | 说明 |
 |------|------|
-| `enabled` | 启用/禁用配额 |
-| `failOpen` | 降级放行开关 |
-| `windows` | 统计窗口选择 |
+| `POST /api/token-usage/record` | 记录单次调用 Token 用量（API Key 主体只能上报自身） |
+| `POST /api/token-usage/record/batch` | 批量记录 |
+| `GET /api/token-usage/statistics?startTime=&endTime=` | 按时间范围统计（按模型/分类/周月维度） |
+| `GET /api/token-usage/recent?limit=20` | 最近用量记录 |
 
-**需重启生效的字段**（标记「**需重启**」徽标，只读）：
+> 📌 **成本管理（账单反推均价 / 社区价格包 / 手动覆盖）**：产品规划中，当前版本代码未实现，待确认。观测中心目前展示的是 Token 用量与调用统计，**不包含按价格折算的费用/成本金额**。
 
-| 字段 | 说明 |
-|------|------|
-| `backendName` | 存储后端名称 |
-| `distributedEnabled` | 分布式启用 |
-| `distributedKeyPrefix` | 分布式 Key 前缀 |
-| `distributedTimeout` | 分布式超时 |
-| `flushIntervalSeconds` | 刷新间隔 |
+### 8.2 链路追踪（`/tracing`）
 
-### 4.2 配额用量监控
-
-**菜单路径**：数据记录 → 配额用量监控
-
-进入「**配额用量监控**」页面可以：
-
-- 查看配额**运行状态**：存储后端类型、降级状态；
-- 按**租户 ID / API Key ID / 用户 ID / 服务类型 / 模型 / 统计窗口**筛选用量数据；
-- 查看**用量明细**：请求数、Token 数。
-
-> 💡 如果页面显示「**配额账本未启用，用量数据暂不可用**」，说明配额功能未开启，需先到「配额运行时配置」页面启用。
+基于 OpenTelemetry 的链路追踪页，支持按 Trace ID / 服务名 / 时间范围定位请求链路，查看延迟分布、错误率与吞吐量。追踪标签（tag/attribute）的真实命名见 [链路追踪概述](../tracing/index.md) 的「标签设计」章节。
 
 ---
 
-## 5. 观测与排查
+## 9. 高级策略（`/strategy`）
 
-### 5.1 数据记录分组
-
-| 页面 | 路径 | 回答什么问题 |
-|------|------|-------------|
-| 调用历史仪表盘 | `/call-history/dashboard` | 整体调用量趋势、成功率/失败率概览 |
-| 调用列表 | `/call-history/list` | 每一笔请求的详细记录（时间、服务、状态码、耗时） |
-| Token 统计 | `/call-history/token-usage` | 各模型/服务的 Token 消耗量 |
-| 慢调用 | `/call-history/slow-calls` | 哪些请求耗时过长 |
-| 慢查询分析 | `/monitoring/slow-queries` | 慢请求的深度分析（需 `monitoring:slowquery:read` 权限） |
-| 配额用量监控 | `/monitoring/quota` | 配额消耗明细 |
-| 异常事件管理 | `/exceptions/list` | 所有异常事件的列表（所有已登录用户可见） |
-| 异常统计分析 | `/exceptions/statistics` | 异常按类型/时间的分布统计 |
-
-### 5.2 链路追踪分组
-
-| 页面 | 路径 | 回答什么问题 |
-|------|------|-------------|
-| 追踪仪表盘 | `/tracing/dashboard` | 追踪量趋势、延迟分布、错误率趋势、吞吐量 |
-| 追踪搜索 | `/tracing/search` | 按 Trace ID / 服务名 / 时间范围定位具体请求链路 |
-| 追踪配置 | `/tracing/management` | 追踪开关、采样率、导出器配置（Logging / OTLP / Jaeger） |
-
-### 5.3 仪表板总览
-
-概览 → 仪表板提供一站式视图：
-
-- **系统概览**：服务数量、实例数量、健康实例、异常实例；
-- **系统指标**：JVM 内存、线程数、HTTP 请求、CPU 使用率、运行时间；
-- **治理链路**：规则命中、限流、熔断、负载均衡状态快捷入口；
-- **异常/告警摘要**：最近异常事件列表；
-- **服务配置速览**：全局配置概要（适配器、限流、熔断等）。
+策略中心一页收敛：路由规则、负载均衡策略、熔断器阈值、响应缓存开关、用量配额（`/quota` 为其页内 Tab）。响应缓存等开关在页内控制，不在菜单树单独体现。
 
 ---
 
-## 6. 权限与角色
+## 10. 系统管理
 
-### 6.1 四个内置角色
-
-| 角色 | 权限码数 | 权限范围 | 说明 |
-|------|:-------:|----------|------|
-| **ADMIN** | 53 | 全量权限码 | 超级管理员；URL 规则直通，JWT 内嵌全量码 |
-| **OPERATOR** | 43 | 全部 `:read` + `:write` 码 | 日常运维；不含系统管理（`system:*`）、安全管理类 `manage`（API Key / JWT 令牌 / 黑名单管理） |
-| **USER** | 28 | 仪表盘 + config 只读 + lb/cb/rl 全量 + monitoring 只读 + tracing 仪表盘/搜索 + AI 试验场 | 普通用户；唯一写码 `lb:config:write` |
-| **VIEWER** | 27 | 全部 `:read` 码 | 纯只读角色；不含 `callhistory:view`、`ai:playground:use` |
-
-### 6.2 为什么看不到某些菜单页 {#why-menu-pages-missing}
-
-前端菜单渲染基于权限码过滤：
-
-1. 每个菜单组/菜单项关联一个权限码（如 `config:services:read`）；
-2. 登录后 JWT 的 `permissions` claim 包含当前用户的权限码列表；
-3. `usePermission` 组合式函数在渲染时过滤掉用户不拥有的菜单项；
-4. 路由守卫（`meta.permissions`）进一步拦截无权限的直接 URL 访问。
-
-**解决方式**：
-
-1. **系统管理** → **权限管理**页面（需 `system:permissions:manage` 权限，仅 ADMIN）；
-2. 找到目标角色，勾选缺失的权限码并保存。
-
-> 💡 `/v1/**`（OpenAI 兼容推理端点）独立于 RBAC 体系，仅要求认证，不受权限码限制。
+| 页面 | 路由 | 内容 |
+|------|------|------|
+| 账号与权限 | `/settings/accounts` | 账号、角色与权限码分配 |
+| 模型配置 | `/settings/model-config` | 供应商模板、模型分类、模型适配器 |
+| 审计与版本 | `/settings/audit-versions` | 安全审计日志、配置版本对比与回滚 |
+| 状态监控 | `/settings/monitoring` | 状态持久化（内存 / H2 / Redis / 文件） |
 
 ---
 
-## 7. 多协议接入
-
-### 7.1 客户端接入指南
-
-**菜单路径**：开发者工具 → 客户端接入指南
-
-该页面提供 OpenAI 兼容接口和 Anthropic 兼容接口的完整接入示例，包括 Base URL、认证方式、curl 示例和 SDK 示例。
-
-### 7.2 凭据头口径
+## 11. 凭据头口径
 
 | 协议面 | 凭据头 | 说明 |
 |--------|--------|------|
-| OpenAI 兼容 | `X-API-Key: <网关 API Key>` | 用于 `/v1/*` 端点 |
-| Anthropic 兼容 | `x-api-key: <网关 API Key>` | 用于 Anthropic Messages API |
-| 控制台 | `Jairouter_Token: <JWT>` | Web 控制台登录后的管理 API 凭据 |
-| `Authorization` | — | **透传给下游模型服务**，不是网关凭据 |
-
-> ⚠️ `Authorization` 头（如 `Bearer <token>`）会被网关原样转发给下游模型服务，不会作为网关自身认证凭据使用。
+| OpenAI 兼容 `/v1/*` | `Authorization: Bearer <网关 API Key>` 或 `X-API-Key: <网关 API Key>` | 测试向导生成的 curl 使用 `Authorization: Bearer` |
+| 控制台管理面 | `admin_token`（JWT，存于 localStorage） | 登录后的管理 API 凭据 |
+| `Authorization`（发给下游） | — | 在实例/供应商配置中填写，网关**透传**给下游模型服务，不是网关自身凭据 |
 
 ---
 
-## 8. 常见问题
+## 12. 常见问题
 
-### 8.1 登录后页面显示 401
+### 12.1 登录后页面 401
+JWT 过期（重新登录）或 `JWT_SECRET` 与部署时不一致（验签失败）。
 
-**现象**：登录后 API 请求返回 401 Unauthorized。
+### 12.2 登录后部分页面 403 或菜单缺失
+当前角色缺少对应权限码。用 `admin` 登录，在「系统管理 → 账号与权限」为角色补码；菜单层已按权限码过滤，直接输 URL 访问无权限页会被守卫重定向回 `/overview`。
 
-**可能原因**：
+### 12.3 调 `/v1/chat/completions` 返回 403 或 404
+- 403：请求的分类不在该密钥 `permissions` 内（闸门一）；
+- 404/503：`model` 填了上游实例名而非分组（虚拟模型名），或该分组不在密钥 `allowedGroups` 内（闸门二）。v3.5 起实例不可被直调。
 
-1. JWT 已过期（默认有效期 60 分钟）；
-2. 环境变量 `JWT_SECRET` 与部署时不一致，导致 token 验签失败。
+### 12.4 OpenAI SDK 接入 401
+确认用测试向导签发的网关 API Key，`base_url` 指向 `http://<host>:8080/v1`，`model` 填分组名。
 
-**处理**：
-
-- 重新登录获取新 token；
-- 确认 `JWT_SECRET` 环境变量在重启后未改变。
-
-### 8.2 登录后页面显示 403
-
-**现象**：部分 API 返回 403 Forbidden。
-
-**可能原因**：当前用户角色缺少对应权限码。
-
-**处理**：
-
-- 用 `admin` 账号登录，进入「系统管理 → 权限管理」为对应角色补充权限码；
-- 参考 [RBAC 权限管理](../security/rbac-permissions.md) 文档了解权限码体系。
-
-### 8.3 看不到某些菜单页
-
-**现象**：登录后侧边栏缺少部分菜单分组或页面。
-
-**可能原因**：当前用户角色不包含对应菜单项的权限码。
-
-**处理**：
-
-- 参见本文「[6.2 为什么看不到某些菜单页](#why-menu-pages-missing)」一节。
-
-### 8.4 OpenAI SDK 接入报错
-
-**现象**：使用 OpenAI SDK 调用时返回 401。
-
-**可能原因**：SDK 默认使用 `Authorization: Bearer <key>` 头，而非 `X-API-Key`。网关的 OpenAI 兼容端点要求 `X-API-Key` 头携带 API Key。
-
-**处理**：
-
-- 使用 `X-API-Key` 头而非 `Authorization` 头传递 API Key；
-- 参考「开发者工具 → 客户端接入指南」页面的 SDK 示例。
-
-### 8.5 Redis 不可用时的降级提示
-
-**现象**：仪表板或监控页面提示连接异常。
-
-**可能原因**：JAiRouter 依赖 Redis 进行 JWT 持久化/配额分布式存储时，Redis 未启动或不可达。本地开发环境默认 Redis 关闭（`redis.enabled: false`），JWT 使用 H2 + 内存回退。
-
-**处理**：
-
-- 本地开发：无需 Redis，JWT 使用 H2 存储 + 内存回退，功能不受影响；
-- 生产环境：确保 Redis 可用，或配置 `jairouter.security.jwt.persistence.fallback-storage: memory`。
-
-### 8.6 配额不生效
-
-**现象**：发送请求后配额用量监控页面无数据。
-
-**可能原因**：配额功能默认关闭。
-
-**处理**：
-
-1. 进入「流量治理 → 配额运行时配置」；
-2. 启用配额开关并保存；
-3. 确认存储后端状态正常（非降级）。
-
----
-
-## 附录：页面路径速查表
-
-| 分组 | 页面 | 路由路径 |
-|------|------|----------|
-| 概览 | 仪表板 | `/dashboard/main` |
-| 模型服务 | 服务管理 | `/config/services` |
-| 模型服务 | 实例管理 | `/config/instances` |
-| 模型服务 | 版本管理 | `/config/versions` |
-| 模型服务 | Adapter管理 | `/config/adapters` |
-| 流量治理 | 路由规则 | `/config/rules` |
-| 流量治理 | 负载均衡监控 | `/load-balancers/monitoring` |
-| 流量治理 | 负载均衡策略 | `/load-balancers/strategy-config` |
-| 流量治理 | 熔断器监控 | `/circuit-breakers/monitoring` |
-| 流量治理 | 熔断器历史 | `/circuit-breakers/history` |
-| 流量治理 | 熔断器配置 | `/circuit-breakers/global-config` |
-| 流量治理 | 限流监控 | `/rate-limiters/monitoring` |
-| 流量治理 | 资源池 | `/config/pools` |
-| 流量治理 | 响应缓存管理 | `/config/cache` |
-| 流量治理 | 配额运行时配置 | `/config/quota` |
-| 数据记录 | 调用历史仪表盘 | `/call-history/dashboard` |
-| 数据记录 | 调用列表 | `/call-history/list` |
-| 数据记录 | Token 统计 | `/call-history/token-usage` |
-| 数据记录 | 慢调用 | `/call-history/slow-calls` |
-| 数据记录 | 慢查询分析 | `/monitoring/slow-queries` |
-| 数据记录 | 配额用量监控 | `/monitoring/quota` |
-| 数据记录 | 异常事件管理 | `/exceptions/list` |
-| 数据记录 | 异常统计分析 | `/exceptions/statistics` |
-| 链路追踪 | 追踪仪表盘 | `/tracing/dashboard` |
-| 链路追踪 | 追踪搜索 | `/tracing/search` |
-| 链路追踪 | 追踪配置 | `/tracing/management` |
-| 安全管理 | API 密钥管理 | `/security/api-keys` |
-| 安全管理 | PII 脱敏管理 | `/security/sanitization` |
-| 安全管理 | JWT 令牌管理 | `/security/jwt-tokens` |
-| 安全管理 | 黑名单管理 | `/security/blacklist` |
-| 安全管理 | 审计日志 | `/security/audit-logs` |
-| 系统管理 | 账户管理 | `/system/accounts` |
-| 系统管理 | 权限管理 | `/system/permissions` |
-| 系统管理 | 状态持久化 | `/config/state-persistence` |
-| AI 试验场 | 对话测试 | `/playground/chat` |
-| AI 试验场 | 向量生成 | `/playground/embedding` |
-| AI 试验场 | 重排序 | `/playground/rerank` |
-| AI 试验场 | 语音服务 | `/playground/audio` |
-| AI 试验场 | 图像服务 | `/playground/image` |
-| 开发者工具 | 客户端接入指南 | `/tools/client-access` |
-
-### PII 脱敏管理（v3.2.0）
-
-路径：**安全管理 → PII 脱敏管理** `/security/sanitization`（权限 `security:sanitization:manage`）
-
-操作动线：
-1. 查看 request/response 子配置（PII 正则、敏感词、掩码字符）
-2. 热改后点保存（同步重建规则库，记录侧 SUMMARY 立即生效）
-3. 「试脱敏」粘贴聊天样例，确认脱敏后出现 `****`
-4. 说明：网关实时响应默认不脱敏；管理台 `/api/**` 与 AI 路径已排除
-
-### API 密钥配额操作（v3.2.0）
-
-路径：**安全管理 → API 密钥** 列表操作列 **「配额」**
-
-操作动线：
-1. 打开配额抽屉：今日用量 / 剩余量 + 预设（不限制/开发/标准/严格）
-2. 调整限额后「保存配额」（只改配额字段，不改密钥其它属性）
-3. 「重置计数」清零当日请求/Token 与速率
-4. 配额监控页可交叉跳转到 API Key 设置限额
-
-### 配额用量监控（交叉入口）
-
-路径：**数据记录 → 配额用量监控** `/monitoring/quota`
-
-- 展示多维用量与日请求/Token 限额、进度
-- 「到 API Key 设置限额」跳转 `/security/api-keys`
+### 12.5 Redis 不可用
+JWT 持久化 / 配额分布式存储依赖 Redis 时，本地开发默认关闭 Redis，JWT 走 H2 + 内存回退；生产请确保 Redis 可用。

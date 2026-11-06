@@ -17,6 +17,7 @@ import java.util.List;
  *
  * @author JAiRouter Team
  * @since 2.7.8
+ * @modified Trunkline Team
  */
 @Repository
 public interface ApiCallHistoryRepository extends JpaRepository<ApiCallHistoryEntity, Long> {
@@ -73,24 +74,44 @@ public interface ApiCallHistoryRepository extends JpaRepository<ApiCallHistoryEn
 
     /**
      * 分页查询（带过滤条件）
+     *
+     * <p>v3.5 Trunkline：新增 {@code virtualModel}（虚拟模型 / 模型分组）、{@code userId}
+     * （员工）、{@code keyword}（多字段模糊 OR 匹配）、{@code rateLimited}（限流标记）
+     * 四个维度，供「调用观测」按「谁调了哪个虚拟模型」过滤。</p>
+     *
+     * <p>{@code keyword} 的大小写不敏感（{@code lower(...)} 双侧包裹），
+     * 命中员工 / 虚拟模型 / Trace ID / 模型名 / 实例名任一即返回。</p>
      */
     @Query("SELECT c FROM ApiCallHistoryEntity c WHERE "
            + "(:startTime IS NULL OR c.createdAt >= :startTime) AND "
            + "(:endTime IS NULL OR c.createdAt <= :endTime) AND "
            + "(:modelName IS NULL OR c.modelName = :modelName) AND "
+           + "(:virtualModel IS NULL OR c.virtualModel = :virtualModel) AND "
+           + "(:userId IS NULL OR c.userId = :userId) AND "
            + "(:serviceType IS NULL OR c.serviceType = :serviceType) AND "
            + "(:apiKeyId IS NULL OR c.apiKeyId = :apiKeyId) AND "
            + "(:isSuccess IS NULL OR c.isSuccess = :isSuccess) AND "
-           + "(:httpStatusCode IS NULL OR c.httpStatusCode = :httpStatusCode) "
+           + "(:rateLimited IS NULL OR c.rateLimited = :rateLimited) AND "
+           + "(:httpStatusCode IS NULL OR c.httpStatusCode = :httpStatusCode) AND "
+           + "(:keyword IS NULL OR "
+           + "  lower(c.userId) LIKE lower(concat('%', :keyword, '%')) OR "
+           + "  lower(c.virtualModel) LIKE lower(concat('%', :keyword, '%')) OR "
+           + "  lower(c.traceId) LIKE lower(concat('%', :keyword, '%')) OR "
+           + "  lower(c.modelName) LIKE lower(concat('%', :keyword, '%')) OR "
+           + "  lower(c.instanceName) LIKE lower(concat('%', :keyword, '%'))) "
            + "ORDER BY c.createdAt DESC")
     Page<ApiCallHistoryEntity> findWithFilters(
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime,
             @Param("modelName") String modelName,
+            @Param("virtualModel") String virtualModel,
+            @Param("userId") String userId,
             @Param("serviceType") String serviceType,
             @Param("apiKeyId") String apiKeyId,
             @Param("isSuccess") Boolean isSuccess,
+            @Param("rateLimited") Boolean rateLimited,
             @Param("httpStatusCode") Integer httpStatusCode,
+            @Param("keyword") String keyword,
             Pageable pageable);
 
     // ========== 错误和慢调用查询 ==========

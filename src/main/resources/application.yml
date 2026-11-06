@@ -1,9 +1,16 @@
 # ========================================
-# JAiRouter 主配置文件（v2.8.x 模块化重构版）
+# Trunkline 主配置文件（v2.8.x 模块化重构版）
 # ========================================
 # 此文件为模块化重构后的主配置文件
 # 通过导入各服务模块配置实现配置分离
 # 支持外部配置文件（/app/config/）
+
+# 企业扩展点预埋（S2 任务 32-36）
+# 租户行级过滤总开关：默认 false（社区版零行为变化）；
+# 仅商业版多租户解锁后由 enterprise 部署配置置 true（TenantJpaFilter 随之装配）
+trunkline:
+  tenant:
+    filter-enabled: false
 
 spring:
   config:
@@ -52,6 +59,9 @@ spring:
       - classpath:config/security/security-base.yml
       - classpath:config/security/persistence-base.yml
       - classpath:config/security/audit-base.yml
+
+      # ====== 配额账本配置 ======
+      - classpath:config/quota/quota-base.yml
 
       # ====== 外部配置文件（#634：必须放在 import 列表末尾） ======
       # spring.config.import 中后导入的条目优先级更高——此前外部挂载列在最前，

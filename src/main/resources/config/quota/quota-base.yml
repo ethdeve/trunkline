@@ -1,0 +1,57 @@
+# ========================================
+# 配额账本（Quota Ledger）配置模板
+# ========================================
+# 对应 @ConfigurationProperties(prefix = "trunkline.quota") 的 QuotaProperties。
+# 默认 enabled=false：不累加、不查库、不落库，行为与 v3.0.x 完全一致（零行为变更）。
+#
+# 保留期语法：Nmo / Nd / Nh / Nm / Ns（mo=月、d=天、h=小时、m=分钟、s=秒，
+# 无单位按天解释），数值非法或为 0 时兜底为 1，避免误配 0 导致整表被清理。
+#
+# 此前 trunkline.quota.* 仅由字段初始值提供默认值，没有 yml 配置面，
+# 运维无法在不改代码的情况下调整窗口、保留期或分布式计数开关——本文件补齐该面。
+
+trunkline:
+  quota:
+    # 是否启用配额账本。启用后按 Key/分组/模型三维度记账（各窗口请求数与 Token 数），
+    # 「虚拟模型」页的本月调用、分组配额用量等页面依赖该账本；未配置限额（0=不限）时只记账不拦截。
+    enabled: true
+
+    # 账本异常时是否 fail-open（默认 true）：true=放行请求并标记降级，false=拒绝请求
+    fail-open: true
+
+    # 内存账本快照落库间隔（秒，默认 60）
+    flush-interval-seconds: 60
+
+    # 启用的窗口列表（默认四级：MINUTE / HOUR / DAY / MONTH）
+    windows:
+      - MINUTE
+      - HOUR
+      - DAY
+      - MONTH
+
+    # 各级窗口保留期，键为窗口名（minute / hour / day / month）
+    # 早于保留期截止时间的账本行会在 cleanupExpired() 中清理
+    retention:
+      minute: "1d"
+      hour: "2d"
+      day: "35d"
+      month: "13mo"
+
+    # ========================================
+    # 分布式（Redis）计数配置（默认关闭）
+    # ========================================
+    # 默认关闭：计数完全留在本进程内存（LocalCounterBackend）。
+    # 只有 enabled=true 时才把 Redis 作为权威计数（RedisCounterBackend）。
+    # Redis 连接信息（host/port/password/database）由 spring.data.redis.* 或
+    # REDIS_HOST / REDIS_PORT / REDIS_PASSWORD 环境变量统一提供，此处不重复配置。
+    distributed:
+      # 是否启用 Redis 分布式计数（默认 false：计数留在本进程内存）
+      enabled: false
+      # Redis key 前缀（默认 trunkline:quota）
+      key-prefix: "trunkline:quota"
+      # 旧版本（JAiRouter 3.x）key 前缀：启动期一次性把存量计数并入新前缀；置空关闭迁移
+      legacy-key-prefix: "jairouter:quota"
+      # 单条 Redis 命令超时（热路径同步等待，默认 50ms，有效区间 1ms ~ 5s）
+      timeout: "50ms"
+      # Redis 不可用 / 超时 / 脚本错误时是否降级回本地计数视图（默认 true）
+      degrade-to-local: true

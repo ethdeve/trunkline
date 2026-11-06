@@ -55,40 +55,42 @@
     },
     "form": {
       "serviceType": "Model Category",
-      "adapter": "Adapter",
-      "loadBalanceType": "Load Balance Strategy",
+      "adapter": "Protocol (auto-selected)",
+      "loadBalanceType": "Splitting strategy",
       "description": "Description (optional)",
       "selectServiceType": "Select a model category",
-      "selectAdapter": "Select an adapter",
-      "selectLoadBalance": "Select a load balance strategy",
+      "selectAdapter": "Choose a protocol",
+      "selectLoadBalance": "Choose a splitting strategy",
       "descriptionPlaceholder": "Add a brief description for identification (e.g. used for customer service chat)"
     },
     "rateLimit": {
-      "section": "Service-level Rate Limit Config",
-      "enable": "Enable Rate Limit",
-      "algorithm": "Algorithm",
+      "section": "Usage cap",
+      "enable": "Set a usage cap for this category",
+      "algorithm": "When exceeded",
       "selectAlgorithm": "Select an algorithm",
-      "tokenBucket": "Token Bucket",
-      "leakyBucket": "Leaky Bucket",
-      "slidingWindow": "Sliding Window",
-      "scope": "Scope",
+      "tokenBucket": "Burst-friendly, refills while idle",
+      "leakyBucket": "Strictly even pace",
+      "slidingWindow": "Fixed time window counting",
+      "scope": "Counted by",
       "selectScope": "Select a scope",
-      "serviceScope": "Service Level",
-      "capacity": "Capacity",
-      "rate": "Rate",
+      "serviceScope": "Whole category combined",
+      "capacity": "Max concurrent requests",
+      "rate": "Refills per second",
       "key": "Rate Limit Key",
       "keyPlaceholder": "Enter the rate limit key (optional)",
-      "clientIp": "Client IP Rate Limit"
+      "clientIp": "Limit per client IP"
     },
     "circuitBreaker": {
-      "section": "Service-level Circuit Breaker Config",
-      "enable": "Enable Circuit Breaker",
-      "failureThreshold": "Failure Threshold",
-      "timeoutMs": "Timeout (ms)",
-      "successThreshold": "Success Threshold"
+      "section": "Auto-pause on failure",
+      "enable": "Pause this category after repeated failures",
+      "failureThreshold": "Failures before pausing",
+      "timeoutMs": "Pause duration before retry (ms)",
+      "successThreshold": "Successes to recover"
     },
     "actions": {
       "versionHistory": "Version History"
-    }
+    },
+    "advancedTitle": "Override defaults (advanced)",
+    "advancedHint": "These settings apply to this category only; leave empty to use global defaults"
   }
 }

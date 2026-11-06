@@ -273,7 +273,10 @@ class ModelRouterPropertiesTest {
             ServiceConfig config = new ServiceConfig();
 
             assertNull(config.getLoadBalance());
-            assertNull(config.getInstances());
+            // v2.11.1 契约：instances 默认空 List 而非 null（防反射转 Map 产出 "instances": null
+            // 导致持久化消费端 for-each NPE），测试与生产契约对齐（X4 既有失败清零）
+            assertNotNull(config.getInstances());
+            assertTrue(config.getInstances().isEmpty());
             assertNull(config.getAdapter());
         }
 

@@ -27,7 +27,8 @@
       "save": "保存",
       "unknownError": "未知错误",
       "requestCount": "请求数",
-      "errorMessage": "错误信息"
+      "errorMessage": "错误信息",
+      "duration": "耗时"
     },
     "dashboard": {
       "title": "调用历史仪表盘",
@@ -70,6 +71,7 @@
       "listTitle": "调用历史列表",
       "totalRecords": "共 {count} 条记录",
       "detailsTitle": "调用详情",
+      "traceDetailHint": "点击查看链路追踪详情",
       "requestId": "请求 ID",
       "requestMethod": "请求方法",
       "requestPath": "请求路径",
@@ -94,28 +96,30 @@
       "saveConfigFailed": "保存记录配置失败：{message}",
       "saveSuccess": "记录级别已更新",
       "loadFailed": "加载调用历史失败：{message}",
-      "emptyFailedHint": "没有失败记录——你的调用可能全部成功了。把上方「状态」切换为「全部」即可查看所有调用记录。"
-    },
-    "failureExplain": {
-      "title": "为什么失败",
-      "circuitBroken": "该实例已熔断，暂时被摘除以保护后端",
-      "rateLimited": "调用过于频繁，触发了限流保护",
-      "dailyQuota": "今天的调用次数已用完",
-      "tokenQuota": "今天的 Token 额度已用完",
-      "throttled": "请求被限流拦截了",
-      "unauthorized": "密钥无效或已过期",
-      "forbidden": "该密钥没有调用这个模型的权限",
-      "notFound": "找不到这个模型或接口地址",
-      "upstreamError": "上游模型服务返回了错误",
-      "timeout": "请求超时，上游响应太慢",
-      "badRequest": "请求参数有问题",
-      "actions": {
-        "keys": "去密钥管理",
-        "rate": "去调限流",
-        "instances": "去查实例",
-        "circuit": "去看熔断",
-        "none": ""
-      }
+      "export": "导出",
+      "exportSuccess": "导出成功（仅元数据，封顶 10000 行）",
+      "exportFailed": "导出调用历史失败：{message}",
+      "emptyFailedHint": "没有失败记录——你的调用可能全部成功了。把上方「状态」切换为「全部」即可查看所有调用记录。",
+      "virtualModelLabel": "虚拟模型",
+      "virtualModelPlaceholder": "如「公司主力」",
+      "userLabel": "员工",
+      "userPlaceholder": "员工用户名",
+      "unknownUser": "未知",
+      "unassignedVirtualModel": "未归类",
+      "routedInstanceLabel": "实际路由到",
+      "searchPlaceholder": "搜人名、模型、调用编号…",
+      "rateLimitedFilter": "限流",
+      "last1Hour": "最近 1 小时",
+      "last24Hours": "最近 24 小时",
+      "last7Days": "最近 7 天",
+      "customRange": "自定义时间",
+      "requestedVirtualModelLabel": "员工请求的虚拟模型",
+      "callerLabel": "调用方",
+      "routeHintRateLimited": "（被限流）",
+      "routeHintCircuitBroken": "（被熔断）",
+      "routeHintFailed": "（调用失败）",
+      "routeHintDirect": "（直连成功）",
+      "statusRateLimited": "限流"
     },
     "slowCalls": {
       "pageTitle": "慢调用分析",
@@ -151,6 +155,11 @@
         "recentUsageTitle": "最近 Token 使用记录",
         "tokenUsage": "Token 使用量"
       }
+    },
+    "filters": {
+      "requestedVirtualModelLabel": "请求的模型",
+      "routedInstanceLabel": "实际用的模型",
+      "searchPlaceholder": "搜人名、模型、调用编号…"
     }
   }
 }

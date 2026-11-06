@@ -1,4 +1,4 @@
-# JAiRouter 完整监控体系 Docker Compose 配置 (v1.9.5)
+# Trunkline 完整监控体系 Docker Compose 配置 (v1.9.5)
 # 包含：Prometheus + Grafana + AlertManager + Loki + Tempo + Redis + Node Exporter + cAdvisor
 #
 # 使用说明:
@@ -20,7 +20,7 @@ services:
   # ========================================
   prometheus:
     image: prom/prometheus:v2.47.0
-    container_name: jairouter-prometheus
+    container_name: trunkline-prometheus
     ports:
       - "9090:9090"
     command:
@@ -37,7 +37,7 @@ services:
       - ./monitoring/prometheus:/etc/prometheus
       - prometheus-data:/prometheus
     networks:
-      - jairouter-network
+      - trunkline-network
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -52,7 +52,7 @@ services:
   # ========================================
   grafana:
     image: grafana/grafana:10.1.0
-    container_name: jairouter-grafana
+    container_name: trunkline-grafana
     ports:
       - "3001:3000"
     environment:
@@ -74,7 +74,7 @@ services:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
     networks:
-      - jairouter-network
+      - trunkline-network
     restart: unless-stopped
     depends_on:
       - prometheus
@@ -90,7 +90,7 @@ services:
   # ========================================
   alertmanager:
     image: prom/alertmanager:v0.26.0
-    container_name: jairouter-alertmanager
+    container_name: trunkline-alertmanager
     ports:
       - "9093:9093"
     volumes:
@@ -102,7 +102,7 @@ services:
       - '--web.external-url=http://localhost:9093'
       - '--cluster.listen-address='
     networks:
-      - jairouter-network
+      - trunkline-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9093/-/healthy"]
@@ -115,7 +115,7 @@ services:
   # ========================================
   loki:
     image: grafana/loki:2.9.0
-    container_name: jairouter-loki
+    container_name: trunkline-loki
     ports:
       - "3100:3100"
     command:
@@ -125,7 +125,7 @@ services:
       - ./monitoring/loki:/etc/loki
       - loki-data:/loki
     networks:
-      - jairouter-network
+      - trunkline-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
@@ -138,7 +138,7 @@ services:
   # ========================================
   promtail:
     image: grafana/promtail:2.9.0
-    container_name: jairouter-promtail
+    container_name: trunkline-promtail
     volumes:
       - ./monitoring/promtail:/etc/promtail
       - /var/log:/var/log:ro
@@ -147,7 +147,7 @@ services:
     command:
       - '-config.file=/etc/promtail/promtail.yml'
     networks:
-      - jairouter-network
+      - trunkline-network
     restart: unless-stopped
     depends_on:
       - loki
@@ -157,7 +157,7 @@ services:
   # ========================================
   tempo:
     image: grafana/tempo:2.2.2
-    container_name: jairouter-tempo
+    container_name: trunkline-tempo
     ports:
       - "3200:3200"  # Tempo API
       - "9411:9411"  # Zipkin 兼容端点
@@ -167,7 +167,7 @@ services:
       - ./monitoring/tempo:/etc/tempo
       - tempo-data:/tmp/tempo
     networks:
-      - jairouter-network
+      - trunkline-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:3200/ready || exit 1"]
@@ -180,7 +180,7 @@ services:
   # ========================================
   node-exporter:
     image: prom/node-exporter:v1.6.1
-    container_name: jairouter-node-exporter
+    container_name: trunkline-node-exporter
     ports:
       - "9100:9100"
     volumes:
@@ -194,7 +194,7 @@ services:
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
       - '--collector.netclass.ignored-devices=^(veth.*|docker.*|br-.*|cni.*|lo|virbr.*)$$'
     networks:
-      - jairouter-network
+      - trunkline-network
     restart: unless-stopped
     pid: host
     healthcheck:
@@ -210,7 +210,7 @@ services:
   # 如需启用，请确保 Docker 有足够权限访问 /var/lib/docker
   # cadvisor:
   #   image: gcr.io/cadvisor/cadvisor:v0.47.0
-  #   container_name: jairouter-cadvisor
+  #   container_name: trunkline-cadvisor
   #   ports:
   #     - "8080:8080"
   #   volumes:
@@ -220,7 +220,7 @@ services:
   #     - /var/lib/docker/:/var/lib/docker:ro
   #     - /dev/disk/:/dev/disk:ro
   #   networks:
-  #     - jairouter-network
+  #     - trunkline-network
   #   restart: unless-stopped
   #   privileged: true
   #   healthcheck:
@@ -234,7 +234,7 @@ services:
   # ========================================
   redis:
     image: redis:7.2-alpine
-    container_name: jairouter-redis
+    container_name: trunkline-redis
     ports:
       - "6379:6379"
     command:
@@ -245,7 +245,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - jairouter-network
+      - trunkline-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
@@ -259,14 +259,14 @@ services:
   # 注意：Redis Commander 是可选的 Web 管理工具
   # redis-commander:
   #   image: rediscommander/redis-commander:latest
-  #   container_name: jairouter-redis-commander
+  #   container_name: trunkline-redis-commander
   #   ports:
   #     - "8081:8081"
   #   environment:
   #     - REDIS_HOSTS=local:redis:6379:${REDIS_PASSWORD:-}
   #     - HTTP_PORT=8081
   #   networks:
-  #     - jairouter-network
+  #     - trunkline-network
   #   restart: unless-stopped
   #   depends_on:
   #     - redis
@@ -276,13 +276,13 @@ services:
   # ========================================
   mysqld-exporter:
     image: prom/mysqld-exporter:v0.15.1
-    container_name: jairouter-mysqld-exporter
+    container_name: trunkline-mysqld-exporter
     ports:
       - "9104:9104"
     environment:
       - DATA_SOURCE_NAME=${MYSQL_EXPORTER_USER:-exporter}:${MYSQL_EXPORTER_PASSWORD:-exporter}@(mysql:3306)/
     networks:
-      - jairouter-network
+      - trunkline-network
     restart: unless-stopped
     profiles:
       - mysql
@@ -292,7 +292,7 @@ services:
   # ========================================
   blackbox-exporter:
     image: prom/blackbox-exporter:v0.24.0
-    container_name: jairouter-blackbox-exporter
+    container_name: trunkline-blackbox-exporter
     ports:
       - "9115:9115"
     volumes:
@@ -300,7 +300,7 @@ services:
     command:
       - '--config.file=/etc/blackbox/blackbox.yml'
     networks:
-      - jairouter-network
+      - trunkline-network
     restart: unless-stopped
     profiles:
       - blackbox
@@ -320,5 +320,5 @@ volumes:
     driver: local
 
 networks:
-  jairouter-network:
+  trunkline-network:
     external: true

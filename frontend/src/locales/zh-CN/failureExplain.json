@@ -1,0 +1,43 @@
+{
+  "failureExplain": {
+    "title": "为什么失败",
+    "circuitBroken": "该实例已熔断，暂时被摘除以保护后端",
+    "rateLimited": "调用过于频繁，触发了限流保护",
+    "dailyQuota": "今天的调用次数已用完",
+    "tokenQuota": "今天的 Token 额度已用完",
+    "throttled": "请求被限流拦截了",
+    "unauthorized": "密钥无效或已过期",
+    "forbidden": "该密钥没有调用这个模型的权限",
+    "notFound": "找不到这个模型或接口地址",
+    "upstreamError": "上游模型服务返回了错误",
+    "timeout": "请求超时，上游响应太慢",
+    "badRequest": "请求参数有问题",
+    "actions": {
+      "keys": "去密钥管理",
+      "rate": "去调限流",
+      "instances": "去查实例",
+      "circuit": "去看熔断",
+      "none": ""
+    },
+    "staff": {
+      "circuitBroken": "这个模型暂时被停用，等它恢复后会自动重新接上",
+      "rateLimited": "调用太频繁了，系统暂时挡了一下，稍等几秒再试",
+      "dailyQuota": "今天的调用次数已经用完了",
+      "tokenQuota": "今天的使用量已经用完了",
+      "throttled": "请求太快被挡下来了，稍等几秒再试",
+      "unauthorized": "这个密钥无效或已过期",
+      "forbidden": "这个密钥没有调用该模型的权限",
+      "notFound": "找不到这个模型或接口地址",
+      "upstreamError": "模型服务那边返回了错误",
+      "timeout": "等太久了，模型服务没来得及响应",
+      "badRequest": "请求参数有问题",
+      "actions": {
+        "keys": "去密钥管理",
+        "rate": "去调整调用速度",
+        "instances": "去查模型",
+        "circuit": "去看保护设置",
+        "none": ""
+      }
+    }
+  }
+}

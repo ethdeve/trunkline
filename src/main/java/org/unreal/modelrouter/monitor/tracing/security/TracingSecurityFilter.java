@@ -28,6 +28,7 @@ import reactor.core.publisher.Mono;
  *
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @Component
@@ -38,10 +39,11 @@ public class TracingSecurityFilter implements WebFilter, Ordered {
 
     /**
      * 设置过滤器优先级，在安全认证过滤器之后执行
+     * （顺序契约见 {@code FilterOrderContract}，X2 整改：过滤器顺序唯一化）
      */
     @Override
     public int getOrder() {
-        return Ordered.LOWEST_PRECEDENCE - 100;
+        return org.unreal.modelrouter.common.filter.FilterOrderContract.TRACING_SECURITY;
     }
 
     @Override

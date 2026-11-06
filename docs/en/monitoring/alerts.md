@@ -9,14 +9,14 @@
 
 
 
-This document describes how to configure and manage the JAiRouter alerting system, including alert rule setup, notification configuration, and alert handling procedures.
+This document describes how to configure and manage the Trunkline alerting system, including alert rule setup, notification configuration, and alert handling procedures.
 
 ## Alert Architecture
 
 ```mermaid
 graph TB
     subgraph "Metric Collection"
-        A[JAiRouter Application] --> B[Prometheus]
+        A[Trunkline Application] --> B[Prometheus]
     end
     
     subgraph "Alert Processing"
@@ -44,48 +44,48 @@ graph TB
 
 ### Basic Alert Rules
 
-Create `monitoring/prometheus/rules/jairouter-alerts.yml`:
+Create `monitoring/prometheus/rules/trunkline-alerts.yml`:
 
 ```yaml
 groups:
-  - name: jairouter.critical
+  - name: trunkline.critical
     interval: 30s
     rules:
       # Service Unavailable
-      - alert: JAiRouterDown
-        expr: up{job="jairouter"} == 0
+      - alert: TrunklineDown
+        expr: up{job="trunkline"} == 0
         for: 1m
         labels:
           severity: critical
-          service: jairouter
+          service: trunkline
         annotations:
-          summary: "JAiRouter Service Unavailable"
-          description: "JAiRouter service has stopped responding for more than 1 minute"
-          runbook_url: "https://jairouter.com/troubleshooting/service-down"
+          summary: "Trunkline Service Unavailable"
+          description: "Trunkline service has stopped responding for more than 1 minute"
+          runbook_url: "https://trunkline.com/troubleshooting/service-down"
 
       # High Error Rate
       - alert: HighErrorRate
-        expr: sum(rate(jairouter_requests_total{status=~"5.."}[5m])) / sum(rate(jairouter_requests_total[5m])) > 0.05
+        expr: sum(rate(trunkline_requests_total{status=~"5.."}[5m])) / sum(rate(trunkline_requests_total[5m])) > 0.05
         for: 2m
         labels:
           severity: critical
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "High Error Rate Alert"
           description: "5xx error rate exceeds 5%, current value: {{ $value | humanizePercentage }}"
-          runbook_url: "https://jairouter.com/troubleshooting/high-error-rate"
+          runbook_url: "https://trunkline.com/troubleshooting/high-error-rate"
 
       # High Latency
       - alert: HighLatency
-        expr: histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le)) > 5
+        expr: histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le)) > 5
         for: 5m
         labels:
           severity: critical
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "Response Time Too Long"
           description: "P95 response time exceeds 5 seconds, current value: {{ $value }}s"
-          runbook_url: "https://jairouter.com/troubleshooting/high-latency"
+          runbook_url: "https://trunkline.com/troubleshooting/high-latency"
 
       # High Memory Usage
       - alert: HighMemoryUsage
@@ -93,47 +93,47 @@ groups:
         for: 2m
         labels:
           severity: critical
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "Memory Usage Too High"
           description: "JVM heap memory usage exceeds 90%, current value: {{ $value | humanizePercentage }}"
-          runbook_url: "https://jairouter.com/troubleshooting/memory-issues"
+          runbook_url: "https://trunkline.com/troubleshooting/memory-issues"
 
       # Backend Service Unavailable
       - alert: BackendServiceDown
-        expr: jairouter_backend_health == 0
+        expr: trunkline_backend_health == 0
         for: 1m
         labels:
           severity: critical
-          service: jairouter
+          service: trunkline
           adapter: "{{ $labels.adapter }}"
           instance: "{{ $labels.instance }}"
         annotations:
           summary: "Backend Service Unavailable"
           description: "Backend service {{ $labels.adapter }}/{{ $labels.instance }} health check failed"
-          runbook_url: "https://jairouter.com/troubleshooting/backend-down"
+          runbook_url: "https://trunkline.com/troubleshooting/backend-down"
 
-  - name: jairouter.warning
+  - name: trunkline.warning
     interval: 60s
     rules:
       # Moderate Error Rate
       - alert: ModerateErrorRate
-        expr: sum(rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum(rate(jairouter_requests_total[5m])) > 0.10
+        expr: sum(rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum(rate(trunkline_requests_total[5m])) > 0.10
         for: 5m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "Error Rate High"
           description: "Total error rate exceeds 10%, current value: {{ $value | humanizePercentage }}"
 
       # Response Time Warning
       - alert: ModerateLatency
-        expr: histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le)) > 2
+        expr: histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le)) > 2
         for: 10m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "Response Time High"
           description: "P95 response time exceeds 2 seconds, current value: {{ $value }}s"
@@ -144,18 +144,18 @@ groups:
         for: 5m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "Memory Usage High"
           description: "JVM heap memory usage exceeds 80%, current value: {{ $value | humanizePercentage }}"
 
       # Circuit Breaker Open
       - alert: CircuitBreakerOpen
-        expr: jairouter_circuit_breaker_state == 1
+        expr: trunkline_circuit_breaker_state == 1
         for: 1m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
           circuit_breaker: "{{ $labels.circuit_breaker }}"
         annotations:
           summary: "Circuit Breaker Open"
@@ -163,11 +163,11 @@ groups:
 
       # High Rate Limit Rejection
       - alert: HighRateLimitRejection
-        expr: sum(rate(jairouter_rate_limit_events_total{result="denied"}[5m])) / sum(rate(jairouter_rate_limit_events_total[5m])) > 0.20
+        expr: sum(rate(trunkline_rate_limit_events_total{result="denied"}[5m])) / sum(rate(trunkline_rate_limit_events_total[5m])) > 0.20
         for: 5m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "Rate Limit Rejection Rate High"
           description: "Rate limit rejection rate exceeds 20%, current value: {{ $value | humanizePercentage }}"
@@ -176,27 +176,27 @@ groups:
       - alert: LoadImbalance
         expr: |
           (
-            max(sum by (instance) (rate(jairouter_backend_calls_total[5m]))) -
-            min(sum by (instance) (rate(jairouter_backend_calls_total[5m])))
-          ) / avg(sum by (instance) (rate(jairouter_backend_calls_total[5m]))) > 0.5
+            max(sum by (instance) (rate(trunkline_backend_calls_total[5m]))) -
+            min(sum by (instance) (rate(trunkline_backend_calls_total[5m])))
+          ) / avg(sum by (instance) (rate(trunkline_backend_calls_total[5m]))) > 0.5
         for: 10m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "Load Imbalance"
           description: "Load difference between instances exceeds 50%"
 
-  - name: jairouter.business
+  - name: trunkline.business
     interval: 60s
     rules:
       # High Model Call Failure Rate
       - alert: HighModelCallFailureRate
-        expr: sum(rate(jairouter_model_calls_total{status!="success"}[5m])) / sum(rate(jairouter_model_calls_total[5m])) > 0.10
+        expr: sum(rate(trunkline_model_calls_total{status!="success"}[5m])) / sum(rate(trunkline_model_calls_total[5m])) > 0.10
         for: 5m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "Model Call Failure Rate High"
           description: "Model call failure rate exceeds 10%, current value: {{ $value | humanizePercentage }}"
@@ -205,16 +205,16 @@ groups:
       - alert: UnusualActiveSessionCount
         expr: |
           (
-            sum(jairouter_user_sessions_active) > 
-            (avg_over_time(sum(jairouter_user_sessions_active)[1h:5m]) * 2)
+            sum(trunkline_user_sessions_active) > 
+            (avg_over_time(sum(trunkline_user_sessions_active)[1h:5m]) * 2)
           ) or (
-            sum(jairouter_user_sessions_active) < 
-            (avg_over_time(sum(jairouter_user_sessions_active)[1h:5m]) * 0.5)
+            sum(trunkline_user_sessions_active) < 
+            (avg_over_time(sum(trunkline_user_sessions_active)[1h:5m]) * 0.5)
           )
         for: 10m
         labels:
           severity: info
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "Unusual Active Session Count"
           description: "Current active session count: {{ $value }}, significantly different from historical average"
@@ -224,16 +224,16 @@ groups:
 
 ```yaml
 groups:
-  - name: jairouter.business-specific
+  - name: trunkline.business-specific
     interval: 60s
     rules:
       # Slow Chat Service Response
       - alert: ChatServiceSlowResponse
-        expr: histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket{service="chat"}[5m])) by (le)) > 3
+        expr: histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket{service="chat"}[5m])) by (le)) > 3
         for: 5m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
           business_service: chat
         annotations:
           summary: "Chat Service Slow Response"
@@ -241,11 +241,11 @@ groups:
 
       # Embedding Service Traffic Drop
       - alert: EmbeddingServiceLowTraffic
-        expr: sum(rate(jairouter_requests_total{service="embedding"}[5m])) < (avg_over_time(sum(rate(jairouter_requests_total{service="embedding"}[5m]))[1h:5m]) * 0.3)
+        expr: sum(rate(trunkline_requests_total{service="embedding"}[5m])) < (avg_over_time(sum(rate(trunkline_requests_total{service="embedding"}[5m]))[1h:5m]) * 0.3)
         for: 15m
         labels:
           severity: info
-          service: jairouter
+          service: trunkline
           business_service: embedding
         annotations:
           summary: "Embedding Service Traffic Drop"
@@ -253,11 +253,11 @@ groups:
 
       # Specific Model Provider Down
       - alert: ModelProviderDown
-        expr: sum by (provider) (jairouter_backend_health{adapter=~".*"}) == 0
+        expr: sum by (provider) (trunkline_backend_health{adapter=~".*"}) == 0
         for: 2m
         labels:
           severity: critical
-          service: jairouter
+          service: trunkline
           provider: "{{ $labels.provider }}"
         annotations:
           summary: "Model Provider Service Down"
@@ -273,8 +273,8 @@ Create `monitoring/alertmanager/alertmanager.yml`:
 ```yaml
 global:
   smtp_smarthost: 'smtp.example.com:587'
-  smtp_from: 'alerts@jairouter.com'
-  smtp_auth_username: 'alerts@jairouter.com'
+  smtp_from: 'alerts@trunkline.com'
+  smtp_auth_username: 'alerts@trunkline.com'
   smtp_auth_password: 'your-password'
 
 # Alert routing configuration
@@ -310,9 +310,9 @@ route:
 inhibit_rules:
   # Suppress other alerts when service is unavailable
   - source_match:
-      alertname: JAiRouterDown
+      alertname: TrunklineDown
     target_match:
-      service: jairouter
+      service: trunkline
     equal: ['service']
   
   # Critical alerts suppress warning alerts
@@ -326,8 +326,8 @@ inhibit_rules:
 receivers:
   - name: 'default'
     email_configs:
-      - to: 'admin@jairouter.com'
-        subject: 'JAiRouter Alert: {{ .GroupLabels.alertname }}'
+      - to: 'admin@trunkline.com'
+        subject: 'Trunkline Alert: {{ .GroupLabels.alertname }}'
         body: |
           {{ range .Alerts }}
           Alert: {{ .Annotations.summary }}
@@ -337,7 +337,7 @@ receivers:
 
   - name: 'critical-alerts'
     email_configs:
-      - to: 'oncall@jairouter.com'
+      - to: 'oncall@trunkline.com'
         subject: '🚨 Critical Alert: {{ .GroupLabels.alertname }}'
         body: |
           Critical alert triggered!
@@ -352,7 +352,7 @@ receivers:
     slack_configs:
       - api_url: 'YOUR_SLACK_WEBHOOK_URL'
         channel: '#alerts-critical'
-        title: '🚨 JAiRouter Critical Alert'
+        title: '🚨 Trunkline Critical Alert'
         text: |
           {{ range .Alerts }}
           *{{ .Annotations.summary }}*
@@ -361,16 +361,16 @@ receivers:
 
   - name: 'warning-alerts'
     email_configs:
-      - to: 'team@jairouter.com'
+      - to: 'team@trunkline.com'
         subject: '⚠️ Warning Alert: {{ .GroupLabels.alertname }}'
     slack_configs:
       - api_url: 'YOUR_SLACK_WEBHOOK_URL'
         channel: '#alerts-warning'
-        title: '⚠️ JAiRouter Warning Alert'
+        title: '⚠️ Trunkline Warning Alert'
 
   - name: 'business-alerts'
     email_configs:
-      - to: 'business@jairouter.com'
+      - to: 'business@trunkline.com'
         subject: '📊 Business Alert: {{ .GroupLabels.alertname }}'
     webhook_configs:
       - url: 'http://your-webhook-endpoint/alerts'
@@ -403,8 +403,8 @@ route:
     
     # Specific service alerts
     - match:
-        service: jairouter
-        alertname: JAiRouterDown
+        service: trunkline
+        alertname: TrunklineDown
       receiver: 'service-down'
       group_wait: 0s
       repeat_interval: 2m
@@ -438,12 +438,12 @@ time_intervals:
 receivers:
   - name: 'email-alerts'
     email_configs:
-      - to: 'alerts@jairouter.com'
-        from: 'noreply@jairouter.com'
+      - to: 'alerts@trunkline.com'
+        from: 'noreply@trunkline.com'
         smarthost: 'smtp.example.com:587'
-        auth_username: 'noreply@jairouter.com'
+        auth_username: 'noreply@trunkline.com'
         auth_password: 'your-password'
-        subject: 'JAiRouter Alert: {{ .GroupLabels.alertname }}'
+        subject: 'Trunkline Alert: {{ .GroupLabels.alertname }}'
         headers:
           Priority: 'high'
         body: |
@@ -457,7 +457,7 @@ receivers:
               </style>
           </head>
           <body>
-              <h2>JAiRouter Alert Notification</h2>
+              <h2>Trunkline Alert Notification</h2>
               {{ range .Alerts }}
               <div class="alert {{ .Labels.severity }}">
                   <h3>{{ .Annotations.summary }}</h3>
@@ -481,10 +481,10 @@ receivers:
   - name: 'slack-alerts'
     slack_configs:
       - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
-        channel: '#jairouter-alerts'
+        channel: '#trunkline-alerts'
         username: 'AlertManager'
         icon_emoji: ':warning:'
-        title: '{{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} JAiRouter Alert'
+        title: '{{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} Trunkline Alert'
         title_link: 'http://localhost:9093'
         text: |
           {{ range .Alerts }}
@@ -519,8 +519,8 @@ receivers:
           {
             "msgtype": "markdown",
             "markdown": {
-              "title": "JAiRouter Alert Notification",
-              "text": "## JAiRouter Alert Notification\n\n{{ range .Alerts }}**Alert:** {{ .Annotations.summary }}\n\n**Description:** {{ .Annotations.description }}\n\n**Service:** {{ .Labels.service }}\n\n**Severity:** {{ .Labels.severity }}\n\n**Time:** {{ .StartsAt.Format \"2006-01-02 15:04:05\" }}\n\n---\n\n{{ end }}"
+              "title": "Trunkline Alert Notification",
+              "text": "## Trunkline Alert Notification\n\n{{ range .Alerts }}**Alert:** {{ .Annotations.summary }}\n\n**Description:** {{ .Annotations.description }}\n\n**Service:** {{ .Labels.service }}\n\n**Severity:** {{ .Labels.severity }}\n\n**Time:** {{ .StartsAt.Format \"2006-01-02 15:04:05\" }}\n\n---\n\n{{ end }}"
             }
           }
 ```
@@ -539,7 +539,7 @@ receivers:
         body: |
           {
             "to": ["13800138000", "13900139000"],
-            "message": "JAiRouter Alert: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}"
+            "message": "Trunkline Alert: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}"
           }
 ```
 
@@ -552,10 +552,10 @@ receivers:
 amtool silence add alertname="HighMemoryUsage" --duration="2h" --comment="Memory optimization maintenance"
 
 # Silence all alerts for a specific service
-amtool silence add service="jairouter" --duration="30m" --comment="Service maintenance"
+amtool silence add service="trunkline" --duration="30m" --comment="Service maintenance"
 
 # Silence alerts for a specific instance
-amtool silence add instance="jairouter-01" --duration="1h" --comment="Instance restart"
+amtool silence add instance="trunkline-01" --duration="1h" --comment="Instance restart"
 ```
 
 ### Inhibition Rule Configuration
@@ -564,7 +564,7 @@ amtool silence add instance="jairouter-01" --duration="1h" --comment="Instance r
 inhibit_rules:
   # Suppress other related alerts when service is completely unavailable
   - source_match:
-      alertname: JAiRouterDown
+      alertname: TrunklineDown
     target_match_re:
       alertname: '(HighLatency|HighErrorRate|HighMemoryUsage)'
     equal: ['service']
@@ -589,8 +589,8 @@ inhibit_rules:
 ### Manual Alert Triggering
 
 ```bash
-# Stop JAiRouter service to test service unavailable alert
-docker stop jairouter
+# Stop Trunkline service to test service unavailable alert
+docker stop trunkline
 
 # Simulate high memory usage
 curl -X POST http://localhost:8080/actuator/test/memory-stress
@@ -603,10 +603,10 @@ for i in {1..100}; do curl http://localhost:8080/invalid-endpoint; done
 
 ```bash
 # Validate alert rule syntax
-promtool check rules monitoring/prometheus/rules/jairouter-alerts.yml
+promtool check rules monitoring/prometheus/rules/trunkline-alerts.yml
 
 # Test alert rules
-promtool query instant http://localhost:9090 'up{job="jairouter"} == 0'
+promtool query instant http://localhost:9090 'up{job="trunkline"} == 0'
 
 # View current active alerts
 curl http://localhost:9090/api/v1/alerts
@@ -625,7 +625,7 @@ amtool alert query
 amtool silence query
 
 # Test notifications
-amtool alert add alertname="TestAlert" service="jairouter" severity="warning"
+amtool alert add alertname="TestAlert" service="trunkline" severity="warning"
 ```
 
 ## Alert Handling Process
@@ -709,7 +709,7 @@ route:
 ```yaml
 # Avoid overly sensitive thresholds
 - alert: HighLatency
-  expr: histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le)) > 2
+  expr: histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le)) > 2
   for: 5m  # Increase duration to avoid transient fluctuations
 ```
 
@@ -725,7 +725,7 @@ route:
 ```yaml
 inhibit_rules:
   - source_match:
-      alertname: JAiRouterDown
+      alertname: TrunklineDown
     target_match_re:
       alertname: '.*'
     equal: ['service']
@@ -736,10 +736,10 @@ inhibit_rules:
 #### Alert Metric Collection
 ```yaml
 # Collect alert-related metrics
-- record: jairouter:alert_firing_count
+- record: trunkline:alert_firing_count
   expr: sum(ALERTS{alertstate="firing"})
 
-- record: jairouter:alert_resolution_time
+- record: trunkline:alert_resolution_time
   expr: time() - ALERTS_FOR_STATE{alertstate="firing"}
 ```
 
@@ -766,9 +766,9 @@ inhibit_rules:
 #### 3. Alert Naming Conventions
 ```yaml
 # Good alert naming
-- alert: JAiRouterHighLatency
-- alert: JAiRouterBackendDown
-- alert: JAiRouterHighErrorRate
+- alert: TrunklineHighLatency
+- alert: TrunklineBackendDown
+- alert: TrunklineHighErrorRate
 
 # Avoid these names
 - alert: Alert1
@@ -802,13 +802,13 @@ inhibit_rules:
 **Check Steps**:
 ```bash
 # Validate rule syntax
-promtool check rules rules/jairouter-alerts.yml
+promtool check rules rules/trunkline-alerts.yml
 
 # Check rule loading status
 curl http://localhost:9090/api/v1/rules
 
 # Test query expressions
-curl "http://localhost:9090/api/v1/query?query=up{job=\"jairouter\"}"
+curl "http://localhost:9090/api/v1/query?query=up{job=\"trunkline\"}"
 ```
 
 #### 2. Notifications Not Sent

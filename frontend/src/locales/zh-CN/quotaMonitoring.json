@@ -58,6 +58,7 @@
     "scopeColumn": "口径",
     "scopeGroup": "分组汇总",
     "scopeMember": "组内明细",
+    "scopeModel": "厂商模型",
     "scopeKey": "密钥维度"
   }
 }

@@ -273,7 +273,7 @@ public class MonitoringHealthChecker {
             
             // 检查是否有基本的指标
             boolean hasBasicMetrics = meterRegistry.getMeters().stream()
-                .anyMatch(meter -> meter.getId().getName().startsWith("jairouter"));
+                .anyMatch(meter -> meter.getId().getName().startsWith("trunkline"));
             
             details.put("hasJaiRouterMetrics", hasBasicMetrics);
             

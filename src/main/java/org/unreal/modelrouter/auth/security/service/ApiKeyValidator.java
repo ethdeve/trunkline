@@ -21,6 +21,10 @@ public class ApiKeyValidator {
     @Autowired(required = false)
     private TokenBucketRateLimiter rateLimiter;
 
+    /** O(1) 查找索引（C6 整改）；为 null 时退化为 O(n) 全表扫描 */
+    @Autowired(required = false)
+    private ApiKeyLookupIndex apiKeyLookupIndex;
+
     /**
      * 验证 API Key 格式
      * 检查 keyValue 是否符合基本格式要求
@@ -41,6 +45,11 @@ public class ApiKeyValidator {
             return ValidationResult.failure("API Key 格式无效，必须以 'sk-' 开头");
         }
 
+        // 字符集校验：仅允许字母、数字、连字符、下划线，防止注入/控制字符混入
+        if (!keyValue.matches("[A-Za-z0-9_-]+")) {
+            return ValidationResult.failure("API Key 包含非法字符，仅允许字母、数字、- 和 _");
+        }
+
         return ValidationResult.success();
     }
 
@@ -53,6 +62,9 @@ public class ApiKeyValidator {
      * @return 匹配的 ApiKey，如果未找到返回 null
      */
     public ApiKey findMatchingKey(final String keyValue, final Map<String, ApiKey> apiKeyCache) {
+        if (apiKeyLookupIndex != null) {
+            return apiKeyLookupIndex.find(keyValue, apiKeyCache);
+        }
         for (ApiKey apiKey : apiKeyCache.values()) {
             if (apiKey.verifyKey(keyValue)) {
                 return apiKey;
@@ -149,6 +161,105 @@ public class ApiKeyValidator {
         return ValidationResult.success();
     }
 
+    // ==================== P0-A：小时 / 月窗口配额校验 ====================
+    //
+    // 此前 hourly*/monthly* 四个限额「配了不生效」——认证链只校验日配额。
+    // 这里补齐校验，并使用独立错误码，便于客户端区分是哪个窗口超限。
+    //
+    // 【多副本一致性局限（P0-A 必读）】
+    // 本组校验读的是 ApiKey.usage 里的「单副本内存计数 + 持久化」用量统计，不是全局精确配额：
+    //   ① 多副本部署时各副本各自计数，实际用量会被低估约 N 倍（N = 副本数），
+    //      因此这里是「尽力而为」的软拦截，而非全局精确配额；
+    //   ② 精确拦截必须启用配额账本（trunkline.quota.enabled=true）——
+    //      账本路径（QuotaLedgerService / QuotaEnforcementService）的 QuotaLimitSet
+    //      已包含 monthTokens 等月度额度字段，账本开启时月额度本就支持；
+    //   ③ 本组校验解决的是「账本关闭（默认）时配了额度完全不生效」这个更严重的问题。
+    // 详见 ApiKey 新判定方法与 UsageStatistics 类注释（同段说明）。
+
+    /**
+     * 验证每小时请求限制（P0-A）
+     *
+     * <p><b>判定口径</b>：自然小时窗口（本地时区、整点对齐，与配额账本
+     * {@code QuotaWindow.HOUR} 同口径）；{@code hourlyRequestLimit <= 0} 表示不限制；
+     * 本小时累计请求数 {@code >= } 限额即视为超限。</p>
+     *
+     * <p><b>一致性局限</b>：用量来自单副本内存计数，多副本部署下会被低估约 N 倍（N = 副本数），
+     * 非全局精确配额；需要精确拦截必须启用配额账本（{@code trunkline.quota.enabled=true}）。</p>
+     *
+     * @param apiKey 要验证的 ApiKey
+     * @return 验证结果
+     */
+    public ValidationResult validateHourlyLimit(final ApiKey apiKey) {
+        if (apiKey.isHourlyRequestLimitExceeded()) {
+            return ValidationResult.failure("超过每小时请求限制",
+                    AuthenticationException.HOURLY_QUOTA_EXCEEDED);
+        }
+        return ValidationResult.success();
+    }
+
+    /**
+     * 验证每小时 Token 使用限制（P0-A）
+     *
+     * <p><b>判定口径</b>：自然小时窗口（本地时区、整点对齐，与配额账本
+     * {@code QuotaWindow.HOUR} 同口径）；{@code hourlyTokenLimit <= 0} 表示不限制；
+     * 本小时累计 Token 数 {@code >= } 限额即视为超限。</p>
+     *
+     * <p><b>一致性局限</b>：用量来自单副本内存计数，多副本部署下会被低估约 N 倍（N = 副本数），
+     * 非全局精确配额；需要精确拦截必须启用配额账本（{@code trunkline.quota.enabled=true}）。</p>
+     *
+     * @param apiKey 要验证的 ApiKey
+     * @return 验证结果
+     */
+    public ValidationResult validateHourlyTokenLimit(final ApiKey apiKey) {
+        if (apiKey.isHourlyTokenLimitExceeded()) {
+            return ValidationResult.failure("超过每小时 Token 使用限制",
+                    AuthenticationException.HOURLY_TOKEN_QUOTA_EXCEEDED);
+        }
+        return ValidationResult.success();
+    }
+
+    /**
+     * 验证每月请求限制（P0-A）
+     *
+     * <p><b>判定口径</b>：自然月窗口（本地时区、当月 1 日 0 点，与配额账本
+     * {@code QuotaWindow.MONTH} 同口径）；{@code monthlyRequestLimit <= 0} 表示不限制；
+     * 本月累计请求数 {@code >= } 限额即视为超限。</p>
+     *
+     * <p><b>一致性局限</b>：用量来自单副本内存计数，多副本部署下会被低估约 N 倍（N = 副本数），
+     * 非全局精确配额；需要精确拦截必须启用配额账本（{@code trunkline.quota.enabled=true}）。</p>
+     *
+     * @param apiKey 要验证的 ApiKey
+     * @return 验证结果
+     */
+    public ValidationResult validateMonthlyLimit(final ApiKey apiKey) {
+        if (apiKey.isMonthlyRequestLimitExceeded()) {
+            return ValidationResult.failure("超过每月请求限制",
+                    AuthenticationException.MONTHLY_QUOTA_EXCEEDED);
+        }
+        return ValidationResult.success();
+    }
+
+    /**
+     * 验证每月 Token 使用限制（P0-A）
+     *
+     * <p><b>判定口径</b>：自然月窗口（本地时区、当月 1 日 0 点，与配额账本
+     * {@code QuotaWindow.MONTH} 同口径）；{@code monthlyTokenLimit <= 0} 表示不限制；
+     * 本月累计 Token 数 {@code >= } 限额即视为超限。</p>
+     *
+     * <p><b>一致性局限</b>：用量来自单副本内存计数，多副本部署下会被低估约 N 倍（N = 副本数），
+     * 非全局精确配额；需要精确拦截必须启用配额账本（{@code trunkline.quota.enabled=true}）。</p>
+     *
+     * @param apiKey 要验证的 ApiKey
+     * @return 验证结果
+     */
+    public ValidationResult validateMonthlyTokenLimit(final ApiKey apiKey) {
+        if (apiKey.isMonthlyTokenLimitExceeded()) {
+            return ValidationResult.failure("超过每月 Token 使用限制",
+                    AuthenticationException.MONTHLY_TOKEN_QUOTA_EXCEEDED);
+        }
+        return ValidationResult.success();
+    }
+
     /**
      * 执行完整的 API Key 验证流程
      *
@@ -193,32 +304,59 @@ public class ApiKeyValidator {
                     ipResult.getMessage(), ipResult.getErrorCode());
         }
 
-        // 6. 速率限制验证
-        ValidationResult rateResult = validateRateLimit(matchedKey);
-        if (!rateResult.isSuccess()) {
-            return FullValidationResult.validationError(matchedKey.getKeyId(),
-                    rateResult.getMessage(), rateResult.getErrorCode());
-        }
-
-        // 7. 每日请求限制验证
+        // 6. 每日请求限制验证（先于限流：被配额拒绝的请求不应消耗限流窗口）
         ValidationResult limitResult = validateDailyLimit(matchedKey);
         if (!limitResult.isSuccess()) {
             return FullValidationResult.validationError(matchedKey.getKeyId(),
                     limitResult.getMessage(), limitResult.getErrorCode());
         }
 
-        // 8. 每日 Token 使用限制验证
+        // 7. 每日 Token 使用限制验证
         ValidationResult tokenResult = validateTokenLimit(matchedKey);
         if (!tokenResult.isSuccess()) {
             return FullValidationResult.validationError(matchedKey.getKeyId(),
                     tokenResult.getMessage(), tokenResult.getErrorCode());
         }
 
+        // 8. P0-A：小时窗口配额校验（此前 hourly* 限额「配了不生效」）
+        ValidationResult hourlyResult = validateHourlyLimit(matchedKey);
+        if (!hourlyResult.isSuccess()) {
+            return FullValidationResult.validationError(matchedKey.getKeyId(),
+                    hourlyResult.getMessage(), hourlyResult.getErrorCode());
+        }
+
+        // 9. P0-A：小时窗口 Token 配额校验
+        ValidationResult hourlyTokenResult = validateHourlyTokenLimit(matchedKey);
+        if (!hourlyTokenResult.isSuccess()) {
+            return FullValidationResult.validationError(matchedKey.getKeyId(),
+                    hourlyTokenResult.getMessage(), hourlyTokenResult.getErrorCode());
+        }
+
+        // 10. P0-A：月窗口配额校验（此前 monthly* 限额「配了不生效」）
+        ValidationResult monthlyResult = validateMonthlyLimit(matchedKey);
+        if (!monthlyResult.isSuccess()) {
+            return FullValidationResult.validationError(matchedKey.getKeyId(),
+                    monthlyResult.getMessage(), monthlyResult.getErrorCode());
+        }
+
+        // 11. P0-A：月窗口 Token 配额校验
+        ValidationResult monthlyTokenResult = validateMonthlyTokenLimit(matchedKey);
+        if (!monthlyTokenResult.isSuccess()) {
+            return FullValidationResult.validationError(matchedKey.getKeyId(),
+                    monthlyTokenResult.getMessage(), monthlyTokenResult.getErrorCode());
+        }
+
+        // 12. 速率限制验证（置于配额之后：配额拒绝已提前短路，避免白扣一次限流令牌）
+        ValidationResult rateResult = validateRateLimit(matchedKey);
+        if (!rateResult.isSuccess()) {
+            return FullValidationResult.validationError(matchedKey.getKeyId(),
+                    rateResult.getMessage(), rateResult.getErrorCode());
+        }
+
         // 所有验证通过
         log.debug("API Key 验证成功: {}", matchedKey.getKeyId());
         return FullValidationResult.success(matchedKey.createSecureCopy());
     }
-
     /**
      * 验证结果
      */
@@ -347,7 +485,12 @@ public class ApiKeyValidator {
             return AuthenticationException.RATE_LIMITED_API_KEY.equals(code)
                     || AuthenticationException.RATE_LIMIT_EXCEEDED.equals(code)
                     || AuthenticationException.DAILY_QUOTA_EXCEEDED.equals(code)
-                    || AuthenticationException.TOKEN_QUOTA_EXCEEDED.equals(code);
+                    || AuthenticationException.TOKEN_QUOTA_EXCEEDED.equals(code)
+                    // P0-A：小时 / 月窗口配额同样是「服务端拒绝」，返回 429 而非 401
+                    || AuthenticationException.HOURLY_QUOTA_EXCEEDED.equals(code)
+                    || AuthenticationException.HOURLY_TOKEN_QUOTA_EXCEEDED.equals(code)
+                    || AuthenticationException.MONTHLY_QUOTA_EXCEEDED.equals(code)
+                    || AuthenticationException.MONTHLY_TOKEN_QUOTA_EXCEEDED.equals(code);
         }
     }
 

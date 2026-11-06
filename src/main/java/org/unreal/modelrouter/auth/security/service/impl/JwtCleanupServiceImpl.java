@@ -25,7 +25,7 @@ import java.util.Map;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "jairouter.security.jwt.persistence.cleanup.enabled",
+@ConditionalOnProperty(name = "trunkline.security.jwt.persistence.cleanup.enabled",
         havingValue = "true", matchIfMissing = true)
 public final class JwtCleanupServiceImpl implements JwtCleanupService {
 
@@ -38,13 +38,13 @@ public final class JwtCleanupServiceImpl implements JwtCleanupService {
     private final StoreManager storeManager;
     private final MeterRegistry meterRegistry;
 
-    @Value("${jairouter.security.jwt.persistence.cleanup.retention-days:30}")
+    @Value("${trunkline.security.jwt.persistence.cleanup.retention-days:30}")
     private int retentionDays;
 
-    @Value("${jairouter.security.jwt.persistence.cleanup.batch-size:1000}")
+    @Value("${trunkline.security.jwt.persistence.cleanup.batch-size:1000}")
     private int batchSize;
 
-    @Value("${jairouter.security.jwt.persistence.cleanup.schedule:0 0 2 * * ?}")
+    @Value("${trunkline.security.jwt.persistence.cleanup.schedule:0 0 2 * * ?}")
     private String cleanupSchedule;
 
     private JwtCleanupMetrics metrics;
@@ -69,7 +69,7 @@ public final class JwtCleanupServiceImpl implements JwtCleanupService {
     /**
      * 定时清理任务 - 每天凌晨2点执行
      */
-    @Scheduled(cron = "${jairouter.security.jwt.persistence.cleanup.schedule:0 0 2 * * ?}")
+    @Scheduled(cron = "${trunkline.security.jwt.persistence.cleanup.schedule:0 0 2 * * ?}")
     public void performScheduledCleanup() {
         LocalDateTime scheduledTime = LocalDateTime.now();
         log.info("Starting scheduled JWT cleanup task at {} (schedule: {})", scheduledTime, cleanupSchedule);

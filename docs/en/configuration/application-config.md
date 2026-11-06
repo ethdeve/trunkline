@@ -7,7 +7,7 @@
 > **Author**: Lincoln
 <!-- /版本信息 -->
 
-This document details the basic application configuration of JAiRouter, including server configuration, WebClient configuration, monitoring configuration, and more.
+This document details the basic application configuration of Trunkline, including server configuration, WebClient configuration, monitoring configuration, and more.
 
 ## Configuration File Locations
 
@@ -20,7 +20,7 @@ This document details the basic application configuration of JAiRouter, includin
 
 ## Modular Configuration Structure (v2.8.x)
 
-JAiRouter adopts a **modular configuration management** approach, splitting complex configurations into multiple independent configuration files by function and service module.
+Trunkline adopts a **modular configuration management** approach, splitting complex configurations into multiple independent configuration files by function and service module.
 
 ### Configuration Module Overview
 
@@ -177,7 +177,7 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
   file:
-    name: logs/jairouter.log
+    name: logs/trunkline.log
     max-size: 10MB
     max-history: 30
 ```
@@ -191,7 +191,7 @@ logging:
 #### File: `config/auth/jwt.yml`
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: false                    # Enable JWT authentication
@@ -200,7 +200,7 @@ jairouter:
       algorithm: "HS256"                # Signing algorithm
       expiration-minutes: 60            # Access token expiration
       refresh-expiration-days: 7        # Refresh token expiration
-      issuer: "jairouter"               # Token issuer
+      issuer: "trunkline"               # Token issuer
       blacklist-enabled: true           # Enable token blacklist
 ```
 
@@ -209,7 +209,7 @@ jairouter:
 #### File: `config/auth/api-key.yml`
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       enabled: true                     # Enable API key authentication
@@ -271,10 +271,10 @@ model:
 ### File: `config/base/monitoring-base.yml`
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     enabled: true
-    prefix: "jairouter"                 # Metric prefix
+    prefix: "trunkline"                 # Metric prefix
     collection-interval: "PT30S"        # Collection interval
     enabled-categories:
       - request
@@ -289,7 +289,7 @@ jairouter:
 ### File: `config/tracing/tracing-base.yml`
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: false
     sampling-rate: 1.0                  # Sampling rate (0.0 - 1.0)
@@ -305,7 +305,7 @@ jairouter:
 ### File: `config/persistence/state-persistence-base.yml`
 
 ```yaml
-jairouter:
+trunkline:
   persistence:
     enabled: true
     primary-storage: "h2"               # h2, redis, memory
@@ -328,7 +328,7 @@ spring:
     activate:
       on-profile: dev
 
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: false                    # Disable JWT in dev
@@ -348,7 +348,7 @@ spring:
     activate:
       on-profile: prod
 
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: true
@@ -369,11 +369,11 @@ When deploying with Docker, you can mount external configuration files:
 
 ```bash
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -v /path/to/config:/app/config \
   -e JWT_SECRET="your-secret-key" \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 ### External Configuration Structure

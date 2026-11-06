@@ -11,7 +11,7 @@
 
 ## Overview
 
-JAiRouter employs a multi-layered testing strategy to ensure code quality and system stability. This guide covers various aspects including unit testing, integration testing, and performance testing.
+Trunkline employs a multi-layered testing strategy to ensure code quality and system stability. This guide covers various aspects including unit testing, integration testing, and performance testing.
 
 ## Testing Frameworks
 
@@ -556,4 +556,4 @@ void shouldBeConcurrentSafe() {
 - Use `@DisabledOnOs` to skip specific platforms
 - Use logging for debugging information
 
-By following these testing guidelines, the code quality and system stability of JAiRouter can be ensured.
+By following these testing guidelines, the code quality and system stability of Trunkline can be ensured.

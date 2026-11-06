@@ -1,4 +1,4 @@
-﻿# 熔断器配置
+# 熔断器配置
 
 <!-- 版本信息 -->
 > **文档版本**: 1.0.3  
@@ -7,16 +7,16 @@
 > **作者**: Lincoln
 <!-- /版本信息 -->
 
-JAiRouter 内置熔断器机制，用于防止服务雪崩和级联故障。当后端服务出现故障时，熔断器会自动切断请求，并在服务恢复后自动恢复正常。本文档详细介绍熔断器的配置和使用。
+Trunkline 内置熔断器机制，用于防止服务雪崩和级联故障。当后端服务出现故障时，熔断器会自动切断请求，并在服务恢复后自动恢复正常。本文档详细介绍熔断器的配置和使用。
 
 ## 模块化配置说明
 
-从 v1.0.0 版本开始，JAiRouter 采用模块化配置结构，熔断器相关配置已移至独立的配置文件中：
+从 v2.8.x 版本开始，Trunkline 采用模块化配置结构，熔断器相关配置位于独立的配置文件中：
 
 - 主配置文件: `application.yml`
-- 模型服务基础配置: `config/base/model-services-base.yml`
+- 熔断器配置: `config/router/circuitbreaker.yml`
 
-您可以在 `config/base/model-services-base.yml` 文件中找到所有熔断器相关配置，包括全局配置、各服务类型配置和实例配置。
+您可以在 `config/router/circuitbreaker.yml` 文件中找到全局熔断器配置（`model.circuit-breaker.*`）；各服务类型的熔断配置写在 `config/router/services.yml` 的 `model.services.<serviceType>.circuit-breaker` 下，实例级熔断状态可通过 `/api/config/instance/{serviceType}/{instanceId}/circuit-breaker` 查看与调整。
 
 ## 熔断器概述
 
@@ -49,16 +49,17 @@ stateDiagram-v2
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
-| `failureThreshold` | 失败阈值，超过后熔断 | 5 |
-| `recoveryTimeout` | 恢复检测间隔（毫秒） | 60000 |
-| `successThreshold` | 成功阈值，达到后关闭熔断 | 2 |
-| `timeout` | 请求超时时间（毫秒） | 60000 |
+| `failureThreshold` | 失败阈值，连续失败超过后熔断 | 5 |
+| `timeout` | OPEN 状态持续时间（毫秒），过后进入 HALF_OPEN 探测 | 60000 |
+| `successThreshold` | HALF_OPEN 探测成功多少次后关闭熔断 | 2 |
+
+> 熔断器只有 `enabled` + 上述三个参数。**不存在** `recoveryTimeout`、统计窗口、异常白名单等扩展键——早期文档中的这些配置项已废弃。
 
 ## 全局熔断器配置
 
 ### 基础配置
 
-在 `config/base/model-services-base.yml` 文件中配置全局熔断器：
+在 `config/router/circuitbreaker.yml` 文件中配置全局熔断器：
 
 ```yaml
 # config/base/model-services-base.yml
@@ -91,32 +92,15 @@ model:
 
 ### 高级配置
 
+熔断器的全部可调参数就是 `failureThreshold` / `timeout` / `successThreshold` 三个阈值：
+
 ```yaml
 model:
   circuit-breaker:
     enabled: true
-    failure-threshold: 5
-    recovery-timeout: 60000
-    success-threshold: 3
-    timeout: 30000
-    
-    # 统计窗口配置
-    statistics:
-      window-size: 100          # 统计窗口大小
-      minimum-requests: 10      # 最小请求数
-      
-    # 异常配置
-    exceptions:
-      include:                  # 包含的异常类型
-        - "java.net.ConnectException"
-        - "java.net.SocketTimeoutException"
-      exclude:                  # 排除的异常类型
-        - "java.lang.IllegalArgumentException"
-    
-    # 监控配置
-    monitoring:
-      enabled: true             # 启用监控
-      metrics-interval: 10s     # 指标收集间隔
+    failureThreshold: 5      # 更敏感：失败 5 次即熔断
+    timeout: 60000           # OPEN 持续 60 秒
+    successThreshold: 2      # HALF_OPEN 连续成功 2 次后关闭
 ```
 
 ## 服务级熔断器配置
@@ -131,28 +115,26 @@ model:
     chat:
       circuit-breaker:
         enabled: true
-        failure-threshold: 3     # 更敏感的失败阈值
-        recovery-timeout: 30000  # 更快的恢复检测
-        success-threshold: 2     # 更快的恢复
-        timeout: 45000          # 更长的超时时间
+        failureThreshold: 3     # 更敏感的失败阈值
+        timeout: 30000          # 更快进入探测
+        successThreshold: 2     # 更快的恢复
       instances:
         - name: "unstable-model"
           base-url: "http://unstable-server:8080"
           path: "/v1/chat/completions"
           weight: 1
-    
+
     embedding:
       circuit-breaker:
         enabled: true
-        failure-threshold: 10    # 更宽松的失败阈值
-        recovery-timeout: 120000 # 更长的恢复时间
-        success-threshold: 5     # 更多成功次数要求
-        timeout: 60000
+        failureThreshold: 10    # 更宽松的失败阈值
+        timeout: 120000         # 更长的 OPEN 时间
+        successThreshold: 5     # 更多成功次数要求
 ```
 
 ### JSON 配置
 
-JAiRouter 也支持通过动态配置 API 更新熔断器配置：
+Trunkline 也支持通过动态配置 API 更新熔断器配置：
 
 ```json
 {
@@ -161,9 +143,8 @@ JAiRouter 也支持通过动态配置 API 更新熔断器配置：
       "circuitBreaker": {
         "enabled": true,
         "failureThreshold": 5,
-        "recoveryTimeout": 60000,
-        "successThreshold": 3,
-        "timeout": 30000
+        "timeout": 60000,
+        "successThreshold": 2
       },
       "instances": [
         {
@@ -180,154 +161,39 @@ JAiRouter 也支持通过动态配置 API 更新熔断器配置：
 
 ## 实例级熔断器配置
 
-### 独立实例熔断
+熔断器按实例独立维护状态。实例级熔断参数继承服务级/全局配置，可通过管理 API 查看与重置：
 
-在 `config/base/model-services-base.yml` 文件中配置实例级别的熔断器：
+```bash
+# 查看某实例熔断器状态
+curl -X GET "http://localhost:8080/api/config/instance/chat/qwen2:7b@http://gpu:8080/circuit-breaker"
 
-```yaml
-model:
-  services:
-    chat:
-      instances:
-        - name: "high-risk-model"
-          base-url: "http://high-risk-server:8080"
-          circuit-breaker:
-            enabled: true
-            failure-threshold: 2  # 更严格的阈值
-            recovery-timeout: 30000
-            success-threshold: 1
-            timeout: 20000
-        
-        - name: "stable-model"
-          base-url: "http://stable-server:8080"
-          circuit-breaker:
-            enabled: true
-            failure-threshold: 10 # 更宽松的阈值
-            recovery-timeout: 60000
-            success-threshold: 3
-            timeout: 30000
+# 重置指定实例熔断器（回到 CLOSED）
+curl -X POST "http://localhost:8080/api/config/instance/chat/qwen2:7b@http://gpu:8080/circuit-breaker/reset"
+
+# 查看全部实例熔断器状态
+curl -X GET "http://localhost:8080/api/config/instance/circuit-breaker/states"
 ```
 
-### 实例特定配置
-
-JAiRouter 也支持通过动态配置 API 更新实例级熔断器配置：
-
-```json
-{
-  "services": {
-    "chat": {
-      "instances": [
-        {
-          "name": "experimental-model",
-          "baseUrl": "http://experimental-server:8080",
-          "circuitBreaker": {
-            "enabled": true,
-            "failureThreshold": 3,
-            "recoveryTimeout": 45000,
-            "successThreshold": 2,
-            "timeout": 25000,
-            "statistics": {
-              "windowSize": 50,
-              "minimumRequests": 5
-            }
-          }
-        }
-      ]
-    }
-  }
-}
-```
+> 实例 YAML 中**没有**独立的 `circuit-breaker` 块；实例熔断参数来自服务级/全局配置，状态（CLOSED/OPEN/HALF_OPEN）由运行时按实例维护。早期文档中实例级 `failure-threshold/recovery-timeout` 示例已废弃。
 
 ## 熔断器与降级策略
 
-### 基础降级配置
+### 降级配置
 
-在 `config/base/model-services-base.yml` 文件中配置全局和服务级降级策略：
-
-```yaml
-model:
-  services:
-    chat:
-      circuit-breaker:
-        enabled: true
-        failure-threshold: 5
-        recovery-timeout: 60000
-      
-      # 降级策略配置
-      fallback:
-        enabled: true
-        strategy: default       # 降级策略：default 或 cache
-        response:
-          choices:
-            - message:
-                role: "assistant"
-                content: "服务暂时不可用，请稍后重试。"
-              finish_reason: "stop"
-          usage:
-            prompt_tokens: 0
-            completion_tokens: 0
-            total_tokens: 0
-```
-
-### 缓存降级配置
+降级（fallback）与熔断是两个独立配置，定义在 `config/router/fallback.yml`：
 
 ```yaml
 model:
-  services:
-    embedding:
-      circuit-breaker:
-        enabled: true
-        failure-threshold: 3
-        recovery-timeout: 30000
-      
-      fallback:
-        enabled: true
-        strategy: cache
-        cache:
-          size: 1000            # 缓存大小
-          ttl: 3600000         # 缓存TTL（毫秒）
-          key-generator: "md5"  # 缓存键生成算法
+  fallback:
+    enabled: true
+    strategy: default        # default / cache / mock
 ```
 
-### JSON 降级配置
+- **default**：返回预定义降级响应
+- **cache**：rerank 服务降级时返回最近一次成功响应，缓存大小与 TTL 可配（默认 `cache-size: 100`、`cache-ttl: 600000` 毫秒）
+- **mock**：返回 Mock 响应
 
-JAiRouter 也支持通过动态配置 API 更新降级策略：
-
-```json
-{
-  "services": {
-    "chat": {
-      "circuitBreaker": {
-        "enabled": true,
-        "failureThreshold": 5,
-        "recoveryTimeout": 60000
-      },
-      "fallback": {
-        "type": "default",
-        "response": {
-          "id": "fallback-response",
-          "object": "chat.completion",
-          "choices": [
-            {
-              "index": 0,
-              "message": {
-                "role": "assistant",
-                "content": "抱歉，服务暂时不可用。我们正在努力恢复服务，请稍后重试。"
-              },
-              "finish_reason": "stop"
-            }
-          ],
-          "usage": {
-            "prompt_tokens": 0,
-            "completion_tokens": 0,
-            "total_tokens": 0
-          }
-        }
-      }
-    }
-  }
-}
-```
+> 降级配置**没有** `response.choices`、`cache.key-generator` 等嵌套键——早期文档中的自定义响应体示例已废弃。
 
 ## 熔断器监控
 
@@ -335,32 +201,32 @@ JAiRouter 也支持通过动态配置 API 更新降级策略：
 
 ```bash
 # 熔断器状态
-curl "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.state"
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 
 # 熔断器调用统计
-curl "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.calls"
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 
 # 熔断器失败统计
-curl "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.failures"
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 
 # 熔断器恢复统计
-curl "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.recovery"
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 ```
 
 ### Prometheus 指标
 
 ```prometheus
 # 熔断器状态（0=CLOSED, 1=OPEN, 2=HALF_OPEN）
-jairouter_circuitbreaker_state{service="chat",instance="model-1"}
+trunkline_circuitbreaker_state{service="chat",instance="model-1"}
 
 # 熔断器调用总数
-jairouter_circuitbreaker_calls_total{service="chat",instance="model-1",result="success"}
+trunkline_circuitbreaker_calls_total{service="chat",instance="model-1",result="success"}
 
 # 熔断器失败率
-rate(jairouter_circuitbreaker_calls_total{result="failure"}[5m]) / rate(jairouter_circuitbreaker_calls_total[5m])
+rate(trunkline_circuitbreaker_calls_total{result="failure"}[5m]) / rate(trunkline_circuitbreaker_calls_total[5m])
 
 # 熔断器开启次数
-jairouter_circuitbreaker_opened_total{service="chat",instance="model-1"}
+trunkline_circuitbreaker_opened_total{service="chat",instance="model-1"}
 ```
 
 ### 监控仪表板
@@ -372,19 +238,19 @@ dashboard:
     - title: "熔断器状态"
       type: "stat"
       targets:
-        - expr: 'jairouter_circuitbreaker_state'
+        - expr: 'trunkline_circuitbreaker_state'
           legendFormat: '{{service}}-{{instance}}'
     
     - title: "熔断器失败率"
       type: "graph"
       targets:
-        - expr: 'rate(jairouter_circuitbreaker_calls_total{result="failure"}[5m]) / rate(jairouter_circuitbreaker_calls_total[5m])'
+        - expr: 'rate(trunkline_circuitbreaker_calls_total{result="failure"}[5m]) / rate(trunkline_circuitbreaker_calls_total[5m])'
           legendFormat: '{{service}}-{{instance}}'
     
     - title: "熔断器开启次数"
       type: "graph"
       targets:
-        - expr: 'increase(jairouter_circuitbreaker_opened_total[1h])'
+        - expr: 'increase(trunkline_circuitbreaker_opened_total[1h])'
           legendFormat: '{{service}}-{{instance}}'
 ```
 
@@ -394,10 +260,10 @@ dashboard:
 
 ```yaml
 groups:
-  - name: jairouter_circuitbreaker
+  - name: trunkline_circuitbreaker
     rules:
       - alert: CircuitBreakerOpen
-        expr: jairouter_circuitbreaker_state == 1
+        expr: trunkline_circuitbreaker_state == 1
         for: 1m
         labels:
           severity: critical
@@ -406,7 +272,7 @@ groups:
           description: "服务 {{ $labels.service }} 实例 {{ $labels.instance }} 的熔断器已开启"
       
       - alert: HighFailureRate
-        expr: rate(jairouter_circuitbreaker_calls_total{result="failure"}[5m]) / rate(jairouter_circuitbreaker_calls_total[5m]) > 0.5
+        expr: rate(trunkline_circuitbreaker_calls_total{result="failure"}[5m]) / rate(trunkline_circuitbreaker_calls_total[5m]) > 0.5
         for: 2m
         labels:
           severity: warning
@@ -415,7 +281,7 @@ groups:
           description: "服务 {{ $labels.service }} 实例 {{ $labels.instance }} 的失败率超过 50%"
       
       - alert: FrequentCircuitBreakerOpening
-        expr: increase(jairouter_circuitbreaker_opened_total[1h]) > 5
+        expr: increase(trunkline_circuitbreaker_opened_total[1h]) > 5
         for: 0m
         labels:
           severity: warning
@@ -636,10 +502,10 @@ model:
 **排查**：
 ```bash
 # 检查失败率
-curl "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.calls"
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 
 # 检查熔断器开启频率
-curl "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.opened"
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 ```
 
 **解决**：
@@ -661,7 +527,7 @@ circuit-breaker:
 curl "http://localhost:8080/actuator/configprops" | jq '.model.circuit-breaker'
 
 # 检查熔断器状态
-curl "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.state"
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 ```
 
 **解决**：
@@ -710,13 +576,13 @@ fallback:
 # 熔断器状态检查脚本
 
 echo "=== 熔断器状态 ==="
-curl -s "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.state" | jq .
+curl -s "http://localhost:8080/api/config/instance/circuit-breaker/states" | jq .
 
 echo "=== 熔断器调用统计 ==="
-curl -s "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.calls" | jq .
+curl -s "http://localhost:8080/api/config/instance/circuit-breaker/states" | jq .
 
 echo "=== 熔断器失败统计 ==="
-curl -s "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.failures" | jq .
+curl -s "http://localhost:8080/api/config/instance/circuit-breaker/states" | jq .
 ```
 
 #### 2. 熔断器测试工具

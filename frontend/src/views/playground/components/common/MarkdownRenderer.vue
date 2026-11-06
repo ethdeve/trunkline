@@ -71,7 +71,7 @@ const renderedContent = computed(() => {
   background-color: var(--el-fill-color-light);
   padding: 0.2em 0.4em;
   border-radius: 4px;
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-family: var(--ja-font-mono);
   font-size: 0.9em;
 }
 

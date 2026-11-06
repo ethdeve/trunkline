@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  jairouter:
-    image: sodlinken/jairouter:latest
-    container_name: jairouter-prod
+  trunkline:
+    image: trunkline/trunkline:latest
+    container_name: trunkline-prod
     ports:
       - "9900:8080"
     environment:
@@ -23,7 +23,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
     networks:
-      - jairouter-network
+      - trunkline-network
     depends_on:
       - redis-prod
     # 停机宽限期须大于 spring.lifecycle.timeout-per-shutdown-phase(30s)，
@@ -57,7 +57,7 @@ services:
 
   redis-prod:
     image: redis:7-alpine
-    container_name: jairouter-redis-prod
+    container_name: trunkline-redis-prod
     ports:
       - "6379:6379"
     environment:
@@ -71,7 +71,7 @@ services:
       - ./config/redis.conf:/usr/local/etc/redis/redis.conf:ro
     restart: unless-stopped
     networks:
-      - jairouter-network
+      - trunkline-network
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 30s
@@ -110,7 +110,7 @@ services:
         redis-sentinel /tmp/sentinel.conf
       "
     networks:
-      - jairouter-network
+      - trunkline-network
     depends_on:
       - redis-prod
     profiles:
@@ -132,7 +132,7 @@ services:
         redis-sentinel /tmp/sentinel.conf
       "
     networks:
-      - jairouter-network
+      - trunkline-network
     depends_on:
       - redis-prod
     profiles:
@@ -154,7 +154,7 @@ services:
         redis-sentinel /tmp/sentinel.conf
       "
     networks:
-      - jairouter-network
+      - trunkline-network
     depends_on:
       - redis-prod
     profiles:
@@ -165,7 +165,7 @@ volumes:
     driver: local
 
 networks:
-  jairouter-network:
+  trunkline-network:
     driver: bridge
     ipam:
       config:

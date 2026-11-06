@@ -9,7 +9,7 @@
 
 
 
-This document provides diagnostic methods and optimization strategies for JAiRouter performance issues.
+This document provides diagnostic methods and optimization strategies for Trunkline performance issues.
 
 ## Performance Monitoring Metrics
 
@@ -28,10 +28,10 @@ This document provides diagnostic methods and optimization strategies for JAiRou
 
 ```bash
 # Get response time metrics
-curl -s http://localhost:8080/actuator/metrics/jairouter_request_duration_seconds | jq
+curl -s http://localhost:8080/actuator/metrics/trunkline_request_duration_seconds | jq
 
 # Get request statistics
-curl -s http://localhost:8080/actuator/metrics/jairouter_requests_total | jq
+curl -s http://localhost:8080/actuator/metrics/trunkline_requests_total | jq
 
 # Get JVM metrics
 curl -s http://localhost:8080/actuator/metrics/jvm.memory.used | jq
@@ -75,7 +75,7 @@ java -Dlogging.level.org.unreal.modelrouter=DEBUG \
      -jar target/model-router-*.jar
 
 # Analyze timestamps in logs
-grep "Processing request" logs/jairouter-debug.log | tail -10
+grep "Processing request" logs/trunkline-debug.log | tail -10
 ```
 
 **3. Check Backend Service Performance**
@@ -448,15 +448,15 @@ management:
 ```yaml
 # prometheus-alerts.yml
 groups:
-  - name: jairouter.performance
+  - name: trunkline.performance
     rules:
       - alert: HighResponseTime
-        expr: histogram_quantile(0.95, jairouter_request_duration_seconds_bucket) > 5
+        expr: histogram_quantile(0.95, trunkline_request_duration_seconds_bucket) > 5
         for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "JAiRouter response time too high"
+          summary: "Trunkline response time too high"
           description: "P95 response time: {{ $value }}s"
       
       - alert: HighCPUUsage
@@ -465,7 +465,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "JAiRouter CPU usage too high"
+          summary: "Trunkline CPU usage too high"
           description: "CPU usage: {{ $value | humanizePercentage }}"
       
       - alert: HighMemoryUsage
@@ -474,7 +474,7 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "JAiRouter memory usage too high"
+          summary: "Trunkline memory usage too high"
           description: "Memory usage: {{ $value | humanizePercentage }}"
 ```
 
@@ -485,7 +485,7 @@ groups:
 #!/bin/bash
 # performance-benchmark.sh
 
-echo "=== JAiRouter Performance Benchmark ==="
+echo "=== Trunkline Performance Benchmark ==="
 
 # Warm-up
 echo "Warm-up phase..."
@@ -504,7 +504,7 @@ echo "Generating performance report..."
 gnuplot -e "
 set terminal png;
 set output 'performance-report.png';
-set title 'JAiRouter Performance Test';
+set title 'Trunkline Performance Test';
 set xlabel 'Request Number';
 set ylabel 'Response Time (ms)';
 plot 'benchmark.dat' using 9 with lines title 'Benchmark',
@@ -581,7 +581,7 @@ wrk -t12 -c400 -d30s --script=post.lua http://localhost:8080/v1/chat/completions
 <?xml version="1.0" encoding="UTF-8"?>
 <jmeterTestPlan version="1.2">
   <hashTree>
-    <TestPlan testname="JAiRouter Performance Test">
+    <TestPlan testname="Trunkline Performance Test">
       <elementProp name="TestPlan.arguments" elementType="Arguments" guiclass="ArgumentsPanel">
         <collectionProp name="Arguments.arguments"/>
       </elementProp>
@@ -593,4 +593,4 @@ wrk -t12 -c400 -d30s --script=post.lua http://localhost:8080/v1/chat/completions
 </jmeterTestPlan>
 ```
 
-By following these performance optimization guidelines, you can ensure that JAiRouter provides stable and efficient services in production environments.
+By following these performance optimization guidelines, you can ensure that Trunkline provides stable and efficient services in production environments.

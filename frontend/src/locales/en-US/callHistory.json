@@ -27,7 +27,8 @@
       "save": "Save",
       "unknownError": "Unknown error",
       "requestCount": "Requests",
-      "errorMessage": "Error Message"
+      "errorMessage": "Error Message",
+      "duration": "Duration"
     },
     "dashboard": {
       "title": "Call History Dashboard",
@@ -70,6 +71,7 @@
       "listTitle": "Call History Records",
       "totalRecords": "Total: {count} records",
       "detailsTitle": "Call Details",
+      "traceDetailHint": "Click to view the trace detail",
       "requestId": "Request ID",
       "requestMethod": "Request Method",
       "requestPath": "Request Path",
@@ -94,28 +96,30 @@
       "saveConfigFailed": "Failed to save recording config: {message}",
       "saveSuccess": "Record level updated",
       "loadFailed": "Failed to load call history: {message}",
-      "emptyFailedHint": "No failed calls — your calls may have all succeeded. Switch the status filter above to 'All' to see all records."
-    },
-    "failureExplain": {
-      "title": "Why it failed",
-      "circuitBroken": "This instance is circuit-broken and temporarily removed",
-      "rateLimited": "Called too frequently and hit rate limiting",
-      "dailyQuota": "Today's request count is used up",
-      "tokenQuota": "Today's token quota is used up",
-      "throttled": "The request was blocked by rate limiting",
-      "unauthorized": "The API key is invalid or expired",
-      "forbidden": "This key is not allowed to call this model",
-      "notFound": "Model or endpoint not found",
-      "upstreamError": "The upstream model service returned an error",
-      "timeout": "Request timed out, the upstream was too slow",
-      "badRequest": "The request parameters are invalid",
-      "actions": {
-        "keys": "Manage keys",
-        "rate": "Adjust limits",
-        "instances": "Check instances",
-        "circuit": "View circuit breaker",
-        "none": ""
-      }
+      "export": "Export",
+      "exportSuccess": "Exported (metadata only, capped at 10000 rows)",
+      "exportFailed": "Failed to export call history: {message}",
+      "emptyFailedHint": "No failed calls — your calls may have all succeeded. Switch the status filter above to 'All' to see all records.",
+      "virtualModelLabel": "Virtual model",
+      "virtualModelPlaceholder": "e.g. company-main",
+      "userLabel": "Employee",
+      "userPlaceholder": "Employee username",
+      "unknownUser": "Unknown",
+      "unassignedVirtualModel": "Unassigned",
+      "routedInstanceLabel": "Routed to",
+      "searchPlaceholder": "Search employee, virtual model, trace ID…",
+      "rateLimitedFilter": "Rate limited",
+      "last1Hour": "Last hour",
+      "last24Hours": "Last 24 hours",
+      "last7Days": "Last 7 days",
+      "customRange": "Custom range",
+      "requestedVirtualModelLabel": "Requested virtual model",
+      "callerLabel": "Caller",
+      "routeHintRateLimited": "(rate limited)",
+      "routeHintCircuitBroken": "(circuit broken)",
+      "routeHintFailed": "(failed)",
+      "routeHintDirect": "(direct)",
+      "statusRateLimited": "Limited"
     },
     "slowCalls": {
       "pageTitle": "Slow Call Analysis",
@@ -151,6 +155,10 @@
         "recentUsageTitle": "Recent Token Usage",
         "tokenUsage": "Tokens used"
       }
+    },
+    "filters": {
+      "requestedVirtualModelLabel": "Requested model",
+      "routedInstanceLabel": "Model actually used"
     }
   }
 }

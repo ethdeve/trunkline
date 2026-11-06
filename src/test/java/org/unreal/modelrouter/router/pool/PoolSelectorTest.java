@@ -24,7 +24,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * PoolSelector 资源池选择器测试
- * 池命中匹配 / 成员解析与权重覆盖 / 健康过滤 / 成员缺失跳过 / auto-model 回退
+ * 池命中匹配 / 成员解析与权重覆盖 / 健康过滤 / 成员缺失跳过 / 未显式创建的分组不命中
  */
 @DisplayName("PoolSelector 资源池选择器测试")
 @ExtendWith(MockitoExtension.class)
@@ -142,27 +142,16 @@ class PoolSelectorTest {
     }
 
     @Test
-    @DisplayName("POOL-006: autoFallbackCandidates 返回全部健康实例(跳过模型名过滤)")
-    void testAutoFallback_allHealthy() {
-        List<ModelRouterProperties.ModelInstance> instances = List.of(
-                instance("inst-gpt", "gpt-4"), instance("inst-claude", "claude-3"));
-
-        List<ModelRouterProperties.ModelInstance> candidates =
-                selector.autoFallbackCandidates(instances, ModelServiceRegistry.ServiceType.chat);
-
-        assertEquals(2, candidates.size(), "auto-model 回退应包含全部健康实例,不受模型名限制");
-    }
-
-    @Test
     @DisplayName("POOL-007: isPoolName 识别启用池名")
     void testIsPoolName() {
         PoolDefinition disabled = pool("disabled-pool", "chat", List.of(member("inst-gpt", 1)));
         disabled.setEnabled(false);
-        selector.reloadPools(List.of(pool("auto-model", "chat", List.of(member("inst-gpt", 1))), disabled));
+        selector.reloadPools(List.of(pool("chat-pool", "chat", List.of(member("inst-gpt", 1))), disabled));
 
-        assertTrue(selector.isPoolName("auto-model"));
+        assertTrue(selector.isPoolName("chat-pool"));
         assertFalse(selector.isPoolName("disabled-pool"), "禁用池不应命中");
         assertFalse(selector.isPoolName("gpt-4"), "非池名不应命中");
+        assertFalse(selector.isPoolName("auto-model"), "auto-model 已移除,未显式创建时不命中");
         assertFalse(selector.isPoolName(null));
     }
 }

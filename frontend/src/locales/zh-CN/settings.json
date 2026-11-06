@@ -1,23 +1,20 @@
 {
   "settings": {
-    "tabs": {
-      "access": "账号与权限",
-      "modelConfig": "模型配置",
-      "auditVersions": "审计与版本",
-      "monitoring": "状态监控"
-    },
     "subTabs": {
       "accounts": "账号",
       "permissions": "权限",
       "providerTemplates": "供应商模板",
       "modelCategories": "模型分类",
-      "protocolAdapters": "模型适配器",
+      "protocolAdapters": "自定义接入协议",
       "audit": "审计日志",
       "versions": "配置版本",
-      "persistence": "状态持久化"
+      "persistence": "数据存储"
     },
     "monitoring": {
-      "persistenceAlert": "一次性部署决策：持久化介质（redis / h2 / file）安装后无需再改"
+      "persistenceAlert": "网关重启后数据不丢，靠的是把数据存到共享存储。存哪里是一次性部署决策（Redis / 自带数据库 / 本机文件），装好后无需再改；单机部署不用管这页",
+      "templatesAlert": "各厂商的预设信息：接入管理选厂商、向导「从模板创建」都用它。日常不用改，新厂商出了官方预设才需要来看",
+      "categoriesAlert": "给每类模型单独调整默认设置。不调整就用全局配置的默认值",
+      "adaptersAlert": "接新厂商时自动选好，只有厂商接口不标准才需要来这里手动配"
     }
   }
 }

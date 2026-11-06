@@ -8,9 +8,15 @@
     "templateId": "Template ID",
     "description": "Description",
     "categoryLabel": "Category",
-    "category": "Category",
+    "category": {
+      "all": "All",
+      "domestic": "Domestic",
+      "international": "International",
+      "local": "Local",
+      "custom": "Custom"
+    },
     "type": "Type",
-    "baseUrl": "Default Base URL",
+    "baseUrl": "API endpoint",
     "models": "Common Models",
     "modelsPlaceholder": "One model per line (or comma-separated), e.g.:\ndeepseek-chat\ndeepseek-reasoner",
     "sortOrder": "Sort",
@@ -29,24 +35,18 @@
     "descPlaceholder": "Template description, e.g. DeepSeek Chat/Code API",
     "authHeader": "Auth Header",
     "headerPrefix": "Header Prefix",
-    "capabilities": "Capabilities",
+    "capabilities": "Supported capabilities",
     "typeOpenai": "OpenAI Compatible",
     "typeOllama": "Ollama Compatible",
-    "category": {
-      "all": "All",
-      "domestic": "Domestic",
-      "international": "International",
-      "local": "Local",
-      "custom": "Custom"
-    },
     "validation": {
       "idRequired": "Please enter the template ID",
       "idPattern": "Only letters, digits, underscore and hyphen, max 64 chars",
       "nameRequired": "Please enter the provider name",
       "categoryRequired": "Please select a category",
       "typeRequired": "Please select a type",
-      "baseUrlRequired": "Please enter the default base URL",
-      "baseUrlInvalid": "Please enter a valid URL (starting with http:// or https://)"
+      "baseUrlRequired": "Please enter the API endpoint",
+      "baseUrlInvalid": "Please enter a valid URL (starting with http:// or https://)",
+      "fixErrors": "Some fields failed validation. Please check and try again."
     },
     "fetchFailed": "Failed to load templates: {error}",
     "deleteConfirm": "Delete template \"{name}\"? It will disappear from both the preset catalog and the adapter wizard.",
@@ -81,6 +81,8 @@
     "hideUnavailable": "Hide Unavailable",
     "hideUnavailableConfirm": "About to hide {count} default templates detected as unavailable. Continue?",
     "hideUnavailableDone": "Hid {count} unavailable templates",
-    "detectDone": "Check done: {total} total, {ok} available, {bad} unavailable"
+    "detectDone": "Check done: {total} total, {ok} available, {bad} unavailable",
+    "advancedTitle": "Advanced (usually no change needed)",
+    "templateIdNote": "Technical ID of the template, immutable after creation; safe to leave as generated"
   }
 }

@@ -12,7 +12,7 @@ logging:
     org.unreal.modelrouter: WARN
     org.springframework: ERROR
   file:
-    name: logs/jairouter-prod.log
+    name: logs/trunkline-prod.log
 
 # 存储配置（生产环境关闭自动迁移）
 store:
@@ -40,7 +40,13 @@ management:
         include: health,info,prometheus
 
 # 安全配置（生产环境）
-jairouter:
+trunkline:
+  # 多副本共享态自检：生产环境默认 FAIL（多副本 + 共享态开关未开时 fail-fast，禁止带病上线）。
+  # 单副本部署（replicas=1 或无 K8s 环境）不受影响；确需容忍时显式设为 WARN / OFF。
+  cluster:
+    shared-state-check:
+      mode: FAIL
+
   security:
     # 生产环境安全功能
     enabled: true
@@ -49,7 +55,7 @@ jairouter:
       enabled: true
       # 生产环境必须使用环境变量设置密钥（优先读 JWT_SECRET，回退 PROD_JWT_SECRET，两者皆无则报错）
       secret: "${JWT_SECRET:${PROD_JWT_SECRET:}}"
-      issuer: "jairouter-prod"
+      issuer: "trunkline-prod"
 
       persistence:
         enabled: false

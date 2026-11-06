@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "jairouter.security.jwt.blacklist.redis.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.jwt.blacklist.redis.enabled", havingValue = "true")
 public class JwtBlacklistCacheManager {
     
     private final ReactiveRedisTemplate<String, String> redisTemplate;
@@ -50,8 +50,9 @@ public class JwtBlacklistCacheManager {
     // 用于定时任务互斥的锁，防止cleanup和sync任务并发执行
     private final ReentrantLock cacheOperationLock = new ReentrantLock();
     
-    // Redis键前缀
-    private static final String BLACKLIST_PREFIX = "jwt:blacklist:";
+    // Redis键前缀（C2 拆分：与撤销侧 RedisBlacklistOperations 共用 jwt:blacklist:entry: 命名空间，
+    // 保证缓存与撤销写入指向同一组条目键）
+    private static final String BLACKLIST_PREFIX = "jwt:blacklist:entry:";
     private static final String EXPIRY_INDEX_PREFIX = "jwt:blacklist_expiry:";
     private static final String STATS_KEY = "jwt:blacklist_cache_stats";
     

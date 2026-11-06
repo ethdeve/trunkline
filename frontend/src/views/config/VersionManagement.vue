@@ -1,35 +1,26 @@
 <template>
+  <!-- 嵌入式布局：本组件只作为「审计与版本 → 配置版本」子页签内容渲染，
+       不再自带卡片/内边距/最小高度（卡中卡 + min-height:100vh 会把外层撑出垂直滚动条） -->
   <div class="version-management">
-    <el-card class="version-card">
-      <template #header>
-        <div class="card-header">
-          <div class="header-title">
-            <el-icon>
-              <History />
-            </el-icon>
-            <span>{{ t('version.title') }}</span>
-          </div>
-          <el-button type="primary" @click="handleRefresh">
-            <el-icon>
-              <Refresh />
-            </el-icon>
-            {{ t('version.refresh') }}
-          </el-button>
-        </div>
-      </template>
+    <div class="page-actions-row">
+      <el-button type="primary" @click="handleRefresh">
+        <el-icon>
+          <Refresh />
+        </el-icon>
+        {{ t('version.refresh') }}
+      </el-button>
+    </div>
 
-      <el-alert :closable="false" class="desc-alert" show-icon :title="t('version.help.title')" type="info">
-        <template #description>
-          <ul class="desc-list">
-            <li><b>{{ t('version.help.apply') }}</b>{{ t('version.help.applyBody') }}</li>
-            <li><b>{{ t('version.help.delete') }}</b>{{ t('version.help.deleteBody') }}</li>
-            <li><b>{{ t('version.help.view') }}</b>{{ t('version.help.viewBody') }}</li>
-          </ul>
-        </template>
-      </el-alert>
+    <!-- 注意：el-alert 没有 #description 插槽，描述内容须放默认插槽（否则整块不渲染） -->
+    <el-alert :closable="false" class="desc-alert" show-icon :title="t('version.help.title')" type="info">
+      <ul class="desc-list">
+        <li><b>{{ t('version.help.apply') }}</b>{{ t('version.help.applyBody') }}</li>
+        <li><b>{{ t('version.help.delete') }}</b>{{ t('version.help.deleteBody') }}</li>
+        <li><b>{{ t('version.help.view') }}</b>{{ t('version.help.viewBody') }}</li>
+      </ul>
+    </el-alert>
 
-      <div class="table-wrap">
-        <el-table v-loading="loading" :data="versions" border class="version-table" fit>
+    <el-table ref="versionsTableRef" v-loading="loading" :data="versions" :max-height="versionsMaxHeight" border class="version-table" fit>
           <el-table-column align="center" :label="t('version.versionNo')" prop="version" width="110" />
           <el-table-column align="center" :label="t('version.status')" prop="status" width="120">
             <template #default="scope">
@@ -76,11 +67,9 @@
             </template>
           </el-table-column>
         </el-table>
-      </div>
-    </el-card>
 
     <!-- 查看版本详情对话框 -->
-    <el-dialog v-model="detailDialogVisible" class="version-dialog" :title="t('version.detailTitle')" width="620px">
+    <el-dialog v-model="detailDialogVisible" class="version-dialog" :title="t('version.detailTitle')" width="min(640px, 92vw)">
       <el-descriptions :column="1" border>
         <el-descriptions-item :label="t('version.versionNo')">{{ currentVersion.version }}</el-descriptions-item>
         <el-descriptions-item :label="t('version.status')">
@@ -126,6 +115,7 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
+import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { ElLoading, ElMessage, ElMessageBox } from 'element-plus'
 import { applyVersion, deleteConfigVersion, getAllVersionInfo, type Version } from '@/api/version.ts'
 import { formatDateTime } from '@/utils/format'
@@ -134,6 +124,9 @@ const { t } = useI18n()
 const { hasPermission } = usePermission()
 const canWrite = hasPermission('config:versions:write')
 const versions = ref<Version[]>([])
+
+const versionsTableRef = ref()
+const { maxHeight: versionsMaxHeight } = useTableMaxHeight(versionsTableRef)
 const detailDialogVisible = ref(false)
 const currentVersion = ref({} as Version)
 const loading = ref(false)
@@ -488,40 +481,21 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 嵌入式布局：无自带内边距/背景/最小高度，随外层卡片流式排布，外层不再出现滚动条 */
 .version-management {
-  padding: 24px;
-  background: var(--ja-main-bg-gradient);
-  min-height: calc(100vh - 80px);
-}
-
-.version-card {
-  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
-  border-radius: 12px;
-  padding: 0;
   width: 100%;
 }
 
-.card-header {
+.page-actions-row {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  padding: 18px 22px;
-  gap: 12px;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--ja-border-lighter);
-}
-
-.header-title {
-  display: flex;
-  align-items: center;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--ja-text-primary);
-  gap: 10px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .desc-alert {
-  margin: 22px 22px 18px 22px;
+  margin: 0 0 12px 0;
 }
 
 .desc-list {
@@ -530,10 +504,6 @@ onMounted(() => {
   font-size: 14px;
   color: var(--ja-text-regular);
   line-height: 1.9;
-}
-
-.table-wrap {
-  padding: 0 22px 20px 22px;
 }
 
 .version-table {
@@ -606,7 +576,7 @@ onMounted(() => {
   margin: 0;
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-family: 'JetBrains Mono', 'Fira Mono', 'Consolas', 'Courier New', monospace;
+  font-family: var(--ja-font-mono);
   font-size: 12px;
   color: var(--ja-text-primary);
 }

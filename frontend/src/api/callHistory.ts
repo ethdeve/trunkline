@@ -18,6 +18,12 @@ export const queryCallHistory = async (
     size: query.size || 20
   }
   if (query.modelName) params.modelName = query.modelName
+  if (query.virtualModel) params.virtualModel = query.virtualModel
+  if (query.userId) params.userId = query.userId
+  if (query.keyword) params.keyword = query.keyword
+  if (query.rateLimited !== undefined && query.rateLimited !== null) {
+    params.rateLimited = query.rateLimited
+  }
   if (query.serviceType) params.serviceType = query.serviceType
   if (query.apiKeyId) params.apiKeyId = query.apiKeyId
   if (query.isSuccess !== undefined && query.isSuccess !== null) params.isSuccess = query.isSuccess
@@ -29,6 +35,95 @@ export const queryCallHistory = async (
 
   const response = await request.get('/call-history', { params })
   return response.data.data
+}
+
+/**
+ * 「我的调用记录」（v3.5 Trunkline 员工侧自助端点）
+ *
+ * 归属由服务端从登录态强制解析（principal），前端<b>不可</b>传 userId / keyword
+ * 等归属参数，因此这里只透出分页参数。
+ */
+export const queryCallHistoryMine = async (
+  query: { page?: number; size?: number } = {}
+): Promise<PageResponse<ApiCallHistoryRecord>> => {
+  const params: Record<string, any> = {
+    page: query.page || 0,
+    size: query.size || 20
+  }
+
+  const response = await request.get('/call-history/mine', { params })
+  return response.data.data
+}
+
+/**
+ * 导出调用记录（任务 58：CSV / JSON，元数据口径，不含请求/响应正文）。
+ *
+ * 服务端按筛选条件全量导出（封顶 10000 行），返回文件流；
+ * 文件名取自响应的 Content-Disposition，取不到时用回退名。
+ */
+export const exportCallHistory = async (
+  query: CallHistoryQuery,
+  format: 'csv' | 'json' = 'csv',
+  fallbackName = 'call-history.csv'
+): Promise<void> => {
+  const params: Record<string, any> = { format }
+  if (query.modelName) params.modelName = query.modelName
+  if (query.virtualModel) params.virtualModel = query.virtualModel
+  if (query.userId) params.userId = query.userId
+  if (query.keyword) params.keyword = query.keyword
+  if (query.rateLimited !== undefined && query.rateLimited !== null) params.rateLimited = query.rateLimited
+  if (query.serviceType) params.serviceType = query.serviceType
+  if (query.apiKeyId) params.apiKeyId = query.apiKeyId
+  if (query.isSuccess !== undefined && query.isSuccess !== null) params.isSuccess = query.isSuccess
+  if (query.httpStatusCode) params.httpStatusCode = query.httpStatusCode
+  if (query.startTime) params.startTime = query.startTime
+  if (query.endTime) params.endTime = query.endTime
+  if (query.sortField) params.sortField = query.sortField
+  if (query.sortDirection) params.sortDirection = query.sortDirection
+
+  const response = await request.get('/call-history/export', {
+    params,
+    responseType: 'blob'
+  })
+  downloadBlob(response, fallbackName)
+}
+
+/**
+ * 导出「我的调用记录」（员工自助，CSV / JSON）。
+ *
+ * 归属由服务端强制解析，前端只能传时间范围与格式（与 /mine 同口径）。
+ */
+export const exportMyCallHistory = async (
+  format: 'csv' | 'json' = 'csv',
+  startTime?: string,
+  endTime?: string,
+  fallbackName = 'my-call-history.csv'
+): Promise<void> => {
+  const params: Record<string, any> = { format }
+  if (startTime) params.startTime = startTime
+  if (endTime) params.endTime = endTime
+
+  const response = await request.get('/call-history/mine/export', {
+    params,
+    responseType: 'blob'
+  })
+  downloadBlob(response, fallbackName)
+}
+
+/** Blob 响应 → 触发浏览器下载（文件名优先取 Content-Disposition） */
+const downloadBlob = (response: { headers: any; data: any }, fallbackName: string) => {
+  const disposition: string = response.headers?.['content-disposition'] || ''
+  const match = disposition.match(/filename="?([^";]+)"?/)
+  const filename = match?.[1] || fallbackName
+
+  const url = URL.createObjectURL(response.data)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = decodeURIComponent(filename)
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+  URL.revokeObjectURL(url)
 }
 
 /**

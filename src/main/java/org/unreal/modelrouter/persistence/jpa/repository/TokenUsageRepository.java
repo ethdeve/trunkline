@@ -15,6 +15,7 @@ import java.util.List;
  *
  * @author JAiRouter Team
  * @since 1.9.5
+ * @modified Trunkline Team
  */
 @Repository
 public interface TokenUsageRepository extends JpaRepository<TokenUsageEntity, Long> {
@@ -128,10 +129,203 @@ public interface TokenUsageRepository extends JpaRepository<TokenUsageEntity, Lo
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime);
 
+    // ========== 账单聚合查询（v3.5 Trunkline UI 改造，§4.3） ==========
+
+    /**
+     * 按「用户 + 月份 + 厂商模型」聚合成功调用的 token 用量（「我的账单」按厂商模型拆分）。
+     *
+     * <p><b>计价口径</b>：账单按<b>厂商模型名</b>计价——员工请求的虚拟模型最终落到某个厂商模型实例，
+     * 用量落在 {@code token_usage.instance_name}（实例名），按该名查 {@code model_price.model_name} 单价。
+     * 因此本查询按 {@code instance_name} 分组，而非响应体里的 {@code model_name}
+     * （后者是上游原样回传的模型名，与本网关的价格表键不一致）。</p>
+     *
+     * <p>{@code instance_name} 为空的历史数据用 {@code COALESCE} 回落到 {@code model_name}，
+     * 保证用量不丢（这类行按 ¥0 计价，因其名称不会命中厂商模型价格行）。</p>
+     *
+     * <p>仅统计 {@code isSuccess = true} 的成功调用（失败调用不产生实际费用）。
+     * 返回每行：{@code [modelName, promptTokens, completionTokens, totalTokens, requestCount, successCount]}。</p>
+     *
+     * @param userId 用户名（JWT subject，服务端 principal 透传）
+     * @param year   年份
+     * @param month  月份（1-12）
+     * @return 按 totalTokens 降序的聚合行
+     */
+    @Query("SELECT COALESCE(t.instanceName, t.modelName), "
+           + "COALESCE(SUM(t.promptTokens), 0), COALESCE(SUM(t.completionTokens), 0), "
+           + "COALESCE(SUM(t.totalTokens), 0), COUNT(t), "
+           + "COALESCE(SUM(CASE WHEN t.isSuccess = true THEN 1 ELSE 0 END), 0) "
+           + "FROM TokenUsageEntity t "
+           + "WHERE t.userId = :userId AND t.year = :year AND t.month = :month "
+           + "AND t.isSuccess = true "
+           + "GROUP BY COALESCE(t.instanceName, t.modelName) ORDER BY SUM(t.totalTokens) DESC")
+    List<Object[]> aggregateByUserMonthModel(
+            @Param("userId") String userId,
+            @Param("year") Integer year,
+            @Param("month") Integer month);
+
+    /**
+     * 按「用户 + 月份」聚合成功调用的总 token 与请求数（「我的账单」月度汇总）。
+     *
+     * <p>返回单行：{@code [totalTokens, promptTokens, completionTokens, requestCount]}；
+     * 无记录时各列返回 0（COALESCE）。输入 / 输出分别汇总，因单价可能不同需分开计价。</p>
+     *
+     * @param userId 用户名（JWT subject，服务端 principal 透传）
+     * @param year   年份
+     * @param month  月份（1-12）
+     * @return 单行聚合结果
+     */
+    @Query("SELECT COALESCE(SUM(t.totalTokens), 0), COALESCE(SUM(t.promptTokens), 0), "
+           + "COALESCE(SUM(t.completionTokens), 0), COUNT(t) "
+           + "FROM TokenUsageEntity t "
+           + "WHERE t.userId = :userId AND t.year = :year AND t.month = :month "
+           + "AND t.isSuccess = true")
+    List<Object[]> aggregateByUserMonth(
+            @Param("userId") String userId,
+            @Param("year") Integer year,
+            @Param("month") Integer month);
+
+    /**
+     * 按「用户 + 月份 + 日期 + 虚拟模型」聚合成功调用（「我的账单」按天 × 虚拟模型交叉表用）。
+     *
+     * <p>v3.5 Trunkline UI 改造：原型的「我的账单」是<b>按天汇总</b>的交叉表——
+     * 行是日期，列是虚拟模型，单元格是该天该虚拟模型的花费。
+     * 员工视角不该关心背后是哪个厂商模型，因此按 {@code virtualModel} 分组。</p>
+     *
+     * <p><b>计价维度与分组维度分离</b>：分组按虚拟模型（员工视角），
+     * 但计价必须按厂商模型（{@code instanceName}，即请求实际落到的模型实例）——
+     * 单价表 {@code model_price} 是按厂商模型名配的。因此本查询同时返回
+     * 虚拟模型（分组用）与厂商模型（计价用），由服务层按厂商模型匹配单价后再汇总到虚拟模型。</p>
+     *
+     * <p>{@code virtualModel} 为 {@code null} 表示未命中任何虚拟模型（历史数据 / 内部路径），
+     * 服务层归入「未归类」，不丢数据。</p>
+     *
+     * <p>仅统计 {@code isSuccess = true} 的成功调用（失败调用不产生实际费用）。
+     * 返回每行：{@code [usageDate, virtualModel, instanceName, promptTokens, completionTokens,
+     * totalTokens, requestCount]}。</p>
+     *
+     * @param userId 用户名（JWT subject，服务端 principal 透传）
+     * @param year   年份
+     * @param month  月份（1-12）
+     * @return 按日期、虚拟模型分组的聚合行
+     */
+    @Query("SELECT t.usageDate, t.virtualModel, COALESCE(t.instanceName, t.modelName), "
+           + "COALESCE(SUM(t.promptTokens), 0), COALESCE(SUM(t.completionTokens), 0), "
+           + "COALESCE(SUM(t.totalTokens), 0), COUNT(t) "
+           + "FROM TokenUsageEntity t "
+           + "WHERE t.userId = :userId AND t.year = :year AND t.month = :month "
+           + "AND t.isSuccess = true "
+           + "GROUP BY t.usageDate, t.virtualModel, COALESCE(t.instanceName, t.modelName) "
+           + "ORDER BY t.usageDate DESC, SUM(t.totalTokens) DESC")
+    List<Object[]> aggregateByUserMonthDayVirtualModel(
+            @Param("userId") String userId,
+            @Param("year") Integer year,
+            @Param("month") Integer month);
+
+    /**
+     * 按「用户 + 虚拟模型」聚合指定日期区间内的成功调用（「我的额度」页「本周最常用」用）。
+     *
+     * <p>v3.5 Trunkline UI 改造：额度首页要回答「我最近主要在用哪个虚拟模型」，
+     * 需要一个<b>跨自然月</b>的区间聚合——本月的按天聚合（{@code aggregateByUserMonthDayVirtualModel}）
+     * 在月初会取不到上月末的数据，故另设本查询。</p>
+     *
+     * <p>计价维度与分组维度分离（同上）：分组按虚拟模型，金额按厂商模型单价算。
+     * 返回每行：{@code [virtualModel, instanceName, promptTokens, completionTokens,
+     * totalTokens, requestCount]}。</p>
+     *
+     * <p>仅统计 {@code isSuccess = true} 的成功调用。</p>
+     *
+     * @param userId    用户名（JWT subject，服务端 principal 透传）
+     * @param startDate 起始日期（含）
+     * @param endDate   结束日期（含）
+     * @return 按虚拟模型分组的聚合行
+     */
+    @Query("SELECT t.virtualModel, COALESCE(t.instanceName, t.modelName), "
+           + "COALESCE(SUM(t.promptTokens), 0), COALESCE(SUM(t.completionTokens), 0), "
+           + "COALESCE(SUM(t.totalTokens), 0), COUNT(t) "
+           + "FROM TokenUsageEntity t "
+           + "WHERE t.userId = :userId AND t.usageDate BETWEEN :startDate AND :endDate "
+           + "AND t.isSuccess = true "
+           + "GROUP BY t.virtualModel, COALESCE(t.instanceName, t.modelName) "
+           + "ORDER BY SUM(t.totalTokens) DESC")
+    List<Object[]> aggregateByUserDateRangeVirtualModel(
+            @Param("userId") String userId,
+            @Param("startDate") String startDate,
+            @Param("endDate") String endDate);
+
+    /**
+     * 按「用户 + 月份 + 厂商模型」聚合全公司范围内的成功调用（「团队用量」用）。
+     *
+     * <p>与 {@link #aggregateByUserMonthModel} 的区别：<b>不限定单个用户</b>，
+     * 返回该月全部用户的逐人逐厂商模型用量。部门归属在服务层用
+     * {@code jwt_accounts.username → department} 内存关联得出——避免跨实体 JOIN
+     * 在 H2 / Postgres 上的方言差异。</p>
+     *
+     * <p>计价口径与「我的账单」一致：按 {@code instance_name}（厂商模型名）分组，
+     * 空值回落 {@code model_name}。</p>
+     *
+     * <p>返回每行：{@code [userId, modelName, promptTokens, completionTokens, totalTokens, requestCount]}。</p>
+     *
+     * @param year  年份
+     * @param month 月份（1-12）
+     * @return 按 totalTokens 降序的聚合行
+     */
+    @Query("SELECT t.userId, COALESCE(t.instanceName, t.modelName), "
+           + "COALESCE(SUM(t.promptTokens), 0), COALESCE(SUM(t.completionTokens), 0), "
+           + "COALESCE(SUM(t.totalTokens), 0), COUNT(t) "
+           + "FROM TokenUsageEntity t "
+           + "WHERE t.year = :year AND t.month = :month "
+           + "AND t.isSuccess = true "
+           + "AND t.userId IS NOT NULL "
+           + "GROUP BY t.userId, COALESCE(t.instanceName, t.modelName) ORDER BY SUM(t.totalTokens) DESC")
+    List<Object[]> aggregateByMonthUserModel(
+            @Param("year") Integer year,
+            @Param("month") Integer month);
+
+    /**
+     * 按「用户 + 虚拟模型 + 厂商模型 + 用途类型」聚合某月的<b>全部</b>调用（含失败）。
+     *
+     * <p>v3.5 Trunkline：「团队用量」页需要同时呈现四个维度——按虚拟模型（员工看到的对外名字）
+     * 排行、按厂商模型（实际落到的实例）下钻、按用途类型（chat/embedding/...）分布，
+     * 以及成功率。因此一次查询取回这四个维度的明细行，服务层在内存中做多维聚合，
+     * 避免为每个维度各发一条 SQL。</p>
+     *
+     * <p><b>为什么必须按虚拟模型落库、而不是事后用「实例 → 分组」反查</b>：
+     * 同一个厂商模型实例可能同时被多个虚拟模型引用（如 OpenAI 实例既挂「公司主力」
+     * 又挂「便宜日常」），反查无法确定该笔用量究竟属于哪个虚拟模型；而请求在路由时
+     * 只命中一个虚拟模型，落库时的正向取值是无歧义的。</p>
+     *
+     * <p>计价口径仍按厂商模型（{@code COALESCE(instance_name, model_name)}），
+     * 与「我的账单」同源——虚拟模型只是归属维度，不是计价维度。</p>
+     *
+     * <p>返回每行：
+     * {@code [userId, virtualModel, instanceName, serviceType, promptTokens, completionTokens,
+     * totalTokens, requestCount, successCount]}。其中</p>
+     * <ul>
+     *   <li>{@code virtualModel} 为 {@code null} 表示未命中任何虚拟模型（历史数据 /
+     *       规则锁定实例等内部路径），服务层归入「未归类」，<b>不丢数据</b>；</li>
+     *   <li>{@code successCount} 为该行成功调用数，失败数 = requestCount − successCount。</li>
+     * </ul>
+     *
+     * @param year  年份
+     * @param month 月份（1-12）
+     * @return 聚合明细行
+     */
+    @Query("SELECT t.userId, t.virtualModel, COALESCE(t.instanceName, t.modelName), t.serviceType, "
+           + "COALESCE(SUM(t.promptTokens), 0), COALESCE(SUM(t.completionTokens), 0), "
+           + "COALESCE(SUM(t.totalTokens), 0), COUNT(t), "
+           + "COALESCE(SUM(CASE WHEN t.isSuccess = true THEN 1 ELSE 0 END), 0) "
+           + "FROM TokenUsageEntity t "
+           + "WHERE t.year = :year AND t.month = :month "
+           + "AND t.userId IS NOT NULL "
+           + "GROUP BY t.userId, t.virtualModel, COALESCE(t.instanceName, t.modelName), t.serviceType "
+           + "ORDER BY SUM(t.totalTokens) DESC")
+    List<Object[]> aggregateByMonthUserVirtualModel(
+            @Param("year") Integer year,
+            @Param("month") Integer month);
+
     /**
      * 按日期统计 token 使用量（日级别）
-     */
-    @Query("SELECT t.usageDate, SUM(t.totalTokens), SUM(t.promptTokens), SUM(t.completionTokens), COUNT(t) "
+     */    @Query("SELECT t.usageDate, SUM(t.totalTokens), SUM(t.promptTokens), SUM(t.completionTokens), COUNT(t) "
            + "FROM TokenUsageEntity t "
            + "WHERE t.occurredAt BETWEEN :startTime AND :endTime "
            + "GROUP BY t.usageDate ORDER BY t.usageDate")

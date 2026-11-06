@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * @author JAiRouter Team
  * @since 3.2.3
+ * @modified Trunkline Team
  */
 class MultiReplicaSharedStateGateTest {
 
@@ -190,7 +191,7 @@ class MultiReplicaSharedStateGateTest {
     void describeExplainsImpactAndEscapeHatch() {
         String message = MultiReplicaSharedStateGate.describe(
                 MultiReplicaSharedStateGate.assess(true, null));
-        assertTrue(message.contains("jairouter.security.jwt.blacklist.redis.enabled"));
+        assertTrue(message.contains("trunkline.security.jwt.blacklist.redis.enabled"));
         assertTrue(message.contains("在副本 A 吊销的令牌在副本 B 仍被放行"));
         assertTrue(message.contains("multi-replica.md"));
         assertTrue(message.contains("OFF"));

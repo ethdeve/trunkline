@@ -21,6 +21,7 @@ import java.util.Optional;
  *
  * @author JAiRouter Team
  * @since 3.2.3
+ * @modified Trunkline Team
  */
 public final class MultiReplicaSharedStateGate {
 
@@ -50,19 +51,19 @@ public final class MultiReplicaSharedStateGate {
      */
     public static final List<SharedStateSwitch> SHARED_STATE_SWITCHES = List.of(
             new SharedStateSwitch(
-                    "jairouter.security.jwt.blacklist.redis.enabled",
+                    "trunkline.security.jwt.blacklist.redis.enabled",
                     "在副本 A 吊销的令牌在副本 B 仍被放行"),
             new SharedStateSwitch(
-                    "jairouter.security.jwt.persistence.redis.enabled",
+                    "trunkline.security.jwt.persistence.redis.enabled",
                     "令牌状态各副本独立，重启后可能丢失已签发状态"),
             new SharedStateSwitch(
-                    "jairouter.security.cache.redis.enabled",
+                    "trunkline.security.cache.redis.enabled",
                     "API Key 缓存各副本独立，吊销/新建不跨副本生效"),
             new SharedStateSwitch(
-                    "jairouter.quota.distributed.enabled",
+                    "trunkline.quota.distributed.enabled",
                     "配额计数每副本一份，实际放行量约为配置值 × 副本数"),
             new SharedStateSwitch(
-                    "jairouter.persistence.redis.enabled",
+                    "trunkline.persistence.redis.enabled",
                     "状态持久化退坡到本机 H2/文件，不做跨节点共享"));
 
     private MultiReplicaSharedStateGate() {
@@ -174,7 +175,7 @@ public final class MultiReplicaSharedStateGate {
         }
         sb.append(System.lineSeparator())
                 .append("单副本部署可忽略；多副本请开启上述开关（详见 docs/zh/deployment/multi-replica.md），")
-                .append("或将 jairouter.cluster.shared-state-check.mode 设为 OFF 显式接受该风险。");
+                .append("或将 trunkline.cluster.shared-state-check.mode 设为 OFF 显式接受该风险。");
         return sb.toString();
     }
 

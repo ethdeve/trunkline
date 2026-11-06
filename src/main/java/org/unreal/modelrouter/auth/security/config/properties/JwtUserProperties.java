@@ -10,7 +10,7 @@ import java.util.List;
 
 @Data
 @Component
-@ConfigurationProperties(prefix = "jairouter.security.jwt")
+@ConfigurationProperties(prefix = "trunkline.security.jwt")
 public final class JwtUserProperties {
     
     private boolean enabled = false;

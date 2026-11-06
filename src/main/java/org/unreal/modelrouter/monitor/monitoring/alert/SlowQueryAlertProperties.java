@@ -14,9 +14,10 @@ import java.util.Set;
  * 
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Data
-@ConfigurationProperties(prefix = "jairouter.monitoring.slow-query-alert")
+@ConfigurationProperties(prefix = "trunkline.monitoring.slow-query-alert")
 public final class SlowQueryAlertProperties {
     
     /**

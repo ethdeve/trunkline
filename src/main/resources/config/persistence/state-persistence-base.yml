@@ -4,7 +4,7 @@
 # 实现 Redis → H2 → File 三层退坡策略
 # 用于熔断器和负载均衡器状态的持久化存储
 
-jairouter:
+trunkline:
   persistence:
     # ====== Tier 1: Redis 存储（可选） ======
     # 最高优先级，用于分布式共享状态
@@ -22,7 +22,7 @@ jairouter:
     h2:
       enabled: true                     # 默认启用
       data-dir: ./data                  # 数据目录
-      database: jairouter_state         # 数据库名称
+      database: trunkline_state         # 数据库名称
 
     # ====== Tier 3: 文件存储（兜底） ======
     # 极端情况下使用文件存储

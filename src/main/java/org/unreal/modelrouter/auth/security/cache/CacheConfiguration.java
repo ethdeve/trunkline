@@ -29,7 +29,7 @@ public class CacheConfiguration {
      */
     @Bean
     @Primary
-    @ConditionalOnProperty(name = "jairouter.security.cache.redis.enabled", havingValue = "true")
+    @ConditionalOnProperty(name = "trunkline.security.cache.redis.enabled", havingValue = "true")
     public ReactiveRedisTemplate<String, String> reactiveRedisTemplate(
             final ReactiveRedisConnectionFactory connectionFactory) {
         

@@ -7,16 +7,17 @@
 > **作者**: Lincoln
 <!-- /版本信息 -->
 
-JAiRouter 提供四种负载均衡策略，支持全局、服务级别和实例级别的配置。本文档详细介绍各种负载均衡策略的配置方法和使用场景。
+Trunkline 提供六种负载均衡策略，支持全局、服务级别和实例级别的配置。本文档详细介绍各种负载均衡策略的配置方法和使用场景。
 
 ## 模块化配置说明
 
-从 v1.0.0 版本开始，JAiRouter 采用模块化配置结构，负载均衡相关配置已移至独立的配置文件中：
+从 v2.8.x 版本开始，Trunkline 采用模块化配置结构，负载均衡相关配置位于独立的配置文件中：
 
 - 主配置文件: `application.yml`
-- 负载均衡基础配置: `config/base/model-services-base.yml`
+- 负载均衡配置: `config/router/loadbalancer.yml`
+- 服务实例配置: `config/router/services.yml`
 
-您可以在 `config/base/model-services-base.yml` 文件中找到所有负载均衡相关配置，包括全局配置、各服务类型配置和实例配置。
+您可以在 `config/router/loadbalancer.yml` 文件中找到全局负载均衡配置（`model.load-balance.*`）与路由监控配置（`trunkline.loadbalancer.routing-monitor.*`）；各服务类型的实例与权重写在 `config/router/services.yml` 中。
 
 ## 负载均衡概述
 
@@ -24,10 +25,11 @@ JAiRouter 提供四种负载均衡策略，支持全局、服务级别和实例�
 
 | 策略 | 算法 | 特点 | 适用场景 |
 |------|------|------|----------|
-| **Random** | 随机选择 | 简单高效，长期均匀 | 实例性能相近 |
+| **Random** | 随机选择 | 简单高效，长期均匀（默认） | 实例性能相近 |
 | **Round Robin** | 轮询分配 | 保证每个实例都被使用 | 实例性能相近 |
 | **Least Connections** | 最少连接数 | 自动平衡负载 | 请求处理时间差异大 |
 | **IP Hash** | 客户端IP哈希 | 会话保持 | 需要客户端粘性 |
+| **Consistent Hash** | 一致性哈希（虚拟节点 150） | 实例上下线只影响少量 key | 需要粘性且实例动态扩缩 |
 | **Latency**（v2.9.3+） | EWMA 延迟感知 | 按历史调用延迟加权，延迟越低概率越高 | 跨地域/混合硬件，实例延迟差异显著 |
 
 > 候选实例可先按**实例标签**圈选（标签路由，v2.9.7+），再由负载均衡策略从中选择，详见 [路由规则配置](routing-rules.md)。
@@ -52,15 +54,15 @@ graph TB
 
 ### 基础配置
 
-在 `config/base/model-services-base.yml` 文件中配置全局负载均衡策略：
+在 `config/router/loadbalancer.yml` 文件中配置全局负载均衡策略：
 
 ```yaml
-# config/base/model-services-base.yml
+# config/router/loadbalancer.yml
 model:
   # 全局配置
   load-balance:
-    type: round-robin           # 全局默认策略
-    hash-algorithm: "md5"       # IP Hash 策略的哈希算法
+    type: round-robin           # 全局默认策略（代码默认 random）
+    hash-algorithm: "md5"       # ip-hash / consistent-hash 的哈希算法
 
   # 全局适配器配置 - 如果服务没有指定适配器，将使用此配置
   adapter: gpustack # 支持: normal, gpustack, ollama, vllm, xinference, localai
@@ -102,7 +104,7 @@ model:
 
 ### YAML 配置方式
 
-在 `config/base/model-services-base.yml` 文件中配置各服务类型的负载均衡策略：
+在 `config/router/services.yml` 文件中配置各服务类型的负载均衡策略：
 
 ```yaml
 model:
@@ -154,7 +156,7 @@ model:
 
 ### JSON 配置方式
 
-JAiRouter 也支持通过动态配置 API 更新实例配置：
+Trunkline 也支持通过动态配置 API 更新实例配置：
 
 ```json
 {
@@ -162,11 +164,7 @@ JAiRouter 也支持通过动态配置 API 更新实例配置：
     "chat": {
       "loadBalance": {
         "type": "round-robin",
-        "healthCheck": {
-          "enabled": true,
-          "interval": 30000,
-          "timeout": 5000
-        }
+        "hashAlgorithm": "md5"
       },
       "instances": [
         {
@@ -361,63 +359,43 @@ model:
 
 #### 一致性哈希配置
 
+一致性哈希是独立策略，扁平配置（虚拟节点数在 `model.load-balance.virtual-nodes`，默认 150）：
+
 ```yaml
 model:
-  services:
-    chat:
-      load-balance:
-        type: ip-hash
-        hash-algorithm: "md5"
-        consistent-hash:
-          enabled: true          # 启用一致性哈希
-          virtual-nodes: 150     # 虚拟节点数量
-          hash-function: "md5"   # 哈希函数
+  load-balance:
+    type: consistent-hash        # 直接选用一致性哈希策略
+    hash-algorithm: "md5"        # 哈希函数：md5 / sha1 / sha256
+    virtual-nodes: 150           # 虚拟节点数量
 ```
+
+> 早期文档中的 `load-balance.consistent-hash.{enabled,virtual-nodes,hash-function}` 嵌套结构不存在；虚拟节点数是 `model.load-balance.virtual-nodes` 扁平键。
 
 ## 动态负载均衡配置
 
-### 通过 API 更新负载均衡策略
+### 通过 API 调整实例权重
 
-```bash
-# 更新服务的负载均衡策略（需要通过配置文件或重启）
-# 注意：当前版本不支持直接通过 API 更新负载均衡策略
-# 需要通过配置文件更新后重启服务
-
-# 但可以通过调整实例权重来影响负载分布
-curl -X PUT "http://localhost:8080/api/config/instance/update/chat" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "instanceId": "high-perf-model@http://gpu-server:8080",
-    "instance": {
-      "name": "high-perf-model",
-      "baseUrl": "http://gpu-server:8080",
-      "path": "/v1/chat/completions",
-      "weight": 5
-    }
-  }'
-```
-
-### 实例权重动态调整
+实例权重可通过实例管理 API 热更新（服务级策略调整后重启生效或走动态配置）：
 
 ```bash
 # 场景：GPU 服务器性能提升，增加权重
-curl -X PUT "http://localhost:8080/api/config/instance/update/chat" \
+curl -X PUT "http://localhost:8080/api/config/instance/chat/gpu-model@http://gpu-server:8080" \
   -H "Content-Type: application/json" \
   -d '{
-    "instanceId": "gpu-model@http://gpu-server:8080",
-    "instance": {
-      "weight": 4
-    }
+    "name": "gpu-model",
+    "baseUrl": "http://gpu-server:8080",
+    "path": "/v1/chat/completions",
+    "weight": 4
   }'
 
 # 场景：CPU 服务器负载过高，降低权重
-curl -X PUT "http://localhost:8080/api/config/instance/update/chat" \
+curl -X PUT "http://localhost:8080/api/config/instance/chat/cpu-model@http://cpu-server:8080" \
   -H "Content-Type: application/json" \
   -d '{
-    "instanceId": "cpu-model@http://cpu-server:8080",
-    "instance": {
-      "weight": 1
-    }
+    "name": "cpu-model",
+    "baseUrl": "http://cpu-server:8080",
+    "path": "/v1/chat/completions",
+    "weight": 1
   }'
 ```
 
@@ -425,33 +403,33 @@ curl -X PUT "http://localhost:8080/api/config/instance/update/chat" \
 
 ### 监控指标
 
-JAiRouter 提供以下负载均衡相关指标：
+Trunkline 提供以下负载均衡相关指标：
 
 ```bash
 # 查看负载均衡指标
-curl "http://localhost:8080/actuator/metrics/jairouter_loadbalancer_selections_total"
+curl "http://localhost:8080/actuator/metrics/trunkline_loadbalancer_selections_total"
 
 # 查看实例请求分布
-curl "http://localhost:8080/actuator/metrics/jairouter_requests_total"
+curl "http://localhost:8080/actuator/metrics/trunkline_requests_total"
 
 # 查看连接数统计（仅 Least Connections 策略）
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_remaining"
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_remaining"
 ```
 
 ### Prometheus 指标
 
 ```prometheus
 # 负载均衡请求总数
-jairouter_loadbalancer_selections_total{service="chat",strategy="round-robin"}
+trunkline_loadbalancer_selections_total{service="chat",strategy="round-robin"}
 
 # 实例请求分布
-jairouter_requests_total{service="chat",instance="model-1",status="success"}
+trunkline_requests_total{service="chat",instance="model-1",status="success"}
 
 # 活跃连接数
-jairouter_rate_limit_remaining{service="chat",instance="model-1"}
+trunkline_rate_limit_remaining{service="chat",instance="model-1"}
 
 # 实例响应时间
-jairouter_request_duration_seconds{service="chat",instance="model-1"}
+trunkline_request_duration_seconds{service="chat",instance="model-1"}
 ```
 
 ### 监控仪表板配置
@@ -460,13 +438,13 @@ jairouter_request_duration_seconds{service="chat",instance="model-1"}
 # Grafana 仪表板查询示例
 queries:
   - name: "请求分布"
-    query: 'rate(jairouter_requests_total[5m])'
+    query: 'rate(trunkline_requests_total[5m])'
     
   - name: "负载均衡效果"
-    query: 'jairouter_requests_total / ignoring(instance) group_left sum(jairouter_requests_total) by (service)'
+    query: 'trunkline_requests_total / ignoring(instance) group_left sum(trunkline_requests_total) by (service)'
     
   - name: "实例健康状态"
-    query: 'jairouter_backend_health'
+    query: 'trunkline_backend_health'
 ```
 
 ## 性能调优
@@ -555,58 +533,33 @@ model:
 
 ### 3. 连接池优化
 
-```yaml
-# 针对 Least Connections 策略的优化
-webclient:
-  connection-pool:
-    max-connections: 500        # 增加连接池大小
-    max-idle-time: 30s         # 适当的空闲时间
-    pending-acquire-timeout: 60s # 获取连接超时
+出站 WebClient 连接池配置位于 `config/common/webclient.yml`，前缀 `trunkline.webclient`：
 
+```yaml
+trunkline:
+  webclient:
+    connect-timeout-ms: 5000       # 连接超时
+    response-timeout-seconds: 60   # 响应超时
+    max-connections: 500           # 连接池大小
+    pending-acquire-timeout-ms: 10000  # 获取连接超时
+    max-idle-time-seconds: 300     # 空闲连接回收时间
 ```
+
+> 早期文档中的顶层 `webclient.connection-pool.*` 键已废弃（连接池配置迁移到 `trunkline.webclient.*`）。
 
 ## 故障处理
 
-### 1. 实例故障自动处理
+### 1. 实例故障与熔断隔离
 
-```yaml
-model:
-  load-balance:
-    health-check:
-      enabled: true
-      interval: 15s             # 更频繁的健康检查
-      timeout: 3s
-      failure-threshold: 2      # 更敏感的故障检测
-      success-threshold: 1      # 更快的恢复检测
-```
+实例故障检测由熔断器负责（连续失败达 `failureThreshold` 即熔断该实例，OPEN 期间不参与负载均衡选择），详见 [熔断器](circuit-breaker.md)。
 
-### 2. 故障转移配置
+> 早期文档中的 `model.load-balance.health-check.*`（interval/timeout/failure-threshold/success-threshold）配置块**不存在**；故障检测即熔断器。
 
-```yaml
-model:
-  services:
-    chat:
-      load-balance:
-        type: round-robin
-        failover:
-          enabled: true          # 启用故障转移
-          retry-attempts: 3      # 重试次数
-          retry-delay: 1s       # 重试延迟
-          circuit-breaker: true  # 启用熔断器
-      instances:
-        - name: "primary-model"
-          base-url: "http://primary:8080"
-          weight: 3
-          priority: 1           # 主要实例
-        - name: "secondary-model"
-          base-url: "http://secondary:8080"
-          weight: 2
-          priority: 2           # 次要实例
-        - name: "backup-model"
-          base-url: "http://backup:8080"
-          weight: 1
-          priority: 3           # 备用实例
-```
+### 2. 故障转移
+
+故障转移通过「换实例重试」实现（v2.9.6+）：调用失败（可重试错误：连接错误 / 5xx / 超时）时，当前实例加入本次请求的失败黑名单，经正常选择链（健康/熔断过滤 + 负载均衡策略）重新选择未失败的实例重试。
+
+> 早期文档中的 `load-balance.failover.{enabled,retry-attempts,retry-delay}` 配置块与实例 `priority` 字段**不存在**；重试次数沿用各服务类型的重试策略，无需在负载均衡下配置。
 
 #### 请求级故障转移（v2.9.6+）
 
@@ -622,15 +575,12 @@ model:
 
 ```bash
 # 检查实例状态
-curl "http://localhost:8080/api/config/instance/type/chat"
+curl "http://localhost:8080/api/config/instance/chat"
 
-# 查看负载分布
-curl "http://localhost:8080/actuator/metrics/jairouter_requests_total"
+# 查看实例熔断器状态
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 
-# 检查连接状态（Least Connections）
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_remaining"
-
-# 查看健康检查状态
+# 查看健康状态
 curl "http://localhost:8080/actuator/health"
 ```
 

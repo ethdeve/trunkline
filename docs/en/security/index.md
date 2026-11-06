@@ -9,12 +9,12 @@
 
 
 
-JAiRouter provides enterprise-grade security features, including authentication, data sanitization, security auditing, and monitoring. These features ensure that your AI model services not only deliver high-performance routing but also meet strict security and compliance requirements.
+Trunkline provides enterprise-grade security features, including authentication, data sanitization, security auditing, and monitoring. These features ensure that your AI model services not only deliver high-performance routing but also meet strict security and compliance requirements.
 
 ## Feature Overview
 
 ### 🔐 Authentication
-- **API Key Authentication**: Supports multi-level permission control and expiration management
+- **API Key Authentication (three gates)**: model category (permissions) → model group whitelist (allowedGroups) → IP/expiry/multi-window quota & alerts
 - **JWT Authentication**: Supports standard JWT tokens and refresh mechanisms
 - **Dual Authentication**: API Key and JWT can be used simultaneously
 - **Cache Optimization**: Supports Redis and local caching for performance improvement
@@ -43,7 +43,7 @@ JAiRouter provides enterprise-grade security features, including authentication,
 Enable security features in `application.yml`:
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
 ```
@@ -51,7 +51,7 @@ jairouter:
 ### 2. Configure API Key Authentication
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       enabled: true
@@ -65,7 +65,7 @@ jairouter:
 ### 3. Configure Data Sanitization
 
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -123,7 +123,7 @@ graph TB
 ### Development Environment
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -144,7 +144,7 @@ jairouter:
 ### Production Environment
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -211,14 +211,15 @@ export REDIS_PASSWORD="your-redis-password"
 ## Monitoring Metrics
 
 ### Authentication Metrics
-- `jairouter_security_authentication_attempts_total`: Total authentication attempts
-- `jairouter_security_authentication_successes_total`: Total successful authentications
-- `jairouter_security_authentication_failures_total`: Total authentication failures
+- `trunkline_security_authentication_attempts_total`: Total authentication attempts
+- `trunkline_security_authentication_successes_total`: Total successful authentications
+- `trunkline_security_authentication_failures_total`: Total authentication failures
 
 ### Sanitization Metrics
-- `jairouter_security_sanitization_operations_total`: Total sanitization operations
-- `jairouter_security_sanitization_duration_seconds`: Sanitization operation duration
-- `jairouter_security_sanitization_patterns_matched_total`: Total matched patterns
+- `trunkline_security_sanitization_operations_total`: Total sanitization operations
+- `trunkline_security_sanitization_rule_matches_total`: Total sanitization rule matches
+
+> See the "Code-registered metrics" section of [Monitoring Metrics](../monitoring/metrics.md) for the full list.
 
 ## Next Steps
 

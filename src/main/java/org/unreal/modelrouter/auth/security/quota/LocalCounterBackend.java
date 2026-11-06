@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.LongAdder;
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 public final class LocalCounterBackend implements QuotaCounterBackend {
 

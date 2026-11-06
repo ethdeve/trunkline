@@ -115,6 +115,7 @@ public class ServiceTypeResolver {
         }
 
         if (lower.equals(ServiceTypeConstants.IMG_EDIT)
+            || lower.equals("imgedit")
             || lower.equals("image-edit")
             || lower.equals("image-editing")) {
             return ModelServiceRegistry.ServiceType.imgEdit;

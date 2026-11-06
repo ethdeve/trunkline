@@ -1,6 +1,6 @@
 # 数据库部署
 
-JAiRouter 默认使用 **H2 嵌入式数据库**，它适合单实例部署与开发。一旦需要**多副本（`replicas > 1`）**，就必须改用**外部共享数据库**——本文说明如何接入 PostgreSQL。
+Trunkline 默认使用 **H2 嵌入式数据库**，它适合单实例部署与开发。一旦需要**多副本（`replicas > 1`）**，就必须改用**外部共享数据库**——本文说明如何接入 PostgreSQL。
 
 ## 为什么多副本必须外置数据库
 
@@ -8,7 +8,7 @@ H2 的单文件库**同一时刻只能被一个进程打开**。实测（H2 2.3.
 
 ```
 [B] 失败: org.h2.jdbc.JdbcSQLNonTransientConnectionException:
-    Database may be already in use: ".../data/jairouter.mv.db".
+    Database may be already in use: ".../data/trunkline.mv.db".
     Possible solutions: close all other connection(s); use the server mode [90020-232]
 ```
 
@@ -40,7 +40,7 @@ H2 的单文件库**同一时刻只能被一个进程打开**。实测（H2 2.3.
 # config/config-service/core.yml
 spring:
   datasource:
-    url: ${DATABASE_URL:jdbc:h2:file:./data/jairouter;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE}
+    url: ${DATABASE_URL:jdbc:h2:file:./data/trunkline;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE}
     username: ${DATABASE_USERNAME:sa}
     password: ${DATABASE_PASSWORD:}
 ```
@@ -48,8 +48,8 @@ spring:
 连接到 PostgreSQL：
 
 ```bash
-export DATABASE_URL="jdbc:postgresql://pg.internal:5432/jairouter"
-export DATABASE_USERNAME="jairouter"
+export DATABASE_URL="jdbc:postgresql://pg.internal:5432/trunkline"
+export DATABASE_USERNAME="trunkline"
 export DATABASE_PASSWORD="<强密码>"
 ```
 
@@ -57,7 +57,7 @@ export DATABASE_PASSWORD="<强密码>"
 
 - **不要设置 `spring.jpa.properties.hibernate.dialect`**。方言由 Hibernate 按连接自动探测；显式写死会在换库时被静默沿用，生成错误的 DDL 且报错难以定位。
 - 驱动无需显式声明（`driver-class-name` 已移除），Spring 会按 URL 前缀推断。
-- 数据库需**预先创建**（`CREATE DATABASE jairouter;`），应用只负责建表。
+- 数据库需**预先创建**（`CREATE DATABASE trunkline;`），应用只负责建表。
 
 ### 连接池
 
@@ -170,7 +170,7 @@ URL 的方言自行决定用哪套脚本，见 `FlywayDialectEnvironmentPostProc
 3. **导入到 PostgreSQL**：
 
    ```bash
-   psql -h pg.internal -U jairouter -d jairouter \
+   psql -h pg.internal -U trunkline -d trunkline \
      -c "\copy api_call_history FROM '/tmp/export/api_call_history.csv' CSV HEADER"
    ```
 

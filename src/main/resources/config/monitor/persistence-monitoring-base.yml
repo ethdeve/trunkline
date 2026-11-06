@@ -3,7 +3,7 @@
 # ========================================
 # 此文件包含JWT令牌持久化的监控和指标配置
 
-jairouter:
+trunkline:
   security:
     monitoring:
       # ========================================
@@ -131,7 +131,7 @@ jairouter:
         export:
           prometheus:
             enabled: true
-            metrics-prefix: "jairouter_jwt_persistence"
+            metrics-prefix: "trunkline_jwt_persistence"
             include-labels:
               - environment
               - storage_type

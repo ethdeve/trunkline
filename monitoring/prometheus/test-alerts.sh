@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# JAiRouter Prometheus告警规则测试脚本
+# Trunkline Prometheus告警规则测试脚本
 # 用于验证告警规则的语法和逻辑正确性
 
 set -e
@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RULES_DIR="${SCRIPT_DIR}/rules"
 PROMETHEUS_URL="${PROMETHEUS_URL:-http://localhost:9090}"
 
-echo "=== JAiRouter告警规则测试 ==="
+echo "=== Trunkline告警规则测试 ==="
 echo "规则目录: ${RULES_DIR}"
 echo "Prometheus地址: ${PROMETHEUS_URL}"
 echo
@@ -42,20 +42,20 @@ echo "2. 验证告警规则查询表达式..."
 # 定义测试查询列表
 declare -a test_queries=(
     # 基础服务告警查询
-    "up{job=\"jairouter\"}"
-    "sum(rate(jairouter_requests_total{status=~\"4..|5..\"}[5m])) by (instance) / sum(rate(jairouter_requests_total[5m])) by (instance)"
+    "up{job=\"trunkline\"}"
+    "sum(rate(trunkline_requests_total{status=~\"4..|5..\"}[5m])) by (instance) / sum(rate(trunkline_requests_total[5m])) by (instance)"
     
     # 性能告警查询
-    "histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le, service))"
-    "sum(rate(jairouter_requests_total[5m])) by (instance)"
+    "histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le, service))"
+    "sum(rate(trunkline_requests_total[5m])) by (instance)"
     
     # 后端服务告警查询
-    "jairouter_backend_health"
-    "histogram_quantile(0.95, sum(rate(jairouter_backend_call_duration_seconds_bucket[5m])) by (le, adapter))"
+    "trunkline_backend_health"
+    "histogram_quantile(0.95, sum(rate(trunkline_backend_call_duration_seconds_bucket[5m])) by (le, adapter))"
     
     # 基础设施告警查询
-    "jairouter_circuit_breaker_state"
-    "sum(rate(jairouter_rate_limit_events_total{result=\"rejected\"}[5m])) by (service)"
+    "trunkline_circuit_breaker_state"
+    "sum(rate(trunkline_rate_limit_events_total{result=\"rejected\"}[5m])) by (service)"
     
     # 资源告警查询
     "jvm_memory_used_bytes{area=\"heap\"} / jvm_memory_max_bytes{area=\"heap\"}"
@@ -97,17 +97,17 @@ echo
 echo "3. 检查告警规则覆盖率..."
 
 # 统计各类告警数量
-basic_alerts=$(grep -c "name: jairouter.basic" "${RULES_DIR}/jairouter-alerts.yml" || echo "0")
-performance_alerts=$(grep -c "name: jairouter.performance" "${RULES_DIR}/jairouter-alerts.yml" || echo "0")
-backend_alerts=$(grep -c "name: jairouter.backend" "${RULES_DIR}/jairouter-alerts.yml" || echo "0")
-infrastructure_alerts=$(grep -c "name: jairouter.infrastructure" "${RULES_DIR}/jairouter-alerts.yml" || echo "0")
-resource_alerts=$(grep -c "name: jairouter.resources" "${RULES_DIR}/jairouter-alerts.yml" || echo "0")
-business_alerts=$(grep -c "name: jairouter.business" "${RULES_DIR}/jairouter-alerts.yml" || echo "0")
-security_alerts=$(grep -c "name: jairouter.security" "${RULES_DIR}/jairouter-alerts.yml" || echo "0")
-capacity_alerts=$(grep -c "name: jairouter.capacity" "${RULES_DIR}/jairouter-alerts.yml" || echo "0")
-dependency_alerts=$(grep -c "name: jairouter.dependencies" "${RULES_DIR}/jairouter-alerts.yml" || echo "0")
+basic_alerts=$(grep -c "name: trunkline.basic" "${RULES_DIR}/trunkline-alerts.yml" || echo "0")
+performance_alerts=$(grep -c "name: trunkline.performance" "${RULES_DIR}/trunkline-alerts.yml" || echo "0")
+backend_alerts=$(grep -c "name: trunkline.backend" "${RULES_DIR}/trunkline-alerts.yml" || echo "0")
+infrastructure_alerts=$(grep -c "name: trunkline.infrastructure" "${RULES_DIR}/trunkline-alerts.yml" || echo "0")
+resource_alerts=$(grep -c "name: trunkline.resources" "${RULES_DIR}/trunkline-alerts.yml" || echo "0")
+business_alerts=$(grep -c "name: trunkline.business" "${RULES_DIR}/trunkline-alerts.yml" || echo "0")
+security_alerts=$(grep -c "name: trunkline.security" "${RULES_DIR}/trunkline-alerts.yml" || echo "0")
+capacity_alerts=$(grep -c "name: trunkline.capacity" "${RULES_DIR}/trunkline-alerts.yml" || echo "0")
+dependency_alerts=$(grep -c "name: trunkline.dependencies" "${RULES_DIR}/trunkline-alerts.yml" || echo "0")
 
-total_alert_rules=$(grep -c "alert:" "${RULES_DIR}/jairouter-alerts.yml" || echo "0")
+total_alert_rules=$(grep -c "alert:" "${RULES_DIR}/trunkline-alerts.yml" || echo "0")
 
 echo "告警规则分类统计:"
 echo "  基础服务告警组: ${basic_alerts}"
@@ -125,9 +125,9 @@ echo
 # 4. 告警级别分布检查
 echo "4. 检查告警级别分布..."
 
-critical_count=$(grep -A 5 "alert:" "${RULES_DIR}/jairouter-alerts.yml" | grep -c "severity: critical" || echo "0")
-warning_count=$(grep -A 5 "alert:" "${RULES_DIR}/jairouter-alerts.yml" | grep -c "severity: warning" || echo "0")
-info_count=$(grep -A 5 "alert:" "${RULES_DIR}/jairouter-alerts.yml" | grep -c "severity: info" || echo "0")
+critical_count=$(grep -A 5 "alert:" "${RULES_DIR}/trunkline-alerts.yml" | grep -c "severity: critical" || echo "0")
+warning_count=$(grep -A 5 "alert:" "${RULES_DIR}/trunkline-alerts.yml" | grep -c "severity: warning" || echo "0")
+info_count=$(grep -A 5 "alert:" "${RULES_DIR}/trunkline-alerts.yml" | grep -c "severity: info" || echo "0")
 
 echo "告警级别分布:"
 echo "  严重 (critical): ${critical_count}"
@@ -139,11 +139,11 @@ echo
 echo "5. 生成测试报告..."
 
 cat > "${SCRIPT_DIR}/alert-test-report.md" << EOF
-# JAiRouter告警规则测试报告
+# Trunkline告警规则测试报告
 
 ## 测试概要
 - 测试时间: $(date)
-- 规则文件: jairouter-alerts.yml
+- 规则文件: trunkline-alerts.yml
 - Prometheus地址: ${PROMETHEUS_URL}
 
 ## 语法检查结果
@@ -178,10 +178,10 @@ cat > "${SCRIPT_DIR}/alert-test-report.md" << EOF
 ## 测试命令
 \`\`\`bash
 # 语法检查
-promtool check rules monitoring/prometheus/rules/jairouter-alerts.yml
+promtool check rules monitoring/prometheus/rules/trunkline-alerts.yml
 
 # 查询验证
-curl "${PROMETHEUS_URL}/api/v1/query?query=up{job=\"jairouter\"}"
+curl "${PROMETHEUS_URL}/api/v1/query?query=up{job=\"trunkline\"}"
 \`\`\`
 EOF
 

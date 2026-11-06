@@ -1,13 +1,5 @@
 {
   "shell": {
-    "overview": {
-      "title": "Overview",
-      "subtitle": "Calls, usage and health at a glance"
-    },
-    "models": {
-      "title": "Connect Models",
-      "subtitle": "Add a provider first (the key is entered once), then add models in bulk; advanced instance management lives under \"Connected Models\""
-    },
     "playground": {
       "title": "Playground",
       "subtitle": "Chat / Embedding / Rerank / Audio / Image"
@@ -20,13 +12,13 @@
       "title": "Observability",
       "subtitle": "Call history · Token · Slow queries · Exceptions · Quota · Circuit breaker · Rate limit"
     },
-    "tracing": {
-      "title": "Tracing",
-      "subtitle": "See the full path of a single call inside the gateway"
-    },
     "strategy": {
-      "title": "Strategy Center",
-      "subtitle": "Routing rules / Load balancing / Circuit breaker thresholds / Response cache / Usage quota"
+      "title": "Routing Rules",
+      "subtitle": "Route requests to different models by conditions",
+      "tabs": {
+        "routeRules": "🎯 Assignment Rules",
+        "responseCache": "Response Cache"
+      }
     },
     "quota": {
       "title": "Usage Quota",
@@ -34,7 +26,7 @@
     },
     "settings": {
       "title": "System Settings",
-      "subtitle": "Accounts & permissions / Model config / Audit & versions"
+      "subtitle": "Account Management / Model Config / Audit & Versions"
     },
     "guide": {
       "title": "Integration Guide",

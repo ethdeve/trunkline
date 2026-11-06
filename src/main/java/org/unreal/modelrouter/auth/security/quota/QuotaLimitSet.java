@@ -14,7 +14,7 @@ package org.unreal.modelrouter.auth.security.quota;
  * 各自独立。</p>
  *
  * <p><b>窗口未启用</b>：本记录只描述「限额是多少」，是否参与判定由
- * {@code jairouter.quota.windows}（{@link QuotaProperties} 的 {@code windows} 列表）决定；
+ * {@code trunkline.quota.windows}（{@link QuotaProperties} 的 {@code windows} 列表）决定；
  * 未启用的窗口无法度量，按 fail-open 跳过。</p>
  *
  * @param minuteRequests 每分钟请求数上限（{@code ApiKey.rateLimitPerMinute}）
@@ -26,6 +26,7 @@ package org.unreal.modelrouter.auth.security.quota;
  * @param monthTokens    每月 token 上限（{@code ApiKey.monthlyTokenLimit}）
  * @author JAiRouter Team
  * @since 3.4.0
+ * @modified Trunkline Team
  */
 public record QuotaLimitSet(long minuteRequests,
                             long hourRequests,

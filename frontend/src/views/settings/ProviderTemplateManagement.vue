@@ -18,6 +18,40 @@
         <el-icon><Refresh /></el-icon>
         {{ t('providerTemplate.refresh') }}
       </el-button>
+      <!-- 已隐藏的默认模板（可逆恢复）：收进工具行，弹出面板展示，保证按钮行不换行 -->
+      <el-popover
+        v-if="hiddenTemplates.length || canWrite"
+        placement="bottom-end"
+        :width="520"
+        trigger="click"
+      >
+        <template #reference>
+          <el-button size="default">
+            {{ t('providerTemplate.hiddenTitle') }}
+            <el-tag size="small" type="info" round class="hidden-count-tag">{{ hiddenTemplates.length }}</el-tag>
+          </el-button>
+        </template>
+        <el-table
+          v-if="hiddenTemplates.length"
+          ref="hiddenTemplatesTableRef"
+          :data="hiddenTemplates"
+          max-height="320"
+          stripe
+          border
+          style="width: 100%"
+        >
+          <el-table-column prop="name" :label="t('providerTemplate.name')" min-width="130" />
+          <el-table-column prop="defaultBaseUrl" :label="t('providerTemplate.baseUrl')" min-width="180" show-overflow-tooltip />
+          <el-table-column :label="t('providerTemplate.action')" width="100" fixed="right">
+            <template #default="{ row }">
+              <el-button v-if="canWrite" type="primary" link size="small" @click="handleRestore(row)">
+                {{ t('providerTemplate.actionRestore') }}
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-empty v-else :description="t('providerTemplate.hiddenEmpty')" :image-size="60" />
+      </el-popover>
     </div>
 
     <el-alert
@@ -35,7 +69,7 @@
       style="margin-bottom: 12px"
     />
 
-    <el-table :data="templates" v-loading="loading" stripe border style="width: 100%">
+    <el-table ref="templatesTableRef" :data="templates" :max-height="templatesMaxHeight" v-loading="loading" stripe border style="width: 100%">
       <el-table-column prop="name" :label="t('providerTemplate.name')" min-width="150" />
       <el-table-column prop="id" :label="t('providerTemplate.templateId')" min-width="110" />
       <el-table-column :label="t('providerTemplate.categoryLabel')" width="90">
@@ -99,41 +133,14 @@
       </el-table-column>
     </el-table>
 
-    <!-- 已隐藏的默认模板（可逆恢复） -->
-    <el-collapse v-if="hiddenTemplates.length || canWrite" v-model="hiddenCollapse" style="margin-top: 16px">
-      <el-collapse-item :name="'hidden'">
-        <template #title>
-          <span class="hidden-title">
-            {{ t('providerTemplate.hiddenTitle') }}
-            <el-tag size="small" type="info" round>{{ hiddenTemplates.length }}</el-tag>
-          </span>
-        </template>
-        <el-table v-if="hiddenTemplates.length" :data="hiddenTemplates" stripe border style="width: 100%">
-          <el-table-column prop="name" :label="t('providerTemplate.name')" min-width="150" />
-          <el-table-column prop="defaultBaseUrl" :label="t('providerTemplate.baseUrl')" min-width="220" show-overflow-tooltip />
-          <el-table-column :label="t('providerTemplate.action')" width="120">
-            <template #default="{ row }">
-              <el-button v-if="canWrite" type="primary" link size="small" @click="handleRestore(row)">
-                {{ t('providerTemplate.actionRestore') }}
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-        <el-empty v-else :description="t('providerTemplate.hiddenEmpty')" :image-size="60" />
-      </el-collapse-item>
-    </el-collapse>
-
     <!-- 新增/编辑弹窗 -->
     <el-dialog
       v-model="dialogVisible"
       :title="isEditing ? t('providerTemplate.editTitle') : t('providerTemplate.createTitle')"
-      width="640px"
+      width="min(640px, 92vw)"
       :close-on-click-modal="false"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
-        <el-form-item :label="t('providerTemplate.templateId')" prop="id">
-          <el-input v-model="form.id" :disabled="isEditing" :placeholder="t('providerTemplate.idPlaceholder')" />
-        </el-form-item>
         <el-form-item :label="t('providerTemplate.name')" prop="name">
           <el-input v-model="form.name" :placeholder="t('providerTemplate.namePlaceholder')" />
         </el-form-item>
@@ -156,24 +163,6 @@
         <el-form-item :label="t('providerTemplate.baseUrl')" prop="defaultBaseUrl">
           <el-input v-model="form.defaultBaseUrl" placeholder="https://api.example.com/v1" />
         </el-form-item>
-        <el-form-item :label="t('providerTemplate.authHeader')">
-          <el-input v-model="form.auth.headerName" placeholder="Authorization" />
-        </el-form-item>
-        <el-form-item :label="t('providerTemplate.headerPrefix')">
-          <el-input v-model="form.auth.headerPrefix" placeholder="Bearer " />
-        </el-form-item>
-        <el-form-item :label="t('providerTemplate.capabilities')">
-          <div class="capability-checkboxes">
-            <el-checkbox v-model="form.capabilities.chat">{{ t('adapter.capability.chat') }}</el-checkbox>
-            <el-checkbox v-model="form.capabilities.embedding">{{ t('adapter.capability.embedding') }}</el-checkbox>
-            <el-checkbox v-model="form.capabilities.rerank">{{ t('adapter.capability.rerank') }}</el-checkbox>
-            <el-checkbox v-model="form.capabilities.tts">{{ t('adapter.capability.tts') }}</el-checkbox>
-            <el-checkbox v-model="form.capabilities.stt">{{ t('adapter.capability.stt') }}</el-checkbox>
-            <el-checkbox v-model="form.capabilities.imgGen">{{ t('adapter.capability.imgGen') }}</el-checkbox>
-            <el-checkbox v-model="form.capabilities.imgEdit">{{ t('adapter.capability.imgEdit') }}</el-checkbox>
-            <el-checkbox v-model="form.capabilities.streaming">{{ t('adapter.capability.streaming') }}</el-checkbox>
-          </div>
-        </el-form-item>
         <el-form-item :label="t('providerTemplate.models')">
           <el-input
             v-model="modelsInput"
@@ -186,6 +175,33 @@
           <el-input-number v-model="form.sortOrder" :min="1" :max="9999" />
           <div class="form-note">{{ t('providerTemplate.sortOrderTip') }}</div>
         </el-form-item>
+        <!-- 技术字段收进高级折叠：模板 ID 是技术主键，认证 Header / 能力配置一般不用改 -->
+        <el-collapse v-model="advancedOpen" class="advanced-collapse">
+          <el-collapse-item :title="t('providerTemplate.advancedTitle')" name="advanced">
+            <el-form-item :label="t('providerTemplate.templateId')" prop="id">
+              <el-input v-model="form.id" :disabled="isEditing" :placeholder="t('providerTemplate.idPlaceholder')" />
+              <div class="form-note">{{ t('providerTemplate.templateIdNote') }}</div>
+            </el-form-item>
+            <el-form-item :label="t('providerTemplate.authHeader')">
+              <el-input v-model="form.auth.headerName" placeholder="Authorization" />
+            </el-form-item>
+            <el-form-item :label="t('providerTemplate.headerPrefix')">
+              <el-input v-model="form.auth.headerPrefix" placeholder="Bearer " />
+            </el-form-item>
+            <el-form-item :label="t('providerTemplate.capabilities')">
+              <div class="capability-checkboxes">
+                <el-checkbox v-model="form.capabilities.chat">{{ t('adapter.capability.chat') }}</el-checkbox>
+                <el-checkbox v-model="form.capabilities.embedding">{{ t('adapter.capability.embedding') }}</el-checkbox>
+                <el-checkbox v-model="form.capabilities.rerank">{{ t('adapter.capability.rerank') }}</el-checkbox>
+                <el-checkbox v-model="form.capabilities.tts">{{ t('adapter.capability.tts') }}</el-checkbox>
+                <el-checkbox v-model="form.capabilities.stt">{{ t('adapter.capability.stt') }}</el-checkbox>
+                <el-checkbox v-model="form.capabilities.imgGen">{{ t('adapter.capability.imgGen') }}</el-checkbox>
+                <el-checkbox v-model="form.capabilities.imgEdit">{{ t('adapter.capability.imgEdit') }}</el-checkbox>
+                <el-checkbox v-model="form.capabilities.streaming">{{ t('adapter.capability.streaming') }}</el-checkbox>
+              </div>
+            </el-form-item>
+          </el-collapse-item>
+        </el-collapse>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">{{ t('providerTemplate.cancel') }}</el-button>
@@ -202,8 +218,9 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
 import { useDependencyGuard } from '@/composables/useDependencyGuard'
+import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { confirmDanger } from '@/utils/dangerConfirm'
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { Plus, Refresh, Connection, Loading, Hide } from '@element-plus/icons-vue'
 import {
   getAdapterTemplates,
@@ -226,6 +243,10 @@ const canWrite = hasPermission('config:adapters:write')
 const loading = ref(false)
 const saving = ref(false)
 const templates = ref<AdapterTemplate[]>([])
+
+const templatesTableRef = ref()
+const { maxHeight: templatesMaxHeight } = useTableMaxHeight(templatesTableRef)
+const hiddenTemplatesTableRef = ref()
 const dialogVisible = ref(false)
 const isEditing = ref(false)
 const editingId = ref('')
@@ -241,7 +262,6 @@ const availabilityMap = reactive<Record<string, {
 }>>({})
 const detectSummary = ref('')
 const hiddenTemplates = ref<AdapterTemplate[]>([])
-const hiddenCollapse = ref<string[]>([])
 
 /** 检测为不可用的内置模板 ID（用于一键隐藏） */
 const hasUnavailableBuiltin = computed(() =>
@@ -300,6 +320,20 @@ const defaultForm = () => ({
 })
 
 const form = reactive(defaultForm())
+
+/** 高级折叠展开状态：校验失败时若出错字段在里面，自动展开让用户看到错误 */
+const advancedOpen = ref<string[]>([])
+
+/** 新增时根据名称自动生成模板 ID（技术主键，用户一般不用关心） */
+const generateTemplateId = (name: string) => {
+  const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50)
+  const base = slug || `custom-${Date.now()}`
+  const existing = new Set([...templates.value.map(tpl => tpl.id), ...hiddenTemplates.value.map(tpl => tpl.id)])
+  let id = base
+  let i = 2
+  while (existing.has(id)) id = `${base}-${i++}`
+  return id
+}
 
 const rules = computed<FormRules>(() => ({
   id: [
@@ -408,29 +442,25 @@ const hideAllUnavailable = async () => {
     ElMessage.info(t('providerTemplate.availabilityHint'))
     return
   }
-  try {
-    await ElMessageBox.confirm(
-      t('providerTemplate.hideUnavailableConfirm', { count: ids.length }),
-      t('providerTemplate.hideConfirmTitle'),
-      { type: 'warning' }
-    )
-    let count = 0
-    for (const id of ids) {
-      try {
-        await hideAdapterTemplate(id)
-        count++
-      } catch (e: any) {
-        ElMessage.error(t('providerTemplate.operationFailedDetail', { error: e.message || '' }))
-      }
-    }
-    ElMessage.success(t('providerTemplate.hideUnavailableDone', { count }))
-    await fetchTemplates()
-    await loadHidden()
-  } catch (e: any) {
-    if (e !== 'cancel') {
+  const confirmed = await confirmDanger({
+    title: t('providerTemplate.hideConfirmTitle'),
+    target: t('providerTemplate.hideUnavailableConfirm', { count: ids.length }),
+    action: '隐藏',
+    type: 'warning'
+  })
+  if (!confirmed) return
+  let count = 0
+  for (const id of ids) {
+    try {
+      await hideAdapterTemplate(id)
+      count++
+    } catch (e: any) {
       ElMessage.error(t('providerTemplate.operationFailedDetail', { error: e.message || '' }))
     }
   }
+  ElMessage.success(t('providerTemplate.hideUnavailableDone', { count }))
+  await fetchTemplates()
+  await loadHidden()
 }
 
 const handleCreate = () => {
@@ -461,12 +491,14 @@ const handleEdit = (row: AdapterTemplate) => {
 
 /** 移除内置默认模板（隐藏，可逆） */
 const handleHide = async (row: AdapterTemplate) => {
+  const confirmed = await confirmDanger({
+    title: t('providerTemplate.hideConfirmTitle'),
+    target: row.name,
+    action: '隐藏',
+    type: 'warning'
+  })
+  if (!confirmed) return
   try {
-    await ElMessageBox.confirm(
-      t('providerTemplate.hideConfirm', { name: row.name }),
-      t('providerTemplate.hideConfirmTitle'),
-      { type: 'warning' }
-    )
     const res = await hideAdapterTemplate(row.id)
     if (res.data?.success) {
       ElMessage.success(t('providerTemplate.hideSuccess', { name: row.name }))
@@ -476,9 +508,7 @@ const handleHide = async (row: AdapterTemplate) => {
       ElMessage.error(res.data?.message || t('providerTemplate.operationFailed'))
     }
   } catch (e: any) {
-    if (e !== 'cancel') {
-      ElMessage.error(t('providerTemplate.operationFailedDetail', { error: e.message || '' }))
-    }
+    ElMessage.error(t('providerTemplate.operationFailedDetail', { error: e.message || '' }))
   }
 }
 
@@ -530,7 +560,20 @@ const handleDelete = async (row: AdapterTemplate) => {
 
 const handleSubmit = async () => {
   if (!formRef.value) return
-  await formRef.value.validate()
+
+  // 新增时模板 ID 留空则按名称自动生成（藏在高阶折叠里的必填项，不该让用户踩坑）
+  if (!isEditing.value && !form.id.trim()) {
+    form.id = generateTemplateId(form.name)
+  }
+
+  try {
+    await formRef.value.validate()
+  } catch {
+    // 校验失败：id 在高级折叠里，展开让用户能看到错误提示
+    advancedOpen.value = ['advanced']
+    ElMessage.warning(t('providerTemplate.validation.fixErrors'))
+    return
+  }
 
   saving.value = true
   try {
@@ -582,8 +625,13 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.hidden-count-tag {
+  margin-left: 6px;
 }
 
 .capability-checkboxes {
@@ -609,10 +657,20 @@ onMounted(() => {
   line-height: 1.4;
 }
 
-.hidden-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
+/* 高级设置折叠：与技术字段同框，弱化视觉权重 */
+.advanced-collapse {
+  width: 100%;
+  border-top: 1px dashed var(--el-border-color-lighter);
+  border-bottom: none;
+
+  :deep(.el-collapse-item__header) {
+    font-size: 13px;
+    color: var(--ja-text-secondary);
+    border-bottom: none;
+  }
+
+  :deep(.el-collapse-item__wrap) {
+    border-bottom: none;
+  }
 }
 </style>

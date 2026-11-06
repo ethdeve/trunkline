@@ -9,7 +9,7 @@
 
 ## 概述
 
-JAiRouter 自 **v2.9.8** 起提供**数据驱动的 RBAC（基于角色的访问控制）**体系：以 `module:resource:action` 权限码为唯一权限原子，将「权限码 → 角色 → JWT → URL 权限矩阵 → 菜单」串成一条完整链路：
+Trunkline 自 **v2.9.8** 起提供**数据驱动的 RBAC（基于角色的访问控制）**体系：以 `module:resource:action` 权限码为唯一权限原子，将「权限码 → 角色 → JWT → URL 权限矩阵 → 菜单」串成一条完整链路：
 
 1. **权限码**：53 个 `module:resource:action` 权限码（`action` ∈ `read` / `write` / `manage` / `view`），同时驱动后端 URL 访问判定与前端菜单/路由可见性。
 2. **角色模板**：启动时自动在 `role_permissions` 表种入 4 个内置角色模板（ADMIN / OPERATOR / USER / VIEWER），每个角色对应一组权限码（表为空则全量播种；表非空则执行只增不删的增量收敛，见「角色模板」一节）。
@@ -174,10 +174,10 @@ JAiRouter 自 **v2.9.8** 起提供**数据驱动的 RBAC（基于角色的访问
 
 | 配置键 | 取值 | 说明 |
 |--------|------|------|
-| `jairouter.security.rbac.unmatched-policy` | `AUTHENTICATED` \| `DENY_WRITES` \| `DENY_ALL` | **默认 `DENY_ALL`** |
-| `jairouter.security.rbac.write-fail-closed.enabled`（遗留） | `true` \| `false` | **仅当 `unmatched-policy` 未配置时生效**：`false`→`AUTHENTICATED`，`true`→`DENY_WRITES`；两者同配时新键优先，永不矛盾 |
+| `trunkline.security.rbac.unmatched-policy` | `AUTHENTICATED` \| `DENY_WRITES` \| `DENY_ALL` | **默认 `DENY_ALL`** |
+| `trunkline.security.rbac.write-fail-closed.enabled`（遗留） | `true` \| `false` | **仅当 `unmatched-policy` 未配置时生效**：`false`→`AUTHENTICATED`，`true`→`DENY_WRITES`；两者同配时新键优先，永不矛盾 |
 
-**无改码回退**：设置 `jairouter.security.rbac.unmatched-policy=AUTHENTICATED`（完全回退遗留行为）或 `=DENY_WRITES`（回退阶段 2 姿态）。
+**无改码回退**：设置 `trunkline.security.rbac.unmatched-policy=AUTHENTICATED`（完全回退遗留行为）或 `=DENY_WRITES`（回退阶段 2 姿态）。
 
 ### 覆盖自检与可观测
 
@@ -220,7 +220,7 @@ JAiRouter 自 **v2.9.8** 起提供**数据驱动的 RBAC（基于角色的访问
 | 能力组 | ROLE_ADMIN JWT | 非 ADMIN JWT（OPERATOR/USER/VIEWER） | API-Key（`X-API-Key`） | 匿名 |
 |--------|:--------------:|:-----------------------------------:|:----------------------:|:----:|
 | `/v1/**` 原生推理面（`GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/embeddings`、`POST /v1/rerank`、`POST /v1/messages`、`POST /v1/messages/count_tokens`） | ✔（仅要求登录） | ✔（仅要求登录） | ✔（API-Key 服务类型权限 + 配额） | ✘ |
-| `/v1/debug/**`（仅 `jairouter.debug.endpoints.enabled=true` 时存在，默认关闭） | ✔（仅要求登录） | ✔（仅要求登录） | ✔（仅要求登录） | ✘ |
+| `/v1/debug/**`（仅 `trunkline.debug.endpoints.enabled=true` 时存在，默认关闭） | ✔（仅要求登录） | ✔（仅要求登录） | ✔（仅要求登录） | ✘ |
 | 豁免清单端点（`/api/v1/**` 写、JWT 自助、`/api/auth/permissions`、`/api/models`、token-usage 上报） | ✔ | ✔（仅要求登录） | ✔（仅要求登录） | ✘ |
 | 命中 URL 规则的 `/api/**`（配置/监控/安全等） | ✔（直通） | ✔ 按角色权限码（见角色模板） | **✘ 一律 403** | ✘ |
 | 未命中规则且未豁免的 `/api/**`（MISSING） | ✔（短路直通） | **✘ 403（默认 DENY_ALL）** | **✘ 403** | ✘ |
@@ -231,7 +231,7 @@ JAiRouter 自 **v2.9.8** 起提供**数据驱动的 RBAC（基于角色的访问
 | `/actuator/health`、`/actuator/info`、`/actuator/prometheus` | ✔ | ✔ | ✔ | ✔（permitAll） |
 | `/admin/**`（静态 SPA）、`/favicon.ico` | ✔ | ✔ | ✔ | ✔（permitAll） |
 | `POST /api/auth/jwt/login`、`POST /api/auth/jwt/validate` | ✔ | ✔ | ✔ | ✔（permitAll） |
-| `/swagger-ui/**`、`/v3/api-docs/**`、`/webjars/**` | ✔ | ✔ | ✔ | 默认需登录；仅 `jairouter.security.docs-public=true` 时 permitAll |
+| `/swagger-ui/**`、`/v3/api-docs/**`、`/webjars/**` | ✔ | ✔ | ✔ | 默认需登录；仅 `trunkline.security.docs-public=true` 时 permitAll |
 
 API-Key 调用方要点（外部集成方必读）：
 
@@ -239,7 +239,7 @@ API-Key 调用方要点（外部集成方必读）：
 - 因此 API-Key **永远不可能持有 `ROLE_ADMIN`，也不持有任何权限码** ⇒ 所有命中规则的 `/api/**` 路径对 API-Key 一律 403；阶段 3 之后未命中规则的 `/api/**` 路径同样 403。
 - API-Key 的可用面：**全部 `/v1/**`**（`SecurityConfiguration` 将 `/v1/**` 映射为 `authenticated()`，不走权限管理器）+ 上表豁免集。
 - `/v1/**` 原生面（OpenAI + Anthropic 六个端点）**不受三次变更影响**，现有集成无需改动。
-- `/v1/debug/**` 仅在 `jairouter.debug.endpoints.enabled=true` 时存在（默认关闭），且只要求认证 ⇒ 若开启，任何已认证主体（含 API-Key）均可调用。**生产环境建议保持关闭。**
+- `/v1/debug/**` 仅在 `trunkline.debug.endpoints.enabled=true` 时存在（默认关闭），且只要求认证 ⇒ 若开启，任何已认证主体（含 API-Key）均可调用。**生产环境建议保持关闭。**
 
 非 ADMIN 角色要点：
 
@@ -363,10 +363,10 @@ v2.9.8 将 Web 菜单由 11 组重分类为 **8 组 34 项**，前端 `menu.ts` 
 
 | 目标 | 配置 |
 |------|------|
-| 完全回退遗留 fail-open | `jairouter.security.rbac.unmatched-policy=AUTHENTICATED` |
-| 回退阶段 2 姿态（写 fail-closed、GET fail-open） | `jairouter.security.rbac.unmatched-policy=DENY_WRITES` |
+| 完全回退遗留 fail-open | `trunkline.security.rbac.unmatched-policy=AUTHENTICATED` |
+| 回退阶段 2 姿态（写 fail-closed、GET fail-open） | `trunkline.security.rbac.unmatched-policy=DENY_WRITES` |
 
-遗留键 `jairouter.security.rbac.write-fail-closed.enabled` 仅在 `unmatched-policy` 未配置时生效（`false`→`AUTHENTICATED`，`true`→`DENY_WRITES`）；两者同配时新键优先，永不矛盾。
+遗留键 `trunkline.security.rbac.write-fail-closed.enabled` 仅在 `unmatched-policy` 未配置时生效（`false`→`AUTHENTICATED`，`true`→`DENY_WRITES`）；两者同配时新键优先，永不矛盾。
 
 ### 其他兼容说明
 

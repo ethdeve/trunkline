@@ -86,11 +86,12 @@ export interface QuotaUsageDimensions {
  *
  * - GROUP：分组聚合行（该分组的总用量，与分组级限额判定口径一致）
  * - MEMBER：组内明细行（按实例拆分的用量分布）
+ * - MODEL：厂商模型维度行（已接入模型自己的额度与限速用量）
  * - KEY：API Key 维度行（密钥总闸）
  *
  * GROUP 与 MEMBER 是互斥的两套口径，不可相加（相加会让分组用量翻倍）。
  */
-export type QuotaUsageScope = 'GROUP' | 'MEMBER' | 'KEY'
+export type QuotaUsageScope = 'GROUP' | 'MEMBER' | 'MODEL' | 'KEY'
 
 export interface QuotaUsageItem {
   dimensions: QuotaUsageDimensions

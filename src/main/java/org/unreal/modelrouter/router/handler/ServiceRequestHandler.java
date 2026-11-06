@@ -37,6 +37,7 @@ import org.unreal.modelrouter.auth.security.model.ApiKeyAuthentication;
 import org.unreal.modelrouter.auth.security.model.JwtAuthentication;
 import org.unreal.modelrouter.auth.security.quota.QuotaDimension;
 import org.unreal.modelrouter.auth.security.quota.QuotaEnforcementService;
+import org.unreal.modelrouter.auth.security.quota.QuotaLimitSet;
 import org.unreal.modelrouter.auth.security.quota.QuotaLimitViolation;
 import org.unreal.modelrouter.auth.security.quota.QuotaReservation;
 import org.unreal.modelrouter.auth.security.quota.QuotaTokenEstimator;
@@ -45,6 +46,7 @@ import org.unreal.modelrouter.common.util.IpUtils;
 import org.unreal.modelrouter.monitor.monitoring.collector.MetricsCollector;
 import org.unreal.modelrouter.monitor.tracing.TracingConstants;
 import org.unreal.modelrouter.monitor.tracing.TracingContext;
+import org.unreal.modelrouter.monitor.tracing.TracingContextHolder;
 import org.unreal.modelrouter.monitor.tracing.interceptor.ControllerTracingInterceptor;
 import org.unreal.modelrouter.router.adapter.AdapterRegistry;
 import org.unreal.modelrouter.router.adapter.ServiceCapability;
@@ -59,7 +61,6 @@ import org.unreal.modelrouter.router.loadbalancer.SelectedInstanceHolder;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
 import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 import org.unreal.modelrouter.router.model.ModelServiceRegistry.ServiceType;
-import org.unreal.modelrouter.router.pool.PoolSelector;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -83,6 +84,7 @@ import java.util.Optional;
  *
  * @author JAiRouter Team
  * @since 2.10.0
+ * @modified Trunkline Team
  */
 @Component
 public class ServiceRequestHandler {
@@ -108,17 +110,11 @@ public class ServiceRequestHandler {
 
     /**
      * issue #77: JWT 调用主体标识前缀（与 API Key ID 的键空间隔离）。
-     */
-    private static final String JWT_CALLER_ID_PREFIX = "jwt:";
-
-    /**
-     * issue #77: 控制台 AI 面准入权限码.
      *
-     * <p>与 URL 层 RBAC 对 {@code /api/**} 的门槛同源（{@code PermissionRuleRegistry} 的
-     * {@code ai:playground:use}）。控制台登录态不再要求 {@code ROLE_<SERVICE>}，否则非 ADMIN
-     * 角色（持有该权限码但无服务角色）使用 Playground 会被判 403。</p>
+     * <p>v3.5 Trunkline：public 化以供调用历史落库解析「员工」——
+     * {@code CALLER_ID_ATTRIBUTE} 形如 {@code jwt:<用户名>}，去前缀即员工用户名。</p>
      */
-    private static final String AI_PLAYGROUND_PERMISSION = "ai:playground:use";
+    public static final String JWT_CALLER_ID_PREFIX = "jwt:";
 
     /**
      * ADMIN 角色 authority（JwtAuthentication/ApiKeyAuthentication 均以 {@code ROLE_} 前缀写入）。
@@ -136,6 +132,25 @@ public class ServiceRequestHandler {
      * handler 认证后生成并放入，processor 写缓存前读取（仿 API_KEY_ID_ATTRIBUTE 传递先例）。
      */
     public static final String CACHE_KEY_ATTRIBUTE = "JAIR_RESPONSE_CACHE_KEY";
+
+    /**
+     * v3.5 Trunkline: ServerHttpRequest attribute key for storing the resolved
+     * <b>virtual model name</b> (model group / pool name) of the request.
+     *
+     * <p>Written by the handler after routing decision, read by the token-usage
+     * recorders (streaming / non-streaming) so that {@code token_usage.virtual_model}
+     * records <b>which virtual model the caller asked for</b> — the dimension
+     * employees actually see ("公司主力", "便宜日常").</p>
+     *
+     * <p>Why recorded at request time instead of reverse-mapping instance → group:
+     * one instance may be referenced by several virtual models, so a reverse lookup
+     * is ambiguous. A request hits exactly one virtual model (decided during
+     * routing), so the forward value is unambiguous.</p>
+     *
+     * <p>Absent when the request did not hit any group (internal rule-pinned
+     * instance paths); consumers must treat {@code null} as "未归类".</p>
+     */
+    public static final String VIRTUAL_MODEL_ATTRIBUTE = "JAIR_VIRTUAL_MODEL";
 
     /**
      * v3.1: OpenAI 原生响应标记（{@code /v1} 原生面）.
@@ -184,21 +199,12 @@ public class ServiceRequestHandler {
     /**
      * v3.1 PR-2: 配额限额判定服务（可选注入）。
      *
-     * <p>未注入或账本未启用（{@code jairouter.quota.enabled=false}，默认）时不做任何判定、
+     * <p>未注入或账本未启用（{@code trunkline.quota.enabled=false}，默认）时不做任何判定、
      * 不记账、不设置响应头——请求行为与 v3.0.x 完全一致。判定开启且超限时返回 429 +
      * {@code Retry-After} / {@code X-Quota-*} 响应头（响应体沿用全局异常处理器的既有错误格式）。</p>
      */
     @Autowired(required = false)
     private QuotaEnforcementService quotaEnforcementService;
-
-    /**
-     * v3.5 治理收口：资源池选择器（可选注入）。
-     *
-     * <p>用于识别系统分组（{@code auto-model}）——它的成员是动态的（该分类全部健康实例），
-     * 没有可查的固定池名。未注入时系统分组退化为「按普通分组处理」，不影响主链路。</p>
-     */
-    @Autowired(required = false)
-    private PoolSelector poolSelector;
 
     /**
      * v3.1 PR-4c: 全局 ObjectMapper（可选注入）。
@@ -418,6 +424,15 @@ public class ServiceRequestHandler {
             ServiceRateLimitHolder.markAcquired();
         }
 
+        // v3.5: 恢复追踪上下文到当前工作线程。
+        // 本同步段经 Mono.defer + subscribeOn(boundedElastic) 在 boundedElastic 工作线程上执行，
+        // TracingWebFilter 设置在 Netty 线程上的 ThreadLocal 在这里不可见——
+        // 不恢复的话，适配器同步段（含 NonStreamingRequestProcessor 的 traceId 同步捕获、
+        // 调用历史/用量落库的运行时取值）拿到的是空串，账单/调用历史将与追踪系统失去关联。
+        // 传入的 tracingContext 在 Netty 线程上同步取出，随参数到达本线程。
+        // 必须在 finally 清理：boundedElastic 工作线程会被复用，残留会污染后续无关请求。
+        TracingContextHolder.setCurrentContext(tracingContext);
+
         try {
             // v2.9.10: 响应缓存读 — 限流预扣后、selectInstance 之前(命中直接跳过实例选择)
             ResponseEntity<?> cachedResponse =
@@ -447,6 +462,14 @@ public class ServiceRequestHandler {
                 AffinityContextHolder.clear();
             }
 
+            // v3.5 Trunkline: 记录本次请求命中的<b>虚拟模型</b>（模型分组 / 池名）——
+            // token_usage.virtual_model 的数据来源，团队用量按虚拟模型统计的归属依据。
+            //
+            // 在此（路由决策后、调用下游前）写入，请求属性随 Reactor 上下文传递到
+            // 流式 / 非流式两处落库点。取不到分组名（规则锁定实例等内部路径）时不写，
+            // 落库时归入「未归类」，不丢数据。
+            attachVirtualModel(httpRequest, serviceType, modelName);
+
             // v3.5 治理收口:选实例后补记「实例」维度 ——
             // 预留阶段只知道分组(虚拟模型名),实例是选完才知道的。
             // 此处把「分组 + 实例」维度追加进预留凭据,账本明细行同时带
@@ -455,6 +478,20 @@ public class ServiceRequestHandler {
                 appendInstanceQuotaDimension(httpRequest, serviceType, modelName, selectedInstance);
             } catch (Exception e) {
                 logger.debug("补记配额实例维度失败（忽略，不影响请求）: {}", e.toString());
+            }
+
+            // v3.5 Trunkline:厂商模型（实例）维度的额度与限速 ——
+            // 额度与限速是「厂商模型」的配置,只有选完实例才知道落到哪个模型,
+            // 因此在此处做判定:超额返回 429(与 Key/分组维度同一响应形态)。
+            // 未配置限额的模型只记账不判定,保证模型维度用量连续。
+            try {
+                final Optional<QuotaLimitViolation> modelQuotaViolation =
+                        enforceModelQuota(httpRequest, selectedInstance);
+                if (modelQuotaViolation.isPresent()) {
+                    return rejectByQuota(exchange, modelQuotaViolation.get());
+                }
+            } catch (Exception e) {
+                logger.debug("厂商模型维度配额判定失败（忽略，不影响请求）: {}", e.toString());
             }
 
             // P3-11: 路由决策调试头(仅响应头,不影响 body;调试用,未来可能扩展)
@@ -526,6 +563,8 @@ public class ServiceRequestHandler {
             AffinityContextHolder.clear();
             // 清理请求级已选实例（适配器已同步复用完毕）
             SelectedInstanceHolder.clear();
+            // v3.5: 清理本方法恢复的追踪上下文（boundedElastic 工作线程会被复用，防泄漏污染）
+            TracingContextHolder.clearCurrentContext();
         }
     }
 
@@ -699,6 +738,35 @@ public class ServiceRequestHandler {
     }
 
     /**
+     * v3.5 Trunkline: 把本次请求命中的<b>虚拟模型</b>（模型分组 / 池名）挂到请求属性。
+     *
+     * <p>解析口径与配额分组维度一致（{@code resolvePoolName} → 显式创建的分组），
+     * 保证「团队用量」的虚拟模型归属与配额账本的分组口径同源。</p>
+     *
+     * <p>解析失败（未命中任何分组）时静默跳过：落库时该行归入「未归类」，
+     * 不影响用量与花费统计。</p>
+     *
+     * @param httpRequest HTTP 请求（写入属性）
+     * @param serviceType 服务类型
+     * @param modelName   请求中的模型名（对外即虚拟模型名）
+     */
+    private void attachVirtualModel(final ServerHttpRequest httpRequest,
+                                    final ModelServiceRegistry.ServiceType serviceType,
+                                    final String modelName) {
+        if (httpRequest == null || modelName == null || modelName.isEmpty()) {
+            return;
+        }
+        try {
+            String poolName = registry != null ? registry.resolvePoolName(serviceType, modelName) : null;
+            if (poolName != null && !poolName.isEmpty()) {
+                httpRequest.getAttributes().put(VIRTUAL_MODEL_ATTRIBUTE, poolName);
+            }
+        } catch (Exception e) {
+            logger.debug("解析虚拟模型名失败（忽略，不影响用量记录）: {}", e.toString());
+        }
+    }
+
+    /**
      * v3.1 PR-2: 配额限额判定与预留.
      *
      * <p>开关前置判断：配额服务未装配或账本未启用（默认）时立即返回，不估算 token、
@@ -747,9 +815,6 @@ public class ServiceRequestHandler {
             final String poolName = registry.resolvePoolName(serviceType, modelName);
             if (poolName != null && !poolName.isEmpty()) {
                 groupId = poolName;
-            } else if (poolSelector != null && poolSelector.isSystemGroup(modelName)) {
-                // auto-model 系统分组：其成员动态（该分类全部健康实例），无固定池名可查
-                groupId = modelName;
             }
         }
         return quotaEnforcementService.tryReserve(httpRequest, callerId, groupId, "", estimatedTokens);
@@ -793,8 +858,6 @@ public class ServiceRequestHandler {
             final String poolName = registry.resolvePoolName(serviceType, modelName);
             if (poolName != null && !poolName.isEmpty()) {
                 groupId = poolName;
-            } else if (poolSelector != null && poolSelector.isSystemGroup(modelName)) {
-                groupId = modelName;
             }
         }
         if (groupId.isEmpty()) {
@@ -802,6 +865,59 @@ public class ServiceRequestHandler {
             return;
         }
         reservation.appendDimension(QuotaDimension.ofGroupAndModel(groupId, instanceName));
+    }
+
+    /**
+     * v3.5 Trunkline:厂商模型（实例）维度的额度与限速判定。
+     *
+     * <p>额度与限速是<b>厂商模型</b>的配置（接入管理「价格与额度」表的一行 = 一个厂商模型），
+     * 而厂商模型只有选完实例才确定——预留阶段（{@code selectInstance} 之前）只知道虚拟模型名。
+     * 因此本方法在选实例后调用：取该模型的限额集合，走
+     * {@link QuotaReservation#appendDimensionWithLimits(QuotaDimension, QuotaLimitSet)}
+     * 做「判定 + 记账」一次完成。</p>
+     *
+     * <p>三种情形：</p>
+     * <ul>
+     *   <li><b>未配置额度/限速</b>（限额为 {@code null} 或各窗口均 {@code <= 0}）：
+     *       <b>不建该维度的账本行</b>——没有可判定的限制，写行只是徒增账本体积与结算次数；
+     *       厂商模型的用量观测以 {@code token_usage} 为准；</li>
+     *   <li><b>未超限</b>：该维度计数已入账，正常放行；</li>
+     *   <li><b>超限</b>：CAS 预扣已回滚本次增量且该维度未登记，调用方据此返回 429。</li>
+     * </ul>
+     *
+     * <p>已预留的 Key / 分组维度在返回 429 时由错误链路的
+     * {@link QuotaReservation#settleFailure(QuotaReservation)} 统一回滚，不会留下残量。</p>
+     *
+     * @param httpRequest      请求（承载预留凭据）
+     * @param selectedInstance 选中的实例（厂商模型）
+     * @return 超限结果；放行时为 {@link Optional#empty()}
+     */
+    private Optional<QuotaLimitViolation> enforceModelQuota(
+            final ServerHttpRequest httpRequest,
+            final ModelRouterProperties.ModelInstance selectedInstance) {
+        if (quotaEnforcementService == null || !quotaEnforcementService.isEnabled()) {
+            return Optional.empty();
+        }
+        final QuotaReservation reservation = QuotaReservation.from(httpRequest);
+        if (reservation == null || selectedInstance == null) {
+            return Optional.empty();
+        }
+        final String instanceName = selectedInstance.getName();
+        if (instanceName == null || instanceName.isEmpty()) {
+            return Optional.empty();
+        }
+        final QuotaLimitSet limits = quotaEnforcementService.resolveModelLimit(instanceName);
+        if (limits == null || limits.equals(QuotaLimitSet.UNLIMITED)) {
+            // 未配置额度/限速：没有可判定的限制，不建模型维度账本行
+            return Optional.empty();
+        }
+        final Optional<QuotaLimitViolation> violation =
+                reservation.appendDimensionWithLimits(QuotaDimension.ofModel(instanceName), limits);
+        if (violation.isPresent()) {
+            logger.warn("厂商模型额度超限，返回 429: model={}, {}",
+                    instanceName, violation.get().describe());
+        }
+        return violation;
     }
 
     /**
@@ -1027,8 +1143,9 @@ public class ServiceRequestHandler {
      * <ul>
      *   <li>API Key：具有 ADMIN 权限则放行所有服务；否则要求对应服务类型权限
      *       （如 ROLE_CHAT, ROLE_EMBEDDING 等）</li>
-     *   <li>控制台 JWT（issue #77）：ADMIN 或 {@code ai:playground:use} 放行
-     *       （与 URL 层 RBAC 对 {@code /api/**} 的门槛同源）</li>
+     *   <li>控制台 JWT：一律放行——测试场属「我的」菜单分组，所有登录角色可用
+     *       （固定权限矩阵语义；{@code /v1/**} 入口已由 SecurityConfiguration 要求
+     *       authenticated，控制台语义下无需再查服务角色）</li>
      * </ul>
      *
      * @param authentication 已认证主体（API Key 或 JWT）
@@ -1036,12 +1153,11 @@ public class ServiceRequestHandler {
      * @return 是否具有权限
      */
     private boolean hasServicePermission(final Authentication authentication, final ServiceType serviceType) {
-        // issue #77: 控制台登录态（JWT）按控制台语义判定 —— 与 URL 层 RBAC 对 /api/** 的门槛同源
-        // （ROLE_ADMIN 或 ai:playground:use），不要求 ROLE_<SERVICE>，否则持有该权限码但无服务
-        // 角色的控制台用户使用 Playground 会被误判 403。
+        // 固定权限矩阵（2026-11）：控制台登录态（JWT）按「我的」分组语义放行。
+        // 旧实现要求 ROLE_ADMIN 或 ai:playground:use 权限码 authority，而权限码体系已移除，
+        // JWT 不再携带该 authority —— 继续检查会把全部非 ADMIN 控制台用户误判 403。
         if (authentication instanceof JwtAuthentication) {
-            return hasAuthority(authentication, ROLE_ADMIN_AUTHORITY)
-                    || hasAuthority(authentication, AI_PLAYGROUND_PERMISSION);
+            return true;
         }
 
         String requiredRole = "ROLE_" + serviceType.name().toUpperCase();

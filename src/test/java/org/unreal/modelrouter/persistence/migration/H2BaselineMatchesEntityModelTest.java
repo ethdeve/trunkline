@@ -17,6 +17,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -118,14 +119,29 @@ class H2BaselineMatchesEntityModelTest {
     /**
      * H2 给自动生成的索引/约束编的名字里带**库内部对象 ID**（{@code PRIMARY_KEY_B}、
      * {@code CONSTRAINT_INDEX_7}），同一个库两次建表也不同 —— 直接比名字会假红。归一化尾部的 ID 段。
+     *
+     * <p>X5（2026-11-04，固定权限矩阵改造）：纯自动命名的约束 {@code CONSTRAINT_<hex>}
+     * （如 {@code CONSTRAINT_E}、{@code CONSTRAINT_E9D}）同样随库内对象 ID 漂移——
+     * 实体集合变化（如删除 role_permissions 实体）会让同一张表的自动约束名整体移位。
+     * 这类名字没有任何语义（显式命名均带 uk_/fk_ 前缀），一并归一化为 {@code CONSTRAINT_<id>}，
+     * 归一化后重排序以消除排序键漂移。</p>
      */
     private static List<String> normalizeGeneratedNames(final List<String> rows) {
         List<String> normalized = new ArrayList<>(rows.size());
         for (String row : rows) {
             normalized.add(row
                     .replaceAll("(PRIMARY_KEY|CONSTRAINT_INDEX)_[0-9A-F]+", "$1_<id>")
-                    .replaceAll("(_INDEX_)[0-9A-F]+\\b", "$1<id>"));
+                    .replaceAll("(_INDEX_)[0-9A-F]+\\b", "$1<id>")
+                    // X5：纯自动命名约束（大写 hex 后缀，非显式 uk_/fk_ 名）
+                    .replaceAll("(?i)(?<![A-Z_])CONSTRAINT_[0-9A-F]+(?=\\s)", "CONSTRAINT_<id>")
+                    // X4（2026-10-28）：自动命名唯一约束的背书索引，H2 对「列级 unique」与
+                    // 「表级 unique 约束」取的名字前缀不同（CONSTRAINT_INDEX_x vs
+                    // CONSTRAINT_<id>_INDEX_x）。约束本身已在 constraints 节比较过，
+                    // 这里把背书索引名归一化，避免内部 ID 噪音假红。
+                    .replaceAll("(?i)CONSTRAINT\\S*_INDEX_<id>", "CONSTRAINT_BACKED_INDEX"));
         }
+        // 归一化改变名字 → 排序键随之变化，重排序保证两侧可比
+        Collections.sort(normalized);
         return normalized;
     }
 

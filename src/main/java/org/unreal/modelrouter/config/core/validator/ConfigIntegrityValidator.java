@@ -73,16 +73,16 @@ public class ConfigIntegrityValidator implements ApplicationListener<Application
     @Value("${monitoring.enabled:true}")
     private boolean monitoringEnabled;
 
-    @Value("${jairouter.tracing.enabled:true}")
+    @Value("${trunkline.tracing.enabled:true}")
     private boolean tracingEnabled;
 
-    @Value("${jairouter.config.validation.enabled:true}")
+    @Value("${trunkline.config.validation.enabled:true}")
     private boolean validationEnabled;
 
     @Override
     public void onApplicationEvent(ApplicationReadyEvent event) {
         if (!validationEnabled) {
-            log.info("配置校验已禁用（jairouter.config.validation.enabled=false）");
+            log.info("配置校验已禁用（trunkline.config.validation.enabled=false）");
             return;
         }
 
@@ -199,9 +199,9 @@ public class ConfigIntegrityValidator implements ApplicationListener<Application
         }
 
         if (!tracingEnabled) {
-            warnings.add("jairouter.tracing.enabled = false，生产环境建议启用追踪");
+            warnings.add("trunkline.tracing.enabled = false，生产环境建议启用追踪");
         } else {
-            log.info("✓ jairouter.tracing.enabled = {}", tracingEnabled);
+            log.info("✓ trunkline.tracing.enabled = {}", tracingEnabled);
         }
     }
 }

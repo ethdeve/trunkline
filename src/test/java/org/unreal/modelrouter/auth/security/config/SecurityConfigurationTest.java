@@ -13,7 +13,7 @@ import org.unreal.modelrouter.auth.security.service.ApiKeyService;
 import org.springframework.test.context.TestPropertySource;
 import org.unreal.modelrouter.auth.security.authentication.JwtTokenValidator;
 import org.unreal.modelrouter.auth.security.config.properties.SecurityProperties;
-import org.unreal.modelrouter.auth.security.permission.PermissionAuthorizationManager;
+import org.unreal.modelrouter.auth.security.access.FixedRoleAuthorizationManager;
 
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -24,7 +24,7 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(MockitoExtension.class)
 @TestPropertySource(properties = {
-        "jairouter.security.enabled=true"
+        "trunkline.security.enabled=true"
 })
 class SecurityConfigurationTest {
 
@@ -38,7 +38,7 @@ class SecurityConfigurationTest {
     private JwtTokenValidator jwtTokenValidator;
 
     @Mock
-    private PermissionAuthorizationManager permissionAuthorizationManager;
+    private FixedRoleAuthorizationManager fixedRoleAuthorizationManager;
 
     @Mock
     private ApplicationContext applicationContext;
@@ -47,7 +47,7 @@ class SecurityConfigurationTest {
     void testReactiveAuthenticationManagerCreation() {
         // Given
         SecurityConfiguration securityConfiguration = new SecurityConfiguration(
-                securityProperties, apiKeyService, permissionAuthorizationManager, applicationContext
+                securityProperties, apiKeyService, fixedRoleAuthorizationManager, applicationContext
         );
         securityConfiguration.setJwtTokenValidator(jwtTokenValidator);
 
@@ -63,7 +63,7 @@ class SecurityConfigurationTest {
     void testSecurityWebFilterChainCreation() {
         // Given
         SecurityConfiguration securityConfiguration = new SecurityConfiguration(
-                securityProperties, apiKeyService, permissionAuthorizationManager, applicationContext
+                securityProperties, apiKeyService, fixedRoleAuthorizationManager, applicationContext
         );
         securityConfiguration.setJwtTokenValidator(jwtTokenValidator);
         
@@ -84,7 +84,7 @@ class SecurityConfigurationTest {
     void testSecurityPropertiesInjection() {
         // Given
         SecurityConfiguration securityConfiguration = new SecurityConfiguration(
-                securityProperties, apiKeyService, permissionAuthorizationManager, applicationContext
+                securityProperties, apiKeyService, fixedRoleAuthorizationManager, applicationContext
         );
         securityConfiguration.setJwtTokenValidator(jwtTokenValidator);
 

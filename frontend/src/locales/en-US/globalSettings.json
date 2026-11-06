@@ -1,0 +1,30 @@
+{
+  "globalSettings": {
+    "subtitle": "Settings here apply to every model. To adjust a single model, go to Connect Management",
+    "tabs": {
+      "record": "How much to log",
+      "lb": "How to split traffic",
+      "circuit": "When a model keeps failing",
+      "quota": "How usage is counted"
+    },
+    "hints": {
+      "record": {
+        "affects": "Affects: how much detail the call history keeps — only who called, or also the prompt and the answer.",
+        "when": "When to change: \"Metadata only\" saves the most space. Raise it to \"Summary\" or \"Full\" only when you need to investigate a wrong answer."
+      },
+      "lb": {
+        "affects": "Affects: which model takes a given request — picked at random, split by weight, or always the same one.",
+        "when": "When to change: usually leave it alone. If one model is overloaded, or you want traffic spread evenly across vendors, set the strategy per virtual model instead."
+      },
+      "circuit": {
+        "affects": "Affects: after a model fails several times in a row, the gateway takes it out of rotation for a while so requests are not sent into a black hole.",
+        "when": "When to change: turn it on when upstream providers are unstable. If the model recovers slowly, raise the failure threshold."
+      },
+      "quota": {
+        "affects": "Affects: where usage is recorded, and whether requests are let through or rejected when the ledger errors out.",
+        "when": "When to change: to make hourly or monthly limits actually enforce, the ledger must be on. Leaving it off is fine if you only need the daily limit."
+      }
+    },
+    "defaultsFooter": "These are gateway-wide defaults. To adjust a single model, go to Connect Management → Model Management."
+  }
+}

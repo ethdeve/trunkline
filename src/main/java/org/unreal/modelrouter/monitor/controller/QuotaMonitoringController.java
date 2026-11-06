@@ -31,6 +31,7 @@ import java.util.Optional;
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @RestController
@@ -46,6 +47,9 @@ public class QuotaMonitoringController {
 
     /** 行类型：密钥维度（API Key 总闸用量） */
     public static final String SCOPE_KEY = "KEY";
+
+    /** 行类型：厂商模型维度（已接入模型 / 实例的额度与限速用量） */
+    public static final String SCOPE_MODEL = "MODEL";
 
     private final QuotaLedgerService ledgerService;
     private final QuotaProperties quotaProperties;
@@ -254,6 +258,10 @@ public class QuotaMonitoringController {
         if (!dimension.groupId().isEmpty()) {
             return dimension.model().isEmpty() ? SCOPE_GROUP : SCOPE_MEMBER;
         }
+        // 无分组但有模型 = 厂商模型维度（额度与限速按厂商模型配置）
+        if (!dimension.model().isEmpty()) {
+            return SCOPE_MODEL;
+        }
         return SCOPE_KEY;
     }
 
@@ -286,7 +294,8 @@ public class QuotaMonitoringController {
      * 用量记录转 Map.
      *
      * @param usage 用量
-     * @param scope 行类型标记（{@code GROUP} 分组聚合 / {@code MEMBER} 组内明细 / {@code KEY} 密钥维度）
+     * @param scope 行类型标记（{@code GROUP} 分组聚合 / {@code MEMBER} 组内明细 /
+     *                {@code MODEL} 厂商模型维度 / {@code KEY} 密钥维度）
      * @return map
      */
     private static Map<String, Object> usageToMap(final QuotaUsage usage, final String scope) {

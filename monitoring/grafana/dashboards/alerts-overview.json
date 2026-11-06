@@ -89,7 +89,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "ALERTS{alertname=\"JAiRouterHighErrorRate\", alertstate=\"firing\"}",
+          "expr": "ALERTS{alertname=\"TrunklineHighErrorRate\", alertstate=\"firing\"}",
           "interval": "",
           "legendFormat": "高错误率告警",
           "refId": "A"
@@ -169,7 +169,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "ALERTS{alertname=\"JAiRouterBackendDown\", alertstate=\"firing\"}",
+          "expr": "ALERTS{alertname=\"TrunklineBackendDown\", alertstate=\"firing\"}",
           "interval": "",
           "legendFormat": "后端服务下线告警",
           "refId": "A"
@@ -249,7 +249,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "ALERTS{alertname=\"JAiRouterCircuitBreakerOpen\", alertstate=\"firing\"}",
+          "expr": "ALERTS{alertname=\"TrunklineCircuitBreakerOpen\", alertstate=\"firing\"}",
           "interval": "",
           "legendFormat": "熔断器开启告警",
           "refId": "A"
@@ -329,7 +329,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "ALERTS{alertname=\"JAiRouterHighResponseTime\", alertstate=\"firing\"}",
+          "expr": "ALERTS{alertname=\"TrunklineHighResponseTime\", alertstate=\"firing\"}",
           "interval": "",
           "legendFormat": "高响应时间告警",
           "refId": "A"
@@ -674,7 +674,7 @@
   "schemaVersion": 27,
   "style": "dark",
   "tags": [
-    "jairouter",
+    "trunkline",
     "alerts"
   ],
   "templating": {
@@ -686,7 +686,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "JAiRouter - 告警概览",
-  "uid": "jairouter-alerts-overview",
+  "title": "Trunkline - 告警概览",
+  "uid": "trunkline-alerts-overview",
   "version": 1
 }

@@ -20,7 +20,7 @@ model:
 # 用于实时监控负载均衡策略的实例选择情况
 # 支持采样记录、WebSocket 实时推送、历史记录导出
 
-jairouter:
+trunkline:
   loadbalancer:
     routing-monitor:
       # 是否启用路由监控

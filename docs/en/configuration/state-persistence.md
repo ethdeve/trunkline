@@ -15,7 +15,7 @@
 
 ## Overview
 
-JAiRouter supports state persistence functionality since v2.4.4, implementing a **three-tier fallback strategy**:
+Trunkline supports state persistence functionality since v2.4.4, implementing a **three-tier fallback strategy**:
 
 ```
 Redis (Tier 1) → H2 (Tier 2) → File (Tier 3)
@@ -34,7 +34,7 @@ Redis (Tier 1) → H2 (Tier 2) → File (Tier 3)
 Configuration file location: `src/main/resources/config/persistence/state-persistence-base.yml`
 
 ```yaml
-jairouter:
+trunkline:
   persistence:
     # Enable state persistence
     enabled: true
@@ -139,7 +139,7 @@ curl -X GET http://localhost:8080/api/state-persistence/status \
 ### 1. Production Environment Recommended Configuration
 
 ```yaml
-jairouter:
+trunkline:
   persistence:
     enabled: true
     redis:
@@ -153,7 +153,7 @@ jairouter:
 ### 2. Development Environment Configuration
 
 ```yaml
-jairouter:
+trunkline:
   persistence:
     enabled: true
     redis:

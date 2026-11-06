@@ -2,6 +2,7 @@
   "provider": {
     "title": "模型供应商",
     "subtitle": "同一上游只需配置一次：填好 Key 后，可批量或单个添加模型",
+    "modelCategoryHint": "模型分类决定这批模型能做什么：聊天、向量检索、语音、图片生成等。接入后可在「虚拟模型」里再对外命名。",
     "searchPlaceholder": "搜索供应商名称 / 地址",
     "addProvider": "添加供应商",
     "refresh": "刷新",
@@ -100,6 +101,10 @@
     "addedModelsEmpty": "该供应商下还没有模型，请从上方发现或手动添加",
     "batchAddSuccess": "已添加 {count} 个模型",
     "batchAddPartial": "新增 {created} 个，跳过 {skipped} 个（已存在或为空）",
+    "batchAddSkipped": "{count} 个模型被跳过：{detail}",
+    "batchAddSkippedMore": "（其余 {count} 个略）",
+    "batchAddNothing": "没有新模型需要添加（所选模型可能已接入）",
+    "singleAddSkipped": "未添加：{reason}",
     "serviceTypeDefault": "模型分类",
     "serviceTypeDefaultTip": "勾选的模型会按名称自动识别并绑定分类；识别不出的模型归入此默认分类（接入后在下方列表可查看）",
     "inferTypeTip": "自动识别的模型分类，可手动调整",

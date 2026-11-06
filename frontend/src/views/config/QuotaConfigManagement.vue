@@ -220,6 +220,7 @@ import { ElMessage } from 'element-plus'
 import { Refresh, CircleCheck, CircleClose, Coin, Warning, Timer, Check } from '@element-plus/icons-vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import StatCard from '@/components/StatCard.vue'
+import { effectMessage } from '@/utils/effectScope'
 import {
   getQuotaConfig,
   updateQuotaConfig,
@@ -331,7 +332,7 @@ const handleSaveConfig = async () => {
   saving.value = true
   try {
     await updateQuotaConfig(payload)
-    ElMessage.success(t('quotaConfig.configUpdatedSuccess'))
+    ElMessage.success(effectMessage(t('quotaConfig.configUpdatedSuccess'), 'config'))
     await loadConfig()
   } catch (err: unknown) {
     // 提取后端 400 原文消息
@@ -419,6 +420,6 @@ onMounted(loadConfig)
 .readonly-value {
   font-size: 14px;
   color: var(--el-text-color-regular);
-  font-family: var(--el-font-family-monospace, monospace);
+  font-family: var(--ja-font-mono);
 }
 </style>

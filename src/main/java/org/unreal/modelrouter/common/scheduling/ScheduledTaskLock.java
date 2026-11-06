@@ -28,18 +28,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *   <li><b>未配置 Redis 时等价于单实例</b>——直接放行，行为与引入本组件前完全一致。</li>
  * </ul>
  *
- * <p>开关：{@code jairouter.scheduling.distributed-lock.enabled}（默认 {@code true}），
+ * <p>开关：{@code trunkline.scheduling.distributed-lock.enabled}（默认 {@code true}），
  * 置 {@code false} 可完全回退到「每个副本各跑一遍」的旧行为。</p>
  *
  * @author JAiRouter Team
  * @since 3.2.3
+ * @modified Trunkline Team
  */
 @Slf4j
 @Component
 public class ScheduledTaskLock {
 
     /** 锁 key 前缀。 */
-    private static final String KEY_PREFIX = "jairouter:sched:lock:";
+    private static final String KEY_PREFIX = "trunkline:sched:lock:";
 
     /** 取锁调用的阻塞上限，避免 Redis 抖动拖住调度线程。 */
     private static final Duration ACQUIRE_TIMEOUT = Duration.ofSeconds(2);
@@ -52,7 +53,7 @@ public class ScheduledTaskLock {
     private final AtomicBoolean degradedWarned = new AtomicBoolean();
 
     public ScheduledTaskLock(final ObjectProvider<ReactiveStringRedisTemplate> redisProvider,
-                             @Value("${jairouter.scheduling.distributed-lock.enabled:true}")
+                             @Value("${trunkline.scheduling.distributed-lock.enabled:true}")
                              final boolean enabled) {
         this.redisProvider = redisProvider;
         this.enabled = enabled;

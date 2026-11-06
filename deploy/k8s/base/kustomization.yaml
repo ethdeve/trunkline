@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# JAiRouter Kubernetes 基础清单（#165）。
+# Trunkline Kubernetes 基础清单（#165）。
 #
 # 选 Kustomize 而非 Helm 的理由：kubectl 内置支持（无需额外工具链，CI 也不必安装 helm），
 # 且清单是纯 YAML——可被既有 YAML 校验与单元测试直接解析断言（见 K8sManifestTest）。
@@ -12,7 +12,7 @@ kind: Kustomization
 # 多副本下本机 H2 单文件库物理上不成立，因此 base 的 data/logs 卷使用 emptyDir
 # （每副本独立）——不要在未切共享 DB 前把它换成共享 PVC。
 
-namespace: jairouter
+namespace: trunkline
 
 resources:
   - serviceaccount.yaml

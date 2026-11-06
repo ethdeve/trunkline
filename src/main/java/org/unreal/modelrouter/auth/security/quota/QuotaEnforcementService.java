@@ -3,9 +3,11 @@ package org.unreal.modelrouter.auth.security.quota;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Service;
 import org.unreal.modelrouter.auth.security.config.properties.ApiKey;
+import org.unreal.modelrouter.auth.security.event.ApiKeyAuditEvent;
 import org.unreal.modelrouter.auth.security.service.ApiKeyService;
 
 import java.time.Clock;
@@ -39,7 +41,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p><b>不变量</b>：</p>
  * <ul>
- *   <li>账本未启用（{@code jairouter.quota.enabled=false}，默认）时本服务全部入口立即返回、
+ *   <li>账本未启用（{@code trunkline.quota.enabled=false}，默认）时本服务全部入口立即返回、
  *       不读写账本、不创建预留凭据——调用方行为与 v3.0.x 完全一致；</li>
  *   <li>判定 / 记账过程中的任何异常都按 fail-open 放行并打告警日志，绝不抛给调用方，
  *       因此配额链路不会产生 5xx；</li>
@@ -48,12 +50,13 @@ import java.util.concurrent.ConcurrentHashMap;
  *       构造超限（错杀请求），也可能放过真实超限。此时统一按 fail-open 放行、不写任何 429 响应头；</li>
  *   <li>不调用也不修改既有限流组件（{@code RateLimitManager}），MINUTE 窗口判定是账本口径的
  *       独立视角，不存在双扣；</li>
- *   <li>限额对应的窗口未在 {@code jairouter.quota.windows} 中启用时，该项限额无法度量，
+ *   <li>限额对应的窗口未在 {@code trunkline.quota.windows} 中启用时，该项限额无法度量，
  *       按 fail-open 跳过（只记录 debug 日志）。</li>
  * </ul>
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @Service
@@ -115,7 +118,7 @@ public class QuotaEnforcementService {
     /**
      * 配额能力是否启用（透传账本开关）。
      *
-     * @return {@code jairouter.quota.enabled} 的值，默认 {@code false}
+     * @return {@code trunkline.quota.enabled} 的值，默认 {@code false}
      */
     public boolean isEnabled() {
         return ledgerService.isEnabled();
@@ -182,7 +185,7 @@ public class QuotaEnforcementService {
     /**
      * N-2: 账本未启用时的日 Token 配额请求前预估兜底判定.
      *
-     * <p>账本关闭({@code jairouter.quota.enabled=false},默认)时,主链路退化为
+     * <p>账本关闭({@code trunkline.quota.enabled=false},默认)时,主链路退化为
      * 「认证时按历史 {@code dailyTokenUsage} 校验 + 响应后入账」——单次请求的消耗
      * 在放行时点尚不可知,一次大请求即可把当日额度撑爆(实测:limit=224/已用 214,
      * 本次消耗 154 仍放行,累计 368 超限 65%,仅下一次才被拒)。</p>
@@ -367,10 +370,15 @@ public class QuotaEnforcementService {
     /**
      * 解析模型（已接入模型 / 实例）维度的限额集合。
      *
+     * <p><b>对外可见</b>：厂商模型维度的额度/限速只有在选完实例后才可判定（预留阶段只有虚拟模型名），
+     * 因此请求处理器需要在选实例后调用本方法取限额，再交给
+     * {@link QuotaReservation#appendDimensionWithLimits(QuotaDimension, QuotaLimitSet)}
+     * 做「判定 + 记账」一次完成。</p>
+     *
      * @param model 模型（实例）名称
      * @return 限额集合；解析器缺失或解析异常时返回 {@code null}（按无限制放行）
      */
-    private QuotaLimitSet resolveModelLimit(final String model) {
+    public QuotaLimitSet resolveModelLimit(final String model) {
         if (modelLimitResolver == null) {
             return null;
         }
@@ -596,6 +604,32 @@ public class QuotaEnforcementService {
         } catch (Exception e) {
             log.warn("读取 API Key 限额配置失败，按无限制放行: apiKeyId={}, error={}", apiKeyId, e.toString());
             return null;
+        }
+    }
+
+    /**
+     * 按 Key 删除事件回收预留锁（D3）。
+     *
+     * <p>API Key 被手动删除（{@code REVOKED}）时，其对应的 {@code reserveLocks} 条目已无业务意义，
+     * 若不回收会随 Key 数量增长而无限膨胀（{@code computeIfAbsent} 永不删除）。监听删除事件即时清理，
+     * 避免锁表无上限。</p>
+     *
+     * <p>删除发生在缓存变更之后，此时该 Key 已不可达，回收其锁不会中断任何在途预留
+     * （在途预留持有的是旧锁对象引用，不影响本请求的 {@code synchronized} 临界区）。</p>
+     *
+     * @param event API Key 审计事件
+     */
+    @EventListener
+    public void onApiKeyRevoked(final ApiKeyAuditEvent event) {
+        if (event == null || event.eventType() != ApiKeyAuditEvent.EventType.REVOKED) {
+            return;
+        }
+        final String apiKeyId = event.keyId();
+        if (apiKeyId == null || apiKeyId.isEmpty()) {
+            return;
+        }
+        if (reserveLocks.remove(apiKeyId) != null) {
+            log.debug("回收配额预留锁（API Key 已删除）: apiKeyId={}", apiKeyId);
         }
     }
 }

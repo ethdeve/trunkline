@@ -16,6 +16,11 @@
         <el-icon><Plus /></el-icon>
         {{ t('accounts.createAccount') }}
       </el-button>
+      <!-- P1 员工激活包①：批量导入账号（无 SSO 过渡方案） -->
+      <el-button v-if="canWrite" @click="showBatchImport = true">
+        <el-icon><DocumentAdd /></el-icon>
+        批量导入
+      </el-button>
       <el-button @click="refreshAccounts">
         <el-icon><Refresh /></el-icon>
         {{ t('accounts.refresh') }}
@@ -39,8 +44,14 @@
     </el-row>
 
     <!-- 账户列表 -->
-    <el-table :data="filteredAccounts" style="width: 100%" v-loading="loading" stripe border>
+    <el-table ref="accountsTableRef" :data="filteredAccounts" :max-height="accountsMaxHeight" style="width: 100%" v-loading="loading" stripe border>
       <el-table-column prop="username" :label="t('accounts.username')" min-width="120" show-overflow-tooltip />
+      <el-table-column prop="department" :label="t('accounts.department')" min-width="110" show-overflow-tooltip>
+        <template #default="scope">
+          <span v-if="scope.row.department">{{ scope.row.department }}</span>
+          <span v-else class="cell-muted">{{ t('accounts.departmentUnassigned') }}</span>
+        </template>
+      </el-table-column>
       <el-table-column :label="t('accounts.roles')" min-width="150">
         <template #default="scope">
           <el-tag
@@ -107,7 +118,7 @@
     <el-dialog
       :title="editingAccount ? t('accounts.editAccount') : t('accounts.createAccount')"
       v-model="showCreateDialog"
-      width="500px"
+      width="min(640px, 92vw)"
       @close="resetForm"
       destroy-on-close
     >
@@ -145,18 +156,36 @@
             :placeholder="t('accounts.confirmPasswordPlaceholder')"
           />
         </el-form-item>
-        <el-form-item :label="t('accounts.roles')" prop="roles">
-          <el-select v-model="accountForm.roles" multiple :placeholder="t('accounts.rolesPlaceholder')" style="width: 100%;">
+        <el-form-item :label="t('accounts.department')" prop="department">
+          <el-select
+            v-model="accountForm.department"
+            filterable
+            allow-create
+            default-first-option
+            :placeholder="t('accounts.departmentPlaceholder')"
+            style="width: 100%;"
+          >
+            <el-option v-for="d in departmentOptions" :key="d" :label="d" :value="d" />
+          </el-select>
+          <div class="form-hint">{{ t('accounts.departmentHint') }}</div>
+        </el-form-item>
+        <el-form-item :label="t('accounts.roles')" prop="role">
+          <el-select v-model="accountForm.role" fit-input-width :placeholder="t('accounts.rolesPlaceholder')" style="width: 100%;">
             <el-option
               v-for="role in ROLES"
               :key="role"
-              :label="`${t('accounts.roleLabels.' + role)} (${role})`"
+              :label="t('accounts.roleLabels.' + role)"
               :value="role"
             >
-              <el-tag :type="roleTagType(role)" size="small">{{ t('accounts.roleLabels.' + role) }}</el-tag>
-              <span style="margin-left: 10px; color: var(--ja-text-regular);">{{ t(ROLE_DESCRIPTIONS[role]) }}</span>
+              <div class="role-option">
+                <el-tag :type="roleTagType(role)" size="small">{{ t('accounts.roleLabels.' + role) }}</el-tag>
+                <span class="role-option-desc">{{ t(ROLE_DESCRIPTIONS[role]) }}</span>
+              </div>
             </el-option>
           </el-select>
+          <div v-if="accountForm.role" class="form-hint">
+            {{ t(ROLE_DESCRIPTIONS[accountForm.role as RoleName]) }}
+          </div>
         </el-form-item>
         <el-form-item :label="t('accounts.status')" prop="enabled">
           <el-switch v-model="accountForm.enabled" :active-text="t('accounts.enabled')" :inactive-text="t('accounts.disabled')" />
@@ -169,26 +198,47 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 批量导入账号对话框（P1 员工激活包①） -->
+    <BatchImportAccountsDialog
+      v-model="showBatchImport"
+      :existing-usernames="accounts.map(a => a.username)"
+      @imported="refreshAccounts"
+    />
   </PageSkeleton>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { confirmDanger } from '@/utils/dangerConfirm'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
-import { Plus, Refresh, Search, Edit, Delete } from '@element-plus/icons-vue'
+import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
+import { Plus, Refresh, Search, Edit, Delete, DocumentAdd } from '@element-plus/icons-vue'
+import BatchImportAccountsDialog from './BatchImportAccountsDialog.vue'
+import { effectMessage } from '@/utils/effectScope'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import {
   getJwtAccounts,
+  getJwtAccountDepartments,
   createJwtAccount,
   updateJwtAccount,
   deleteJwtAccount,
   toggleJwtAccountStatus
 } from '@/api/account'
 import type { JwtAccount, CreateJwtAccountRequest } from '@/api/account'
-import { ROLES, ROLE_DESCRIPTIONS, type RoleName } from '@/api/permission'
+/** 可选角色（社区版权权固定化：三档固定角色，与后端固定角色矩阵一致） */
+const ROLES = ['ADMIN', 'OPERATOR', 'USER'] as const
+type RoleName = (typeof ROLES)[number]
+
+/** 角色说明 i18n key（文案位于 locales 的 permissions.json roleDescriptions 节点） */
+const ROLE_DESCRIPTIONS: Record<RoleName, string> = {
+  ADMIN: 'permissions.roleDescriptions.ADMIN',
+  OPERATOR: 'permissions.roleDescriptions.OPERATOR',
+  USER: 'permissions.roleDescriptions.USER'
+}
 
 const { t } = useI18n()
 const { hasPermission } = usePermission()
@@ -201,18 +251,45 @@ const roleTagType = (role: string) =>
 // 数据状态
 const accounts = ref<JwtAccount[]>([])
 const loading = ref(false)
+
+// 主列表表格内部滚动（自适应 max-height）
+const accountsTableRef = ref()
+const { maxHeight: accountsMaxHeight } = useTableMaxHeight(accountsTableRef)
 const showCreateDialog = ref(false)
+/** P1 员工激活包①：批量导入弹窗 */
+const showBatchImport = ref(false)
 const editingAccount = ref<JwtAccount | null>(null)
 const searchKeyword = ref('')
 
-// 表单数据
+// 表单数据（角色单选：一个账号一个固定角色，提交时包装为后端要求的数组）
 const accountForm = reactive({
   username: '',
   password: '',
   confirmPassword: '',
-  roles: [] as string[],
+  department: '',
+  role: '' as RoleName | '',
   enabled: true
 })
+
+/** 编辑回填：存量账号理论上只有一个角色，历史多角色账号取权限最高的一档 */
+const pickPrimaryRole = (roles?: string[]): RoleName | '' => {
+  if (!roles || roles.length === 0) return ''
+  for (const role of ROLES) {
+    if (roles.includes(role)) return role
+  }
+  return ''
+}
+
+/** 已有部门清单（下拉可复用，也可直接输入新部门名） */
+const departmentOptions = ref<string[]>([])
+
+const loadDepartments = async () => {
+  try {
+    departmentOptions.value = await getJwtAccountDepartments()
+  } catch {
+    departmentOptions.value = []
+  }
+}
 
 // 过滤后的账户列表
 const filteredAccounts = computed(() => {
@@ -262,8 +339,11 @@ const accountRules = computed<FormRules>(() => ({
       trigger: 'blur'
     }
   ],
-  roles: [
+  role: [
     { required: true, message: t('accounts.validation.rolesRequired'), trigger: 'change' }
+  ],
+  department: [
+    { required: !editingAccount.value, message: t('accounts.validation.departmentRequired'), trigger: 'change' }
   ]
 }))
 
@@ -298,7 +378,8 @@ const submitAccount = async () => {
         if (editingAccount.value) {
           // 更新账户 - 只传需要更新的字段
           const updateData: Partial<JwtAccount> = {
-            roles: accountForm.roles,
+            roles: accountForm.role ? [accountForm.role] : [],
+            department: accountForm.department,
             enabled: accountForm.enabled
           }
           // 只有填写了密码才更新
@@ -306,13 +387,15 @@ const submitAccount = async () => {
             updateData.password = accountForm.password
           }
           await updateJwtAccount(accountForm.username, updateData as JwtAccount)
-          ElMessage.success(t('accounts.messages.updateSuccess'))
+          // 角色变更的影响面跨副本：权限缓存 5 分钟，重登可立即刷新
+          ElMessage.success(effectMessage(t('accounts.messages.updateSuccess'), 'permission'))
         } else {
           // 创建账户
           const createRequest: CreateJwtAccountRequest = {
             username: accountForm.username,
             password: accountForm.password,
-            roles: accountForm.roles,
+            roles: accountForm.role ? [accountForm.role] : [],
+            department: accountForm.department,
             enabled: accountForm.enabled
           }
           await createJwtAccount(createRequest)
@@ -337,7 +420,8 @@ const editAccount = (account: JwtAccount) => {
   accountForm.username = account.username
   accountForm.password = ''
   accountForm.confirmPassword = ''
-  accountForm.roles = [...account.roles]
+  accountForm.role = pickPrimaryRole(account.roles)
+  accountForm.department = account.department || ''
   accountForm.enabled = account.enabled
   showCreateDialog.value = true
 }
@@ -362,35 +446,28 @@ const handleStatusChange = async (account: JwtAccount) => {
 }
 
 // 删除账户
-const deleteAccount = (account: JwtAccount) => {
+const deleteAccount = async (account: JwtAccount) => {
   // 禁止删除 admin 账户
   if (account.username === 'admin') {
     ElMessage.warning(t('accounts.messages.cannotDeleteAdmin'))
     return
   }
 
-  ElMessageBox.confirm(
-    t('accounts.messages.deleteConfirmMessage', { username: account.username }),
-    t('accounts.messages.deleteConfirmTitle'),
-    {
-      confirmButtonText: t('accounts.messages.confirmDelete'),
-      cancelButtonText: t('accounts.cancel'),
-      type: 'warning',
-      confirmButtonClass: 'el-button--danger'
-    }
-  ).then(async () => {
-    try {
-      await deleteJwtAccount(account.username)
-      ElMessage.success(t('accounts.messages.deleteSuccess'))
-      fetchAccounts()
-    } catch (error: any) {
-      console.error('删除失败:', error)
-      const errorMsg = error.response?.data?.message || t('accounts.messages.deleteFailed')
-      ElMessage.error(errorMsg)
-    }
-  }).catch(() => {
-    // 用户取消删除
+  const confirmed = await confirmDanger({
+    title: t('accounts.messages.deleteConfirmTitle'),
+    target: account.username,
+    type: 'warning'
   })
+  if (!confirmed) return
+  try {
+    await deleteJwtAccount(account.username)
+    ElMessage.success(t('accounts.messages.deleteSuccess'))
+    fetchAccounts()
+  } catch (error: any) {
+    console.error('删除失败:', error)
+    const errorMsg = error.response?.data?.message || t('accounts.messages.deleteFailed')
+    ElMessage.error(errorMsg)
+  }
 }
 
 // 重置表单
@@ -398,7 +475,8 @@ const resetForm = () => {
   accountForm.username = ''
   accountForm.password = ''
   accountForm.confirmPassword = ''
-  accountForm.roles = []
+  accountForm.department = ''
+  accountForm.role = ''
   accountForm.enabled = true
   editingAccount.value = null
   if (accountFormRef.value) {
@@ -409,6 +487,7 @@ const resetForm = () => {
 // 组件挂载时获取账户列表
 onMounted(() => {
   fetchAccounts()
+  loadDepartments()
 })
 </script>
 
@@ -432,6 +511,12 @@ onMounted(() => {
   color: var(--ja-text-secondary, var(--el-text-color-secondary));
 }
 
+/* 表格内弱化文本（如未分配部门） */
+.cell-muted {
+  font-size: 12px;
+  color: var(--ja-text-secondary, var(--el-text-color-secondary));
+}
+
 /* 统计卡片样式 */
 .el-statistic {
   text-align: center;
@@ -450,5 +535,35 @@ onMounted(() => {
 /* 确保表格操作按钮紧凑 */
 .el-button-group .el-button {
   padding: 5px 10px;
+}
+</style>
+
+<style>
+/* 角色下拉选项：浮层挂 body 下（popper），需非 scoped；
+   描述较长，允许换行并撑开选项高度 */
+.role-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.role-option .el-tag {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.role-option-desc {
+  flex: 1;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary);
+  white-space: normal;
+}
+
+.el-select-dropdown__item:has(.role-option) {
+  height: auto;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  white-space: normal;
 }
 </style>

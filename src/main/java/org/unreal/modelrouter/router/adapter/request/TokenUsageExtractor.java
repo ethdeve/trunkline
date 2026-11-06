@@ -14,6 +14,7 @@ import org.unreal.modelrouter.common.dto.EmbeddingDTO;
 import org.unreal.modelrouter.monitor.service.TokenUsageRecorder;
 import org.unreal.modelrouter.monitor.tracing.TracingContextHolder;
 import org.unreal.modelrouter.monitor.monitoring.collector.MetricsCollector;
+import org.unreal.modelrouter.router.adapter.CallerIdentityResolver;
 import org.unreal.modelrouter.router.pool.PoolSelector;
 
 import java.util.LinkedHashMap;
@@ -46,17 +47,27 @@ public class TokenUsageExtractor {
 
     private final MetricsCollector metricsCollector;
 
+    /**
+     * v3.5 Trunkline：调用者身份解析器（JWT 用户名 / 密钥持有人）。
+     *
+     * <p>用量落库必须带上 userId——{@code aggregateByMonthUserVirtualModel} 的 WHERE 含
+     * {@code userId IS NOT NULL}，缺失会导致「团队用量」恒为 0。</p>
+     */
+    private final CallerIdentityResolver callerIdentityResolver;
+
     public TokenUsageExtractor(
             final ObjectMapper objectMapper,
             final TokenUsageRecorder tokenUsageRecorder,
             final ApiKeyService apiKeyService,
             final PoolSelector poolSelector,
-            final MetricsCollector metricsCollector) {
+            final MetricsCollector metricsCollector,
+            final CallerIdentityResolver callerIdentityResolver) {
         this.objectMapper = objectMapper;
         this.tokenUsageRecorder = tokenUsageRecorder;
         this.apiKeyService = apiKeyService;
         this.poolSelector = poolSelector;
         this.metricsCollector = metricsCollector;
+        this.callerIdentityResolver = callerIdentityResolver;
     }
 
     /**
@@ -110,6 +121,52 @@ public class TokenUsageExtractor {
                                               final String apiKeyId,
                                               final QuotaReservation quotaReservation,
                                               final Long responseTimeMs) {
+        extractAndRecordTokenUsage(bodyStr, adapterType, instanceName, apiKeyId,
+                quotaReservation, responseTimeMs, null);
+    }
+
+    /**
+     * 从下游服务响应中提取 token 使用量并记录，同时完成配额结算；支持透传响应耗时与虚拟模型归属。
+     *
+     * <p>v3.5 Trunkline：{@code httpRequest} 用于读取本次请求命中的<b>虚拟模型</b>（模型分组），
+     * 写入 {@code token_usage.virtual_model}，作为「团队用量」按虚拟模型统计的归属依据。</p>
+     *
+     * <p>traceId 在当前线程上就近捕获（兜底：调用方未透传时退回运行时取值）。</p>
+     *
+     * @param httpRequest 原始请求（读取虚拟模型属性），可为 {@code null}
+     */
+    void extractAndRecordTokenUsage(final String bodyStr,
+                                              final String adapterType,
+                                              final String instanceName,
+                                              final String apiKeyId,
+                                              final QuotaReservation quotaReservation,
+                                              final Long responseTimeMs,
+                                              final ServerHttpRequest httpRequest) {
+        extractAndRecordTokenUsage(bodyStr, adapterType, instanceName, apiKeyId,
+                quotaReservation, responseTimeMs, httpRequest,
+                // 兜底：此重载在追踪上下文仍存活的线程上被调用时才能取到值
+                TracingContextHolder.getCurrentTraceId());
+    }
+
+    /**
+     * 从下游服务响应中提取 token 使用量并记录；traceId 由调用方<b>同步捕获后显式透传</b>。
+     *
+     * <p><b>为什么必须透传</b>：本方法在 WebClient 响应回调线程上执行，
+     * {@link TracingContextHolder} 是 ThreadLocal 实现——回调线程上没有请求的追踪上下文，
+     * 运行时再取只会拿到空串，导致 {@code token_usage.trace_id} 为空、
+     * 账单无法通过 traceId 反查调用历史与追踪。调用方须在请求处理线程（上下文存活）
+     * 同步捕获后传入（与流式路径 {@code traceIdForRecord} 同一修法）。</p>
+     *
+     * @param traceId 调用方同步捕获的追踪 ID；空串/null 时落空（不阻断落库）
+     */
+    void extractAndRecordTokenUsage(final String bodyStr,
+                                              final String adapterType,
+                                              final String instanceName,
+                                              final String apiKeyId,
+                                              final QuotaReservation quotaReservation,
+                                              final Long responseTimeMs,
+                                              final ServerHttpRequest httpRequest,
+                                              final String traceId) {
         try {
             JsonNode jsonNode = objectMapper.readTree(bodyStr);
 
@@ -157,9 +214,8 @@ public class TokenUsageExtractor {
                         cacheHitTokens, cacheMissTokens);
             }
 
-            // 记录到 TokenUsage 表
+            // 记录到 TokenUsage 表（traceId 使用调用方同步捕获的值，见方法注释）
             if (tokenUsageRecorder != null) {
-                String traceId = TracingContextHolder.getCurrentTraceId();
                 tokenUsageRecorder.recordTokenUsageNoAuth(
                         "CHAT",
                         model,
@@ -174,7 +230,10 @@ public class TokenUsageExtractor {
                         true,
                         null,
                         null,
-                        responseTimeMs
+                        responseTimeMs,
+                        extractVirtualModel(httpRequest),
+                        // v3.5 Trunkline: 调用者（团队用量按此归人；缺失会导致聚合查不到）
+                        resolveCallerUser(httpRequest, apiKeyId)
                 );
             }
 
@@ -220,6 +279,47 @@ public class TokenUsageExtractor {
             return (String) keyId;
         }
         return null;
+    }
+
+    /**
+     * v3.5 Trunkline: 提取本次请求命中的<b>虚拟模型</b>（模型分组 / 池名）。
+     *
+     * <p>由 {@code ServiceRequestHandler} 在路由决策后写入请求属性（仿 API Key ID 传递先例）。
+     * 取不到时返回 {@code null}（未命中任何分组 / 简化入口），落库归入「未归类」。</p>
+     */
+    String extractVirtualModel(final ServerHttpRequest httpRequest) {
+        if (httpRequest == null) {
+            return null;
+        }
+        Object virtualModel = httpRequest.getAttributes().get(
+                org.unreal.modelrouter.router.handler.ServiceRequestHandler.VIRTUAL_MODEL_ATTRIBUTE);
+        if (virtualModel instanceof String name && !name.isBlank()) {
+            return name;
+        }
+        return null;
+    }
+
+    /**
+     * v3.5 Trunkline: 解析本次调用的<b>调用者</b>（JWT 用户名 / 密钥持有人）。
+     *
+     * <p>用于用量落库的 {@code userId}——{@code aggregateByMonthUserVirtualModel} 的 WHERE 含
+     * {@code userId IS NOT NULL}，缺失会让「团队用量」恒为 0。</p>
+     *
+     * <p><b>容错说明</b>：解析器不可用（未注入）时返回 {@code null} 而不是抛异常。
+     * 本方法位于用量落库的 try 块内，一旦抛异常会被外层 catch 吞掉，
+     * 导致其后的<b>配额结算</b>（{@code QuotaReservation.settleSuccess}）不执行——
+     * 表现为配额账本停留在预留值，故这里必须吞掉异常而不是往上抛。</p>
+     */
+    private String resolveCallerUser(final ServerHttpRequest httpRequest, final String apiKeyId) {
+        if (callerIdentityResolver == null) {
+            return null;
+        }
+        try {
+            return callerIdentityResolver.resolve(httpRequest, apiKeyId);
+        } catch (Exception e) {
+            logger.debug("解析调用者身份失败（忽略，不影响用量落库与配额结算）: {}", e.getMessage());
+            return null;
+        }
     }
 
     /**

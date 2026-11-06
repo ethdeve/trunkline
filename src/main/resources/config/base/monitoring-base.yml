@@ -10,7 +10,7 @@ monitoring:
   
   metrics:
     enabled: true
-    prefix: "jairouter"
+    prefix: "trunkline"
     collection-interval: 10s
     enabled-categories:
       - system
@@ -57,7 +57,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus,jairouter-metrics,error-tracking
+        include: health,info,metrics,prometheus,trunkline-metrics,error-tracking
   endpoint:
     health:
       show-details: always
@@ -98,7 +98,7 @@ management:
         descriptions: true
         step: 10s
     tags:
-      application: jairouter
+      application: trunkline
       environment: ${spring.profiles.active:default}
     web:
       server:

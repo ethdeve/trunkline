@@ -27,6 +27,10 @@ public class CircuitBreakerManager {
     // 存储所有实例的熔断器
     private final Map<String, CircuitBreaker> circuitBreakers = new ConcurrentHashMap<>();
 
+    // 实例级熔断器配置缓存（来源 instance_circuit_breaker 表；key = 实例 UUID 或 URL）。
+    // 修复「配置→生效」断链：运行时真正创建熔断器时使用此处配置，而非仅用全局 YAML 默认阈值。
+    private final Map<String, InstanceConfig> instanceConfigs = new ConcurrentHashMap<>();
+
     // 全局熔断器配置
     private int failureThreshold = DEFAULT_FAILURE_THRESHOLD;
     private long timeout = DEFAULT_TIMEOUT;
@@ -105,7 +109,15 @@ public class CircuitBreakerManager {
         }
 
         return circuitBreakers.computeIfAbsent(key,
-                k -> new LockFreeCircuitBreaker(k, failureThreshold, timeout, successThreshold));
+                k -> {
+                    // 优先使用实例级配置（来自 instance_circuit_breaker 表，由 ServiceInstanceManager 注入）；
+                    // 未配置或已禁用时回落全局 YAML 默认阈值。
+                    final InstanceConfig cfg = instanceConfigs.get(k);
+                    if (cfg != null && cfg.enabled) {
+                        return new LockFreeCircuitBreaker(k, cfg.failureThreshold, cfg.timeout, cfg.successThreshold);
+                    }
+                    return new LockFreeCircuitBreaker(k, failureThreshold, timeout, successThreshold);
+                });
     }
 
     /**
@@ -270,6 +282,13 @@ public class CircuitBreakerManager {
      */
     public boolean canExecute(final String instanceId, final String instanceUrl) {
         try {
+            // 实例级禁用：运行时尊重 instance_circuit_breaker 表的 enabled=false，视为始终可通过
+            final String key = instanceId != null && !instanceId.trim().isEmpty() ? instanceId : instanceUrl;
+            final InstanceConfig cfg = key != null ? instanceConfigs.get(key) : null;
+            if (cfg != null && !cfg.enabled) {
+                logger.debug("实例熔断器已禁用，跳过熔断检查: instance={}", key);
+                return true;
+            }
             CircuitBreaker cb = getCircuitBreaker(instanceId, instanceUrl);
             boolean canExecute = cb.canExecute();
             if (!canExecute) {
@@ -380,5 +399,71 @@ public class CircuitBreakerManager {
 
     public ModelRouterProperties.CircuitBreakerConfig getDefaultCircuitBreakerConfig() {
         return new ModelRouterProperties.CircuitBreakerConfig();
+    }
+
+    /**
+     * 注入实例级熔断器配置（来源 instance_circuit_breaker 表）。
+     *
+     * <p>由 {@code ServiceInstanceManager} 在<b>保存配置</b>、<b>删除配置</b>、<b>启动加载</b>时调用，
+     * 使运行时熔断器真正使用实例级阈值与启用开关，修复「配置→生效」断链
+     * （此前 {@link #getCircuitBreaker} 只用全局 YAML 默认阈值，DB 配置形同虚设）。</p>
+     *
+     * <p>同时移除该实例在 {@code circuitBreakers} 中的旧实例，使其下次访问时按新阈值重建。</p>
+     *
+     * @param instanceId       实例 UUID（与 {@link #getCircuitBreaker} 的 key 解析一致）
+     * @param instanceUrl      实例 URL（兜底 key）
+     * @param enabled          是否启用熔断器
+     * @param failureThreshold 打开前的连续失败次数
+     * @param timeout          超时（毫秒）
+     * @param successThreshold 半开态恢复所需的连续成功次数
+     */
+    public void applyInstanceConfig(final String instanceId, final String instanceUrl,
+                                    final boolean enabled, final int failureThreshold,
+                                    final long timeout, final int successThreshold) {
+        final InstanceConfig cfg = new InstanceConfig(enabled, failureThreshold, timeout, successThreshold);
+        if (instanceId != null && !instanceId.trim().isEmpty()) {
+            instanceConfigs.put(instanceId, cfg);
+            circuitBreakers.remove(instanceId);
+        }
+        if (instanceUrl != null && !instanceUrl.trim().isEmpty()) {
+            instanceConfigs.put(instanceUrl, cfg);
+            circuitBreakers.remove(instanceUrl);
+        }
+        logger.info("Applied circuit breaker config: instanceId={}, url={}, enabled={}, ft={}, timeout={}, st={}",
+                instanceId, instanceUrl, enabled, failureThreshold, timeout, successThreshold);
+    }
+
+    /**
+     * 清除实例级熔断器配置（删除配置或配置不存在时），回落全局默认阈值。
+     */
+    public void clearInstanceConfig(final String instanceId, final String instanceUrl) {
+        if (instanceId != null && !instanceId.trim().isEmpty()) {
+            instanceConfigs.remove(instanceId);
+            circuitBreakers.remove(instanceId);
+        }
+        if (instanceUrl != null && !instanceUrl.trim().isEmpty()) {
+            instanceConfigs.remove(instanceUrl);
+            circuitBreakers.remove(instanceUrl);
+        }
+        logger.info("Cleared circuit breaker config: instanceId={}, url={}", instanceId, instanceUrl);
+    }
+
+    /**
+     * 实例级熔断器配置（运行时缓存，来源 instance_circuit_breaker 表）。
+     * 与全局 YAML 默认阈值分离，使每实例配置可独立生效。
+     */
+    private static final class InstanceConfig {
+        final boolean enabled;
+        final int failureThreshold;
+        final long timeout;
+        final int successThreshold;
+
+        InstanceConfig(final boolean enabled, final int failureThreshold,
+                       final long timeout, final int successThreshold) {
+            this.enabled = enabled;
+            this.failureThreshold = failureThreshold;
+            this.timeout = timeout;
+            this.successThreshold = successThreshold;
+        }
     }
 }

@@ -38,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 @DisplayName("QuotaLedgerService 分布式计数与降级测试")
 class QuotaLedgerServiceDistributedTest {
@@ -117,7 +118,7 @@ class QuotaLedgerServiceDistributedTest {
         }
         assertEquals(4, service.flush());
         assertEquals(0, template.commandCount(), "本地模式不得访问 Redis");
-        assertEquals(0.0, gauge("jairouter.quota.counter.redis.enabled"));
+        assertEquals(0.0, gauge("trunkline.quota.counter.redis.enabled"));
     }
 
     @Test
@@ -425,15 +426,15 @@ class QuotaLedgerServiceDistributedTest {
         final QuotaLedgerService service = service();
         final QuotaDimension dimension = QuotaDimension.ofApiKey("key-1");
 
-        assertEquals(1.0, gauge("jairouter.quota.counter.redis.enabled"));
+        assertEquals(1.0, gauge("trunkline.quota.counter.redis.enabled"));
         assertEquals(RedisCounterBackend.NAME, service.backendName());
 
         service.reserve(QuotaRequest.of(dimension, 10));
 
         assertEquals(4.0, outcome("success"), "四级窗口各一次 Redis 命令");
-        assertEquals(4L, meterRegistry.get("jairouter.quota.counter.redis.command.duration")
+        assertEquals(4L, meterRegistry.get("trunkline.quota.counter.redis.command.duration")
             .tag("outcome", "success").timer().count());
-        assertTrue(meterRegistry.get("jairouter.quota.counter.redis.command.duration")
+        assertTrue(meterRegistry.get("trunkline.quota.counter.redis.command.duration")
             .tag("outcome", "success").timer().totalTime(TimeUnit.NANOSECONDS) > 0L);
     }
 
@@ -459,7 +460,7 @@ class QuotaLedgerServiceDistributedTest {
      * @return 次数
      */
     private double outcome(final String result) {
-        return meterRegistry.get("jairouter.quota.counter.redis.commands").tag("outcome", result).counter().count();
+        return meterRegistry.get("trunkline.quota.counter.redis.commands").tag("outcome", result).counter().count();
     }
 
     /**

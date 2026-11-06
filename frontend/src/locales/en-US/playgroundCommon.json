@@ -9,7 +9,12 @@
       "instanceSection": "Connected models",
       "emptyTitle": "No usable model yet",
       "emptyDesc": "Add a provider and models under \"Connect Models\" first, or check whether the model has been disabled",
-      "emptyAction": "Connect a model"
+      "emptyAction": "Connect a model",
+      "virtualModel": "Virtual model",
+      "emptyTitleEmployee": "No AI model available yet",
+      "emptyDescEmployee": "No model has been opened to you yet. Please contact your administrator; models will appear here once enabled.",
+      "modelScopeUnavailable": "Model scope is temporarily unavailable (backend resolver dependency missing). Group information in this dropdown may be incomplete; please refresh later or contact your administrator.",
+      "scopeLoadFailed": "Failed to load the model scope; showing all models temporarily. Please refresh later."
     },
     "availability": {
       "inactive": "Disabled",

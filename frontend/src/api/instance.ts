@@ -31,12 +31,12 @@ export interface RateLimitConfig {
   id?: number
   instanceId?: number
   enabled: boolean
-  algorithm: string
-  capacity: number
-  rate: number
-  scope: string
+  algorithm?: string
+  capacity?: number
+  rate?: number
+  scope?: string
   key?: string
-  clientIpEnable: boolean
+  clientIpEnable?: boolean
 }
 
 // 熔断器配置接口
@@ -44,9 +44,9 @@ export interface CircuitBreakerConfig {
   id?: number
   instanceId?: number
   enabled: boolean
-  failureThreshold: number
-  timeout: number
-  successThreshold: number
+  failureThreshold?: number
+  timeout?: number
+  successThreshold?: number
 }
 
 // 获取服务实例列表
@@ -57,6 +57,25 @@ export const getServiceInstances = (serviceType: string) => {
 // 获取单个实例详情
 export const getServiceInstance = (serviceType: string, instanceId: string) => {
   return request.get<RouterResponse<any>>(`/config/instance/${serviceType}/${instanceId}`)
+}
+
+/**
+ * 获取脱敏后的实例清单（员工自助端点，P0-L 凭据泄漏防护）。
+ *
+ * <p>P0-L 越权泄漏修复：普通员工不再有 `config:instances:read` 权限，无法访问
+ * `/config/instance/{serviceType}`（该响应含上游厂商 API Key 明文）。
+ * 员工侧改走本端点（权限码 `config:instances:self`），返回的 headers 中
+ * 敏感头值已被服务端替换为 `"***"`。</p>
+ *
+ * <p>口径为全量实例清单（不按密钥白名单收窄）——员工密钥白名单为空即「不受限」，
+ * 收窄没有安全收益，反而可能因脏数据（白名单里写了已删除的分组名）导致试验场选不到模型。</p>
+ *
+ * @param serviceType 可选的服务类型（chat / embedding / …）；不传则返回全部实例
+ */
+export const getMyServiceInstances = (serviceType?: string) => {
+  return request.get<RouterResponse<any[]>>('/instance/mine', {
+    params: serviceType ? { serviceType } : undefined
+  })
 }
 
 // 添加服务实例

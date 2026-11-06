@@ -1,14 +1,14 @@
 {
   "rule": {
-    "pageTitle": "Routing Rules",
+    "pageTitle": "Assignment Rules",
     "refreshTooltip": "Refresh list & hit statistics",
-    "emptyText": "No routing rules yet. Rules decide which request goes to which model. Without rules, default routing applies.",
+    "emptyText": "No assignment rules yet. Rules decide which request goes to which model; defaults apply when empty",
     "createFromTemplate": "Create from Template",
     "addRule": "New Rule",
     "editRule": "Edit Rule",
     "name": "Name",
     "sort": "Sort",
-    "priority": "Priority",
+    "priority": "Match order",
     "enabled": "Enabled",
     "hits": "Hits",
     "condition": "Conditions",
@@ -21,9 +21,9 @@
     "close": "Close",
     "runTest": "Test",
     "fetchListFailed": "Failed to fetch rule list",
-    "priorityUpdated": "Priorities updated",
-    "priorityUpdatedPartial": "Updated {updated}, skipped {skipped} (YAML rules)",
-    "priorityUpdateFailed": "Failed to update priorities",
+    "priorityUpdated": "Order updated",
+    "priorityUpdatedPartial": "Updated {updated}, skipped {skipped} (from config file)",
+    "priorityUpdateFailed": "Failed to update order",
     "deleteConfirmTitle": "Confirm Deletion",
     "deleteConfirmMessage": "Delete the rule \"{name}\"?",
     "ruleDeleted": "Rule deleted",
@@ -39,7 +39,7 @@
       "MODEL_NAME": "Model Name",
       "HEADER": "Request Header",
       "CLIENT_IP": "Source IP",
-      "WEIGHT": "Weight"
+      "WEIGHT": "By ratio"
     },
     "operator": {
       "EQUALS": "Equals",
@@ -70,8 +70,8 @@
       "actionTargetLabel": "Action Target",
       "instancePlaceholder": "Select a target instance",
       "adapterPlaceholder": "Select an adapter",
-      "lbStrategyPlaceholder": "Select an LB strategy",
-      "tagsLabel": "Target Tags",
+      "lbStrategyPlaceholder": "Choose a splitting strategy",
+      "tagsLabel": "Instance selection tags",
       "tagKeyPlaceholder": "Tag key",
       "valuePlaceholder": "Value",
       "addTag": "Add Tag",
@@ -83,7 +83,7 @@
         "TARGET_INSTANCE": "Lock Instance",
         "TARGET_ADAPTER": "Switch Adapter",
         "LB_STRATEGY": "Traffic Splitting",
-        "RATE_LIMIT": "Rate Limit",
+        "RATE_LIMIT": "Usage cap",
         "TARGET_TAGS": "Tag Routing"
       },
       "actionTargetTips": {
@@ -91,23 +91,23 @@
         "TARGET_INSTANCE": "Target instance name",
         "TARGET_ADAPTER": "The adapter to switch to",
         "LB_STRATEGY": "How traffic is split across instances",
-        "RATE_LIMIT": "Rate limit per rule (capacity/rate required)",
+        "RATE_LIMIT": "Set a usage cap for requests matching this rule",
         "TARGET_TAGS": "Select instances by tags (AND)"
       },
       "groupNamePlaceholder": "Select or enter a model group name",
       "targetModelPlaceholder": "Select or enter the target model (instance)"
     },
     "rateLimit": {
-      "capacityLabel": "Rate Limit Capacity",
-      "capacityTip": "Token bucket capacity",
-      "rateLabel": "Rate Limit Rate",
-      "rateTip": "Tokens replenished per second",
-      "algorithmLabel": "Rate Limit Algorithm",
-      "positiveRequired": "Rate limit action requires capacity and rate greater than 0",
+      "capacityLabel": "Max requests allowed",
+      "capacityTip": "How many requests can pass at the same time",
+      "rateLabel": "Refill speed",
+      "rateTip": "How many slots are restored per second",
+      "algorithmLabel": "When exceeded",
+      "positiveRequired": "Allowed count and refill speed must be greater than 0",
       "algorithms": {
-        "tokenBucket": "Token Bucket",
-        "leakyBucket": "Leaky Bucket",
-        "slidingWindow": "Sliding Window"
+        "tokenBucket": "Burst-friendly, refills while idle",
+        "leakyBucket": "Strictly even pace",
+        "slidingWindow": "Fixed time window counting"
       }
     },
     "validation": {
@@ -138,6 +138,41 @@
       "nextStep": "Next: Edit & Save",
       "fetchListFailed": "Failed to fetch template list",
       "createFailed": "Failed to create from template"
+    },
+    "panelTitle": "When conditions match → what to do",
+    "panelHint": "Matched in order, the first hit takes effect",
+    "simulate": "Simulate",
+    "monthHits": "Hits This Month",
+    "status": "Status",
+    "statusEnabled": "Enabled",
+    "statusDisabled": "Disabled",
+    "enable": "Enable",
+    "disable": "Disable",
+    "plain": {
+      "and": "AND",
+      "perSecond": "/sec",
+      "operator": {
+        "equals": "equals",
+        "contains": "contains",
+        "startsWith": "starts with",
+        "regex": "matches regex",
+        "cidr": "in CIDR"
+      },
+      "condition": {
+        "serviceType": "Model type",
+        "modelName": "Model name",
+        "header": "Header",
+        "clientIp": "Source IP",
+        "weight": "by ratio"
+      },
+      "action": {
+        "TARGET_MODEL": "Route to model",
+        "TARGET_INSTANCE": "Pin to instance",
+        "TARGET_ADAPTER": "Switch provider",
+        "LB_STRATEGY": "Traffic splitting",
+        "RATE_LIMIT": "Rate limit",
+        "TARGET_TAGS": "Pick instances by tag"
+      }
     }
   }
 }

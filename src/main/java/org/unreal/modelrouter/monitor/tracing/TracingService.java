@@ -17,6 +17,7 @@ import org.unreal.modelrouter.monitor.tracing.memory.model.MemoryStats;
 import org.unreal.modelrouter.monitor.tracing.performance.TracingPerformanceMonitor;
 import org.unreal.modelrouter.monitor.tracing.query.TraceQueryService;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,6 +36,7 @@ import java.util.Map;
  *
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @Service
@@ -157,47 +159,74 @@ public class TracingService {
     }
 
     /**
-     * 完成 HTTP 请求的追踪
+     * 完成 HTTP 请求的追踪（旧签名，兼容保留）。
      *
-     * @param exchange Web 交换对象
-     * @param context 追踪上下文
-     * @param duration 请求处理时长（毫秒）
+     * <p>从上下文实时取 traceId / 根 Span 后委托快照版本；生产路径请使用
+     * {@link #finishHttpSpan(ServerWebExchange, TracingContext, long, String, Span)}。</p>
      */
     public void finishHttpSpan(final ServerWebExchange exchange, final TracingContext context, final long duration) {
-        if (context == null || !context.isActive()) {
+        finishHttpSpan(exchange, context, duration, System.currentTimeMillis(),
+            context != null ? context.getTraceId() : null,
+            context != null ? context.getCurrentSpan() : null);
+    }
+
+    /**
+     * 完成 HTTP 请求的追踪
+     *
+     * <p>v3.5 修复：使用入口线程捕获的 traceId / 根 Span / 请求开始时间快照落库。
+     * 原实现读取 context.getCurrentSpan()，但共享上下文的 currentSpan 跨线程读取
+     * 存在可见性竞态，模型调用的响应回调上会读到失效 Span，isActive() 检查
+     * 直接 return，导致 /v1/** 调用的入口 span 从未进入查询服务，
+     * 高级查询列表与调用历史入口看到的链路对不上。开始时间同样使用入口快照，
+     * 保证入口 span 在链路中起始最早（列表「主要操作」正确显示为入口请求）。</p>
+     *
+     * @param exchange Web 交换对象
+     * @param context 追踪上下文（仅用于取请求属性等辅助信息）
+     * @param duration 请求处理时长（毫秒）
+     * @param requestStartTime 请求开始时间戳（毫秒，入口快照）
+     * @param capturedTraceId 入口线程捕获的 traceId 快照
+     * @param capturedRootSpan 入口线程捕获的根 Span 快照
+     */
+    public void finishHttpSpan(final ServerWebExchange exchange, final TracingContext context, final long duration,
+                               final long requestStartTime,
+                               final String capturedTraceId, final Span capturedRootSpan) {
+        if (capturedTraceId == null || capturedTraceId.isBlank()
+                || capturedRootSpan == null || !capturedRootSpan.getSpanContext().isValid()) {
+            log.debug("入口追踪快照缺失，跳过 HTTP span 落库: capturedTraceId={}", capturedTraceId);
             return;
         }
 
-        long startTime = System.currentTimeMillis();
+        // 请求开始时间使用入口快照（而非落库时刻），保证入口 span 起始最早
+        final long startTime = requestStartTime;
         boolean success = true;
 
         try {
-            Span currentSpan = context.getCurrentSpan();
-
             // 判断是否成功
             if (exchange.getResponse().getStatusCode() != null) {
                 success = !exchange.getResponse().getStatusCode().isError();
             }
 
             // 设置响应相关属性
-            spanAttributeHelper.setResponseAttributes(currentSpan, exchange, duration);
+            spanAttributeHelper.setResponseAttributes(capturedRootSpan, exchange, duration);
 
-            // 完成 Span
-            context.finishSpan(currentSpan);
+            // 完成 Span（快照 Span 可能已被 doFinally 提前结束，isRecording 防御双重结束）
+            if (capturedRootSpan.isRecording()) {
+                capturedRootSpan.end();
+            }
 
             // 异步提交追踪数据
             asyncTracingProcessor.submitTraceData(
-                context.getTraceId(),
-                context.getSpanId(),
+                capturedTraceId,
+                capturedRootSpan.getSpanContext().getSpanId(),
                 serviceNameResolver.buildOperationName(exchange.getRequest()),
                 startTime,
                 duration,
                 success,
-                currentSpan.getSpanContext()
+                capturedRootSpan.getSpanContext()
             ).subscribe(
                 submitted -> {
                     if (!submitted) {
-                        log.warn("异步提交追踪数据失败: traceId={}", context.getTraceId());
+                        log.warn("异步提交追踪数据失败: traceId={}", capturedTraceId);
                     }
                 },
                 error -> log.error("异步提交追踪数据异常", error)
@@ -209,8 +238,8 @@ public class TracingService {
             Instant startTimeInstant = Instant.ofEpochMilli(startTime);
             Instant endTimeInstant = Instant.ofEpochMilli(startTime + duration);
             spanRecords.add(new TraceQueryService.SpanRecord(
-                context.getSpanId(),
-                context.getTraceId(),
+                capturedRootSpan.getSpanContext().getSpanId(),
+                capturedTraceId,
                 serviceNameResolver.buildOperationName(exchange.getRequest()),
                 startTimeInstant,
                 endTimeInstant,
@@ -222,12 +251,12 @@ public class TracingService {
             ));
 
             traceQueryService.recordTrace(
-                context.getTraceId(),
+                capturedTraceId,
                 serviceName,
                 spanRecords,
                 duration
             ).subscribe(
-                v -> log.debug("追踪数据已记录到查询服务: traceId={}", context.getTraceId()),
+                v -> log.debug("追踪数据已记录到查询服务: traceId={}", capturedTraceId),
                 error -> log.warn("记录追踪数据到查询服务失败", error)
             );
 
@@ -241,7 +270,7 @@ public class TracingService {
             ).subscribe();
 
             log.debug("完成 HTTP 请求追踪，耗时: {}ms (traceId: {}, spanId: {})",
-                    duration, context.getTraceId(), context.getSpanId());
+                    duration, capturedTraceId, capturedRootSpan.getSpanContext().getSpanId());
         } catch (Exception e) {
             log.warn("完成 HTTP 请求追踪时发生错误", e);
             success = false;
@@ -418,7 +447,9 @@ public class TracingService {
             stats.put("errorTrend", buildTrendData(false));
 
             return stats;
-        });
+        })
+        // X1: 链内 block()（趋势查询命中 TraceQueryService）必须在 boundedElastic 上执行
+        .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**

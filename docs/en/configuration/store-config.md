@@ -11,80 +11,70 @@
 > **Last Updated:** 2026-06-09  
 > **Default Storage:** H2 Database
 
-JAiRouter uses a storage manager to persist configuration data and version control. This page details the storage-related configuration options.
+Trunkline uses a storage manager to persist configuration data and version control. This page details the storage-related configuration options.
 
 ## Storage Types
 
-JAiRouter supports multiple storage types, with H2 database storage as the default.
+Trunkline defaults to JPA persistence (embedded H2, switchable to PostgreSQL).
 
-### H2 Database Storage (h2)
+### JPA / H2 Storage (jpa)
 
-H2 database storage is the default storage method, saving configuration data in an embedded H2 database, providing better performance, transaction support, and query capabilities.
+JPA storage is the default method, keeping configuration data in a relational database with transaction support. The default datasource is embedded H2 (file database `./data/trunkline`), switchable to PostgreSQL via environment variables. Suitable for all environments (dev, test, prod).
 
-H2 database is now the **default storage method** for the project, suitable for all environments (dev, test, prod).
+### Redis Storage (redis)
 
-### File Storage (file)
-
-File storage saves configuration data in the local file system, suitable for simple use cases.
+Keeps configuration in Redis, suited for multi-instance shared-config deployments.
 
 ### Memory Storage (memory)
 
-Memory storage saves configuration data in memory, suitable for temporary or testing scenarios.
+Keeps configuration in memory, for temporary/testing scenarios; lost on restart.
 
 ## Configuration Options
 
-Storage configuration is configured through the `store` prefix and can be set in `application.yml` or related configuration files.
+Storage configuration uses the `store` prefix (`config/config-service/core.yml`).
 
 ### Basic Configuration
 
 ```yaml
 store:
-  type: h2          # Storage type, default is h2
-  h2:
-    url: file:./data/config  # H2 database file path
-  auto-merge: true  # Whether to enable automatic merge function, default is true
+  type: jpa              # Storage type, default jpa; alternatives redis / memory
+  path: ./config         # Config file import/export directory
+  fallback-storage: memory   # Fallback storage on degradation
+  migration:
+    enabled: true        # Migrate from legacy file store to JPA
+  security-migration:
+    enabled: true        # Migrate security data (API keys, JWT accounts)
 ```
 
 ### Configuration Description
 
 | Configuration Item | Default Value | Description |
 |--------------------|---------------|-------------|
-| `store.type` | `h2` | Storage type, supports h2, file, memory |
-| `store.h2.url` | `file:./data/config` | H2 database file path |
-| `store.path` | `config/` | Configuration file storage directory path (only used for file storage) |
-| `store.auto-merge` | `true` | Whether to enable automatic merge function |
+| `store.type` | `jpa` | Storage type: `jpa` (default), `redis`, `memory` |
+| `store.path` | `./config` | Config file import/export directory |
+| `store.fallback-storage` | `memory` | Fallback storage on degradation |
+| `store.migration.enabled` | `true` | Config data migration toggle |
+| `store.security-migration.enabled` | `true` | Security data migration toggle |
 
-### H2 Database Storage Advanced Configuration
+> The earlier keys `store.h2.url`, `store.auto-merge`, `store.auto-backup`, `store.backup-interval` **do not exist**. The H2 connection is configured under `spring.datasource`.
+
+### Datasource Configuration
 
 ```yaml
-store:
-  type: h2  # Default storage type
-  h2:
-    url: file:./data/config  # H2 database file path
-  migration:
-    enabled: false  # Whether to enable configuration data migration (from file storage to H2 database)
-  security-migration:
-    enabled: false  # Whether to enable security data migration (API Keys, JWT accounts, etc.)
-
 spring:
-  r2dbc:
-    url: r2dbc:h2:file:///./data/config
-    username: sa
-    password:
-    pool:
-      initial-size: 10
-      max-size: 20
+  datasource:
+    url: ${DATABASE_URL:jdbc:h2:file:./data/trunkline;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE}
+    username: ${DATABASE_USERNAME:sa}
+    password: ${DATABASE_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: update     # update for H2; overridden to validate by Flyway for PostgreSQL
   h2:
     console:
-      enabled: false
-      path: /h2-console
-
-jairouter:
-  security:
-    audit:
-      storage: h2  # Security audit log storage type
-      retentionDays: 30
+      enabled: false       # enable in dev
 ```
+
+> The earlier `spring.r2dbc` configuration does not apply to the current JPA implementation.
 
 ### H2 Database Storage Complete Configuration
 
@@ -112,7 +102,7 @@ spring:
       enabled: false
       path: /h2-console
 
-jairouter:
+trunkline:
   security:
     audit:
       storage: h2
@@ -145,7 +135,7 @@ spring:
       enabled: true
       path: /h2-console
 
-jairouter:
+trunkline:
   security:
     audit:
       storage: h2
@@ -158,7 +148,7 @@ jairouter:
 store:
   type: h2
   h2:
-    url: file:/var/lib/jairouter/data/config
+    url: file:/var/lib/trunkline/data/config
   migration:
     enabled: false
   security-migration:
@@ -174,7 +164,7 @@ spring:
       max-size: 50
       max-idle-time: 30m
 
-jairouter:
+trunkline:
   security:
     audit:
       storage: h2
@@ -195,7 +185,7 @@ When the auto-merge function is enabled, the system will periodically scan multi
 # Enable auto-merge function and specify configuration directory
 store:
   type: file
-  path: "/var/lib/jairouter/config/"
+  path: "/var/lib/trunkline/config/"
   auto-merge: true
 ```
 
@@ -427,11 +417,11 @@ cp ./backup/config-20241120.mv.db ./data/config.mv.db
 
 ```bash
 #!/bin/bash
-# /usr/local/bin/backup-jairouter-db.sh
+# /usr/local/bin/backup-trunkline-db.sh
 
 DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_DIR="/var/backups/jairouter"
-DB_FILE="/var/lib/jairouter/data/config.mv.db"
+BACKUP_DIR="/var/backups/trunkline"
+DB_FILE="/var/lib/trunkline/data/config.mv.db"
 
 mkdir -p $BACKUP_DIR
 cp $DB_FILE $BACKUP_DIR/config_$DATE.mv.db
@@ -449,7 +439,7 @@ Add to crontab:
 
 ```bash
 # Backup daily at 3 AM
-0 3 * * * /usr/local/bin/backup-jairouter-db.sh
+0 3 * * * /usr/local/bin/backup-trunkline-db.sh
 ```
 
 ## Notes

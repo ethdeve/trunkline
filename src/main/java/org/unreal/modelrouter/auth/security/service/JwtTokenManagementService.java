@@ -146,10 +146,12 @@ public class JwtTokenManagementService {
                     // 保存更新后的令牌信息
                     Mono<Void> saveToken = jwtPersistenceService.saveToken(tokenInfo);
 
-                    // 添加到黑名单
+                    // 添加到黑名单（C3: TTL = 令牌剩余寿命，而非固定 24h）
                     Mono<Void> addToBlacklist = Mono.empty();
                     if (jwtBlacklistService != null) {
-                        addToBlacklist = jwtBlacklistService.addToBlacklist(tokenHash, reason, revokedBy)
+                        long ttlSeconds = Math.max(0,
+                                java.time.Duration.between(LocalDateTime.now(), tokenInfo.getExpiresAt()).getSeconds());
+                        addToBlacklist = jwtBlacklistService.addToBlacklist(tokenHash, reason, revokedBy, ttlSeconds)
                                 .onErrorResume(ex -> {
                                     log.warn("添加到黑名单失败: {}", ex.getMessage());
                                     return Mono.empty();

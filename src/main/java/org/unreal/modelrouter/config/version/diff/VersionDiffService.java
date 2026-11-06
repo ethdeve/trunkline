@@ -1,5 +1,6 @@
 package org.unreal.modelrouter.config.version.diff;
 
+import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -21,7 +22,7 @@ public class VersionDiffService {
 
     private static final Logger logger = LoggerFactory.getLogger(VersionDiffService.class);
 
-    private static final String CONFIG_KEY = "model-router-config";
+    private static final String CONFIG_KEY = ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY;
 
     private final StoreManager storeManager;
 

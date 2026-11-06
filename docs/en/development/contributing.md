@@ -11,7 +11,7 @@
 
 ## Welcome Contributions
 
-Thank you for your interest in the JAiRouter project! We welcome all forms of contributions, including but not limited to:
+Thank you for your interest in the Trunkline project! We welcome all forms of contributions, including but not limited to:
 
 - 🐛 Bug reports and fixes
 - ✨ New feature development
@@ -32,8 +32,8 @@ Thank you for your interest in the JAiRouter project! We welcome all forms of co
 
 1. **Clone the Project**
    ```bash
-   git clone https://github.com/Lincoln-cn/JAiRouter.git
-   cd jairouter
+   git clone https://github.com/Lincoln-cn/Trunkline.git
+   cd trunkline
    ```
 
 2. **Verify Java Version**
@@ -429,4 +429,4 @@ If you encounter problems during development, you can get help through:
 - Creating new Issues
 - Participating in community discussions
 
-Thank you for your contributions! Every contribution makes JAiRouter better.
+Thank you for your contributions! Every contribution makes Trunkline better.

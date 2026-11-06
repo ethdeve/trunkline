@@ -9,11 +9,11 @@
 
 
 
-This document records the version update history and important changes of the JAiRouter project.
+This document records the version update history and important changes of the Trunkline project.
 
 ## Versioning Scheme
 
-JAiRouter follows the [Semantic Versioning](https://semver.org/) specification:
+Trunkline follows the [Semantic Versioning](https://semver.org/) specification:
 
 - **Major Version**: Incompatible API changes
 - **Minor Version**: Backward-compatible new features
@@ -916,7 +916,7 @@ Implement the "plugin system" so users can create, test, and manage custom adapt
 
 #### Anthropic Claude Adapter
 
-Added Anthropic Claude adapter support, enabling JAiRouter to serve as a unified gateway for Claude API workloads alongside existing OpenAI-compatible backends.
+Added Anthropic Claude adapter support, enabling Trunkline to serve as a unified gateway for Claude API workloads alongside existing OpenAI-compatible backends.
 
 - **ClaudeAdapter**: Claude adapter implementation (+295 lines)
 - **ClaudeAdapterTest**: adapter tests (+404 lines, covering request transformation, response parsing, error handling)

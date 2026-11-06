@@ -221,8 +221,8 @@ public class WebFluxMetricsInterceptor implements WebFilter, Ordered {
 
     @Override
     public int getOrder() {
-        // 设置较高优先级，确保在其他过滤器之前执行
-        return Ordered.HIGHEST_PRECEDENCE + 1;
+        // 顺序契约见 FilterOrderContract（X2：与 writeableHeaders 不再同值冲突）
+        return org.unreal.modelrouter.common.filter.FilterOrderContract.WEB_METRICS;
     }
 
     /**

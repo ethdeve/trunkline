@@ -21,14 +21,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * 安全告警服务
  *
  * <p><b>出口契约（#287 定案）</b>：告警的唯一出口是 <b>Micrometer 指标 + WARN 日志</b>
- * （指标 {@code jairouter.security.violations}，由 {@link SecurityMetrics#recordSecurityViolation} 记录），
+ * （指标 {@code trunkline.security.violations}，由 {@link SecurityMetrics#recordSecurityViolation} 记录），
  * 外部通知由 Prometheus Alertmanager / 日志平台承担。因此这里<b>不再发布仓内事件</b>——
  * 此前发布的 {@code SecurityAlertEvent} 全仓没有订阅方，只是一圈没有接收方的同步调用。</p>
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@ConditionalOnProperty(prefix = "jairouter.security.monitoring.alerts", name = "enabled",
+@ConditionalOnProperty(prefix = "trunkline.security.monitoring.alerts", name = "enabled",
         havingValue = "true", matchIfMissing = true)
 public class SecurityAlertService {
     

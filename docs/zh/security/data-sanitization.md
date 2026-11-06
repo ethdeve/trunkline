@@ -11,7 +11,7 @@
 
 ## 概述
 
-JAiRouter 的数据脱敏功能可以自动识别和处理请求和响应中的敏感信息，包括个人身份信息（PII）、敏感词汇等。
+Trunkline 的数据脱敏功能可以自动识别和处理请求和响应中的敏感信息，包括个人身份信息（PII）、敏感词汇等。
 
 ### v3.2.0 起：记录侧主路径与控制台管理
 
@@ -46,7 +46,7 @@ JAiRouter 的数据脱敏功能可以自动识别和处理请求和响应中的�
 ### 1. 启用数据脱敏
 
 ``yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     sanitization:
@@ -59,7 +59,7 @@ jairouter:
 ### 2. 基础配置
 
 ``yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -95,7 +95,7 @@ curl -H "X-API-Key: your-api-key" \
 ### 请求数据脱敏配置
 
 ```
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -151,7 +151,7 @@ jairouter:
 ### 响应数据脱敏配置
 
 ```
-jairouter:
+trunkline:
   security:
     sanitization:
       response:
@@ -319,7 +319,7 @@ pii-patterns:
 指定的用户可以跳过脱敏处理：
 
 ```
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -334,7 +334,7 @@ jairouter:
 指定的 IP 地址可以跳过脱敏处理：
 
 ```
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -369,7 +369,7 @@ curl -X POST http://localhost:8080/admin/security/whitelist/ips \
 不同的 AI 服务可以使用不同的脱敏规则：
 
 ```
-jairouter:
+trunkline:
   security:
     sanitization:
       response:
@@ -417,7 +417,7 @@ jairouter:
 ### 并行处理
 
 ```
-jairouter:
+trunkline:
   security:
     performance:
       sanitization:
@@ -432,7 +432,7 @@ jairouter:
 ### 正则表达式缓存
 
 ```
-jairouter:
+trunkline:
   security:
     performance:
       sanitization:
@@ -445,7 +445,7 @@ jairouter:
 ### 批量处理
 
 ```
-jairouter:
+trunkline:
   security:
     performance:
       sanitization:
@@ -458,7 +458,7 @@ jairouter:
 ### 3. Redis 缓存
 
 ```
-jairouter:
+trunkline:
   security:
     performance:
       cache:
@@ -496,7 +496,7 @@ security:
     secret: "${PROD_JWT_SECRET:}"
     algorithm: HS256
     expiration-minutes: 15
-    issuer: jairouter-prod
+    issuer: trunkline-prod
     accounts:
       - username: admin
         password: "{bcrypt}your-bcrypt-hashed-password"
@@ -522,7 +522,7 @@ server:
     key-store: classpath:keystore.p12
     key-store-password: password
     key-store-type: PKCS12
-    key-alias: jairouter
+    key-alias: trunkline
 ```
 
 
@@ -531,7 +531,7 @@ server:
 ### 脱敏指标
 
 ```
-jairouter:
+trunkline:
   security:
     monitoring:
       metrics:
@@ -543,7 +543,7 @@ jairouter:
 ### 审计日志
 
 ```
-jairouter:
+trunkline:
   security:
     audit:
       enabled: true
@@ -555,10 +555,10 @@ jairouter:
 
 ### 监控指标
 
-- `jairouter_security_sanitization_operations_total`：脱敏操作总数
-- `jairouter_security_sanitization_duration_seconds`：脱敏操作耗时
-- `jairouter_security_sanitization_patterns_matched_total`：匹配的模式总数
-- `jairouter_security_sanitization_bytes_processed_total`：处理的字节总数
+- `trunkline_security_sanitization_operations_total`：脱敏操作总数
+- `trunkline_security_sanitization_duration_seconds`：脱敏操作耗时
+- `trunkline_security_sanitization_patterns_matched_total`：匹配的模式总数
+- `trunkline_security_sanitization_bytes_processed_total`：处理的字节总数
 
 ## 最佳实践
 
@@ -665,7 +665,7 @@ curl http://localhost:8080/actuator/prometheus | grep sanitization
 ### 基础配置
 
 ```
-jairouter:
+trunkline:
   security:
     enabled: true
     sanitization:
@@ -683,7 +683,7 @@ jairouter:
 ### 高级配置
 
 ```
-jairouter:
+trunkline:
   security:
     sanitization:
       request:

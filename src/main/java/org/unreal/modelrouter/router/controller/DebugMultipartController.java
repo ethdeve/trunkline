@@ -28,13 +28,13 @@ import java.util.Map;
 /**
  * 调试用 multipart 端点（R2-P0-03）。
  *
- * <p>默认关闭：仅在 {@code jairouter.debug.endpoints.enabled=true} 时装配。
+ * <p>默认关闭：仅在 {@code trunkline.debug.endpoints.enabled=true} 时装配。
  * 启用时凭据字段一律脱敏，禁止把明文 Token 写入响应或日志。</p>
  */
 @Slf4j
 @RestController
 @RequestMapping("/v1/debug")
-@ConditionalOnProperty(name = "jairouter.debug.endpoints.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.debug.endpoints.enabled", havingValue = "true")
 public class DebugMultipartController {
 
     /** 默认是否启用调试端点（false = 生产默认关闭） */

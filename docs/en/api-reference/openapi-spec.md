@@ -1,20 +1,20 @@
 ﻿# OpenAPI Specification Document
 
 <!-- 版本信息 -->
-> **Doc Version**: 1.0.2  
-> **Last Updated**: 2026-05-21  
+> **Doc Version**: 1.1.0  
+> **Last Updated**: 2026-10-28  
 > **Git Commit**: 61384b4a  
 > **Author**: Lincoln
 <!-- /版本信息 -->
 
 
 
-JAiRouter uses SpringDoc OpenAPI 3 to automatically generate API documentation, providing an interactive API exploration and testing experience.
+Trunkline uses SpringDoc OpenAPI 3 to automatically generate API documentation, providing an interactive API exploration and testing experience.
 
 ## Access Methods
 
 ### Swagger UI Interface
-When the JAiRouter service is running, you can access the interactive API documentation at the following address:
+When the Trunkline service is running, you can access the interactive API documentation at the following address:
 
 ```
 http://localhost:8080/swagger-ui.html
@@ -36,7 +36,7 @@ http://localhost:8080/v3/api-docs.yaml
 
 ## Configuration Instructions
 
-JAiRouter's OpenAPI configuration is located in the `application-dev.yml` file:
+Trunkline's OpenAPI configuration is located in the `application-dev.yml` file:
 
 ```yaml
 springdoc:
@@ -52,9 +52,11 @@ springdoc:
     disabled: true                 # Disable cache in development environment
 ```
 
+> ⚠️ **To be confirmed (found during the v3.3.1 review)**: the configured `packages-to-scan: org.unreal.modelrouter.controller` package **does not exist** in the current codebase — controllers actually live under subpackages such as `org.unreal.modelrouter.router.controller`, `auth.controller`, `config.controller`, and `monitor.controller`. If springdoc filters strictly by this package name, `/v3/api-docs` may produce an empty document; whether it still renders because springdoc falls back to scanning everything needs to be verified against a running instance.
+
 ## API Grouping
 
-JAiRouter's APIs are divided into the following main groups by function:
+Trunkline's APIs are divided into the following main groups by function:
 
 ### 1. Universal Model Interface (Universal API)
 - **Tag**: `统一模型接口` — the tag literal is Chinese in code (`UniversalController.java:52`)
@@ -69,7 +71,7 @@ JAiRouter's APIs are divided into the following main groups by function:
   - Image Generation (`POST /api/v1/images/generations`)
   - Image Editing (`POST /api/v1/images/edits`)
 
-> The `/v1` surface (`OpenAiNativeController`) registers only `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/embeddings` and `POST /v1/rerank` — the audio and image interfaces are **not** under `/v1`.
+> The `/v1` surface (`OpenAiNativeController`) registers `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/embeddings` and `POST /v1/rerank`; `AnthropicMessagesController` additionally exposes `POST /v1/messages` and `POST /v1/messages/count_tokens` under `/v1` — the audio and image interfaces are **not** under `/v1`.
 
 ### 2. Service Type Management
 - **Tag**: `服务类型管理` — the tag literal is Chinese in code (`ServiceTypeController.java:47`)
@@ -100,6 +102,17 @@ JAiRouter's APIs are divided into the following main groups by function:
 - **Tag**: `Metric Registration`
 - **Description**: Dynamic metric registration and management API
 - **Path Prefix**: `/api/monitoring/metrics`
+
+### 8. OpenAI / Anthropic Native Surface (`/v1`)
+- **Tags**: `OpenAI 原生接口` (`OpenAiNativeController`), `Anthropic 原生接口` (`AnthropicMessagesController`)
+- **Description**: Native-response endpoints for OpenAI / Anthropic SDK direct connections
+- **Path Prefix**: `/v1`
+- **Included Interfaces**:
+  - Model list (`GET /v1/models`)
+  - Chat Completion (`POST /v1/chat/completions`)
+  - Text Embedding (`POST /v1/embeddings`)
+  - Reranking (`POST /v1/rerank`)
+  - Anthropic Messages (`POST /v1/messages`, `POST /v1/messages/count_tokens`)
 
 ## Using Swagger UI
 
@@ -144,19 +157,19 @@ public class OpenApiConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("JAiRouter API")
-                        .version("3.1.1")
+                        .title("Trunkline API")
+                        .version("3.3.1")
                         .description("AI Model Service Routing and Load Balancing Gateway API Documentation")
                         .contact(new Contact()
-                                .name("JAiRouter Team")
-                                .email("support@jairouter.com")
-                                .url("https://github.com/Lincoln-cn/JAiRouter"))
+                                .name("Trunkline Team")
+                                .email("support@trunkline.com")
+                                .url("https://github.com/Lincoln-cn/Trunkline"))
                         .license(new License()
                                 .name("Apache 2.0")
                                 .url("https://www.apache.org/licenses/LICENSE-2.0")))
                 .servers(Arrays.asList(
                         new Server().url("http://localhost:8080").description("Development Environment"),
-                        new Server().url("https://api.jairouter.com").description("Production Environment")
+                        new Server().url("https://api.trunkline.com").description("Production Environment")
                 ))
                 .components(new Components()
                         .addSecuritySchemes("bearerAuth",
@@ -221,10 +234,10 @@ You can export OpenAPI specification files in the following ways:
 
 ```bash
 # Export JSON format
-curl http://localhost:8080/v3/api-docs > jairouter-openapi.json
+curl http://localhost:8080/v3/api-docs > trunkline-openapi.json
 
 # Export YAML format
-curl http://localhost:8080/v3/api-docs.yaml > jairouter-openapi.yaml
+curl http://localhost:8080/v3/api-docs.yaml > trunkline-openapi.yaml
 ```
 
 ### 2. Integration with Documentation Sites
@@ -263,7 +276,7 @@ openapi-generator-cli generate \
   -i http://localhost:8080/v3/api-docs \
   -g python \
   -o ./clients/python \
-  --package-name jairouter_client
+  --package-name trunkline_client
 
 # Generate JavaScript client
 openapi-generator-cli generate \
@@ -276,7 +289,7 @@ openapi-generator-cli generate \
   -i http://localhost:8080/v3/api-docs \
   -g java \
   -o ./clients/java \
-  --package-name com.jairouter.client
+  --package-name com.trunkline.client
 ```
 
 ## Best Practices

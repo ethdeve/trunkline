@@ -9,11 +9,11 @@
 
 
 
-This section contains reference materials and supplementary information for JAiRouter, providing users with comprehensive project background, development history, and explanations of technical terms.
+This section contains reference materials and supplementary information for Trunkline, providing users with comprehensive project background, development history, and explanations of technical terms.
 
 ## Reference Overview
 
-Here you'll find various reference materials to help users better understand and use JAiRouter:
+Here you'll find various reference materials to help users better understand and use Trunkline:
 
 ### 📋 Project Information
 - **Changelog** - Detailed version history and feature changes
@@ -30,14 +30,14 @@ Here you'll find various reference materials to help users better understand and
 ## Reference Sections
 
 ### [Changelog](changelog.md)
-Records all significant changes in JAiRouter from initial version to current release:
+Records all significant changes in Trunkline from initial version to current release:
 - **Version History**: Detailed release records
 - **Feature Changes**: New features, improvements, and bug fixes
 - **Upgrade Guide**: Migration instructions and considerations between versions
 - **Known Issues**: Current version limitations and solutions
 
 ### [Roadmap](roadmap.md)
-Shows JAiRouter's future development plans and technical vision:
+Shows Trunkline's future development plans and technical vision:
 - **Version Planning**: Feature planning and timeline for future releases
 - **Technical Evolution**: Architecture upgrades and technology stack direction
 - **Feature Highlights**: Planned new features and improvements
@@ -79,10 +79,10 @@ Defines professional terms and technical concepts used in the project:
 ## Related Resources
 
 ### Official Resources
-- **GitHub Repository**: [https://github.com/Lincoln-cn/JAiRouter](https://github.com/Lincoln-cn/JAiRouter)
-- **Issue Reporting**: [GitHub Issues](https://github.com/Lincoln-cn/JAiRouter/issues)
-- **Feature Discussions**: [GitHub Discussions](https://github.com/Lincoln-cn/JAiRouter/discussions)
-- **Release Notes**: [GitHub Releases](https://github.com/Lincoln-cn/JAiRouter/releases)
+- **GitHub Repository**: [https://github.com/Lincoln-cn/Trunkline](https://github.com/Lincoln-cn/Trunkline)
+- **Issue Reporting**: [GitHub Issues](https://github.com/Lincoln-cn/Trunkline/issues)
+- **Feature Discussions**: [GitHub Discussions](https://github.com/Lincoln-cn/Trunkline/discussions)
+- **Release Notes**: [GitHub Releases](https://github.com/Lincoln-cn/Trunkline/releases)
 
 ### Community Resources
 - **User Cases**: Real usage scenarios and experience sharing
@@ -109,7 +109,7 @@ We welcome community contributions to improve reference materials:
 If you have any suggestions or find issues while using the reference materials:
 - **GitHub Issues**: Report document problems or suggest improvements
 - **GitHub Discussions**: Participate in document-related discussions
-- **Email Contact**: jairouter@example.com
+- **Email Contact**: trunkline@example.com
 - **Community Groups**: Join user交流 groups
 
 ### Update Frequency
@@ -118,8 +118,8 @@ If you have any suggestions or find issues while using the reference materials:
 - **FAQ**: Continuously updated based on user feedback
 - **Glossary**: Gradually improved as features evolve
 
-We are committed to providing accurate, timely, and useful reference materials to help users better utilize JAiRouter.
+We are committed to providing accurate, timely, and useful reference materials to help users better utilize Trunkline.
 
 ---
 
-**Maintained by**: JAiRouter Documentation Team  
+**Maintained by**: Trunkline Documentation Team  

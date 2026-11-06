@@ -121,11 +121,7 @@
               <div class="chart-wrapper">
                 <div class="chart-header">
                   <h4>{{ t('tracing.dashboard.chart.traceVolume') }}</h4>
-                  <el-radio-group v-model="chartInterval" size="small" @change="updateTrendChart">
-                    <el-radio-button label="5m">{{ t('tracing.dashboard.chart.intervals.5m') }}</el-radio-button>
-                    <el-radio-button label="1h">{{ t('tracing.dashboard.chart.intervals.1h') }}</el-radio-button>
-                    <el-radio-button label="1d">{{ t('tracing.dashboard.chart.intervals.1d') }}</el-radio-button>
-                  </el-radio-group>
+                  <span class="chart-granularity-hint">{{ t('tracing.dashboard.chart.hourlyGranularity') }}</span>
                 </div>
                 <div ref="traceTrendChart" class="chart-container"></div>
               </div>
@@ -147,7 +143,9 @@
               <el-button text type="primary" @click="goToSearch">{{ t('tracing.dashboard.viewAll') }}</el-button>
             </div>
             <el-table
+              ref="serviceStatsTableRef"
               :data="serviceStats"
+              :max-height="serviceStatsMaxHeight"
               v-loading="loading"
               style="width: 100%"
               :row-class-name="getRowClassName"
@@ -194,7 +192,7 @@
                   </span>
                 </template>
               </el-table-column>
-              <el-table-column :label="t('tracing.dashboard.columns.status')" width="80">
+              <el-table-column :label="t('tracing.dashboard.columns.status')" width="80" fixed="right">
                 <template #default="{ row }">
                   <el-tooltip :content="getServiceStatusTooltip(row)" placement="top">
                     <el-icon :size="18" :color="getServiceStatusColor(row)">
@@ -315,7 +313,7 @@
 import { ref, onMounted, onBeforeUnmount, nextTick, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import * as echarts from 'echarts'
+import echarts from '@/utils/echarts'
 import { ElMessage } from 'element-plus'
 import {
   DataLine, Warning, Timer, PieChart, Refresh, Search, Setting, Monitor,
@@ -336,6 +334,7 @@ import PageSkeleton from '@/components/PageSkeleton.vue'
 import TermHelp from '@/components/common/TermHelp.vue'
 import { useChartTheme } from '@/composables/useChartTheme'
 import { useChartAutoRefresh } from '@/composables/useChartAutoRefresh'
+import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { formatNumber as formatNumberBase } from '@/utils/format'
 
 const { getChartTheme } = useChartTheme()
@@ -348,7 +347,6 @@ const loading = ref(false)
 const refreshing = ref(false)
 const activeTab = ref('overview')
 const timeRange = ref([])
-const chartInterval = ref('5m')
 const tracingEnabled = ref(true)
 
 // 统计数据
@@ -366,6 +364,8 @@ const trendData = ref({
 })
 
 const serviceStats = ref<any[]>([])
+const serviceStatsTableRef = ref()
+const { maxHeight: serviceStatsMaxHeight } = useTableMaxHeight(serviceStatsTableRef)
 const slowTraces = ref<any[]>([])
 const commonErrors = ref<any[]>([])
 
@@ -387,7 +387,7 @@ let latencyDistEcharts: echarts.ECharts | null = null
 let latencyTrendEcharts: echarts.ECharts | null = null
 let errorTrendEcharts: echarts.ECharts | null = null
 let throughputEcharts: echarts.ECharts | null = null
-const throughputDistEcharts: echarts.ECharts | null = null
+let throughputDistEcharts: echarts.ECharts | null = null
 
 // 追踪详情
 const traceDetailVisible = ref(false)
@@ -424,6 +424,15 @@ const timeShortcuts = computed(() => [
   }
 ])
 
+// 统一时间窗口：选择器有值用选择器，否则默认最近 24 小时（与小时粒度趋势图对应）。
+// 概览统计与三个分析接口共用同一窗口，保证「错误追踪统计」与趋势图口径一致。
+const resolveWindow = () => {
+  const range: any[] = (timeRange.value as any[]) || []
+  const end = range[1] ? new Date(range[1]).getTime() : Date.now()
+  const start = range[0] ? new Date(range[0]).getTime() : end - 24 * 3600 * 1000
+  return { startTime: start, endTime: end }
+}
+
 // 加载数据
 const loadAllData = async () => {
   loading.value = true
@@ -434,7 +443,8 @@ const loadAllData = async () => {
       loadTracingStatus(),
       loadLatencyAnalysis(),
       loadErrorAnalysis(),
-      loadThroughputAnalysis()
+      loadThroughputAnalysis(),
+      loadSlowTraces()
     ])
     await nextTick()
     initCharts()
@@ -450,7 +460,7 @@ const loadAllData = async () => {
 
 const loadOverviewData = async () => {
   try {
-    const response = await getTracingOverview()
+    const response = await getTracingOverview(resolveWindow())
     const data = response.data?.data || response.data || response
     if (data) {
       stats.value = {
@@ -506,12 +516,16 @@ const initCharts = () => {
 }
 
 // 图表配置
-// 追踪趋势：当前后端 API 面没有「按时间桶的追踪数/错误数」时序接口 ——
-// /tracing/query/statistics 与 /tracing/actuator/stats 只返回标量快照，
-// /tracing/performance/metrics/dashboard 返回处理器与内存快照。故此处渲染空序列，
-// 待后端提供时序接口后再接线；不得用随机数占位（issue #253）。
+// 追踪趋势：数据来自 /tracing/query/performance/throughput（每小时 requestCount）
+// 与 /tracing/query/performance/errors（每小时 errorCount），两者共用同一组小时桶。
+// 后端目前只提供小时粒度时序，无 5m/1d 桶（原 5m/1d 切换按钮已移除）。
 const getTraceTrendOption = () => {
   const { primary, danger } = getChartTheme()
+  const qpsPoints: any[] = throughputAnalysis.value?.qpsTrend || []
+  const errorPoints: any[] = errorAnalysis.value?.errorTrend || []
+  const labels = qpsPoints.length > 0
+    ? qpsPoints.map(p => p.hour)
+    : errorPoints.map(p => p.hour)
   return {
     tooltip: {
       trigger: 'axis',
@@ -531,7 +545,7 @@ const getTraceTrendOption = () => {
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: generateTimeLabels()
+      data: labels.length > 0 ? labels : generateTimeLabels()
     },
     yAxis: {
       type: 'value'
@@ -543,23 +557,24 @@ const getTraceTrendOption = () => {
         smooth: true,
         areaStyle: { opacity: 0.3 },
         itemStyle: { color: primary },
-        data: []
+        data: qpsPoints.map(p => p.requestCount ?? 0)
       },
       {
         name: t('tracing.dashboard.columns.errors'),
         type: 'line',
         smooth: true,
         itemStyle: { color: danger },
-        data: []
+        data: errorPoints.map(p => p.errorCount ?? 0)
       }
     ]
   }
 }
 
 // 延迟趋势（P95/P99）——数据来自 /tracing/query/performance/latency
+// 后端返回 trend 为数组：[{ hour, p50, p95, p99, avg, timestamp }]
 const getLatencyTrendOption = () => {
   const { primary, warning } = getChartTheme()
-  const trend = latencyAnalysis.value?.trend || {}
+  const points: any[] = latencyAnalysis.value?.trend || []
   return {
     tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
     legend: {
@@ -567,7 +582,7 @@ const getLatencyTrendOption = () => {
       bottom: 0
     },
     grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
-    xAxis: { type: 'category', boundaryGap: false, data: trend.timestamps || [] },
+    xAxis: { type: 'category', boundaryGap: false, data: points.map(p => p.hour) },
     yAxis: { type: 'value' },
     series: [
       {
@@ -575,20 +590,21 @@ const getLatencyTrendOption = () => {
         type: 'line',
         smooth: true,
         itemStyle: { color: primary },
-        data: trend.p95Latency || []
+        data: points.map(p => p.p95 ?? 0)
       },
       {
         name: t('tracing.dashboard.columns.p99Latency'),
         type: 'line',
         smooth: true,
         itemStyle: { color: warning },
-        data: trend.p99Latency || []
+        data: points.map(p => p.p99 ?? 0)
       }
     ]
   }
 }
 
 // 错误率趋势——数据来自 /tracing/query/performance/errors
+// 后端返回 errorTrend 为数组：[{ hour, errorRate, errorCount, timestamp }]
 const getErrorTrendOption = () => {
   const { danger } = getChartTheme()
   const points: any[] = errorAnalysis.value?.errorTrend || []
@@ -596,7 +612,7 @@ const getErrorTrendOption = () => {
     tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
     legend: { data: [t('tracing.dashboard.columns.errorRate')], bottom: 0 },
     grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
-    xAxis: { type: 'category', boundaryGap: false, data: points.map(p => p.timestamp) },
+    xAxis: { type: 'category', boundaryGap: false, data: points.map(p => p.hour) },
     yAxis: { type: 'value' },
     series: [
       {
@@ -604,13 +620,14 @@ const getErrorTrendOption = () => {
         type: 'line',
         smooth: true,
         itemStyle: { color: danger },
-        data: points.map(p => p.value)
+        data: points.map(p => p.errorRate ?? 0)
       }
     ]
   }
 }
 
 // 请求量趋势——数据来自 /tracing/query/performance/throughput
+// 后端返回 qpsTrend 为数组：[{ hour, qps, requestCount, timestamp }]
 const getThroughputTrendOption = () => {
   const { primary } = getChartTheme()
   const points: any[] = throughputAnalysis.value?.qpsTrend || []
@@ -618,15 +635,41 @@ const getThroughputTrendOption = () => {
     tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
     legend: { data: [t('tracing.dashboard.columns.requests')], bottom: 0 },
     grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
-    xAxis: { type: 'category', boundaryGap: false, data: points.map(p => p.timestamp) },
+    xAxis: { type: 'category', boundaryGap: false, data: points.map(p => p.hour) },
     yAxis: { type: 'value' },
     series: [
       {
         name: t('tracing.dashboard.columns.requests'),
         type: 'line',
         smooth: true,
+        areaStyle: { opacity: 0.3 },
         itemStyle: { color: primary },
-        data: points.map(p => p.value)
+        data: points.map(p => p.qps ?? 0)
+      }
+    ]
+  }
+}
+
+// 各服务调用量分布——数据来自 /tracing/query/performance/throughput
+// 后端返回 requestDistribution 为数组：[{ service, totalRequests, requestsPerSecond }]
+const getThroughputDistOption = () => {
+  const { primary } = getChartTheme()
+  const points: any[] = throughputAnalysis.value?.requestDistribution || []
+  return {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: points.length > 0 ? points.map(p => p.service) : [t('tracing.dashboard.chart.noData')],
+      axisLabel: { rotate: 30 }
+    },
+    yAxis: { type: 'value' },
+    series: [
+      {
+        name: t('tracing.dashboard.columns.requests'),
+        type: 'bar',
+        itemStyle: { color: primary },
+        data: points.map(p => p.totalRequests ?? 0)
       }
     ]
   }
@@ -635,7 +678,7 @@ const getThroughputTrendOption = () => {
 // 三个趋势图的数据加载（接口失败或返回空时保持空序列，不填充占位数据）
 const loadLatencyAnalysis = async () => {
   try {
-    const response = await getLatencyAnalysis()
+    const response = await getLatencyAnalysis(resolveWindow())
     latencyAnalysis.value = response.data?.data || response.data || response || null
   } catch (error) {
     console.error('加载延迟分析失败:', error)
@@ -645,7 +688,7 @@ const loadLatencyAnalysis = async () => {
 
 const loadErrorAnalysis = async () => {
   try {
-    const response = await getErrorAnalysis()
+    const response = await getErrorAnalysis(resolveWindow())
     errorAnalysis.value = response.data?.data || response.data || response || null
   } catch (error) {
     console.error('加载错误分析失败:', error)
@@ -655,11 +698,25 @@ const loadErrorAnalysis = async () => {
 
 const loadThroughputAnalysis = async () => {
   try {
-    const response = await getThroughputAnalysis()
+    const response = await getThroughputAnalysis(resolveWindow())
     throughputAnalysis.value = response.data?.data || response.data || response || null
   } catch (error) {
     console.error('加载吞吐量分析失败:', error)
     throughputAnalysis.value = null
+  }
+}
+
+// 最慢的追踪——后端无专用接口，从最近追踪里按时长倒序取前 10
+const loadSlowTraces = async () => {
+  try {
+    const response = await getRecentTraces(50)
+    const traces = response.data?.data || response.data || []
+    slowTraces.value = [...traces]
+      .sort((a: any, b: any) => (b.duration || 0) - (a.duration || 0))
+      .slice(0, 10)
+  } catch (error) {
+    console.error('加载最慢追踪失败:', error)
+    slowTraces.value = []
   }
 }
 
@@ -787,6 +844,11 @@ const handleTabChange = (tab: string) => {
       throughputEcharts = echarts.init(throughputChart.value)
       throughputEcharts.setOption(getThroughputTrendOption())
     }
+    // 同页签两张图，须分别独立判断（不能用 else-if，否则趋势图命中后分布图不初始化）
+    if (tab === 'throughput' && throughputDistChart.value && !throughputDistEcharts) {
+      throughputDistEcharts = echarts.init(throughputDistChart.value)
+      throughputDistEcharts.setOption(getThroughputDistOption())
+    }
   })
 }
 
@@ -811,12 +873,6 @@ const viewTraceDetail = (trace: any) => {
   traceDetailVisible.value = true
 }
 
-const updateTrendChart = () => {
-  if (traceTrendEcharts) {
-    traceTrendEcharts.setOption(getTraceTrendOption())
-  }
-}
-
 // 语言 / 主题切换后重绘所有已创建图表（纯重绘，无网络请求；未创建/隐藏页签图表自动跳过）
 const rebuildAll = () => {
   if (traceTrendEcharts) traceTrendEcharts.setOption(getTraceTrendOption())
@@ -824,6 +880,7 @@ const rebuildAll = () => {
   if (latencyTrendEcharts) latencyTrendEcharts.setOption(getLatencyTrendOption())
   if (errorTrendEcharts) errorTrendEcharts.setOption(getErrorTrendOption())
   if (throughputEcharts) throughputEcharts.setOption(getThroughputTrendOption())
+  if (throughputDistEcharts) throughputDistEcharts.setOption(getThroughputDistOption())
 }
 
 // 窗口大小变化处理
@@ -833,7 +890,6 @@ const handleResize = () => {
   if (latencyTrendEcharts) latencyTrendEcharts.resize()
   if (errorTrendEcharts) errorTrendEcharts.resize()
   if (throughputEcharts) throughputEcharts.resize()
-  // @ts-ignore - Vue template ref causes type conflict
   if (throughputDistEcharts) throughputDistEcharts.resize()
 }
 
@@ -953,6 +1009,11 @@ onBeforeUnmount(() => {
   margin: 0;
   font-size: 16px;
   color: var(--ja-text-primary);
+}
+
+.chart-granularity-hint {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
 }
 
 .chart-container {

@@ -8,9 +8,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *
  * @author JAiRouter Team
  * @since 2.7.8
+ * @modified Trunkline Team
  */
 @Data
-@ConfigurationProperties(prefix = "jairouter.call-history")
+@ConfigurationProperties(prefix = "trunkline.call-history")
 public final class CallHistoryProperties {
 
     /**
@@ -27,11 +28,6 @@ public final class CallHistoryProperties {
      * 最大记录数限制
      */
     private long maxRecords = 1000000;
-
-    /**
-     * 清理定时任务 cron 表达式
-     */
-    private String cleanupCron = "0 2 * * *";
 
     /**
      * 内存缓冲区大小

@@ -39,7 +39,7 @@ model:
 # 客户端维度的限流状态默认在 JVM 内，多副本下同一客户端的实际放行量 ≈ 配置值 × 副本数。
 # 开启后该维度的滑动窗口状态放到 Redis，各副本共享同一份计数——**前提是键维度成立**
 # （见上面的 key-dimension）：键维度不成立时，分布式计数只是在精确地统计垃圾数据。
-jairouter:
+trunkline:
   ratelimit:
     distributed:
       # 默认 false。开启前请确认 Redis 可用，并了解 Redis 故障时按 fail-open 放行。

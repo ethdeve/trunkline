@@ -7,7 +7,7 @@
 > **Author**: Lincoln
 <!-- /版本信息 -->
 
-This guide details how to effectively use JAiRouter's distributed tracing feature in various scenarios.
+This guide details how to effectively use Trunkline's distributed tracing feature in various scenarios.
 
 ## Basic Usage
 
@@ -32,7 +32,7 @@ grep "4bf92f3577b34da6a3ce929d0e0e4736" logs/application.log
 tail -f logs/application.log | jq 'select(.traceId != null)'
 
 # 查询特定服务的追踪数据
-tail -f logs/application.log | jq 'select(.service == "jairouter" and .traceId != null)'
+tail -f logs/application.log | jq 'select(.service == "trunkline" and .traceId != null)'
 ```
 
 #### 3. Actuator Endpoint Query
@@ -251,7 +251,7 @@ public class ReactiveProcessor {
 The system automatically detects requests that exceed the threshold:
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       # Checked in issue #159: there is no strategy key, and slow-request-threshold /
@@ -396,14 +396,14 @@ public class CustomErrorTracker {
 
 ```bash
 # 查看追踪相关的 Prometheus 指标
-curl -s http://localhost:8080/actuator/prometheus | grep jairouter_tracing
+curl -s http://localhost:8080/actuator/prometheus | grep trunkline_tracing
 
 # 查看采样率指标
-curl -s http://localhost:8080/actuator/metrics/jairouter.tracing.sampling.rate
+curl -s http://localhost:8080/actuator/metrics/trunkline.tracing.sampling.rate
 
 # 查看 Span 创建和导出统计
-curl -s http://localhost:8080/actuator/metrics/jairouter.tracing.spans.created
-curl -s http://localhost:8080/actuator/metrics/jairouter.tracing.spans.exported
+curl -s http://localhost:8080/actuator/metrics/trunkline.tracing.spans.created
+curl -s http://localhost:8080/actuator/metrics/trunkline.tracing.spans.exported
 ```
 
 #### 2. Performance Monitoring API
@@ -465,7 +465,7 @@ public class TracingMemoryMonitor {
 #### 2. Memory Usage Optimization
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     # Checked in issue #159: the real path is performance.memory; cleanup-interval / span-ttl /
     # memory-threshold do not exist (memory pressure is driven by memory-limit-mb, the check
@@ -522,7 +522,7 @@ public class TracingSanitizer {
 #### 2. Configuring Sensitive Data Filtering Rules
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     security:
       # enabled is a condition-only key (TracingSecurityAutoConfiguration @ConditionalOnProperty;
@@ -582,17 +582,17 @@ public class TracingSecurityManager {
 curl http://localhost:8080/actuator/health/tracing
 
 # 2. 检查采样配置
-curl http://localhost:8080/actuator/configprops | jq '.jairouter.tracing.sampling'
+curl http://localhost:8080/actuator/configprops | jq '.trunkline.tracing.sampling'
 
 # 3. 检查导出器状态
-curl http://localhost:8080/actuator/metrics/jairouter.tracing.export.errors
+curl http://localhost:8080/actuator/metrics/trunkline.tracing.export.errors
 ```
 
 **Solutions:**
 
 ```yaml
 # 临时提高采样率进行调试
-jairouter:
+trunkline:
   tracing:
     sampling:
       strategy: "ratio"
@@ -605,7 +605,7 @@ jairouter:
 
 ```bash
 # 查看追踪处理延迟
-curl http://localhost:8080/actuator/metrics/jairouter.tracing.processing.duration
+curl http://localhost:8080/actuator/metrics/trunkline.tracing.processing.duration
 
 # 查看内存使用情况
 curl http://localhost:8080/actuator/metrics/jvm.memory.used
@@ -614,7 +614,7 @@ curl http://localhost:8080/actuator/metrics/jvm.memory.used
 **Optimization Suggestions:**
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     # 降低采样率
     sampling:

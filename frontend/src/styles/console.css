@@ -24,7 +24,7 @@
   --ja-layout-nav-w-collapsed: 64px;
   --ja-layout-topbar-h: 48px;
   --ja-card-gap: 12px;
-  --ja-page-padding: 18px;
+  --ja-page-padding: 20px;
 }
 
 /* 紧凑模式：卡片间距收窄 + Element Plus 尺寸降档兜底 */
@@ -110,7 +110,7 @@ html.ja-compact .el-card__body {
   flex: 1;
   /* min-height:0 允许在列 flex 中收缩，overflow:auto 才能成为右侧内容自己的滚动口 */
   min-height: 0;
-  padding: var(--ja-card-gap);
+  padding: var(--ja-page-padding);
   overflow-y: auto;
 }
 

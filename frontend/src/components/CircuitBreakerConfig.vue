@@ -2,7 +2,7 @@
   <el-dialog
     v-model="dialogVisible"
     :title="dialogTitle"
-    width="600px"
+    width="min(640px, 92vw)"
     :before-close="handleClose"
   >
     <el-form :model="formData" label-width="140px" ref="formRef">

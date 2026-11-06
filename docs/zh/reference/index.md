@@ -9,11 +9,11 @@
 
 
 
-本节包含 JAiRouter 的参考资料和补充信息，为用户提供全面的项目背景、发展历程和专业术语解释。
+本节包含 Trunkline 的参考资料和补充信息，为用户提供全面的项目背景、发展历程和专业术语解释。
 
 ## 参考资料概述
 
-这里提供了项目的各种参考资料，帮助用户更好地理解和使用 JAiRouter：
+这里提供了项目的各种参考资料，帮助用户更好地理解和使用 Trunkline：
 
 ### 📋 项目信息
 - **更新日志** - 详细的版本历史和功能变更记录
@@ -30,14 +30,14 @@
 ## 参考章节
 
 ### [更新日志](changelog.md)
-记录了 JAiRouter 从初始版本到当前版本的所有重要变更：
+记录了 Trunkline 从初始版本到当前版本的所有重要变更：
 - **版本历史**: 详细的版本发布记录
 - **功能变更**: 新增功能、改进优化和问题修复
 - **升级指南**: 版本间的迁移说明和注意事项
 - **已知问题**: 当前版本的限制和解决方案
 
 ### [发展路线图](roadmap.md)
-展示了 JAiRouter 的未来发展规划和技术愿景：
+展示了 Trunkline 的未来发展规划和技术愿景：
 - **版本规划**: 未来版本的功能规划和时间安排
 - **技术演进**: 架构升级和技术栈发展方向
 - **功能特性**: 计划中的新功能和改进点
@@ -88,10 +88,10 @@
 ## 相关资源
 
 ### 官方资源
-- **GitHub 仓库**: [https://github.com/Lincoln-cn/JAiRouter](https://github.com/Lincoln-cn/JAiRouter)
-- **问题反馈**: [GitHub Issues](https://github.com/Lincoln-cn/JAiRouter/issues)
-- **功能讨论**: [GitHub Discussions](https://github.com/Lincoln-cn/JAiRouter/discussions)
-- **版本发布**: [GitHub Releases](https://github.com/Lincoln-cn/JAiRouter/releases)
+- **GitHub 仓库**: [https://github.com/Lincoln-cn/Trunkline](https://github.com/Lincoln-cn/Trunkline)
+- **问题反馈**: [GitHub Issues](https://github.com/Lincoln-cn/Trunkline/issues)
+- **功能讨论**: [GitHub Discussions](https://github.com/Lincoln-cn/Trunkline/discussions)
+- **版本发布**: [GitHub Releases](https://github.com/Lincoln-cn/Trunkline/releases)
 
 ### 社区资源
 - **用户案例**: 真实的使用场景和经验分享
@@ -118,7 +118,7 @@
 如果您在使用参考资料时有任何建议或发现问题：
 - **GitHub Issues**: 报告文档问题或提出改进建议
 - **GitHub Discussions**: 参与文档相关的讨论
-- **邮件联系**: jairouter@example.com
+- **邮件联系**: trunkline@example.com
 - **社区群组**: 加入用户交流群
 
 ### 更新频率
@@ -127,9 +127,9 @@
 - **常见问题**: 根据用户反馈持续更新
 - **术语表**: 随着功能发展逐步完善
 
-我们致力于提供准确、及时、有用的参考资料，帮助用户更好地使用 JAiRouter。
+我们致力于提供准确、及时、有用的参考资料，帮助用户更好地使用 Trunkline。
 
 ---
 
-**维护团队**: JAiRouter 文档团队  
-**联系方式**: jairouter@example.com
+**维护团队**: Trunkline 文档团队  
+**联系方式**: trunkline@example.com

@@ -139,7 +139,7 @@
 
       <div class="config-hint">
         <el-icon><InfoFilled /></el-icon>
-        <span>{{ t('responseCache.runtimeHintBefore') }} <code>jairouter.response-cache.*</code></span>
+        <span>{{ t('responseCache.runtimeHintBefore') }} <code>trunkline.response-cache.*</code></span>
       </div>
       <div class="config-hint">
         <el-icon><InfoFilled /></el-icon>
@@ -238,7 +238,7 @@
       style="margin-top: 16px"
     >
       <template #default>
-        <p style="margin: 0">{{ t('responseCache.tipBefore') }}<code>jairouter.response-cache.*</code>{{ t('responseCache.tipAfter') }}</p>
+        <p style="margin: 0">{{ t('responseCache.tipBefore') }}<code>trunkline.response-cache.*</code>{{ t('responseCache.tipAfter') }}</p>
       </template>
     </el-alert>
   </PageSkeleton>

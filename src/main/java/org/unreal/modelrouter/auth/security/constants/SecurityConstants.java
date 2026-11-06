@@ -29,11 +29,11 @@ public final class SecurityConstants {
      * 配置相关常量
      */
     public static final class Configuration {
-        public static final String SECURITY_CONFIG_PREFIX = "jairouter.security";
-        public static final String API_KEY_CONFIG_PREFIX = "jairouter.security.api-key";
-        public static final String JWT_CONFIG_PREFIX = "jairouter.security.jwt";
-        public static final String SANITIZATION_CONFIG_PREFIX = "jairouter.security.sanitization";
-        public static final String AUDIT_CONFIG_PREFIX = "jairouter.security.audit";
+        public static final String SECURITY_CONFIG_PREFIX = "trunkline.security";
+        public static final String API_KEY_CONFIG_PREFIX = "trunkline.security.api-key";
+        public static final String JWT_CONFIG_PREFIX = "trunkline.security.jwt";
+        public static final String SANITIZATION_CONFIG_PREFIX = "trunkline.security.sanitization";
+        public static final String AUDIT_CONFIG_PREFIX = "trunkline.security.audit";
     }
 
     /**

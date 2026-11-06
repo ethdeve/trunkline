@@ -20,7 +20,7 @@ import java.util.List;
 @Slf4j
 @Service("compositeJwtPersistenceService")
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "jairouter.security.jwt.persistence.composite.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.jwt.persistence.composite.enabled", havingValue = "true")
 public class CompositeJwtPersistenceServiceImpl implements JwtPersistenceService {
     
     @Qualifier("redisJwtTokenPersistenceService")

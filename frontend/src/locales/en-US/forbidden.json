@@ -1,0 +1,30 @@
+{
+  "forbidden": {
+    "title": "You don't have permission to view this page",
+    "fromLabel": "You were trying to open",
+    "missingLabel": "Missing permission",
+    "roleLabel": "Required role",
+    "roleAdmin": "System administrator only",
+    "roleOps": "Operator or administrator",
+    "purposeLabel": "What this page is for",
+    "unknownPage": "(unknown page)",
+    "unknownPurpose": "This is a page that requires permission to open.",
+    "actionTitle": "What to do next",
+    "contactAdmin": "Contact an administrator",
+    "copied": "Request copied — paste it to the administrator",
+    "copyFailed": "Copy failed, please select the text below and copy manually",
+    "backHome": "Back to my quota",
+    "backPrev": "Go back",
+    "askTextTemplate": "Hello, I need access to the \"{page}\" page ({codes}) for {purpose}.",
+    "askTextNoCode": "Hello, I need access to the \"{page}\" page for {purpose}.",
+    "roleAskTextTemplate": "Hello, I'm a {role}. I need access to the \"{page}\" page for {purpose}.",
+    "roleAskTextNoCode": "Hello, I'm a {role}. I need access to the \"{page}\" page for {purpose}.",
+    "roleNames": {
+      "user": "regular employee",
+      "ops": "operator",
+      "admin": "system administrator"
+    },
+    "technicalCode": "Technical permission code",
+    "noPermissionCode": "No matching permission code found — please contact an administrator with your use case"
+  }
+}

@@ -58,6 +58,7 @@
     "scopeColumn": "Scope",
     "scopeGroup": "Group Total",
     "scopeMember": "Member Detail",
+    "scopeModel": "Provider Model",
     "scopeKey": "API Key"
   }
 }

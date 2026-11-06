@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/common/PageHeader.vue'
 import ApiKeyManagement from '@/views/security/ApiKeyManagement.vue'
 import { provide } from 'vue'
+import { menuSubtitle } from '@/config/menu'
 
 const { t } = useI18n()
 
@@ -15,7 +16,7 @@ provide('skeletonEmbedded', true)
 
 <template>
   <div>
-    <PageHeader :title="t('shell.keys.title')" :subtitle="t('shell.keys.subtitle')" />
+    <PageHeader :title="t('shell.keys.title')" :subtitle="menuSubtitle('/all-keys')" />
     <el-card shadow="never">
       <ApiKeyManagement />
     </el-card>

@@ -14,12 +14,12 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * 配额账本配置（{@code jairouter.quota.*}）。
+ * 配额账本配置（{@code trunkline.quota.*}）。
  *
  * <p>默认 {@link #isEnabled() enabled=false}，即完全不启用账本：不累加、不查库、不落库，
  * 行为与 v3.0.x 完全一致（零行为变更）。{@link #getDistributed() distributed} 默认同样关闭：
  * 计数留在本进程内存（{@code LocalCounterBackend}），只有
- * {@code jairouter.quota.distributed.enabled=true} 时才把 Redis 作为权威计数
+ * {@code trunkline.quota.distributed.enabled=true} 时才把 Redis 作为权威计数
  * （{@code RedisCounterBackend}，见 {@link QuotaLedgerService}）。</p>
  *
  * <p>保留期使用字符串而非 {@link java.time.Duration}：月级保留期（{@code 13mo}）无法用
@@ -29,14 +29,18 @@ import java.util.Objects;
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 @Data
 @Component
-@ConfigurationProperties(prefix = "jairouter.quota")
+@ConfigurationProperties(prefix = "trunkline.quota")
 public class QuotaProperties {
 
     /** 默认分布式计数 key 前缀 */
-    public static final String DEFAULT_DISTRIBUTED_KEY_PREFIX = "jairouter:quota";
+    public static final String DEFAULT_DISTRIBUTED_KEY_PREFIX = "trunkline:quota";
+
+    /** 旧版本（JAiRouter 3.x）分布式计数 key 前缀，启动期由迁移器一次性并入新前缀 */
+    public static final String LEGACY_DISTRIBUTED_KEY_PREFIX = "jairouter:quota";
 
     /** 默认 Redis 命令超时（热路径同步等待，取值保守） */
     public static final Duration DEFAULT_DISTRIBUTED_TIMEOUT = Duration.ofMillis(50L);
@@ -90,7 +94,7 @@ public class QuotaProperties {
     /**
      * 分布式计数是否启用。
      *
-     * @return {@code jairouter.quota.distributed.enabled}，默认 {@code false}
+     * @return {@code trunkline.quota.distributed.enabled}，默认 {@code false}
      */
     public boolean distributedEnabled() {
         return distributed != null && distributed.isEnabled();
@@ -104,6 +108,20 @@ public class QuotaProperties {
     public String distributedKeyPrefix() {
         final String prefix = distributed == null ? null : distributed.getKeyPrefix();
         return prefix == null || prefix.isEmpty() ? DEFAULT_DISTRIBUTED_KEY_PREFIX : prefix;
+    }
+
+    /**
+     * 旧版本 Redis key 前缀（用于启动期迁移），为空或与新前缀相同时表示无需迁移。
+     *
+     * @return 配置值；未配置时返回 {@link #LEGACY_DISTRIBUTED_KEY_PREFIX}
+     */
+    public String distributedLegacyKeyPrefix() {
+        final String prefix = distributed == null ? null : distributed.getLegacyKeyPrefix();
+        if (prefix == null || prefix.isEmpty()) {
+            return null;
+        }
+        final String current = distributedKeyPrefix();
+        return prefix.equals(current) ? null : prefix;
     }
 
     /**
@@ -140,7 +158,7 @@ public class QuotaProperties {
     }
 
     /**
-     * 分布式计数配置（{@code jairouter.quota.distributed.*}）。
+     * 分布式计数配置（{@code trunkline.quota.distributed.*}）。
      */
     @Data
     public static class Distributed {
@@ -148,8 +166,14 @@ public class QuotaProperties {
         /** 是否启用 Redis 分布式计数（默认 false：计数完全留在本进程内存） */
         private boolean enabled = false;
 
-        /** Redis key 前缀（默认 {@code jairouter:quota}） */
+        /** Redis key 前缀（默认 {@code trunkline:quota}） */
         private String keyPrefix = DEFAULT_DISTRIBUTED_KEY_PREFIX;
+
+        /**
+         * 旧版本 Redis key 前缀（默认 {@code jairouter:quota}）；启动期由迁移器把该前缀下的
+         * 存量计数并入 {@link #keyPrefix}。置空可关闭迁移（例如确认无旧版数据时）。
+         */
+        private String legacyKeyPrefix = LEGACY_DISTRIBUTED_KEY_PREFIX;
 
         /** 单条 Redis 命令超时（默认 50ms） */
         private Duration timeout = DEFAULT_DISTRIBUTED_TIMEOUT;

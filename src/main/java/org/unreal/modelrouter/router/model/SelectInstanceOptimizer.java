@@ -2,6 +2,7 @@ package org.unreal.modelrouter.router.model;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 import org.unreal.modelrouter.router.checker.ServiceStateManager;
 import org.unreal.modelrouter.router.circuitbreaker.CircuitBreakerManager;
 import org.unreal.modelrouter.router.model.ModelRouterProperties.ModelInstance;
@@ -26,7 +27,9 @@ import java.util.stream.Collectors;
  *
  * @author JAiRouter Team
  * @since v2.7.7
+ * @modified Trunkline Team
  */
+@Component
 public class SelectInstanceOptimizer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SelectInstanceOptimizer.class);

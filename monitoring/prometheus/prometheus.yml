@@ -1,5 +1,5 @@
 # Prometheus配置文件
-# JAiRouter监控栈的核心配置
+# Trunkline监控栈的核心配置
 
 global:
   # 全局抓取间隔
@@ -8,7 +8,7 @@ global:
   evaluation_interval: 15s
   # 外部标签（用于联邦和远程存储）
   external_labels:
-    cluster: 'jairouter-cluster'
+    cluster: 'trunkline-cluster'
     environment: 'production'
 
 # 告警规则文件配置
@@ -34,10 +34,10 @@ scrape_configs:
     metrics_path: /metrics
     honor_labels: true
 
-  # JAiRouter应用监控
-  - job_name: 'jairouter'
+  # Trunkline应用监控
+  - job_name: 'trunkline'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     scrape_interval: 10s
     scrape_timeout: 5s
     metrics_path: '/actuator/prometheus'
@@ -48,10 +48,10 @@ scrape_configs:
       # 添加实例标签
       - source_labels: [__address__]
         target_label: instance
-        replacement: 'jairouter-main'
+        replacement: 'trunkline-main'
       # 添加服务标签
       - target_label: service
-        replacement: 'jairouter'
+        replacement: 'trunkline'
     metric_relabel_configs:
       # 过滤掉不需要的JVM指标
       - source_labels: [__name__]
@@ -61,7 +61,7 @@ scrape_configs:
       - source_labels: [__name__]
         regex: 'http_server_requests_seconds_(.*)'
         target_label: __name__
-        replacement: 'jairouter_http_requests_${1}'
+        replacement: 'trunkline_http_requests_${1}'
 
   # AlertManager监控
   - job_name: 'alertmanager'
@@ -79,7 +79,7 @@ scrape_configs:
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance
-        replacement: 'jairouter-host'
+        replacement: 'trunkline-host'
 
   # cAdvisor容器监控
   - job_name: 'cadvisor'
@@ -90,19 +90,19 @@ scrape_configs:
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance
-        replacement: 'jairouter-containers'
+        replacement: 'trunkline-containers'
 
-  # JAiRouter健康检查端点
-  - job_name: 'jairouter-health'
+  # Trunkline健康检查端点
+  - job_name: 'trunkline-health'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     scrape_interval: 30s
     metrics_path: '/actuator/health'
     params:
       format: ['prometheus']
     relabel_configs:
       - target_label: service
-        replacement: 'jairouter-health'
+        replacement: 'trunkline-health'
 
   # Redis监控（用于JWT持久化）
   - job_name: 'redis'
@@ -113,29 +113,29 @@ scrape_configs:
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance
-        replacement: 'jairouter-redis'
+        replacement: 'trunkline-redis'
       - target_label: service
         replacement: 'redis'
 
   # JWT持久化专用监控端点
-  - job_name: 'jairouter-jwt-persistence'
+  - job_name: 'trunkline-jwt-persistence'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     scrape_interval: 10s
     metrics_path: '/actuator/prometheus'
     params:
       format: ['prometheus']
     relabel_configs:
       - target_label: service
-        replacement: 'jairouter-jwt-persistence'
+        replacement: 'trunkline-jwt-persistence'
     metric_relabel_configs:
       # 只保留JWT相关的指标
       - source_labels: [__name__]
-        regex: 'jairouter_security_jwt_.*|jairouter_security_api_key_.*|jairouter_security_storage_.*|jairouter_security_audit_.*'
+        regex: 'trunkline_security_jwt_.*|trunkline_security_api_key_.*|trunkline_security_storage_.*|trunkline_security_audit_.*'
         action: keep
       # 重命名JWT指标
       - source_labels: [__name__]
-        regex: 'jairouter_security_jwt_(.*)'
+        regex: 'trunkline_security_jwt_(.*)'
         target_label: __name__
         replacement: 'jwt_${1}'
 

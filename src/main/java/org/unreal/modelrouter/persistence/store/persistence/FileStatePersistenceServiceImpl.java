@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.unreal.modelrouter.common.util.JacksonHelper;
 import org.unreal.modelrouter.common.util.PathSanitizer;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -25,15 +26,16 @@ import java.util.stream.StreamSupport;
  * 
  * @author JAiRouter Team
  * @since 2.4.4
+ * @modified Trunkline Team
  */
 @Service
-@ConditionalOnProperty(name = "jairouter.persistence.file.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.persistence.file.enabled", havingValue = "true", matchIfMissing = true)
 public class FileStatePersistenceServiceImpl implements StatePersistenceService {
 
     private static final Logger logger = LoggerFactory.getLogger(FileStatePersistenceServiceImpl.class);
     private static final int TIER_PRIORITY = 3;
 
-    @Value("${jairouter.persistence.file.path:./data/state}")
+    @Value("${trunkline.persistence.file.path:./data/state}")
     private String storagePath;
 
     @Override
@@ -120,26 +122,34 @@ public class FileStatePersistenceServiceImpl implements StatePersistenceService 
             return Mono.just(0);
         }
 
-        int successCount = 0;
-        for (Map.Entry<String, Map<String, Object>> entry : states.entrySet()) {
-            Boolean result = save(stateType, entry.getKey(), entry.getValue()).block(org.unreal.modelrouter.common.util.ReactorTimeouts.BLOCK);
-            if (Boolean.TRUE.equals(result)) {
-                successCount++;
+        return Mono.fromCallable(() -> {
+            // 批量落盘含阻塞文件 IO，整体调度到 boundedElastic，避免调用方在事件循环上订阅时触发 block() 异常
+            int successCount = 0;
+            for (Map.Entry<String, Map<String, Object>> entry : states.entrySet()) {
+                Boolean result = save(stateType, entry.getKey(), entry.getValue())
+                        .block(org.unreal.modelrouter.common.util.ReactorTimeouts.BLOCK);
+                if (Boolean.TRUE.equals(result)) {
+                    successCount++;
+                }
             }
-        }
-        return Mono.just(successCount);
+            return successCount;
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     @Override
     public Mono<Map<String, Map<String, Object>>> loadBatch(final StateType stateType, final Iterable<String> keys) {
-        Map<String, Map<String, Object>> result = new HashMap<>();
-        for (String key : keys) {
-            Map<String, Object> stateData = load(stateType, key).block(org.unreal.modelrouter.common.util.ReactorTimeouts.BLOCK);
-            if (stateData != null && !stateData.isEmpty()) {
-                result.put(key, stateData);
+        return Mono.fromCallable(() -> {
+            // 批量加载含阻塞文件 IO，整体调度到 boundedElastic，避免调用方在事件循环上订阅时触发 block() 异常
+            Map<String, Map<String, Object>> result = new HashMap<>();
+            for (String key : keys) {
+                Map<String, Object> stateData = load(stateType, key)
+                        .block(org.unreal.modelrouter.common.util.ReactorTimeouts.BLOCK);
+                if (stateData != null && !stateData.isEmpty()) {
+                    result.put(key, stateData);
+                }
             }
-        }
-        return Mono.just(result);
+            return result;
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     @Override

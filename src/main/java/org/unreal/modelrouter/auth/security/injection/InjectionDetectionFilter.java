@@ -36,8 +36,10 @@ import reactor.core.publisher.Mono;
 /**
  * 启发式 Prompt 注入拦截过滤器（G10，整改批次二）。
  *
- * <p>执行位置：安全认证之后（order = HIGHEST_PRECEDENCE + 2000，链路见
- * {@code FilterOrderConfiguration}），仅处理 {@code /v1/**} 的 JSON POST 请求。
+ * <p>执行位置：链首区（order = HIGHEST_PRECEDENCE + 2000，顺序契约见
+ * {@code FilterOrderContract}）。注意 Spring Security 链由 Spring Boot 以
+ * {@code @Order(-100)} 注册，故本过滤器实际执行在<b>安全认证之前</b>（此前 javadoc
+ * 曾误写「安全认证之后」），仅处理 {@code /v1/**} 的 JSON POST 请求。
  * 请求体复用 {@code CachedBodyWebFilter} 已缓存的可重放 body（每次订阅返回
  * clone，重放安全），本过滤器不改变请求内容。</p>
  *
@@ -53,14 +55,15 @@ import reactor.core.publisher.Mono;
  *
  * @author wjy-gateway Extensions
  * @since 3.3.1
+ * @modified Trunkline Team
  */
 @Component
 public class InjectionDetectionFilter implements WebFilter, Ordered {
 
     private static final Logger LOG = LoggerFactory.getLogger(InjectionDetectionFilter.class);
 
-    /** 紧跟安全认证过滤链（MIN+1000）之后、业务过滤器之前。 */
-    public static final int FILTER_ORDER = Ordered.HIGHEST_PRECEDENCE + 2000;
+    /** 顺序契约见 {@code FilterOrderContract}（X2 整改：过滤器顺序唯一化）。 */
+    public static final int FILTER_ORDER = org.unreal.modelrouter.common.filter.FilterOrderContract.INJECTION_DETECTION;
 
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
     private static final ObjectMapper JSON = new ObjectMapper();

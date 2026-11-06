@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 @DisplayName("RedisCounterBackend 分布式计数测试")
 class RedisCounterBackendTest {
@@ -61,7 +62,7 @@ class RedisCounterBackendTest {
     void keyOf_shouldBuildNamespacedKey() {
         final QuotaCounterKey key = new QuotaCounterKey(DIMENSION, QuotaWindow.DAY, QuotaWindow.DAY.windowStart(NOW));
 
-        assertEquals("jairouter:quota:tenant-1:key-1:user-1:chat:gpt-4:_:DAY:20260314000000", backend.keyOf(key));
+        assertEquals("trunkline:quota:tenant-1:key-1:user-1:chat:gpt-4:_:DAY:20260314000000", backend.keyOf(key));
     }
 
     @Test
@@ -70,7 +71,7 @@ class RedisCounterBackendTest {
         final QuotaCounterKey key = new QuotaCounterKey(QuotaDimension.ofApiKey("key:1"),
             QuotaWindow.MINUTE, QuotaWindow.MINUTE.windowStart(NOW));
 
-        assertEquals("jairouter:quota:_:key_1:_:_:_:_:MINUTE:20260314134500", backend.keyOf(key));
+        assertEquals("trunkline:quota:_:key_1:_:_:_:_:MINUTE:20260314134500", backend.keyOf(key));
     }
 
     @Test
@@ -83,7 +84,7 @@ class RedisCounterBackendTest {
 
         properties.getDistributed().setKeyPrefix("");
         assertEquals(QuotaProperties.DEFAULT_DISTRIBUTED_KEY_PREFIX, properties.distributedKeyPrefix());
-        assertTrue(backend.keyOf(key).startsWith("jairouter:quota:"));
+        assertTrue(backend.keyOf(key).startsWith("trunkline:quota:"));
     }
 
     @Test
@@ -92,7 +93,7 @@ class RedisCounterBackendTest {
         final QuotaCounterKey key = new QuotaCounterKey(QuotaDimension.ofGroup("group-a"),
             QuotaWindow.DAY, QuotaWindow.DAY.windowStart(NOW));
 
-        assertEquals("jairouter:quota:_:_:_:_:_:group-a:DAY:20260314000000", backend.keyOf(key));
+        assertEquals("trunkline:quota:_:_:_:_:_:group-a:DAY:20260314000000", backend.keyOf(key));
     }
 
     // ==================== Lua 调用形态与累加 ====================
@@ -109,7 +110,7 @@ class RedisCounterBackendTest {
         final FakeReactiveRedisTemplate.Invocation invocation = template.lastInvocation();
         assertNotNull(invocation);
         assertEquals(RedisCounterBackend.INCREMENT_SCRIPT, invocation.script());
-        assertEquals(List.of("jairouter:quota:tenant-1:key-1:user-1:chat:gpt-4:_:MINUTE:20260314134500"),
+        assertEquals(List.of("trunkline:quota:tenant-1:key-1:user-1:chat:gpt-4:_:MINUTE:20260314134500"),
             invocation.keys());
         // ARGV = [请求增量, token 增量, TTL 秒数]（MINUTE 窗口 × 1d 保留期 = 86400s）
         assertEquals(List.of("1", "120", "86400"), invocation.args());

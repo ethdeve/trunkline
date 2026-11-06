@@ -1,13 +1,13 @@
 # 监控 API
 
 <!-- 版本信息 -->
-> **文档版本**: 1.1.0  
-> **最后更新**: 2026-09-15  
+> **文档版本**: 1.1.1  
+> **最后更新**: 2026-10-28  
 > **Git 提交**: 61384b4a  
 > **作者**: Lincoln
 <!-- /版本信息 -->
 
-JAiRouter 提供全面的监控 API，用于健康检查、指标收集和系统状态监控。
+Trunkline 提供全面的监控 API，用于健康检查、指标收集和系统状态监控。
 
 ## 概述
 
@@ -17,7 +17,7 @@ JAiRouter 提供全面的监控 API，用于健康检查、指标收集和系统
 - **指标** - 性能和使用统计
 - **系统状态** - 整体系统健康和配置
 
-所有监控端点都在 `/actuator/*` 路径下提供，为您的 JAiRouter 部署提供实时洞察。
+所有监控端点都在 `/actuator/*` 路径下提供，为您的 Trunkline 部署提供实时洞察。
 
 ## 健康检查端点
 
@@ -120,29 +120,29 @@ jvm_memory_used_bytes{area="heap",id="PS Eden Space",} 2.38026752E8
 jvm_memory_used_bytes{area="heap",id="PS Survivor Space",} 1048576.0
 jvm_memory_used_bytes{area="heap",id="PS Old Gen",} 4.2991616E7
 
-# HELP jairouter_requests_total 请求总数
-# TYPE jairouter_requests_total counter
-jairouter_requests_total{service="chat",method="POST",status="200",} 1247.0
-jairouter_requests_total{service="chat",method="POST",status="500",} 23.0
-jairouter_requests_total{service="chat",method="POST",status="200",} 1156.0
-jairouter_requests_total{service="chat",method="POST",status="500",} 18.0
+# HELP trunkline_requests_total 请求总数
+# TYPE trunkline_requests_total counter
+trunkline_requests_total{service="chat",method="POST",status="200",} 1247.0
+trunkline_requests_total{service="chat",method="POST",status="500",} 23.0
+trunkline_requests_total{service="chat",method="POST",status="200",} 1156.0
+trunkline_requests_total{service="chat",method="POST",status="500",} 18.0
 
-# HELP jairouter_request_duration_seconds 请求持续时间（秒）
-# TYPE jairouter_request_duration_seconds histogram
-jairouter_request_duration_seconds_bucket{service="chat",method="POST",le="0.1",} 234.0
-jairouter_request_duration_seconds_bucket{service="chat",method="POST",le="0.5",} 892.0
-jairouter_request_duration_seconds_bucket{service="chat",method="POST",le="1.0",} 1156.0
-jairouter_request_duration_seconds_bucket{service="chat",method="POST",le="+Inf",} 1270.0
+# HELP trunkline_request_duration_seconds 请求持续时间（秒）
+# TYPE trunkline_request_duration_seconds histogram
+trunkline_request_duration_seconds_bucket{service="chat",method="POST",le="0.1",} 234.0
+trunkline_request_duration_seconds_bucket{service="chat",method="POST",le="0.5",} 892.0
+trunkline_request_duration_seconds_bucket{service="chat",method="POST",le="1.0",} 1156.0
+trunkline_request_duration_seconds_bucket{service="chat",method="POST",le="+Inf",} 1270.0
 
-# HELP jairouter_circuit_breaker_state 熔断器状态 (0=关闭, 1=打开, 2=半开)
-# TYPE jairouter_circuit_breaker_state gauge
-jairouter_circuit_breaker_state{service="chat",method="POST",} 0.0
-jairouter_circuit_breaker_state{service="chat",method="POST",} 0.0
+# HELP trunkline_circuit_breaker_state 熔断器状态 (0=关闭, 1=打开, 2=半开)
+# TYPE trunkline_circuit_breaker_state gauge
+trunkline_circuit_breaker_state{service="chat",method="POST",} 0.0
+trunkline_circuit_breaker_state{service="chat",method="POST",} 0.0
 
-# HELP jairouter_rate_limit_remaining 限流剩余请求数
-# TYPE jairouter_rate_limit_remaining gauge
-jairouter_rate_limit_remaining{service="chat",client_ip="192.168.1.100",} 45.0
-jairouter_rate_limit_remaining{service="chat",client_ip="192.168.1.101",} 38.0
+# HELP trunkline_rate_limit_remaining 限流剩余请求数
+# TYPE trunkline_rate_limit_remaining gauge
+trunkline_rate_limit_remaining{service="chat",client_ip="192.168.1.100",} 45.0
+trunkline_rate_limit_remaining{service="chat",client_ip="192.168.1.101",} 38.0
 ```
 
 ### 指标摘要
@@ -161,11 +161,11 @@ GET /actuator/metrics
     "jvm.memory.max", 
     "jvm.gc.pause",
     "http.server.requests",
-    "jairouter_requests_total",
-    "jairouter_request_duration_seconds",
-    "jairouter_circuit_breaker_state",
-    "jairouter_rate_limit_remaining",
-    "jairouter_loadbalancer_selections_total"
+    "trunkline_requests_total",
+    "trunkline_request_duration_seconds",
+    "trunkline_circuit_breaker_state",
+    "trunkline_rate_limit_remaining",
+    "trunkline_loadbalancer_selections_total"
   ]
 }
 ```
@@ -175,13 +175,13 @@ GET /actuator/metrics
 获取特定指标的详细信息：
 
 ```http
-GET /actuator/metrics/jairouter_requests_total
+GET /actuator/metrics/trunkline_requests_total
 ```
 
 **响应：**
 ```json
 {
-  "name": "jairouter_requests_total",
+  "name": "trunkline_requests_total",
   "description": "模型路由器处理的请求总数",
   "baseUnit": null,
   "measurements": [
@@ -221,12 +221,12 @@ GET /actuator/info
 ```json
 {
   "app": {
-    "name": "JAiRouter",
-    "version": "3.2.2",
+    "name": "Trunkline",
+    "version": "3.3.1",
     "description": "AI 模型服务路由器和负载均衡器"
   },
   "build": {
-    "version": "3.2.2",
+    "version": "3.3.1",
     "artifact": "model-router",
     "name": "model-router",
     "group": "org.unreal",
@@ -247,7 +247,7 @@ GET /actuator/info
 ```
 
 > ⚠️ `build` / `git` 段需要 pom 里启用 `build-info` 目标（当前 `pom.xml` 未配置），
-> 默认的 `/actuator/info` 不会返回这两段；上面是示意输出。当前工程版本为 3.2.2。
+> 默认的 `/actuator/info` 不会返回这两段；上面是示意输出。当前工程版本为 3.3.1。
 
 ### 环境信息
 
@@ -258,7 +258,7 @@ GET /actuator/env
 ```
 
 > ⚠️ `env` **不在默认暴露清单内**（`config/base/monitoring-base.yml:60` 只暴露 health / info /
-> metrics / prometheus / jairouter-metrics / error-tracking；prod 见 `application-prod.yml:40`）。
+> metrics / prometheus / trunkline-metrics / error-tracking；prod 见 `application-prod.yml:40`）。
 > 需要它时先把 `env` 加进 `management.endpoints.web.exposure.include`。
 
 **响应：**
@@ -292,7 +292,7 @@ GET /actuator/env
 }
 ```
 
-> ⚠️ 上面是示意输出：本项目的配置键全部在 `jairouter.*` 前缀下，
+> ⚠️ 上面是示意输出：本项目的配置键全部在 `trunkline.*` 前缀下，
 > **不存在 `model-router.*` 键**（全仓 `src/main/resources` 无匹配）。
 
 ## 自定义监控端点
@@ -303,6 +303,14 @@ GET /actuator/env
 
 ```http
 GET /api/monitoring/health
+```
+
+### 监控总览
+
+获取监控总览聚合数据（代码依据：`MonitoringController#overview`）：
+
+```http
+GET /api/monitoring/overview
 ```
 
 ### 监控配置
@@ -345,19 +353,19 @@ GET /api/monitoring/errors/stats
 GET /api/monitoring/cache/stats
 ```
 
-> **注意**: 以上端点为 JAiRouter（当前版本 3.2.2）实际提供的自定义监控端点，逐条对应
+> **注意**: 以上端点为 Trunkline（当前版本 3.3.1）实际提供的自定义监控端点，逐条对应
 > `MonitoringController.java:65,226,240,268,309,390,426`。更多端点请参考 [管理 API](management-api.md) 文档。
 
 ## 监控集成
 
 ### Prometheus 集成
 
-JAiRouter 在 `/actuator/prometheus` 端点暴露 Prometheus 格式的指标。配置 Prometheus 抓取这些指标：
+Trunkline 在 `/actuator/prometheus` 端点暴露 Prometheus 格式的指标。配置 Prometheus 抓取这些指标：
 
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
       - targets: ['localhost:8080']
     metrics_path: '/actuator/prometheus'
@@ -366,7 +374,7 @@ scrape_configs:
 
 ### Grafana 仪表板
 
-导入 JAiRouter Grafana 仪表板进行可视化：
+导入 Trunkline Grafana 仪表板进行可视化：
 
 - **仪表板 ID**: 即将推出
 - **指标**: 请求速率、响应时间、错误率、熔断器状态
@@ -374,7 +382,7 @@ scrape_configs:
 
 ### 健康检查集成
 
-配置外部监控工具检查 JAiRouter 健康状态：
+配置外部监控工具检查 Trunkline 健康状态：
 
 ```bash
 # 简单健康检查
@@ -415,10 +423,10 @@ curl -f http://localhost:8080/actuator/health/tracing || exit 1
 ```yaml
 # Prometheus 告警规则
 groups:
-  - name: jairouter
+  - name: trunkline
     rules:
       - alert: 高错误率
-        expr: rate(jairouter_requests_total{status="500"}[5m]) / rate(jairouter_requests_total[5m]) > 0.1
+        expr: rate(trunkline_requests_total{status="500"}[5m]) / rate(trunkline_requests_total[5m]) > 0.1
         for: 2m
         labels:
           severity: warning
@@ -426,7 +434,7 @@ groups:
           summary: "检测到高错误率"
           
       - alert: 熔断器打开
-        expr: jairouter_circuit_breaker_state > 0
+        expr: trunkline_circuit_breaker_state > 0
         for: 1m
         labels:
           severity: critical
@@ -434,12 +442,12 @@ groups:
           summary: "熔断器已打开"
           
       - alert: 实例宕机
-        expr: up{job="jairouter"} == 0
+        expr: up{job="trunkline"} == 0
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: "JAiRouter 实例已宕机"
+          summary: "Trunkline 实例已宕机"
 ```
 
 ### 日志监控

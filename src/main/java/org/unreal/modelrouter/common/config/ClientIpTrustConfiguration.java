@@ -8,13 +8,14 @@ import org.unreal.modelrouter.common.util.ClientIpResolver;
 import org.unreal.modelrouter.common.util.TrustedProxyPolicy;
 
 /**
- * 把 {@code jairouter.security.rate-limit.trusted-proxies} 注入到共享的客户端 IP 推导组件（#151）。
+ * 把 {@code trunkline.security.rate-limit.trusted-proxies} 注入到共享的客户端 IP 推导组件（#151）。
  *
  * <p>配置只在启动时读取一次：信任边界属于部署事实，运行期变更会带来「一部分请求按旧策略、
  * 一部分按新策略」的窗口，比不支持热更新更危险。</p>
  *
  * @author JAiRouter Team
  * @since 3.2.6
+ * @modified Trunkline Team
  */
 @Slf4j
 @Configuration
@@ -23,7 +24,7 @@ public class ClientIpTrustConfiguration {
     private final String trustedProxiesRaw;
 
     public ClientIpTrustConfiguration(
-            @Value("${jairouter.security.rate-limit.trusted-proxies:}") final String trustedProxiesRaw) {
+            @Value("${trunkline.security.rate-limit.trusted-proxies:}") final String trustedProxiesRaw) {
         this.trustedProxiesRaw = trustedProxiesRaw;
     }
 

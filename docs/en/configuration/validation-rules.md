@@ -1,397 +1,91 @@
 # Configuration Validation Rules
 
 <!-- 版本信息 -->
-> **Doc Version**: 1.0.0
-> **Last Updated**: 2026-07-17
-> **Git Commit**: ca98a2ee
+> **Doc Version**: 1.1.0  
+> **Last Updated**: 2026-10-28
 > **Author**: Lincoln
 <!-- /版本信息 -->
 
-> Version: v2.8.1
-> Last updated: 2026-06-23
+Trunkline validates sensitive configuration and integrity settings at startup and via the admin layer, and exposes the validation rules and config sources through a management API.
 
----
+## Management API
 
-## Overview
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/config/sources` | GET | Where each config key was loaded from (YAML / env var / dynamic config) |
+| `/api/config/validation-rules` | GET | Validation rule definitions |
+| `/api/config/environment-variables` | GET | Required/optional environment variable guide |
 
-JAiRouter v3.1.1+ introduces a startup configuration validation mechanism that automatically detects the reasonableness of key configuration items, helping administrators discover configuration issues before the application starts.
-
----
-
-## Validation Rule List
-
-### 1. Rate Limit Capacity (rate-limit-capacity)
-
-**Config item**: `RATE_LIMIT_CAPACITY` (environment variable)
-
-**Validation rules**:
-| Rule type | Min | Max | Description |
-|-----------|-----|-----|-------------|
-| Error | 1 | - | Rate limit capacity must be greater than 0 |
-| Warning | - | 100000 | Excessive capacity may cause memory pressure |
-
-**Recommended value**: 100 - 10000
-
-**Example**:
 ```bash
-# Correct configuration
-export RATE_LIMIT_CAPACITY=1000
+# View validation rule definitions
+curl -X GET "http://localhost:8080/api/config/validation-rules"
 
-# Error configuration (will report an error)
-export RATE_LIMIT_CAPACITY=0
+# View the environment variable guide
+curl -X GET "http://localhost:8080/api/config/environment-variables"
 
-# Warning configuration (will warn)
-export RATE_LIMIT_CAPACITY=200000
+# View config source tracking
+curl -X GET "http://localhost:8080/api/config/sources"
 ```
 
----
+## Rule Categories
 
-### 2. Rate Limit Rate (rate-limit-rate)
+Rules fall into two categories (per `ConfigValidationController`):
 
-**Config item**: `RATE_LIMIT_RATE` (environment variable)
+### 1. Sensitive Config Rules (sensitiveConfig)
 
-**Validation rules**:
-| Rule type | Min | Max | Description |
-|-----------|-----|-----|-------------|
-| Error | 1 | - | Rate limit rate must be greater than 0 |
-| Warning | - | 10000 | Excessive rate may overload the system |
+Validate that sensitive settings are injected via environment variables and meet minimum length:
 
-**Recommended value**: 10 - 1000 (requests/second)
+| Rule | Description |
+|------|-------------|
+| `JWT_SECRET` | JWT signing secret, minimum 32 chars, must be injected via env var `JWT_SECRET` |
+| `INITIAL_ADMIN_PASSWORD` | Initial admin password, minimum length 8, must be injected via env var |
+| `GPUSTACK_API_TOKEN` | GPUStack API Token (required when using the GPUStack adapter) |
 
-**Example**:
-```bash
-# Correct configuration
-export RATE_LIMIT_RATE=100
+A validation failure logs an error at startup and blocks startup (or marks the setting as missing).
 
-# Error configuration
-export RATE_LIMIT_RATE=0
-```
+### 2. Integrity Config Rules (integrityConfig)
 
----
+Validate that key business settings are within legal ranges:
 
-### 3. Circuit Breaker Failure Threshold (circuit-breaker-threshold)
+| Setting | Legal Range | Default |
+|---------|-------------|---------|
+| `server.port` | 1 - 65535 | 8080 |
+| `model.load-balance.type` | enum: `round-robin` / `weighted` / `least-connections` / `ip-hash` / `random` | `round-robin` (note: the runtime actually supports `random`/`round-robin`/`least-connections`/`ip-hash`/`consistent-hash`/`latency`; the enum is governed by the controller's rule table) |
+| `model.circuit-breaker.enabled` | boolean | true |
+| `model.circuit-breaker.failureThreshold` | minimum 1 | 5 |
+| `model.circuit-breaker.timeoutMs` | 100 - 300000 | 60000 |
+| `store.type` | enum: `jpa` / `redis` / `memory` | `jpa` |
 
-**Config item**: `CIRCUIT_BREAKER_FAILURE_THRESHOLD` (environment variable)
+## Required Environment Variables
 
-**Validation rules**:
-| Rule type | Min | Max | Description |
-|-----------|-----|-----|-------------|
-| Error | 1 | - | Failure threshold must be greater than 0 |
-| Warning | - | 100 | Excessive threshold may delay circuit breaking |
+Required at startup (missing triggers a warning or blocks startup):
 
-**Recommended value**: 5 - 20
+| Environment Variable | Description | Min Length |
+|----------------------|-------------|-----------|
+| `JWT_SECRET` | JWT signing secret | 32 |
+| `INITIAL_ADMIN_PASSWORD` | Initial admin password | 8 |
 
-**Example**:
-```bash
-# Correct configuration
-export CIRCUIT_BREAKER_FAILURE_THRESHOLD=5
+## Optional Environment Variables
 
-# Warning configuration
-export CIRCUIT_BREAKER_FAILURE_THRESHOLD=150
-```
+| Environment Variable | Default | Description |
+|----------------------|---------|-------------|
+| `GPUSTACK_API_TOKEN` | - | GPUStack adapter API Token |
+| `JWT_EXPIRATION_MINUTES` | 60 | Access token lifetime (minutes) |
+| `JWT_REFRESH_EXPIRATION_DAYS` | 7 | Refresh token lifetime (days) |
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | localhost/6379/empty | Redis connection (used for distributed rate limit, state persistence Tier1, Redis store) |
+| `SERVER_PORT` | 8080 | Server port |
+| `DATABASE_URL` / `DATABASE_USERNAME` / `DATABASE_PASSWORD` | H2 defaults | Switch to PostgreSQL |
 
----
+> **To be confirmed**: earlier versions of this doc described a "startup validation banner + 7 rules" (`RATE_LIMIT_CAPACITY` / `RATE_LIMIT_RATE` / `RATE_LIMIT_SCOPE` / `CIRCUIT_BREAKER_FAILURE_THRESHOLD` / `CIRCUIT_BREAKER_TIMEOUT` / `MODEL_SERVICES_INSTANCES` / `JWT_EXPIRATION`) and the corresponding `RATE_LIMIT_CAPACITY` env vars. No such implementation was found in the current codebase (`grep RATE_LIMIT_CAPACITY` returns zero matches). The authoritative validation is the rule table returned by `/api/config/validation-rules`.
 
-### 4. Circuit Breaker Timeout (circuit-breaker-timeout)
+## Relationship to Other Configuration
 
-**Config item**: `CIRCUIT_BREAKER_TIMEOUT` (environment variable, unit: milliseconds)
+- Sensitive-config validation is the first line of deployment security, working with [JWT Persistence](jwt-persistence.md)
+- Integrity validation covers the key parameters of [Load Balancing](load-balancing.md), [Circuit Breaker](circuit-breaker.md), and [Store Configuration](store-config.md)
+- Config source tracking helps answer "why didn't my config take effect", working with [Dynamic Config](dynamic-config.md)
 
-**Validation rules**:
-| Rule type | Min | Max | Description |
-|-----------|-----|-----|-------------|
-| Error | 1000 | - | Timeout cannot be less than 1 second |
-| Warning | - | 300000 | Timeout too long (>5 minutes) |
+## Next Steps
 
-**Recommended value**: 30000 - 120000 (30 seconds - 2 minutes)
-
-**Example**:
-```bash
-# Correct configuration
-export CIRCUIT_BREAKER_TIMEOUT=60000
-
-# Error configuration
-export CIRCUIT_BREAKER_TIMEOUT=500
-
-# Warning configuration
-export CIRCUIT_BREAKER_TIMEOUT=400000
-```
-
----
-
-### 5. JWT Expiration (jwt-expiration)
-
-**Config item**: `JWT_EXPIRATION_MINUTES` (environment variable, unit: minutes)
-
-**Validation rules**:
-| Rule type | Min | Max | Description |
-|-----------|-----|-----|-------------|
-| Error | 1 | - | JWT expiration must be greater than 0 minutes |
-| Warning | - | 1440 | Expiration too long (>24 hours) |
-
-**Recommended value**: 60 - 480 (1 hour - 8 hours)
-
-**Example**:
-```bash
-# Correct configuration
-export JWT_EXPIRATION_MINUTES=120
-
-# Warning configuration
-export JWT_EXPIRATION_MINUTES=2000
-```
-
----
-
-### 6. Server Port (server-port)
-
-**Config item**: `SERVER_PORT` (environment variable)
-
-**Validation rules**:
-| Rule type | Min | Max | Description |
-|-----------|-----|-----|-------------|
-| Error | 1 | 65535 | Port must be in the valid range |
-| Warning | - | 1023 | Ports below 1024 may require root privileges |
-
-**Recommended value**: high ports such as 8080, 8443, 3000
-
-**Example**:
-```bash
-# Correct configuration
-export SERVER_PORT=8080
-
-# Error configuration
-export SERVER_PORT=70000
-
-# Warning configuration (requires root)
-export SERVER_PORT=80
-```
-
----
-
-### 7. Thread Pool Size (thread-pool-size)
-
-**Config item**: `SERVER_TOMCAT_THREADS_MAX` (environment variable)
-
-**Validation rules**:
-| Rule type | Min | Max | Description |
-|-----------|-----|-----|-------------|
-| Error | 1 | - | Thread pool size must be greater than 0 |
-| Warning | - | 500 | Oversized thread pool may waste resources |
-
-**Recommended value**: 50 - 200
-
-**Example**:
-```bash
-# Correct configuration
-export SERVER_TOMCAT_THREADS_MAX=100
-
-# Warning configuration
-export SERVER_TOMCAT_THREADS_MAX=600
-```
-
----
-
-## Validation Levels
-
-### ✅ OK (Pass)
-- Configuration is within a reasonable range
-- No logs output (except DEBUG level)
-- Application starts normally
-
-### ⚠️ WARN (Warning)
-- Configuration may not be optimal but is acceptable
-- Warning log output
-- **Does not block application startup**
-- Recommended to optimize configuration per the hint
-
-### ❌ ERROR (Error)
-- Configuration has an obvious problem
-- Error log output
-- **Does not block application startup**, but correction is strongly recommended
-- The application may have runtime issues
-
----
-
-## Validation Output Examples
-
-### All Passed
-```
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                            JAiRouter Config Validation                       ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-
-✓ [rate-limit-capacity] Rate limit capacity - Passed
-✓ [rate-limit-rate] Rate limit rate - Passed
-✓ [circuit-breaker-threshold] Circuit breaker failure threshold - Passed
-✓ [circuit-breaker-timeout] Circuit breaker timeout - Passed
-✓ [jwt-expiration] JWT expiration - Passed
-✓ [server-port] Server port - Passed
-✓ [thread-pool-size] Thread pool size - Passed
-
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  Config Validation Summary                                                   ║
-║                                                                              ║
-║  Total rules: 7                                                              ║
-║  Passed: 7                                                                   ║
-║  Warnings: 0                                                                 ║
-║  Errors: 0                                                                   ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-```
-
-### With Warnings
-```
-⚠️  [rate-limit-capacity] Rate limit capacity - Capacity too large, may cause memory pressure
-⚠️  [circuit-breaker-threshold] Circuit breaker failure threshold - Threshold too large, may delay circuit breaking
-
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  Config Validation Summary                                                   ║
-║                                                                              ║
-║  Total rules: 7                                                              ║
-║  Passed: 7                                                                   ║
-║  Warnings: 2                                                                 ║
-║  Errors: 0                                                                   ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-```
-
-### With Errors
-```
-❌ [rate-limit-rate] Rate limit rate - Rate must be greater than 0
-❌ [jwt-expiration] JWT expiration - JWT expiration must be greater than 0 minutes
-
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  Config Validation Summary                                                   ║
-║                                                                              ║
-║  Total rules: 7                                                              ║
-║  Passed: 5                                                                   ║
-║  Warnings: 0                                                                 ║
-║  Errors: 2                                                                   ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-
-⚠️  2 configuration errors detected. Please check and fix the configuration, then restart the application.
-```
-
----
-
-## Enabling/Disabling Validation
-
-### Enable (default)
-Validation is enabled by default; no extra configuration is needed.
-
-### Disable
-To disable validation, set the following configuration:
-
-```yaml
-# application.yml
-jairouter:
-  config:
-    validation:
-      enabled: false
-```
-
-Or use the environment variable:
-```bash
-export JAiROUTER_CONFIG_VALIDATION_ENABLED=false
-```
-
----
-
-## Custom Validation Rules
-
-Developers can add custom validation rules by implementing the `ConfigurationValidationRule` interface.
-
-### Example Code
-
-```java
-@Component
-public class CustomConfigurationValidator {
-
-    @EventListener(ApplicationReadyEvent.class)
-    public void validateCustomConfig() {
-        // Add custom validation logic
-        String customConfig = System.getenv("CUSTOM_CONFIG");
-        if (customConfig != null) {
-            // Validate custom config
-            if (!isValid(customConfig)) {
-                log.error("Custom configuration is invalid");
-            }
-        }
-    }
-    
-    private boolean isValid(String config) {
-        // Implement validation logic
-        return true;
-    }
-}
-```
-
----
-
-## Best Practices
-
-### 1. Development Environment
-```bash
-export RATE_LIMIT_CAPACITY=100
-export RATE_LIMIT_RATE=10
-export CIRCUIT_BREAKER_FAILURE_THRESHOLD=3
-export CIRCUIT_BREAKER_TIMEOUT=30000
-export JWT_EXPIRATION_MINUTES=60
-export SERVER_PORT=8080
-export SERVER_TOMCAT_THREADS_MAX=50
-```
-
-### 2. Production Environment
-```bash
-export RATE_LIMIT_CAPACITY=10000
-export RATE_LIMIT_RATE=500
-export CIRCUIT_BREAKER_FAILURE_THRESHOLD=10
-export CIRCUIT_BREAKER_TIMEOUT=60000
-export JWT_EXPIRATION_MINUTES=120
-export SERVER_PORT=8080
-export SERVER_TOMCAT_THREADS_MAX=200
-```
-
-### 3. High-Performance Environment
-```bash
-export RATE_LIMIT_CAPACITY=50000
-export RATE_LIMIT_RATE=2000
-export CIRCUIT_BREAKER_FAILURE_THRESHOLD=15
-export CIRCUIT_BREAKER_TIMEOUT=90000
-export JWT_EXPIRATION_MINUTES=240
-export SERVER_PORT=8080
-export SERVER_TOMCAT_THREADS_MAX=400
-```
-
----
-
-## Troubleshooting
-
-### Issue: Validation rules not taking effect
-
-**Checklist**:
-1. Confirm `jairouter.config.validation.enabled` is `true` (default)
-2. Check logs for "JAiRouter Config Validation" output
-3. Confirm environment variables are set correctly
-
-### Issue: False warnings
-
-**Solutions**:
-1. Check whether the configuration value is actually reasonable
-2. If the configuration is confirmed correct, adjust the warning thresholds
-3. Or ignore the warning (it does not affect startup)
-
-### Issue: Configuration errors but startup not blocked
-
-**Note**:
-The purpose of configuration validation is to **detect problems early**, not to block startup. Even with errors, the application will still start, but may have runtime issues.
-
-**Recommendations**:
-- Fix the configuration immediately after seeing error logs
-- Add configuration checks to the CI/CD pipeline
-- Use Docker environment variables to force-inject correct configuration
-
----
-
-## Related Files
-
-- [Application Config](application-config.md) - Application configuration file documentation
-
----
+- [Dynamic Config](dynamic-config.md) - runtime configuration management
+- [JWT Persistence](jwt-persistence.md) - JWT tokens and audit configuration
+- [Store Configuration](store-config.md) - storage types and migration

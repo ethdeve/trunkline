@@ -29,7 +29,7 @@ public class JwtServiceConfiguration {
      */
     @Bean
     @Primary
-    @ConditionalOnProperty(name = "jairouter.security.jwt.persistence.redis.enabled", havingValue = "true")
+    @ConditionalOnProperty(name = "trunkline.security.jwt.persistence.redis.enabled", havingValue = "true")
     public JwtPersistenceService redisJwtPersistenceService(
             final ReactiveRedisTemplate<String, String> redisTemplate,
             final StoreManager storeManager) {
@@ -45,7 +45,7 @@ public class JwtServiceConfiguration {
     @Bean
     @Primary
     @ConditionalOnProperty(
-            name = "jairouter.security.jwt.persistence.redis.enabled",
+            name = "trunkline.security.jwt.persistence.redis.enabled",
             havingValue = "false", matchIfMissing = true)
     public JwtPersistenceService storeManagerJwtPersistenceService(
             final StoreManager storeManager,
@@ -61,7 +61,7 @@ public class JwtServiceConfiguration {
      */
     @Bean
     @Primary
-    @ConditionalOnProperty(name = "jairouter.security.jwt.blacklist.redis.enabled", havingValue = "true")
+    @ConditionalOnProperty(name = "trunkline.security.jwt.blacklist.redis.enabled", havingValue = "true")
     public JwtBlacklistService redisJwtBlacklistService(
             final ReactiveRedisTemplate<String, String> redisTemplate,
             final StoreManager storeManager) {
@@ -77,7 +77,7 @@ public class JwtServiceConfiguration {
     @Bean
     @Primary
     @ConditionalOnProperty(
-            name = "jairouter.security.jwt.blacklist.redis.enabled",
+            name = "trunkline.security.jwt.blacklist.redis.enabled",
             havingValue = "false", matchIfMissing = true)
     public JwtBlacklistService storeManagerJwtBlacklistService(final StoreManager storeManager) {
         
@@ -89,7 +89,7 @@ public class JwtServiceConfiguration {
      * JWT服务健康检查器
      */
     @Bean
-    @ConditionalOnProperty(name = "jairouter.security.jwt.persistence.enabled", havingValue = "true")
+    @ConditionalOnProperty(name = "trunkline.security.jwt.persistence.enabled", havingValue = "true")
     public JwtServiceHealthChecker jwtServiceHealthChecker(
             final JwtPersistenceService persistenceService,
             final JwtBlacklistService blacklistService) {

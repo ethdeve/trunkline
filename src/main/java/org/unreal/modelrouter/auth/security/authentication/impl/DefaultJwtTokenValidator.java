@@ -11,14 +11,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.unreal.modelrouter.common.exception.AuthenticationException;
+import org.unreal.modelrouter.common.util.TokenHashUtils;
 import org.unreal.modelrouter.auth.security.authentication.JwtTokenValidator;
 import org.unreal.modelrouter.auth.security.config.properties.SecurityProperties;
 import org.unreal.modelrouter.auth.security.model.JwtAuthentication;
 import org.unreal.modelrouter.auth.security.model.JwtPrincipal;
+import org.unreal.modelrouter.auth.security.service.AccountManager;
 import org.unreal.modelrouter.auth.security.service.EnhancedJwtBlacklistService;
+import org.unreal.modelrouter.auth.security.service.JwtRefreshClaimResolver;
+import org.unreal.modelrouter.auth.security.service.JwtRefreshIdentityException;
+import org.unreal.modelrouter.auth.security.service.JwtRefreshIdentityResolver;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -43,12 +51,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "jairouter.security.jwt.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.jwt.enabled", havingValue = "true")
 public class DefaultJwtTokenValidator implements JwtTokenValidator {
 
-    private static final String BLACKLIST_KEY_PREFIX = "jwt:blacklist:";
+    private static final String BLACKLIST_KEY_PREFIX = "jwt:blacklist:jti:";
     private static final String ROLES_CLAIM = "roles";
-    private static final String PERMISSIONS_CLAIM = "permissions";
     private static final String USER_ID_CLAIM = "userId";
 
     /** 黑名单存储不可用后的短路窗口默认值（issue #76）。 */
@@ -66,6 +73,15 @@ public class DefaultJwtTokenValidator implements JwtTokenValidator {
     // 使用增强的黑名单服务（可选依赖）
     @Autowired(required = false)
     private EnhancedJwtBlacklistService enhancedBlacklistService;
+
+    /**
+     * 账户服务（可选依赖）：刷新时用于重新加载用户当前角色。
+     *
+     * <p>与 {@code AccountManager} 形成单向依赖（validator → accountManager → rolePermissionService），
+     * 不存在循环引用；AccountManager 不依赖 validator。
+     */
+    @Autowired(required = false)
+    private AccountManager accountManager;
 
     @Override
     public Mono<Authentication> validateToken(final String token) {
@@ -89,8 +105,6 @@ public class DefaultJwtTokenValidator implements JwtTokenValidator {
                     String subject = claims.getSubject();
                     String issuer = claims.getIssuer();
                     List<String> roles = extractRoles(claims);
-                    // v2.9.8 RBAC: 提取权限码声明（与 roles 声明同模式，可能缺失）
-                    List<String> permissions = extractPermissions(claims);
 
                     LocalDateTime issuedAt = convertToLocalDateTime(claims.getIssuedAt());
                     LocalDateTime expiresAt = convertToLocalDateTime(claims.getExpiration());
@@ -105,14 +119,14 @@ public class DefaultJwtTokenValidator implements JwtTokenValidator {
                         new HashMap<>(claims)
                     );
 
-                    // 创建认证对象（角色→ROLE_ 前缀 authority，权限码→无前缀 authority）
+                    // 创建认证对象（角色→ROLE_ 前缀 authority；URL 级授权由固定角色矩阵裁决）
                     JwtAuthentication authentication =
-                            new JwtAuthentication(subject, token, roles, permissions);
+                            new JwtAuthentication(subject, token, roles);
                     authentication.setAuthenticated(true);
                     authentication.setDetails(principal);
 
-                    log.debug("JWT令牌验证成功: subject={}, roles={}, permissions={}",
-                            subject, roles, permissions);
+                    log.debug("JWT令牌验证成功: subject={}, roles={}",
+                            subject, roles);
                     return Mono.just((Authentication) authentication);
 
                 } catch (JwtException e) {
@@ -144,20 +158,32 @@ public class DefaultJwtTokenValidator implements JwtTokenValidator {
             return blacklistToken(token)
                 .then(Mono.fromCallable(() -> {
                     // 创建新令牌
-                    String subject = claims.getSubject();
-                    List<String> roles = extractRoles(claims);
-                    Map<String, Object> additionalClaims = new HashMap<>();
+                    final String subject = claims.getSubject();
 
-                    // 保留原有的自定义声明
-                    claims.forEach((key, value) -> {
-                        if (!key.equals("sub") && !key.equals("iss") 
-                        && !key.equals("exp") && !key.equals("iat")
-                        && !key.equals("nbf")) {
-                            additionalClaims.put(key, value);
-                        }
-                    });
+                    // P0-L 安全修复（漏洞 2）：刷新时**重算**角色，绝不沿用旧声明。
+                    //
+                    // 旧实现把旧令牌的 roles/permissions claim 原样拷进新令牌，导致角色被调整后，
+                    // 持有旧令牌的用户只要刷新一次就把旧角色带回来。这里从权威来源
+                    // （账户服务）重新取值。社区版已移除权限码体系，令牌只携带角色。
+                    //
+                    // fail-closed：重算失败一律抛异常让刷新失败 —— 宁可让用户重新登录，
+                    // 也不能签发一个仍带陈旧角色的令牌。
+                    final JwtRefreshIdentityResolver.RefreshIdentity identity =
+                            resolveRefreshIdentity(subject);
 
-                    return generateToken(subject, roles, additionalClaims);
+                    // P0-L 安全修复（漏洞 1）：复制自定义声明时剔除 jti/roles/permissions。
+                    //
+                    // 旧实现只排除了 sub/iss/exp/iat/nbf，jti 被一并拷进 additionalClaims，
+                    // 而 generateToken 里 additionalClaims 是最后应用的（覆盖 .id() 设的新 jti），
+                    // 于是新令牌 jti == 旧令牌 jti；而旧令牌在刷新瞬间已被拉黑 →
+                    // 新令牌一签发就是黑名单里的，下次请求立刻 401
+                    // （实测：前端每 30 分钟自动刷新一次 → 用户每 30 分钟被踢出登录）。
+                    final Map<String, Object> additionalClaims =
+                            JwtRefreshClaimResolver.buildRefreshClaims(
+                                    new HashMap<>(claims),
+                                    identity.getRoles());
+
+                    return generateToken(subject, identity.getRoles(), additionalClaims);
                 }));
 
         } catch (JwtException e) {
@@ -167,6 +193,58 @@ public class DefaultJwtTokenValidator implements JwtTokenValidator {
             log.error("JWT令牌刷新过程中发生错误", e);
             return Mono.error(new AuthenticationException("JWT令牌刷新过程中发生错误", "JWT_REFRESH_ERROR"));
         }
+    }
+
+    /**
+     * 刷新令牌时重算身份（角色）。
+     *
+     * <p><b>权威来源</b>：{@link AccountManager#loadUserByUsername(String)} 返回的
+     * authorities（YAML 静态账户优先，DB 账户兜底）。</p>
+     *
+     * <p><b>fail-closed</b>：来源不可用（bean 缺失 / 查库失败 / 返回 null）都抛
+     * {@link JwtRefreshIdentityException}，由 {@link #refreshToken(String)} 转为刷新失败。
+     * 绝不回退到旧令牌里的角色声明 —— 那正是漏洞 2 的根因。</p>
+     *
+     * @param subject 令牌主体（用户名）
+     * @return 重算出的角色
+     * @throws JwtRefreshIdentityException 重算失败
+     */
+    private JwtRefreshIdentityResolver.RefreshIdentity resolveRefreshIdentity(final String subject) {
+        if (accountManager == null) {
+            throw new JwtRefreshIdentityException(
+                    "刷新令牌所需的账户服务不可用，拒绝签发新令牌");
+        }
+        final JwtRefreshIdentityResolver resolver = new JwtRefreshIdentityResolver(
+                this::loadCurrentRoles);
+        return resolver.resolve(subject);
+    }
+
+    /**
+     * 读取用户当前生效的角色列表。
+     *
+     * <p>取 {@code UserDetails.getAuthorities()} 并去掉 {@code ROLE_} 前缀
+     * （{@link JwtAuthentication} 用的是无前缀的 {@code ROLE_} + 角色名形式，
+     * 而 {@link AccountManager} 存的是裸角色名，此处统一成裸角色名）。
+     *
+     * @param subject 用户名
+     * @return 角色列表（不可为 null）
+     */
+    private List<String> loadCurrentRoles(final String subject) {
+        final org.springframework.security.core.userdetails.UserDetails userDetails =
+                accountManager.loadUserByUsername(subject);
+        if (userDetails == null || userDetails.getAuthorities() == null) {
+            return null;
+        }
+        return userDetails.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .filter(authority -> authority != null && !authority.trim().isEmpty())
+                // ROLE_USER → USER；裸角色名（AccountManager 存的形态）保持原样
+                .map(authority -> authority.trim().toUpperCase(java.util.Locale.ROOT)
+                        .startsWith("ROLE_")
+                        ? authority.trim().toUpperCase(java.util.Locale.ROOT).substring("ROLE_".length())
+                        : authority.trim().toUpperCase(java.util.Locale.ROOT))
+                .distinct()
+                .toList();
     }
 
     @Override
@@ -179,7 +257,13 @@ public class DefaultJwtTokenValidator implements JwtTokenValidator {
             // 优先使用增强的黑名单服务
             if (enhancedBlacklistService != null) {
                 String tokenId = extractTokenId(token);
+                // C1: 鉴权侧 jti 键与管理台撤销侧 tokenHash 键都查。
+                // 管理台撤销（revokeTokenByHash → RedisBlacklistOperations）写的是
+                // jwt:blacklist:entry:<tokenHash>（hex），只查 jti 键会漏拦。
                 return enhancedBlacklistService.isBlacklisted(tokenId)
+                    .flatMap(isBlacklisted -> isBlacklisted
+                            ? Mono.just(true)
+                            : enhancedBlacklistService.isBlacklisted(TokenHashUtils.hashToken(token)))
                     .doOnNext(isBlacklisted -> {
                         if (isBlacklisted) {
                             log.warn("令牌在增强黑名单中被发现: tokenId={}", tokenId);
@@ -334,8 +418,14 @@ public class DefaultJwtTokenValidator implements JwtTokenValidator {
         });
     }
 
-    /**
+/**
      * 生成新的JWT令牌（使用JJWT 0.12.x API）
+     *
+     * <p><b>声明应用顺序（P0-L 漏洞 1）</b>：{@code additionalClaims} 必须**先**应用，
+     * {@code .id()} 必须**后**应用。JJWT 的 {@code claim("jti", x)} 会覆盖 {@code id()}，
+     * 若 additionalClaims 里残留旧 jti（刷新时从旧令牌拷贝而来），新令牌就会继承旧 jti；
+     * 而旧令牌在刷新瞬间已被拉黑 → 新令牌一签发即失效，下次请求 401。
+     * 这里让 {@code .id()} 最后生效，从根上保证每个令牌都有唯一 jti。
      */
     public String generateToken(
             final String subject, final List<String> roles,
@@ -345,20 +435,26 @@ public class DefaultJwtTokenValidator implements JwtTokenValidator {
         + Duration.ofMinutes(securityProperties.getJwt().getExpirationMinutes()).toMillis());
 
         JwtBuilder builder = Jwts.builder()
-            .subject(subject)
-            .issuer(securityProperties.getJwt().getIssuer())
-            .issuedAt(now)
-            .expiration(expiration)
-            .id(UUID.randomUUID().toString()) // 设置JTI用于黑名单管理
-            .claim(ROLES_CLAIM, roles)
-            .signWith(getSigningKey());
+                .subject(subject)
+                .issuer(securityProperties.getJwt().getIssuer())
+                .issuedAt(now)
+                .expiration(expiration)
+                .claim(ROLES_CLAIM, roles);
 
-        // 添加额外的声明
+        // 添加额外的声明（先于 .id()，避免旧 jti 覆盖新 jti）
         if (additionalClaims != null) {
-            additionalClaims.forEach(builder::claim);
+            additionalClaims.forEach((key, value) -> {
+                // jti 由本方法统一生成，忽略调用方传入的值
+                if (!JwtRefreshClaimResolver.CLAIM_JTI.equals(key)) {
+                    builder.claim(key, value);
+                }
+            });
         }
 
-        return builder.compact();
+        // JTI 最后设置 —— 保证唯一（黑名单以 jti 为键）
+        builder.id(UUID.randomUUID().toString());
+
+        return builder.signWith(getSigningKey()).compact();
     }
 
     /**
@@ -405,25 +501,6 @@ public class DefaultJwtTokenValidator implements JwtTokenValidator {
             return (List<String>) rolesObj;
         } else if (rolesObj instanceof String) {
             return Arrays.asList(((String) rolesObj).split(","));
-        } else {
-            return new ArrayList<>();
-        }
-    }
-
-    /**
-     * 从Claims中提取权限码列表（v2.9.8 RBAC）
-     *
-     * <p>与 extractRoles 同模式：兼容 List 与逗号分隔字符串两种形态；
-     * 旧版本签发的令牌无 permissions 声明时返回空列表。
-     */
-    @SuppressWarnings("unchecked")
-    private List<String> extractPermissions(final Claims claims) {
-        Object permissionsObj = claims.get(PERMISSIONS_CLAIM);
-
-        if (permissionsObj instanceof List) {
-            return (List<String>) permissionsObj;
-        } else if (permissionsObj instanceof String) {
-            return Arrays.asList(((String) permissionsObj).split(","));
         } else {
             return new ArrayList<>();
         }

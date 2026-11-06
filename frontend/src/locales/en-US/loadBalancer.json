@@ -56,25 +56,26 @@
       "pageTitle": "Load Balancer Strategy Configuration",
       "globalTitle": "Global Default Configuration",
       "recommendation": "Not sure which to pick? Use \"random split\" - the system distributes requests across instances by weight and automatically skips failing ones.",
-      "defaultStrategy": "Default Strategy",
+      "defaultStrategy": "Default splitting strategy",
       "selectStrategy": "Select a Strategy",
-      "hashAlgorithm": "Hash Algorithm",
+      "hashAlgorithm": "Hash function",
       "selectHashAlgorithm": "Select a Hash Algorithm",
       "virtualNodes": "Virtual Nodes",
       "serviceConfigsTitle": "Service-Level Configuration",
       "configureHint": "Click the configure button to change the load balancing strategy of a single service",
       "defaultTag": "Default",
       "configure": "Configure",
-      "loadBalanceStrategy": "Load Balancing Strategy",
+      "loadBalanceStrategy": "Splitting strategy",
       "configureDialogTitle": "Configure Load Balancer for {serviceType}",
       "cancel": "Cancel",
       "save": "Save",
       "columns": {
-        "serviceType": "Model Category",
+        "serviceType": "Model Type",
         "strategy": "Strategy",
         "hashAlgorithm": "Hash Algorithm",
         "virtualNodes": "Virtual Nodes",
-        "actions": "Actions"
+        "actions": "Actions",
+        "description": "Description"
       },
       "strategies": {
         "random": "Split Randomly",
@@ -96,7 +97,17 @@
         "loadFailed": "Failed to load service configurations",
         "configUpdated": "Load balancing config of service {serviceType} updated",
         "saveFailed": "Failed to save configuration"
-      }
+      },
+      "explainTitle": "This configures how traffic is split when one model type has several instances",
+      "explainBody": "e.g. the same GPT-4o served by two machines. If you mean \"one virtual model backed by models from different vendors, which one to use\", go to",
+      "explainLinkText": "Virtual Models",
+      "explainLinkSuffix": "to configure its scheduling.",
+      "strategyConfig": {
+        "divisionTitle": "How multiple models of one type split work",
+        "divisionHint": "If unsure, use random — broken instances are skipped automatically"
+      },
+      "advancedTitle": "Advanced (usually no change needed)",
+      "advancedHint": "Implementation parameters of sticky routing (same user tends to hit the same vendor for context continuity)"
     }
   }
 }

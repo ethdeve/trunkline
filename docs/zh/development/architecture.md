@@ -4,12 +4,12 @@
 > **文档版本**: 2.0.1
 > **最后更新**: 2026-09-15
 > **Git 提交**: 0f56b957
-> **作者**: JAiRouter Team
+> **作者**: Trunkline Team
 <!-- /版本信息 -->
 
 ## 概述
 
-JAiRouter 是一个基于 Spring Boot 3.5.x 和 Spring WebFlux 构建的响应式 AI 模型服务路由网关。采用模块化设计，支持多种负载均衡策略、限流算法、熔断机制和动态配置管理。
+Trunkline 是一个基于 Spring Boot 3.5.x 和 Spring WebFlux 构建的响应式 AI 模型服务路由网关。采用模块化设计，支持多种负载均衡策略、限流算法、熔断机制和动态配置管理。
 
 ## 整体架构
 
@@ -425,4 +425,4 @@ public class CustomRateLimiter implements RateLimiter {
 
 ---
 
-这个架构设计确保了 JAiRouter 的可扩展性、可维护性和高性能，为 AI 模型服务路由提供了稳定可靠的基础平台。
+这个架构设计确保了 Trunkline 的可扩展性、可维护性和高性能，为 AI 模型服务路由提供了稳定可靠的基础平台。

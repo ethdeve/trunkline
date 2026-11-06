@@ -1,4 +1,4 @@
-﻿# Circuit Breaker Configuration
+# Circuit Breaker Configuration
 
 <!-- 版本信息 -->
 > **Doc Version**: 1.0.2  
@@ -7,16 +7,16 @@
 > **Author**: Lincoln
 <!-- /版本信息 -->
 
-JAiRouter has a built-in circuit breaker mechanism to prevent service avalanches and cascading failures. When backend services fail, the circuit breaker automatically cuts off requests and automatically resumes normal operation after service recovery. This document details the configuration and usage of the circuit breaker.
+Trunkline has a built-in circuit breaker mechanism to prevent service avalanches and cascading failures. When backend services fail, the circuit breaker automatically cuts off requests and automatically resumes normal operation after service recovery. This document details the configuration and usage of the circuit breaker.
 
 ## Modular Configuration Overview
 
-Starting from v1.0.0, JAiRouter adopts a modular configuration structure with circuit breaker related configurations moved to separate configuration files:
+Starting from v1.0.0, Trunkline adopts a modular configuration structure with circuit breaker related configurations moved to separate configuration files:
 
 - Main configuration file: `application.yml`
-- Model services base configuration: `config/base/model-services-base.yml`
+- Model services base configuration: `config/router/circuitbreaker.yml`
 
-You can find all circuit breaker related configurations in the `config/base/model-services-base.yml` file, including global configurations, service type configurations, and instance configurations.
+You can find all circuit breaker related configurations in the `config/router/circuitbreaker.yml` file, including global configurations, service type configurations, and instance configurations.
 
 ## Circuit Breaker Overview
 
@@ -50,18 +50,19 @@ stateDiagram-v2
 | Parameter | Description | Default Value |
 |------|------|--------|
 | `failureThreshold` | Failure threshold, circuit breaker trips after exceeding | 5 |
-| `recoveryTimeout` | Recovery detection interval (milliseconds) | 60000 |
+| `timeout` | OPEN duration (ms) before transitioning to HALF_OPEN | 60000 |
 | `successThreshold` | Success threshold, circuit breaker closes after reaching | 2 |
-| `timeout` | Request timeout (milliseconds) | 60000 |
+
+> The circuit breaker has only `enabled` plus the three parameters above. There is no `recoveryTimeout`, statistics window, or exception whitelist — earlier docs' extended keys are deprecated.
 
 ## Global Circuit Breaker Configuration
 
 ### Basic Configuration
 
-Configure global circuit breaker in the `config/base/model-services-base.yml` file:
+Configure global circuit breaker in the `config/router/circuitbreaker.yml` file:
 
 ```yaml
-# config/base/model-services-base.yml
+# config/router/circuitbreaker.yml
 model:
   # Global circuit breaker configuration
   circuit-breaker:
@@ -95,8 +96,8 @@ model:
 model:
   circuit-breaker:
     enabled: true
-    failure-threshold: 5
-    recovery-timeout: 60000
+    failureThreshold: 5
+    timeout: 60000
     success-threshold: 3
     timeout: 30000
     
@@ -123,7 +124,7 @@ model:
 
 ### YAML Configuration
 
-Configure circuit breaker for each service type in the `config/base/model-services-base.yml` file:
+Configure circuit breaker for each service type in the `config/router/circuitbreaker.yml` file:
 
 ```yaml
 model:
@@ -131,8 +132,8 @@ model:
     chat:
       circuit-breaker:
         enabled: true
-        failure-threshold: 3     # More sensitive failure threshold
-        recovery-timeout: 30000  # Faster recovery detection
+        failureThreshold: 3     # More sensitive failure threshold
+        timeout: 30000  # Faster recovery detection
         success-threshold: 2     # Faster recovery
         timeout: 45000          # Longer timeout
       instances:
@@ -144,15 +145,15 @@ model:
     embedding:
       circuit-breaker:
         enabled: true
-        failure-threshold: 10    # More lenient failure threshold
-        recovery-timeout: 120000 # Longer recovery time
+        failureThreshold: 10    # More lenient failure threshold
+        timeout: 120000 # Longer recovery time
         success-threshold: 5     # More success count required
         timeout: 60000
 ```
 
 ### JSON Configuration
 
-JAiRouter also supports updating circuit breaker configurations via the dynamic configuration API:
+Trunkline also supports updating circuit breaker configurations via the dynamic configuration API:
 
 ```json
 {
@@ -161,7 +162,7 @@ JAiRouter also supports updating circuit breaker configurations via the dynamic 
       "circuitBreaker": {
         "enabled": true,
         "failureThreshold": 5,
-        "recoveryTimeout": 60000,
+        "timeout": 60000,
         "successThreshold": 3,
         "timeout": 30000
       },
@@ -180,154 +181,39 @@ JAiRouter also supports updating circuit breaker configurations via the dynamic 
 
 ## Instance-Level Circuit Breaker Configuration
 
-### Independent Instance Circuit Breaking
+Circuit breaker state is maintained independently per instance. Instance-level parameters inherit from service/global config and can be viewed and reset via the admin API:
 
-Configure instance-level circuit breaker in the `config/base/model-services-base.yml` file:
+```bash
+# View a single instance's circuit breaker state
+curl -X GET "http://localhost:8080/api/config/instance/chat/qwen2:7b@http://gpu:8080/circuit-breaker"
 
-```yaml
-model:
-  services:
-    chat:
-      instances:
-        - name: "high-risk-model"
-          base-url: "http://high-risk-server:8080"
-          circuit-breaker:
-            enabled: true
-            failure-threshold: 2  # Stricter threshold
-            recovery-timeout: 30000
-            success-threshold: 1
-            timeout: 20000
-        
-        - name: "stable-model"
-          base-url: "http://stable-server:8080"
-          circuit-breaker:
-            enabled: true
-            failure-threshold: 10 # More lenient threshold
-            recovery-timeout: 60000
-            success-threshold: 3
-            timeout: 30000
+# Reset a specific instance's circuit breaker (back to CLOSED)
+curl -X POST "http://localhost:8080/api/config/instance/chat/qwen2:7b@http://gpu:8080/circuit-breaker/reset"
+
+# View all instances' circuit breaker states
+curl -X GET "http://localhost:8080/api/config/instance/circuit-breaker/states"
 ```
 
-### Instance-Specific Configuration
-
-JAiRouter also supports updating instance-level circuit breaker configurations via the dynamic configuration API:
-
-```json
-{
-  "services": {
-    "chat": {
-      "instances": [
-        {
-          "name": "experimental-model",
-          "baseUrl": "http://experimental-server:8080",
-          "circuitBreaker": {
-            "enabled": true,
-            "failureThreshold": 3,
-            "recoveryTimeout": 45000,
-            "successThreshold": 2,
-            "timeout": 25000,
-            "statistics": {
-              "windowSize": 50,
-              "minimumRequests": 5
-            }
-          }
-        }
-      ]
-    }
-  }
-}
-```
+> Instance YAML has **no** standalone `circuit-breaker` block; instance breaker parameters come from service/global config, and state (CLOSED/OPEN/HALF_OPEN) is maintained per instance at runtime. The per-instance `failure-threshold/recovery-timeout` examples in earlier docs are deprecated.
 
 ## Circuit Breaker and Fallback Strategy
 
-### Basic Fallback Configuration
+### Fallback Configuration
 
-Configure global and service-level fallback strategies in the `config/base/model-services-base.yml` file:
-
-```yaml
-model:
-  services:
-    chat:
-      circuit-breaker:
-        enabled: true
-        failure-threshold: 5
-        recovery-timeout: 60000
-      
-      # Fallback strategy configuration
-      fallback:
-        enabled: true
-        strategy: default       # Fallback strategy: default or cache
-        response:
-          choices:
-            - message:
-                role: "assistant"
-                content: "Service is temporarily unavailable. Please try again later."
-              finish_reason: "stop"
-          usage:
-            prompt_tokens: 0
-            completion_tokens: 0
-            total_tokens: 0
-```
-
-### Cache Fallback Configuration
+Fallback and circuit breaker are two independent settings, defined in `config/router/fallback.yml`:
 
 ```yaml
 model:
-  services:
-    embedding:
-      circuit-breaker:
-        enabled: true
-        failure-threshold: 3
-        recovery-timeout: 30000
-      
-      fallback:
-        enabled: true
-        strategy: cache
-        cache:
-          size: 1000            # Cache size
-          ttl: 3600000         # Cache TTL (milliseconds)
-          key-generator: "md5"  # Cache key generation algorithm
+  fallback:
+    enabled: true
+    strategy: default        # default / cache / mock
 ```
 
-### JSON Fallback Configuration
+- **default**: return a predefined fallback response
+- **cache**: on rerank fallback, return the last successful response; cache size and TTL are configurable (defaults `cache-size: 100`, `cache-ttl: 600000` ms)
+- **mock**: return a mock response
 
-JAiRouter also supports updating fallback strategies via the dynamic configuration API:
-
-```json
-{
-  "services": {
-    "chat": {
-      "circuitBreaker": {
-        "enabled": true,
-        "failureThreshold": 5,
-        "recoveryTimeout": 60000
-      },
-      "fallback": {
-        "type": "default",
-        "response": {
-          "id": "fallback-response",
-          "object": "chat.completion",
-          "choices": [
-            {
-              "index": 0,
-              "message": {
-                "role": "assistant",
-                "content": "Sorry, the service is temporarily unavailable. We are working hard to restore the service. Please try again later."
-              },
-              "finish_reason": "stop"
-            }
-          ],
-          "usage": {
-            "prompt_tokens": 0,
-            "completion_tokens": 0,
-            "total_tokens": 0
-          }
-        }
-      }
-    }
-  }
-}
-```
+> Fallback config has **no** nested `response.choices` or `cache.key-generator` keys — the custom-response examples in earlier docs are deprecated.
 
 ## Circuit Breaker Monitoring
 
@@ -335,32 +221,32 @@ JAiRouter also supports updating fallback strategies via the dynamic configurati
 
 ```bash
 # Circuit breaker state
-curl "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.state"
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 
 # Circuit breaker call statistics
-curl "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.calls"
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 
 # Circuit breaker failure statistics
-curl "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.failures"
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 
 # Circuit breaker recovery statistics
-curl "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.recovery"
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 ```
 
 ### Prometheus Metrics
 
 ```prometheus
 # Circuit breaker state (0=CLOSED, 1=OPEN, 2=HALF_OPEN)
-jairouter_circuitbreaker_state{service="chat",instance="model-1"}
+trunkline_circuitbreaker_state{service="chat",instance="model-1"}
 
 # Total circuit breaker calls
-jairouter_circuitbreaker_calls_total{service="chat",instance="model-1",result="success"}
+trunkline_circuitbreaker_calls_total{service="chat",instance="model-1",result="success"}
 
 # Circuit breaker failure rate
-rate(jairouter_circuitbreaker_calls_total{result="failure"}[5m]) / rate(jairouter_circuitbreaker_calls_total[5m])
+rate(trunkline_circuitbreaker_calls_total{result="failure"}[5m]) / rate(trunkline_circuitbreaker_calls_total[5m])
 
 # Circuit breaker opening count
-jairouter_circuitbreaker_opened_total{service="chat",instance="model-1"}
+trunkline_circuitbreaker_opened_total{service="chat",instance="model-1"}
 ```
 
 ### Monitoring Dashboard
@@ -372,19 +258,19 @@ dashboard:
     - title: "Circuit Breaker State"
       type: "stat"
       targets:
-        - expr: 'jairouter_circuitbreaker_state'
+        - expr: 'trunkline_circuitbreaker_state'
           legendFormat: '{{service}}-{{instance}}'
     
     - title: "Circuit Breaker Failure Rate"
       type: "graph"
       targets:
-        - expr: 'rate(jairouter_circuitbreaker_calls_total{result="failure"}[5m]) / rate(jairouter_circuitbreaker_calls_total[5m])'
+        - expr: 'rate(trunkline_circuitbreaker_calls_total{result="failure"}[5m]) / rate(trunkline_circuitbreaker_calls_total[5m])'
           legendFormat: '{{service}}-{{instance}}'
     
     - title: "Circuit Breaker Opening Count"
       type: "graph"
       targets:
-        - expr: 'increase(jairouter_circuitbreaker_opened_total[1h])'
+        - expr: 'increase(trunkline_circuitbreaker_opened_total[1h])'
           legendFormat: '{{service}}-{{instance}}'
 ```
 
@@ -394,10 +280,10 @@ dashboard:
 
 ```yaml
 groups:
-  - name: jairouter_circuitbreaker
+  - name: trunkline_circuitbreaker
     rules:
       - alert: CircuitBreakerOpen
-        expr: jairouter_circuitbreaker_state == 1
+        expr: trunkline_circuitbreaker_state == 1
         for: 1m
         labels:
           severity: critical
@@ -406,7 +292,7 @@ groups:
           description: "The circuit breaker for service {{ $labels.service }} instance {{ $labels.instance }} is open"
       
       - alert: HighFailureRate
-        expr: rate(jairouter_circuitbreaker_calls_total{result="failure"}[5m]) / rate(jairouter_circuitbreaker_calls_total[5m]) > 0.5
+        expr: rate(trunkline_circuitbreaker_calls_total{result="failure"}[5m]) / rate(trunkline_circuitbreaker_calls_total[5m]) > 0.5
         for: 2m
         labels:
           severity: warning
@@ -415,7 +301,7 @@ groups:
           description: "The failure rate for service {{ $labels.service }} instance {{ $labels.instance }} exceeds 50%"
       
       - alert: FrequentCircuitBreakerOpening
-        expr: increase(jairouter_circuitbreaker_opened_total[1h]) > 5
+        expr: increase(trunkline_circuitbreaker_opened_total[1h]) > 5
         for: 0m
         labels:
           severity: warning
@@ -452,17 +338,17 @@ receivers:
 # Sensitive service: Fast circuit breaking
 sensitive-service:
   circuit-breaker:
-    failure-threshold: 3        # Circuit breaker trips after 3 failures
+    failureThreshold: 3        # Circuit breaker trips after 3 failures
 
 # Stable service: Lenient circuit breaking
 stable-service:
   circuit-breaker:
-    failure-threshold: 10       # Circuit breaker trips after 10 failures
+    failureThreshold: 10       # Circuit breaker trips after 10 failures
 
 # Experimental service: Extremely sensitive circuit breaking
 experimental-service:
   circuit-breaker:
-    failure-threshold: 1        # Circuit breaker trips after 1 failure
+    failureThreshold: 1        # Circuit breaker trips after 1 failure
 ```
 
 #### 2. Recovery Time Tuning
@@ -471,17 +357,17 @@ experimental-service:
 # Fast recovery service
 fast-recovery:
   circuit-breaker:
-    recovery-timeout: 30000     # Attempt recovery after 30 seconds
+    timeout: 30000     # Attempt recovery after 30 seconds
 
 # Slow recovery service
 slow-recovery:
   circuit-breaker:
-    recovery-timeout: 300000    # Attempt recovery after 5 minutes
+    timeout: 300000    # Attempt recovery after 5 minutes
 
 # Adaptive recovery
 adaptive-recovery:
   circuit-breaker:
-    recovery-timeout: 60000
+    timeout: 60000
     adaptive-recovery:
       enabled: true
       min-timeout: 30000
@@ -548,8 +434,8 @@ model:
     user-service:
       circuit-breaker:
         enabled: true
-        failure-threshold: 5
-        recovery-timeout: 60000
+        failureThreshold: 5
+        timeout: 60000
         success-threshold: 3
       fallback:
         enabled: true
@@ -561,8 +447,8 @@ model:
     order-service:
       circuit-breaker:
         enabled: true
-        failure-threshold: 3     # More sensitive
-        recovery-timeout: 30000  # Faster recovery
+        failureThreshold: 3     # More sensitive
+        timeout: 30000  # Faster recovery
         success-threshold: 2
       fallback:
         enabled: true
@@ -578,8 +464,8 @@ model:
     external-ai-api:
       circuit-breaker:
         enabled: true
-        failure-threshold: 3
-        recovery-timeout: 120000  # External service recovery is slower
+        failureThreshold: 3
+        timeout: 120000  # External service recovery is slower
         success-threshold: 5      # Requires more success confirmations
         timeout: 60000           # Longer timeout
       fallback:
@@ -599,30 +485,30 @@ model:
   # Global circuit breaker
   circuit-breaker:
     enabled: true
-    failure-threshold: 20
-    recovery-timeout: 300000
+    failureThreshold: 20
+    timeout: 300000
   
   services:
     # Service-level circuit breaker
     critical-service:
       circuit-breaker:
         enabled: true
-        failure-threshold: 10
-        recovery-timeout: 120000
+        failureThreshold: 10
+        timeout: 120000
       
       instances:
         # Instance-level circuit breaker
         - name: "primary-instance"
           circuit-breaker:
             enabled: true
-            failure-threshold: 5
-            recovery-timeout: 60000
+            failureThreshold: 5
+            timeout: 60000
         
         - name: "backup-instance"
           circuit-breaker:
             enabled: true
-            failure-threshold: 3   # Backup instance is more sensitive
-            recovery-timeout: 30000
+            failureThreshold: 3   # Backup instance is more sensitive
+            timeout: 30000
 ```
 
 ## Troubleshooting
@@ -636,18 +522,18 @@ model:
 **Troubleshooting**:
 ```bash
 # Check failure rate
-curl "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.calls"
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 
 # Check circuit breaker opening frequency
-curl "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.opened"
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 ```
 
 **Solution**:
 ```yaml
 # Adjust parameters
 circuit-breaker:
-  failure-threshold: 10         # Increase failure threshold
-  recovery-timeout: 30000       # Reduce recovery time
+  failureThreshold: 10         # Increase failure threshold
+  timeout: 30000       # Reduce recovery time
   success-threshold: 2          # Reduce success threshold
 ```
 
@@ -661,7 +547,7 @@ circuit-breaker:
 curl "http://localhost:8080/actuator/configprops" | jq '.model.circuit-breaker'
 
 # Check circuit breaker state
-curl "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.state"
+curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 ```
 
 **Solution**:
@@ -669,7 +555,7 @@ curl "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.state"
 # Ensure circuit breaker is enabled
 circuit-breaker:
   enabled: true                 # Ensure enabled
-  failure-threshold: 3          # Lower threshold
+  failureThreshold: 3          # Lower threshold
   timeout: 10000               # Reduce timeout
 ```
 
@@ -710,13 +596,13 @@ fallback:
 # Circuit breaker state check script
 
 echo "=== Circuit Breaker State ==="
-curl -s "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.state" | jq .
+curl -s "http://localhost:8080/api/config/instance/circuit-breaker/states" | jq .
 
 echo "=== Circuit Breaker Call Statistics ==="
-curl -s "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.calls" | jq .
+curl -s "http://localhost:8080/api/config/instance/circuit-breaker/states" | jq .
 
 echo "=== Circuit Breaker Failure Statistics ==="
-curl -s "http://localhost:8080/actuator/metrics/jairouter.circuitbreaker.failures" | jq .
+curl -s "http://localhost:8080/api/config/instance/circuit-breaker/states" | jq .
 ```
 
 #### 2. Circuit Breaker Test Tool
@@ -757,22 +643,22 @@ done
 # Critical services: Fast circuit breaking, fast recovery
 critical-services:
   circuit-breaker:
-    failure-threshold: 3
-    recovery-timeout: 30000
+    failureThreshold: 3
+    timeout: 30000
     success-threshold: 2
 
 # Normal services: Standard configuration
 normal-services:
   circuit-breaker:
-    failure-threshold: 5
-    recovery-timeout: 60000
+    failureThreshold: 5
+    timeout: 60000
     success-threshold: 3
 
 # Experimental services: Extremely sensitive circuit breaking
 experimental-services:
   circuit-breaker:
-    failure-threshold: 1
-    recovery-timeout: 120000
+    failureThreshold: 1
+    timeout: 120000
     success-threshold: 5
 ```
 

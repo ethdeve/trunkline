@@ -90,7 +90,7 @@
       },
       "targets": [
         {
-          "expr": "jairouter_rate_limit_tokens",
+          "expr": "trunkline_rate_limit_tokens",
           "interval": "",
           "legendFormat": "{{service}}-{{algorithm}} 可用令牌",
           "refId": "A"
@@ -172,7 +172,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "jairouter_circuit_breaker_state",
+          "expr": "trunkline_circuit_breaker_state",
           "interval": "",
           "legendFormat": "{{service}}",
           "refId": "A"
@@ -253,13 +253,13 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, rate(jairouter_backend_call_duration_seconds_bucket[5m]))",
+          "expr": "histogram_quantile(0.95, rate(trunkline_backend_call_duration_seconds_bucket[5m]))",
           "interval": "",
           "legendFormat": "{{adapter}} P95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.50, rate(jairouter_backend_call_duration_seconds_bucket[5m]))",
+          "expr": "histogram_quantile(0.50, rate(trunkline_backend_call_duration_seconds_bucket[5m]))",
           "interval": "",
           "legendFormat": "{{adapter}} P50",
           "refId": "B"
@@ -340,7 +340,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (result) (rate(jairouter_rate_limit_events_total[5m]))",
+          "expr": "sum by (result) (rate(trunkline_rate_limit_events_total[5m]))",
           "interval": "",
           "legendFormat": "{{result}}",
           "refId": "A"
@@ -421,7 +421,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (event) (rate(jairouter_circuit_breaker_events_total[5m]))",
+          "expr": "sum by (event) (rate(trunkline_circuit_breaker_events_total[5m]))",
           "interval": "",
           "legendFormat": "{{event}}",
           "refId": "A"
@@ -502,7 +502,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (strategy, instance) (jairouter_loadbalancer_selections_total)",
+          "expr": "sum by (strategy, instance) (trunkline_loadbalancer_selections_total)",
           "interval": "",
           "legendFormat": "{{strategy}} -> {{instance}}",
           "refId": "A"
@@ -515,7 +515,7 @@
   "schemaVersion": 27,
   "style": "dark",
   "tags": [
-    "jairouter",
+    "trunkline",
     "infrastructure"
   ],
   "templating": {
@@ -527,7 +527,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "JAiRouter - 基础设施监控",
-  "uid": "jairouter-infrastructure",
+  "title": "Trunkline - 基础设施监控",
+  "uid": "trunkline-infrastructure",
   "version": 1
 }

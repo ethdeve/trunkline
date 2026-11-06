@@ -7,11 +7,11 @@
 > **Author**: Lincoln
 <!-- /版本信息 -->
 
-This document provides complete configuration reference for JAiRouter's distributed tracing feature.
+This document provides complete configuration reference for Trunkline's distributed tracing feature.
 
 ## Configuration File Structure
 
-JAiRouter uses a modular configuration management approach, with tracing configuration located in a separate configuration file:
+Trunkline uses a modular configuration management approach, with tracing configuration located in a separate configuration file:
 
 - **Main Configuration File**: `src/main/resources/application.yml`
 - **Tracing Configuration File**: `src/main/resources/config/tracing/tracing-base.yml`
@@ -43,10 +43,10 @@ spring:
 ### Enable Tracing
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true                    # Whether to enable tracing, default: true
-    service-name: "jairouter"       # Service name, default: "jairouter"
+    service-name: "trunkline"       # Service name, default: "trunkline"
     service-version: "1.0.0"        # Service version, default: "1.0.0"
 ```
 
@@ -55,7 +55,7 @@ jairouter:
 | Configuration Item | Type | Default Value | Description |
 |--------|------|---------|------|
 | `enabled` | boolean | `true` | Whether to enable tracing |
-| `service-name` | string | `"jairouter"` | Service name for identifying the tracing source |
+| `service-name` | string | `"trunkline"` | Service name for identifying the tracing source |
 | `service-version` | string | `"1.0.0"` | Service version number |
 | `service-namespace` | string | `"production"` | Service namespace (**the `environment` field this table used to show does not exist**, see issue #231) |
 
@@ -64,7 +64,7 @@ jairouter:
 ### Ratio Sampling
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       # Sampling strategy (real since issue #234): ratio (default) / rule / adaptive
@@ -75,7 +75,7 @@ jairouter:
 ### Rule Sampling
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       # Rule sampling requires strategy: rule (issue #234); a rule has exactly two fields —
@@ -107,7 +107,7 @@ declaration order wins**. A `condition` without any of those operators is report
 ### Adaptive Sampling
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       # Adaptive sampling needs strategy: adaptive AND enabled: true (issue #234)
@@ -130,7 +130,7 @@ jairouter:
 ### Log Exporter
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     exporter:
       type: "logging"
@@ -144,7 +144,7 @@ jairouter:
 ### Jaeger Exporter
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     exporter:
       type: "jaeger"
@@ -159,7 +159,7 @@ jairouter:
 ### Zipkin Exporter
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     exporter:
       type: "zipkin"
@@ -172,7 +172,7 @@ jairouter:
 ### OTLP Exporter
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     exporter:
       type: "otlp"
@@ -189,7 +189,7 @@ jairouter:
 ### Batch Processing Configuration
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     # Checked in issue #231: the batch processor parameters live **under performance**, not under
     # open-telemetry. The open-telemetry.sdk.trace.processors.batch.* keys this page used to show do
@@ -206,7 +206,7 @@ jairouter:
 ## Memory Management Configuration
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     performance:
       # Checked in issue #231: the real path is performance.memory, and it has exactly these three
@@ -221,7 +221,7 @@ jairouter:
 ## Performance Configuration
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     performance:
       async-processing: true       # Asynchronous processing, default: true
@@ -254,7 +254,7 @@ jairouter:
 ### HTTP Configuration
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     components:
       http:
@@ -274,7 +274,7 @@ jairouter:
 ### Rate Limiter Configuration
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     components:
       rate-limiter:
@@ -289,7 +289,7 @@ jairouter:
 ### Circuit Breaker Configuration
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     components:
       circuit-breaker:
@@ -302,7 +302,7 @@ jairouter:
 ### Load Balancer Configuration
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     components:
       load-balancer:
@@ -315,7 +315,7 @@ jairouter:
 ## Security Configuration
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     security:
       # Whole-section switch (no field; driven by @ConditionalOnProperty, absent means on)
@@ -341,7 +341,7 @@ jairouter:
 ## Monitoring Configuration
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     monitoring:
       metrics:
@@ -386,7 +386,7 @@ Different environments can override tracing configuration through corresponding 
 ### Development Environment (application-dev.yml)
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
     sampling:
@@ -401,7 +401,7 @@ logging:
 ### Production Environment (application-prod.yml)
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
     sampling:

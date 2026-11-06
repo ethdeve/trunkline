@@ -13,7 +13,7 @@ JWT Token 持久化提供全面的令牌生命周期管理，包括持久化存�
 
 ## 配置结构
 
-JWT 持久化配置遵循 JAiRouter 的模块化配置方法：
+JWT 持久化配置遵循 Trunkline 的模块化配置方法：
 
 ```yaml
 # 主应用配置
@@ -27,104 +27,106 @@ spring:
 
 ## 核心配置
 
+JWT 认证与令牌持久化配置位于 `config/auth/jwt.yml`，前缀 `trunkline.security.jwt`：
+
 ### 基本持久化配置
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
+      # 认证基础配置
+      enabled: true
+      jwt-header: "Jairouter_Token"     # 令牌请求头名称
+      secret: ${JWT_SECRET:}            # 密钥（必须环境变量注入，>=32 字符）
+      algorithm: HS256                  # 签名算法
+      expiration-minutes: 60            # 访问令牌有效期（分钟）
+      refresh-expiration-days: 7        # 刷新令牌有效期（天）
+      issuer: trunkline
+
       # 令牌持久化配置
       persistence:
-        enabled: false  # 默认：禁用，按环境启用
-        primary-storage: redis    # 选项：redis, memory
-        fallback-storage: memory  # 选项：memory
-
-        # 清理配置
+        primary-storage: h2             # 主存储：h2（默认）/ memory
+        fallback-storage: memory        # 降级存储
+        composite:
+          enabled: false                # 复合存储（主备双写）
+          sync:
+            enabled: false              # 主备同步开关
+        startup-recovery:
+          enabled: false                # 启动时从持久层恢复会话
         cleanup:
-          enabled: true
-          schedule: "0 0 2 * * ?"  # Cron表达式：每天凌晨2点
-          retention-days: 30       # 保留令牌30天
-          batch-size: 1000        # 每批处理1000个令牌
-
-        # 内存存储配置
-        memory:
-          max-tokens: 50000       # 内存中最大令牌数
-          cleanup-threshold: 0.8  # 满80%时清理
-          lru-enabled: true       # 使用LRU淘汰策略
-
-        # Redis存储配置
+          schedule: "0 0 2 * * ?"       # 清理 Cron：每天凌晨 2 点
+          retention-days: 30            # 保留 30 天
         redis:
-          key-prefix: "jwt:"      # Redis键前缀
-          default-ttl: 3600       # 默认TTL（秒）
-          connection-timeout: 5000 # 连接超时（毫秒）
-          retry-attempts: 3       # 失败操作重试次数
-          serialization-format: "json"  # 选项：json, binary
+          enabled: false                # 以 Redis 作为持久化存储时开启
+          host: localhost
+          port: 6379
+          database: 0
+          password: ""
 ```
 
 ### 黑名单配置
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
-      # 黑名单持久化配置
       blacklist:
+        enabled: true                   # 黑名单（登出令牌）开关
+        cache:
+          expiration-seconds: 86400     # 黑名单缓存 TTL（秒）
+          max-size: 10000               # 黑名单缓存最大条目
         persistence:
-          enabled: false          # 默认：禁用
-          primary-storage: redis  # 选项：redis, memory
+          primary-storage: h2           # 黑名单持久化
           fallback-storage: memory
-          max-memory-size: 10000  # 内存中最大黑名单条目数
-          cleanup-interval: 3600  # 清理间隔（秒，1小时）
 ```
+
+> 早期文档中的 `persistence.enabled`、`primary-storage: redis/memory`、`memory.max-tokens`、`redis.key-prefix/default-ttl/connection-timeout/retry-attempts/serialization-format`、`blacklist.persistence.max-memory-size/cleanup-interval` 等键**不存在**。
 
 ### 安全审计配置
 
+审计配置位于 `config/auth/audit.yml`，前缀 `trunkline.security.audit`：
+
 ```yaml
-jairouter:
+trunkline:
   security:
-    # 增强审计配置
     audit:
       enabled: true
       log-level: "INFO"
-      include-request-body: false
+      include-request-body: false       # 生产环境建议关闭
       include-response-body: false
       retention-days: 90
-
-      # JWT操作审计
-      jwt-operations:
-        enabled: true
-        log-token-details: false  # 安全：不记录完整令牌
-        log-user-agent: true
-        log-ip-address: true
-
-      # API Key操作审计
-      api-key-operations:
-        enabled: true
-        log-key-details: false   # 安全：不记录完整密钥
-        log-usage-patterns: true
-        log-ip-address: true
-
-      # 安全事件审计
-      security-events:
-        enabled: true
-        suspicious-activity-detection: true
-        alert-thresholds:
-          failed-auth-per-minute: 10
-          token-revoke-per-minute: 5
-          api-key-usage-per-minute: 100
-
-      # 审计存储配置
+      alert-enabled: false              # 告警开关
+      alert-thresholds:
+        auth-failures-per-minute: 10
+        sanitization-operations-per-minute: 100
+        suspicious-requests-per-minute: 20
+      event-types:                      # 记录哪些事件类型
+        authentication-success: false
+        authentication-failure: true
+        authorization-failure: true
+        sanitization-applied: false
+        configuration-changed: true
+        security-alert: true
+        suspicious-activity: true
       storage:
-        type: "file"              # 选项：file, database
+        type: "file"                    # file / database
         file-path: "logs/security-audit.log"
         rotation:
           max-file-size: "100MB"
           max-files: 30
-        # 可选：数据库存储
-        database:
+      extended:
+        enabled: true
+        persistence:
           enabled: false
-          table-name: "security_audit_events"
+          storage-type: "file"
+          file:
+            enabled: false
+            base-path: "logs/audit"
+            separate-files: true
 ```
+
+> 早期文档中的 `jwt-operations`、`api-key-operations`、`security-events` 子块及 `storage.database.table-name` 键**不存在**；事件粒度由 `event-types` 列表控制。
 
 ## 环境特定配置
 
@@ -132,7 +134,7 @@ jairouter:
 
 ```yaml
 # application-dev.yml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -170,7 +172,7 @@ management:
 
 ```yaml
 # application-prod.yml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -210,7 +212,7 @@ jairouter:
       retention-days: 180   # 生产环境更长保留期
 
 # 监控配置
-jairouter:
+trunkline:
   monitoring:
     jwt-persistence:
       enabled: true
@@ -220,7 +222,7 @@ jairouter:
 
 ```yaml
 # application-staging.yml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -270,7 +272,7 @@ management:
         include: health,metrics,jwt-tokens,jwt-blacklist
   metrics:
     tags:
-      application: jairouter
+      application: trunkline
     export:
       prometheus:
         enabled: true
@@ -281,7 +283,7 @@ management:
       enabled: false
 
 # 自定义监控指标
-jairouter:
+trunkline:
   monitoring:
     jwt-persistence:
       enabled: false  # 默认：禁用，按环境启用
@@ -367,7 +369,7 @@ spring:
 ### 密钥安全设置
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -415,7 +417,7 @@ management:
 ### 内存优化
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -431,7 +433,7 @@ jairouter:
 ### Redis 优化
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -453,7 +455,7 @@ spring:
 ### 清理优化
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -497,7 +499,7 @@ management:
 ### 故障排除指标
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     jwt-persistence:
       enabled: true
@@ -572,7 +574,7 @@ cp application.yml application.yml.backup
 2. **逐步更新配置**
 ```yaml
 # 从内存持久化开始
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -584,7 +586,7 @@ jairouter:
 3. **测试后启用 Redis**
 ```yaml
 # 升级到 Redis，保留内存作为备选
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -596,7 +598,7 @@ jairouter:
 4. **启用完整审计**
 ```yaml
 # 启用全面审计
-jairouter:
+trunkline:
   security:
     audit:
       enabled: true
@@ -612,7 +614,7 @@ jairouter:
 
 1. **永不记录敏感数据**
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       jwt-operations:
@@ -631,7 +633,7 @@ spring:
 
 3. **限制内存使用**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -644,7 +646,7 @@ jairouter:
 
 1. **优化清理计划**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -655,7 +657,7 @@ jairouter:
 
 2. **使用合适的 TTL**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -665,7 +667,7 @@ jairouter:
 
 3. **监控性能**
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     jwt-persistence:
       enabled: true

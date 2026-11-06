@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -25,6 +26,7 @@ import org.unreal.modelrouter.auth.security.dto.ApiKeyCreateRequest;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyListVO;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyUpdateRequest;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyVO;
+import org.unreal.modelrouter.auth.security.dto.ApiKeyWithModelScopeVO;
 import org.unreal.modelrouter.auth.security.service.ApiKeyNotFoundException;
 import org.unreal.modelrouter.auth.security.service.ApiKeyService;
 import org.unreal.modelrouter.auth.security.service.ApiKeyQuotaService;
@@ -76,6 +78,56 @@ public class ApiKeyManagementController {
     }
 
     /**
+     * 「我的密钥」列表（v3.5 Trunkline UI 改造，规格 §4.2）。
+     *
+     * <p>仅返回当前登录用户名下（{@code createdBy == principal.name}）的密钥，
+     * 归属由服务端从 {@link Authentication#getName()} 解析，不信任前端传参，避免越权。</p>
+     *
+     * <p>可见性：普通用户与运维（{@code hasAnyRole('USER','OPERATOR','ADMIN')}）——
+     * 「我的密钥」对 user/ops 可见（用户决策 #3）。</p>
+     *
+     * <p><b>P0-L 越权泄漏收敛</b>：响应额外携带<b>分组扩展信息</b>
+     * （{@link ApiKeyWithModelScopeVO#getModelScope()}）—— 分组名 / 友好名 / 服务类型 /
+     * 加权均价，且<b>只含该用户自己白名单内</b>的分组。这样前端不再需要调用
+     * {@code GET /api/config/pools/list}（全公司资源池，含成员 instanceId / weight），
+     * 即可渲染「可用虚拟模型」与金额估算 —— 收紧 {@code config:pools:read} 后功能保持完整。</p>
+     */
+    @GetMapping("/mine")
+    @Operation(summary = "获取我的API密钥", description = "获取当前登录用户名下的所有API密钥（不包含实际密钥值），并附带可见分组的展示信息")
+    @PreAuthorize("hasAnyRole('USER','OPERATOR','ADMIN')")
+    public Mono<RouterResponse<ApiKeyWithModelScopeVO>> getMyApiKeys(final Authentication authentication) {
+        final String owner = authentication != null ? authentication.getName() : null;
+        return apiKeyService.getMineApiKeysWithModelScope(owner)
+                .map(list -> RouterResponse.success(list, "获取我的API密钥成功"))
+                .onErrorResume(e -> {
+                    log.error("获取我的API密钥列表失败", e);
+                    return Mono.error(ApiException.of("INTERNAL_ERROR", "获取我的API密钥列表失败"));
+                });
+    }
+
+    /**
+     * 员工取回自己的密钥明文（「我的密钥」页复制按钮的数据源，2026-11 用户决策）。
+     *
+     * <p>用 POST 而非 GET：密钥明文是一次性敏感数据，避免进入浏览器历史 / 代理日志 /
+     * CDN 缓存。归属校验在服务层（{@code holder/createdBy} 必须等于当前登录名），
+     * 存量未加密密钥返回明确错误引导轮换。</p>
+     */
+    @PostMapping("/mine/{keyId}/reveal")
+    @Operation(summary = "取回我的API密钥明文", description = "解密并返回当前登录用户名下指定密钥的明文（仅限本人），用于「我的密钥」页复制功能")
+    @PreAuthorize("hasAnyRole('USER','OPERATOR','ADMIN')")
+    public Mono<RouterResponse<Map<String, String>>> revealMyApiKeyValue(
+            final Authentication authentication,
+            @Parameter(description = "API密钥ID") @PathVariable("keyId") final String keyId) {
+        final String owner = authentication != null ? authentication.getName() : null;
+        return Mono.fromCallable(() -> apiKeyService.revealMineApiKeyValue(owner, keyId))
+                .map(kv -> RouterResponse.success(Map.of("keyValue", kv), "取回密钥明文成功"))
+                .onErrorResume(e -> {
+                    log.warn("取回密钥明文失败: keyId={}, owner={}, reason={}", keyId, owner, e.getMessage());
+                    return Mono.error(ApiException.of("REVEAL_FAILED", e.getMessage()));
+                });
+    }
+
+    /**
      * 根据ID获取 API 密钥详情
      * 返回不包含 keyValue 的安全副本
      */
@@ -102,8 +154,10 @@ public class ApiKeyManagementController {
     @PreAuthorize("hasRole('ADMIN')")
     public Mono<RouterResponse<ApiKeyCreationVO>> createApiKey(
             @Parameter(description = "API密钥创建请求")
-            @Valid @RequestBody final ApiKeyCreateRequest request) {
-        return apiKeyService.createApiKey(request)
+            @Valid @RequestBody final ApiKeyCreateRequest request,
+            final Authentication authentication) {
+        final String by = authentication != null ? authentication.getName() : "system";
+        return apiKeyService.createApiKey(request, by, null)
                 .map(vo -> RouterResponse.success(vo,
                         "创建API密钥成功，请妥善保存密钥值，此密钥值仅此一次显示"))
                 .onErrorResume(e -> {
@@ -220,26 +274,40 @@ public class ApiKeyManagementController {
                description = "重置API密钥值，旧的密钥值将失效，新的密钥值仅此一次显示")
     @PreAuthorize("hasRole('ADMIN')")
     public Mono<RouterResponse<ApiKeyCreationVO>> resetApiKey(
-            @Parameter(description = "API密钥ID") @PathVariable("keyId") final String keyId) {
+            @Parameter(description = "API密钥ID") @PathVariable("keyId") final String keyId,
+            final Authentication authentication) {
+        final String by = authentication != null ? authentication.getName() : "system";
         // 先删除旧的密钥，然后创建新的
         return apiKeyService.getApiKeyByIdVO(keyId)
                 .flatMap(oldKey -> {
                     // 创建新的密钥请求，保留原有属性
+                    // 注意：allowedGroups / holder 必须一并带过去，否则重置会静默清空白名单与持有人
                     ApiKeyCreateRequest newRequest = ApiKeyCreateRequest.builder()
                             .keyId(keyId)  // 保持相同的 keyId
                             .description(oldKey.getDescription())
+                            .holder(oldKey.getHolder())
                             .permissions(oldKey.getPermissions())
+                            .allowedGroups(oldKey.getAllowedGroups())
+                            .allowedIpAddresses(oldKey.getAllowedIpAddresses())
                             .enabled(oldKey.isEnabled())
                             .expiresAt(oldKey.getExpiresAt())
                             .rotationPeriodDays(oldKey.getRotationPeriodDays())
+                            .dailyRequestLimit(oldKey.getDailyRequestLimit())
+                            .dailyTokenLimit(oldKey.getDailyTokenLimit())
+                            .hourlyRequestLimit(oldKey.getHourlyRequestLimit())
+                            .hourlyTokenLimit(oldKey.getHourlyTokenLimit())
+                            .monthlyRequestLimit(oldKey.getMonthlyRequestLimit())
+                            .monthlyTokenLimit(oldKey.getMonthlyTokenLimit())
+                            .rateLimitPerMinute(oldKey.getRateLimitPerMinute())
+                            .quotaAlertThreshold(oldKey.getQuotaAlertThreshold())
                             .build();
 
                     // 先删除旧密钥
                     return apiKeyService.deleteApiKey(keyId)
-                            .then(apiKeyService.createApiKey(newRequest));
+                            .then(apiKeyService.createApiKey(newRequest, by, null));
                 })
                 .map(vo -> RouterResponse.success(vo,
-                        "重置API密钥成功，请妥善保存新的密钥值，此密钥值仅此一次显示"))
+                        "重置API密钥成功，持有人可在「我的密钥」中查看并复制新的密钥值"))
                 .onErrorResume(e -> {
                     log.error("重置API密钥失败: {}", keyId, e);
                     return Mono.error(ApiExceptions.wrap(e, "重置API密钥失败"));
@@ -260,7 +328,7 @@ public class ApiKeyManagementController {
             @Parameter(description = "API密钥ID") @PathVariable("keyId") final String keyId) {
         return apiKeyService.forceRotateKey(keyId, "admin")
                 .map(vo -> RouterResponse.success(vo,
-                        "密钥轮换成功，请妥善保存新的密钥值，此密钥值仅此一次显示"))
+                        "密钥轮换成功，持有人可在「我的密钥」中查看并复制新的密钥值"))
                 .onErrorResume(e -> {
                     log.error("强制轮换API密钥失败: {}", keyId, e);
                     return Mono.error(ApiExceptions.wrap(e, "密钥轮换失败"));

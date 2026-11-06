@@ -5,11 +5,14 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -30,7 +33,13 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "model_provider")
+// X4（2026-10-28）：provider_uid 唯一性从 @Column(unique=true)（H2 生成自动命名 UNIQUE 约束，
+// 名字带库内对象 ID）改为具名表级约束 —— 与迁移侧（V3 唯一索引 + V7 转具名约束）对齐，
+// 使 H2BaselineMatchesEntityModelTest 两侧 schema 快照可逐项比较
+@Table(name = "model_provider",
+        uniqueConstraints = @UniqueConstraint(name = "uk_model_provider_uid", columnNames = "provider_uid"),
+        indexes = @Index(name = "idx_model_provider_tenant", columnList = "tenant_id"))
+@Filter(name = "tenantFilter")
 public class ModelProviderEntity {
 
     @Id
@@ -38,7 +47,7 @@ public class ModelProviderEntity {
     private Long id;
 
     /** 供应商唯一标识（前端引用 / 日志排查用） */
-    @Column(name = "provider_uid", unique = true, length = 64)
+    @Column(name = "provider_uid", length = 64)
     private String providerUid;
 
     /** 供应商名称（如 DeepSeek / 智谱 GLM），列表与选择器展示 */
@@ -94,4 +103,10 @@ public class ModelProviderEntity {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    /** 归属租户（多租户预埋，S2 任务 35/36；社区版恒为 default） */
+    @Builder.Default
+    @Column(name = "tenant_id", nullable = false, length = 64)
+    private String tenantId = "default";
+
 }

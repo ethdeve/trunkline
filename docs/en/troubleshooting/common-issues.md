@@ -9,7 +9,7 @@
 
 
 
-This document collects the most common issues encountered when using JAiRouter and their solutions.
+This document collects the most common issues encountered when using Trunkline and their solutions.
 
 ## Startup Issues
 
@@ -294,7 +294,7 @@ curl http://localhost:8080/api/config/store/status
 ls -la config/
 
 # 3. View application logs
-tail -f logs/jairouter-debug.log | grep -i config
+tail -f logs/trunkline-debug.log | grep -i config
 ```
 
 #### Solutions
@@ -330,7 +330,7 @@ curl http://localhost:8080/api/config/instance/chat
 curl http://localhost:8080/actuator/health
 
 # 3. Analyze request distribution
-curl http://localhost:8080/actuator/metrics/jairouter.requests.total
+curl http://localhost:8080/actuator/metrics/trunkline.requests.total
 ```
 
 #### Solutions
@@ -370,7 +370,7 @@ model:
 curl http://localhost:8080/api/config/rate-limit/status
 
 # 2. Check rate limiting metrics
-curl http://localhost:8080/actuator/metrics/jairouter.rate.limit.rejected
+curl http://localhost:8080/actuator/metrics/trunkline.rate.limit.rejected
 
 # 3. Test rate limiting behavior
 for i in {1..20}; do
@@ -436,9 +436,9 @@ management:
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 30s
 ```
@@ -498,8 +498,8 @@ sudo systemctl restart docker
 ```yaml
 # docker-compose.yml
 services:
-  jairouter:
-    image: sodlinken/jairouter:latest
+  trunkline:
+    image: trunkline/trunkline:latest
     deploy:
       resources:
         limits:
@@ -517,7 +517,7 @@ services:
 #!/bin/bash
 # health-check.sh
 
-echo "=== JAiRouter Health Check ==="
+echo "=== Trunkline Health Check ==="
 
 # Check service status
 echo "1. Service status check..."
@@ -552,7 +552,7 @@ echo "=== Health Check Complete ==="
 #!/bin/bash
 # log-analysis.sh
 
-LOG_FILE="logs/jairouter-debug.log"
+LOG_FILE="logs/trunkline-debug.log"
 
 echo "=== Log Analysis ==="
 
@@ -597,14 +597,14 @@ redis-cli -h localhost -p 6379 ping
 curl http://localhost:8080/actuator/health/jwt-persistence
 
 # 4. Check application logs for persistence errors
-tail -f logs/jairouter-debug.log | grep -i "jwt\|persistence\|redis"
+tail -f logs/trunkline-debug.log | grep -i "jwt\|persistence\|redis"
 ```
 
 #### Solutions
 
 **Enable JWT Persistence**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -642,7 +642,7 @@ redis-cli -h localhost -p 6379 keys "jwt:*"
 #### Diagnostic Steps
 ```bash
 # 1. Check token storage metrics
-curl http://localhost:8080/actuator/metrics/jairouter.jwt.tokens.active
+curl http://localhost:8080/actuator/metrics/trunkline.jwt.tokens.active
 
 # 2. Check memory usage
 curl http://localhost:8080/actuator/metrics/jvm.memory.used
@@ -655,7 +655,7 @@ curl http://localhost:8080/api/auth/jwt/blacklist/stats
 
 **Configure Memory Limits**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -667,7 +667,7 @@ jairouter:
 
 **Optimize Cleanup Schedule**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -727,7 +727,7 @@ spring:
 
 **Configure Retry Logic**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -738,7 +738,7 @@ jairouter:
 
 **Enable Fallback Storage**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -767,14 +767,14 @@ curl -X POST http://localhost:8080/api/auth/jwt/login \
      -d '{"username":"test","password":"test"}'
 
 # 4. Check for audit errors
-grep -i "audit\|security" logs/jairouter-error.log
+grep -i "audit\|security" logs/trunkline-error.log
 ```
 
 #### Solutions
 
 **Enable Security Auditing**
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       enabled: true
@@ -788,7 +788,7 @@ jairouter:
 
 **Configure Log Rotation**
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       storage:
@@ -801,7 +801,7 @@ jairouter:
 
 **Optimize Audit Performance**
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       jwt-operations:
@@ -815,7 +815,7 @@ jairouter:
 If the above solutions don't resolve your issue, please:
 
 1. **Check detailed logs**: Enable DEBUG level logging for more information
-2. **Search known issues**: Search for similar issues in [GitHub Issues](https://github.com/Lincoln-cn/JAiRouter/issues)
+2. **Search known issues**: Search for similar issues in [GitHub Issues](https://github.com/Lincoln-cn/Trunkline/issues)
 3. **Submit a new issue**: Create a new Issue with detailed error information and environment description
 4. **Participate in community discussions**: Seek help in the project discussion area
 
@@ -827,7 +827,7 @@ Briefly describe the problem encountered
 ## Environment Information
 - Java Version: 
 - Operating System: 
-- JAiRouter Version: 
+- Trunkline Version: 
 - Deployment Method: (Docker/Direct execution)
 
 ## Reproduction Steps

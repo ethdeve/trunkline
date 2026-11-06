@@ -16,6 +16,14 @@ public class AuthenticationException extends SecurityException {
     public static final String BLACKLISTED_TOKEN = "BLACKLISTED_TOKEN";
     public static final String DAILY_QUOTA_EXCEEDED = "DAILY_QUOTA_EXCEEDED";
     public static final String TOKEN_QUOTA_EXCEEDED = "TOKEN_QUOTA_EXCEEDED";
+    /** P0-A：每小时请求配额超限（多窗口配额） */
+    public static final String HOURLY_QUOTA_EXCEEDED = "HOURLY_QUOTA_EXCEEDED";
+    /** P0-A：每小时 Token 配额超限（多窗口配额） */
+    public static final String HOURLY_TOKEN_QUOTA_EXCEEDED = "HOURLY_TOKEN_QUOTA_EXCEEDED";
+    /** P0-A：每月请求配额超限（多窗口配额） */
+    public static final String MONTHLY_QUOTA_EXCEEDED = "MONTHLY_QUOTA_EXCEEDED";
+    /** P0-A：每月 Token 配额超限（多窗口配额） */
+    public static final String MONTHLY_TOKEN_QUOTA_EXCEEDED = "MONTHLY_TOKEN_QUOTA_EXCEEDED";
     public static final String RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED";
     /** 摘自上游 v3.3.4 #404：API Key 校验链专用限流码（429），与管理面 RATE_LIMIT_EXCEEDED 区分 */
     public static final String RATE_LIMITED_API_KEY = "RATE_LIMITED_API_KEY";
@@ -97,5 +105,37 @@ public class AuthenticationException extends SecurityException {
     public static AuthenticationException rateLimitExceeded() {
         return new AuthenticationException("请求频率超过限制，请稍后再试",
                 RATE_LIMIT_EXCEEDED, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    /**
+     * 创建每小时请求配额超限异常（P0-A，HTTP 429）
+     */
+    public static AuthenticationException hourlyQuotaExceeded() {
+        return new AuthenticationException("超过每小时请求配额限制",
+                HOURLY_QUOTA_EXCEEDED, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    /**
+     * 创建每小时 Token 配额超限异常（P0-A，HTTP 429）
+     */
+    public static AuthenticationException hourlyTokenQuotaExceeded() {
+        return new AuthenticationException("超过每小时 Token 使用配额限制",
+                HOURLY_TOKEN_QUOTA_EXCEEDED, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    /**
+     * 创建每月请求配额超限异常（P0-A，HTTP 429）
+     */
+    public static AuthenticationException monthlyQuotaExceeded() {
+        return new AuthenticationException("超过每月请求配额限制",
+                MONTHLY_QUOTA_EXCEEDED, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    /**
+     * 创建每月 Token 配额超限异常（P0-A，HTTP 429）
+     */
+    public static AuthenticationException monthlyTokenQuotaExceeded() {
+        return new AuthenticationException("超过每月 Token 使用配额限制",
+                MONTHLY_TOKEN_QUOTA_EXCEEDED, HttpStatus.TOO_MANY_REQUESTS);
     }
 }

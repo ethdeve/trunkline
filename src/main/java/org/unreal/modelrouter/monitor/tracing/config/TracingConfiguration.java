@@ -24,9 +24,10 @@ import java.util.Set;
  * 
  * @author JAiRouter Team
  * @since 1.0.0
+ * @modified Trunkline Team
  */
 @Data
-@ConfigurationProperties(prefix = "jairouter.tracing")
+@ConfigurationProperties(prefix = "trunkline.tracing")
 public class TracingConfiguration {
     
     /**
@@ -37,7 +38,7 @@ public class TracingConfiguration {
     /**
      * 服务名称
      */
-    private String serviceName = "jairouter";
+    private String serviceName = "trunkline";
     
     /**
      * 服务版本

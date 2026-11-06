@@ -3,7 +3,7 @@
  * ConsoleLayout：双栏导航 + 顶栏 + 内容区 + 命令面板（一期骨架）
  * - 菜单数据驱动渲染（config/menu.ts 方案 A 12 项），按权限过滤
  * - 浅色双栏随主题，替代旧 sidebar 深色渐变硬编码
- * - 顶栏：折叠钮 / 命令面板触发 / 主题切换 / 紧凑切换 / 用户菜单
+ * - 顶栏：折叠钮 / 命令面板触发 / 主题切换 / 帮助文档 / 用户菜单
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -11,8 +11,8 @@ import { useI18n } from 'vue-i18n'
 import { menuGroups } from '@/config/menu'
 import { usePermission } from '@/composables/usePermission'
 import { useTheme } from '@/composables/useTheme'
-import { useDensity } from '@/composables/useDensity'
 import { useUserStore } from '@/stores/user'
+import { useDeploymentStore } from '@/stores/deployment'
 import { getApiKeys, getQuotaAlerts } from '@/api/apiKey'
 import CommandPalette from '@/components/command/CommandPalette.vue'
 
@@ -22,9 +22,19 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const userStore = useUserStore()
+const deployment = useDeploymentStore()
 const { hasPermission, filterMenuByPermission } = usePermission()
 const { isDark, toggleTheme } = useTheme()
-const { density, toggleDensity } = useDensity()
+
+/**
+ * 顶栏部署标识（S4）：仅运维/管理员可见，单机部署下为空字符串。
+ *
+ * 员工不关心部署形态，看到「多副本 · 3 个实例」只会困惑；
+ * 运维必须看到——否则会误判页面上统计数据的口径（是全体还是本副本）。
+ */
+const showClusterBadge = computed(
+  () => userStore.hasLogicalRoleOneOf(['ops', 'admin']) && !!deployment.clusterLabel
+)
 
 const filteredGroups = computed(() =>
   filterMenuByPermission(menuGroups).map(g => ({
@@ -39,7 +49,7 @@ const filteredGroups = computed(() =>
 const activePath = computed(() => {
   const all = filteredGroups.value.flatMap(g => g.children)
   const exact = all.find(c => c.path === route.path)
-  return exact ? exact.path : '/' + (route.path.split('/')[1] || 'overview')
+  return exact ? exact.path : '/' + (route.path.split('/')[1] || 'my-quota')
 })
 const activeGroup = computed(() => filteredGroups.value.find(g => g.children.some(c => c.path === activePath.value)))
 
@@ -91,6 +101,8 @@ onMounted(() => {
   window.addEventListener('resize', syncCollapsed)
   loadNavBadges()
   badgeTimer = setInterval(loadNavBadges, 60_000)
+  // 部署形态只请求一次（store 内部幂等），失败静默按单机处理
+  void deployment.ensureLoaded()
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', syncCollapsed)
@@ -116,28 +128,35 @@ async function onLogout() {
           <template v-for="group in filteredGroups" :key="group.index">
             <!-- 折叠时组退化为分隔标题 -->
             <li v-if="collapsed" class="nav-menu__divider">
-              <el-tooltip :content="group.title" placement="right">
-                <el-icon><component :is="group.icon" /></el-icon>
-              </el-tooltip>
+              <el-icon><component :is="group.icon" /></el-icon>
             </li>
             <template v-else>
               <div class="nav-menu__group-title">{{ group.title }}</div>
+              <!--
+                P0-B：置灰项（greyed）仍可点击 —— el-menu 的 router 模式会跳到
+                item.path，随后路由守卫判定无权 → 跳 403 页说明缺什么权限。
+                置灰 + 可点 = 「可解释、可点击、指向答案」的入口，而不是死路。
+              -->
               <el-menu-item
                 v-for="item in group.children"
                 :key="item.path"
                 :index="item.path"
+                :class="{ 'is-greyed': item.greyed }"
               >
                 <el-icon><component :is="item.icon" /></el-icon>
                 <template #title>
                   {{ item.title }}
+                  <el-tag v-if="item.greyed" size="small" type="info" class="nav-grey-tag">
+                    {{ t('forbidden.roleAdmin') }}
+                  </el-tag>
                   <el-badge
-                    v-if="item.path === '/keys' && expiringKeysCount > 0"
+                    v-if="item.path === '/all-keys' && expiringKeysCount > 0"
                     :value="expiringKeysCount"
                     type="warning"
                     class="nav-badge"
                   />
                   <el-badge
-                    v-else-if="item.path === '/observe' && quotaAlertCount > 0"
+                    v-else-if="item.path === '/observability' && quotaAlertCount > 0"
                     is-dot
                     type="danger"
                     class="nav-badge"
@@ -162,6 +181,39 @@ async function onLogout() {
 
         <div style="flex: 1" />
 
+        <!-- 租户切换器占位（S2 任务 42）：社区版只显示「默认租户」且禁用；
+             商业版多租户解锁后由 enterprise 配置驱动出现真实切换器 -->
+        <el-tooltip
+          content="当前部署为社区版（单租户）。多租户管理是商业版能力，解锁后可在此切换租户"
+          placement="bottom"
+        >
+          <div class="topbar-tenant topbar-tenant--locked">
+            <el-icon :size="14"><OfficeBuilding /></el-icon>
+            <span>默认租户</span>
+            <el-tag size="small" type="info" effect="plain">商业版</el-tag>
+          </div>
+        </el-tooltip>
+
+        <!-- 部署形态标识（S4）：单机不渲染，员工不渲染 -->
+        <el-tooltip
+          v-if="showClusterBadge"
+          :content="deployment.hasSharedStateGap
+            ? '多副本部署，但有跨副本共享态未开启，副本间数据可能不一致。到「状态监控」查看详情'
+            : '多副本部署：页面上的实时计数通常只含当前副本'"
+          placement="bottom"
+        >
+          <el-tag
+            type="warning"
+            effect="plain"
+            size="small"
+            class="topbar-cluster"
+          >
+            <el-icon><Connection /></el-icon>
+            {{ deployment.clusterLabel }}
+            <span v-if="deployment.hasSharedStateGap" class="topbar-cluster__warn">!</span>
+          </el-tag>
+        </el-tooltip>
+
         <div class="palette-trigger" @click="paletteVisible = true">
           <el-icon><Search /></el-icon>
           <span>搜索</span>
@@ -180,9 +232,9 @@ async function onLogout() {
           </el-button>
         </el-tooltip>
 
-        <el-tooltip :content="density === 'compact' ? '标准密度' : '紧凑模式'">
-          <el-button text @click="toggleDensity">
-            <el-icon :size="16"><Grid /></el-icon>
+        <el-tooltip content="帮助文档">
+          <el-button text @click="router.push('/docs')">
+            <el-icon :size="16"><Reading /></el-icon>
           </el-button>
         </el-tooltip>
 
@@ -211,15 +263,60 @@ async function onLogout() {
 </template>
 
 <style scoped>
+/*
+ * 侧边栏菜单紧凑化（v3.5 Trunkline UI 改造：与 UI 原型对齐）
+ *
+ * <p>Element Plus 的菜单默认偏松（行高 56px、左内边距 20px、图标槽 24px），
+ * 与原型的紧凑侧栏差一截——原型的规范是 {@code .nav-a { padding: 9px 12px; gap: 11px; font-size: 13.5px }}
+ * 且图标 18px，实测行高 39.6px。</p>
+ *
+ * <p>这里用 CSS 变量覆盖 Element 的菜单变量，而不是逐条写死样式：
+ * 变量是官方对外接口，元素内部（折叠态宽度计算、弹出菜单等）也会跟着算对，
+ * 改一处即可全量生效。</p>
+ */
 .nav-menu {
   border-right: none;
+
+  /* 行高 56px → 40px（对齐原型实测 39.6px） */
+  --el-menu-item-height: 40px;
+  /* 左内边距 20px → 12px（对齐原型 padding-left） */
+  --el-menu-base-level-padding: 12px;
+  /* 图标槽 24px → 18px（对齐原型 svg 尺寸） */
+  --el-menu-icon-width: 18px;
+  /* 字号 14px → 13.5px（对齐原型） */
+  --el-menu-item-font-size: 13.5px;
 }
+
+/* 图标与文字的间距：Element 用 margin-right 5px，原型用 gap 11px */
+.nav-menu :deep(.el-menu-item [class^='el-icon']) {
+  margin-right: 11px;
+}
+
+/*
+ * 菜单项圆角与选中态（对齐原型 .nav-a）
+ *
+ * <p>Element 默认是直角 + 仅文字变色；原型是圆角药丸 + 淡色底。
+ * 这里只覆盖背景与圆角，不动选中态文字色（沿用主题色）。</p>
+ */
+.nav-menu :deep(.el-menu-item) {
+  border-radius: 8px;
+  margin: 0 8px;
+  width: calc(100% - 16px);
+}
+
+.nav-menu :deep(.el-menu-item.is-active) {
+  background-color: var(--ja-primary-light-9, var(--el-menu-hover-bg-color));
+  font-weight: 600;
+}
+
+/* 分组标题（团队 / 策略 / 系统）：对齐原型 .nav-group 的 padding 与字号 */
 .nav-menu__group-title {
-  padding: 12px 16px 4px;
-  font-size: 11px;
+  padding: 14px 14px 4px;
+  font-size: 10.5px;
   color: var(--ja-text-placeholder);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
 }
 .nav-menu__divider {
   display: flex;
@@ -230,9 +327,65 @@ async function onLogout() {
 .nav-badge {
   margin-left: 6px;
 }
+
+/* P0-B：置灰但可点的菜单项 —— 一眼看出「这一项存在，但你没权限」 */
+.nav-menu .el-menu-item.is-greyed {
+  color: var(--ja-text-placeholder);
+}
+.nav-menu .el-menu-item.is-greyed .el-icon {
+  opacity: 0.55;
+}
+.nav-menu .el-menu-item.is-greyed:hover {
+  color: var(--ja-text-secondary);
+  background-color: var(--ja-bg-secondary, #f5f6f8);
+}
+.nav-grey-tag {
+  margin-left: 6px;
+  transform: scale(0.85);
+  transform-origin: left center;
+  vertical-align: middle;
+}
 .topbar-crumb {
   font-size: 13px;
   color: var(--ja-text-secondary);
+}
+
+/* 顶栏部署标识（S4）：视觉上比面包屑更「硬」，提示这是环境事实而非导航 */
+.topbar-cluster {
+  margin-right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+}
+
+/* 租户切换器占位（S2 任务 42）：社区版展示为禁用态 */
+.topbar-tenant {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--ja-text-secondary);
+  background: var(--ja-surface-muted, rgba(23, 108, 107, 0.06));
+  cursor: not-allowed;
+  user-select: none;
+}
+
+.topbar-cluster__warn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--el-color-danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
 }
 .topbar-user {
   display: flex;

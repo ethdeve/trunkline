@@ -12,6 +12,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
@@ -22,6 +23,7 @@ import java.time.LocalDateTime;
  *
  * @author JAiRouter Team
  * @since 1.9.5
+ * @modified Trunkline Team
  */
 @Data
 @Builder
@@ -33,8 +35,11 @@ import java.time.LocalDateTime;
     @Index(name = "idx_token_usage_service_type", columnList = "service_type"),
     @Index(name = "idx_token_usage_occurred_at", columnList = "occurred_at"),
     @Index(name = "idx_token_usage_api_key", columnList = "api_key_id"),
-    @Index(name = "idx_token_usage_trace_id", columnList = "trace_id")
+    @Index(name = "idx_token_usage_trace_id", columnList = "trace_id"),
+    @Index(name = "idx_token_usage_virtual_model", columnList = "virtual_model"),
+    @Index(name = "idx_token_usage_tenant", columnList = "tenant_id")
 })
+@Filter(name = "tenantFilter")
 public class TokenUsageEntity {
 
     @Id
@@ -58,6 +63,23 @@ public class TokenUsageEntity {
      */
     @Column(name = "model_name", nullable = false, length = 255)
     private String modelName;
+
+    /**
+     * 虚拟模型名（模型分组 / 池名，如「公司主力」），v3.5 Trunkline 治理新增。
+     *
+     * <p><b>与 modelName / instanceName 的分工</b>：</p>
+     * <ul>
+     *   <li>{@code virtualModel} —— 请求命中的<b>虚拟模型</b>，是员工填进 AI 工具里的对外名字，
+     *       也是「团队用量」的归属维度；一次请求只命中一个虚拟模型，归属无歧义。</li>
+     *   <li>{@code modelName} —— 上游响应体回传的模型名（上游原样返回，可能带版本后缀）。</li>
+     *   <li>{@code instanceName} —— 实际路由到的<b>厂商模型实例</b>，是计价依据
+     *       （对齐 {@code model_price.model_name}）。</li>
+     * </ul>
+     *
+     * <p>历史数据为空（老版本落库时无此字段），聚合时归入「未归类」而不丢数据。</p>
+     */
+    @Column(name = "virtual_model", length = 255)
+    private String virtualModel;
 
     /**
      * 模型提供商/适配器类型 (gpustack, ollama, vllm 等)
@@ -222,4 +244,10 @@ public class TokenUsageEntity {
             hour = occurredAt.getHour();
         }
     }
+
+    /** 归属租户（多租户预埋，S2 任务 35/36；社区版恒为 default） */
+    @Builder.Default
+    @Column(name = "tenant_id", nullable = false, length = 64)
+    private String tenantId = "default";
+
 }

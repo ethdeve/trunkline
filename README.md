@@ -1,190 +1,171 @@
-# JAiRouter
+# Trunkline
 
 <p align="center">
-  <img src="logo/JAiRouterLogo.png" alt="JAiRouter — AI Model Gateway" width="180">
+  <img src="logo/brand-mark.svg" alt="Trunkline — Enterprise AI Governance Gateway" width="180">
 </p>
 
+> **Trunkline** is an enterprise AI governance gateway built on top of [JAiRouter](https://github.com/Lincoln-cn/JAiRouter) (Apache License 2.0). It is distributed under the [Apache License 2.0](LICENSE) with upstream copyright notices preserved in [NOTICE](NOTICE). Many thanks to the original author [Lincoln-cn](https://github.com/Lincoln-cn).
+
 <p align="center">
-  <strong>All your LLM backends behind one OpenAI-compatible API.</strong>
+  <strong>Bring all your LLM backends behind one OpenAI-compatible endpoint.</strong>
 </p>
 
 <p align="center">
   Ollama · vLLM · GPUStack · Xinference · OpenAI · Claude · Gemini<br>
-  Unified routing · load balancing · rate limiting · circuit breaking · failover · visual console
+  Unified Routing · Load Balancing · Rate Limiting · Circuit Breaking · Failover · Web Console
 </p>
 
 <p align="center">
-  <a href="https://github.com/Lincoln-cn/JAiRouter/releases">
-    <img src="https://img.shields.io/github/v/release/Lincoln-cn/JAiRouter?style=flat-square" alt="Latest release">
-  </a>
-  <a href="https://hub.docker.com/r/sodlinken/jairouter">
-    <img src="https://img.shields.io/docker/pulls/sodlinken/jairouter?style=flat-square&logo=docker" alt="Docker Pulls">
-  </a>
-  <a href="https://github.com/Lincoln-cn/JAiRouter/blob/master/LICENSE">
-    <img src="https://img.shields.io/github/license/Lincoln-cn/JAiRouter?style=flat-square" alt="License">
-  </a>
+  <img src="https://img.shields.io/badge/version-0.1.0-blue?style=flat-square" alt="Version 0.1.0">
+  <img src="https://img.shields.io/badge/upstream-JAiRouter%20%7C%20Apache--2.0-green?style=flat-square" alt="Based on JAiRouter">
+  <img src="https://img.shields.io/badge/license-Apache--2.0-green?style=flat-square" alt="License">
 </p>
 
 <p align="center">
-  <a href="README-ZH.md">中文</a> •
-  <a href="https://jairouter.com">Docs</a> •
-  <a href="https://github.com/Lincoln-cn/JAiRouter/issues">Issues</a> •
-  <a href="https://github.com/Lincoln-cn/JAiRouter/discussions">Discussions</a>
+  <a href="README-ZH.md">简体中文</a> •
+  <a href="https://trunkline.com">Docs</a> •
+  <a href="https://github.com/Lincoln-cn/trunkline/issues">Issues</a> •
+  <a href="https://github.com/Lincoln-cn/trunkline/discussions">Discussions</a>
 </p>
 
-- **One endpoint for every model** — replace direct calls to Ollama, vLLM, GPUStack, OpenAI, Claude, Gemini with a single OpenAI-compatible `base_url`. Existing OpenAI SDK, LangChain and LlamaIndex code keeps working unchanged.
-- **Built for local inference clusters** — load balancing across instances (including latency-aware and tag-based selection), circuit breaking, and failover that retries on a *different* healthy instance when one dies.
-- **Made for teams** — Web console with hot reload, config versioning & rollback, RBAC, audit logging, encrypted call records and full observability. Change routing without restarting anything.
+- **One endpoint for all models** — unify direct calls to Ollama, vLLM, GPUStack, OpenAI, Claude, and Gemini behind a single OpenAI-compatible `base_url`. Existing OpenAI SDK, LangChain, and LlamaIndex code switches over with zero changes.
+- **Built for local inference clusters** — multi-instance load balancing (latency-aware, tag-based routing), circuit breaking, and per-request failover that **automatically retries on a healthy instance**.
+- **Built for enterprise teams** — hot-reload web console, config versioning & rollback, RBAC, audit logging, encrypted call records, and full observability. Route changes need no restart.
+- **Designed for non-technical users** — three role-based views (end user / ops / admin) and a minimal-config wizard. The console speaks human; technical details stay in advanced sections.
 
-## Try it in 3 minutes
+## Quick Start in 3 Minutes
 
 ```bash
-# Start the gateway — dev profile: no key setup required (built-in dev key)
-docker run -d --name jairouter -p 8080:8080 \
+# Start the gateway — dev profile, no key required (built-in dev key)
+docker run -d --name trunkline -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=dev \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 
-# Web console:  http://localhost:8080/admin
-# Default login: admin / ChangeMeOnFirstStartup123456
+# Web console: http://localhost:8080/admin
+# Default account: admin / ChangeMeOnFirstStartup123456
 ```
 
-For production, run the default `prod` profile and supply your own key — the prod profile deliberately ships no default key:
+For production, use the default `prod` profile and supply your own secret — prod deliberately ships no default key:
 
 ```bash
-docker run -d --name jairouter -p 8080:8080 \
-  -e JWT_SECRET="<your-secret-at-least-32-characters>" \
-  sodlinken/jairouter:latest
+docker run -d --name trunkline -p 8080:8080 \
+  -e JWT_SECRET="<at-least-32-chars>" \
+  trunkline/trunkline:latest
 ```
 
-Point any OpenAI-compatible client at it:
+Any OpenAI-compatible client works out of the box:
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://localhost:8080/v1",          # OpenAI-native surface (raw JSON / SSE)
-    api_key="not-needed",                          # Authorization is forwarded to the downstream
-    default_headers={"X-API-Key": "<your-api-key>"}  # gateway credential (Management API keys)
+    base_url="http://localhost:8080/v1",             # OpenAI-native face (JSON / SSE)
+    api_key="not-needed",                            # Authorization header is forwarded downstream
+    default_headers={"X-API-Key": "<your API key>"}  # Gateway auth (API Key created in the console)
 )
 
 response = client.chat.completions.create(
-    model="llama3.2",  # any model from your configured backends
+    model="llama3.2",  # any configured backend model
     messages=[{"role": "user", "content": "Hello!"}]
 )
 print(response.choices[0].message.content)
 ```
 
-Add your own backends — Ollama, vLLM, GPUStack or any cloud provider — in the console under **Instance Management**. Changes apply via hot reload, no restart required.
+Add your own backends — Ollama, vLLM, GPUStack, or any cloud provider — in the console's instance management. Hot-reload applies instantly, no restart.
+
+<details>
+<summary><b>Upgrading from JAiRouter?</b></summary>
+
+Trunkline ships a transparent compatibility layer — existing setups migrate automatically:
+
+- Config prefix `jairouter.*` → `trunkline.*`: legacy keys keep working with a deprecation warning in logs;
+- Redis quota keys `jairouter:quota:*` → `trunkline:quota:*`: one-time migration at startup, usage counters are preserved;
+- Config store key `model-router-config` → `trunkline-config`: reads fall back to the legacy key; writes go to the new key.
+
+The default auth header `Jairouter_Token` and the `~/.jairouter` key directory remain unchanged (API contract compatibility).
+
+</details>
 
 <p align="center">
-  <img src="screenshots/dashboard-en-US-light.png" alt="JAiRouter dashboard" width="720">
+  <img src="screenshots/dashboard-zh-CN-light.png" alt="Trunkline console" width="720">
   <br/>
-  <em>Management console — real-time service, instance and system metrics</em>
+  <em>Admin console — live service / instance / system metrics</em>
 </p>
 
 <details>
 <summary><b>More screenshots</b></summary>
 
 <p align="center">
-  <img src="screenshots/service-management-en-US-light.png" alt="Service Management" width="720">
+  <img src="screenshots/service-management-zh-CN-light.png" alt="Service management" width="720">
   <br/>
-  <em>Service management — adapters and load-balancing strategies per service</em>
+  <em>Service management — per-service adapter and load-balancing policy</em>
 </p>
 
 <p align="center">
-  <img src="screenshots/instance-management-en-US-light.png" alt="Instance Management" width="720">
-  <img src="screenshots/adapter-management-en-US-light.png" alt="Adapter Management" width="720">
+  <img src="screenshots/rule-management-zh-CN-light.png" alt="Routing rules" width="720">
   <br/>
-  <em>Instance & adapter management</em>
+  <em>Visual routing rules — hit stats, drag-to-prioritize, scenario templates</em>
 </p>
 
 <p align="center">
-  <img src="screenshots/rule-management-en-US-light.png" alt="Rule Engine" width="720">
+  <img src="screenshots/call-history-dashboard-zh-CN-light.png" alt="Call history analytics" width="720">
   <br/>
-  <em>Visual routing rules with hit statistics, priority drag-and-drop and templates</em>
+  <em>Call history analytics — success rate, latency, and token usage trends</em>
 </p>
 
 <p align="center">
-  <img src="screenshots/call-history-dashboard-en-US-light.png" alt="Call History Analytics" width="720">
+  <img src="screenshots/playground-chat-zh-CN-light.png" alt="AI playground" width="720">
   <br/>
-  <em>Call history analytics — success rate, latency and token usage trends</em>
+  <em>AI playground — chat / embedding / rerank / TTS / STT / image testing</em>
 </p>
 
 <p align="center">
-  <img src="screenshots/extra-slow-query-analysis-en-US-light.png" alt="Slow Query Analysis" width="720">
+  <img src="screenshots/dashboard-zh-CN-dark.png" alt="Dashboard (dark theme)" width="720">
   <br/>
-  <em>Slow-query analysis — hotspots, alert status and operation breakdown</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/playground-chat-en-US-light.png" alt="AI Playground" width="720">
-  <br/>
-  <em>AI playground — chat, embedding, rerank, audio and image test benches</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/quota-config-en-US-light.png" alt="Quota Runtime Configuration" width="720">
-  <br/>
-  <em>Quota runtime configuration — hot-toggle enable/disable, windows and fail-open; restart-required fields are read-only with a "restart needed" badge</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/quota-monitoring-en-US-light.png" alt="Quota Usage Monitoring" width="720">
-  <br/>
-  <em>Quota usage monitoring — backend type and degradation status cards plus multi-dimensional filtering (tenant / key / user / service / model × window)</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/client-access-en-US-light.png" alt="Client Access Guide" width="720">
-  <br/>
-  <em>Client access guide — OpenAI-compatible and Anthropic base URLs, credential headers and copy-ready code snippets</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/dashboard-en-US-dark.png" alt="Dashboard (dark theme)" width="720">
-  <br/>
-  <em>Built-in dark theme — the console is fully themeable and bilingual (zh-CN / en-US)</em>
+  <em>Dark theme built in — light/dark switch and bilingual UI</em>
 </p>
 
 </details>
 
-## What is JAiRouter?
+## What is Trunkline?
 
-JAiRouter is a **production-ready AI model gateway** for teams that run their own inference infrastructure (Ollama, vLLM, GPUStack, Xinference) alongside cloud providers. It exposes every backend through one unified, OpenAI-compatible API and adds the resilience and governance layer you would otherwise build yourself: load balancing, rate limiting, circuit breaking, failover, RBAC, audit logging and observability.
+Trunkline is a **production-grade AI model gateway** for teams running their own inference infrastructure (Ollama, vLLM, GPUStack, Xinference) alongside cloud models. It collapses every backend into one OpenAI-compatible API and adds the resilience and governance you would otherwise build yourself: load balancing, rate limiting, circuit breaking, failover, RBAC, audit logging, and observability.
 
-| Problem | JAiRouter Solution |
-|---------|-------------------|
-| Multiple model endpoints to manage | Single unified API endpoint |
-| Manual failover when a service fails | Automatic circuit breaker |
-| Implementing auth for each service | JWT + API Key built-in |
-| Scattered logs and metrics | Centralized observability |
-| Service restart for config changes | Hot reload via Web Console |
+| Problem | Trunkline answer |
+|---------|------------------|
+| Too many model endpoints to manage | One unified API entry |
+| Manual switching when a service fails | Automatic circuit breaking & failover |
+| Auth implemented per service | Built-in JWT + API Key |
+| Scattered logs and metrics | Unified observability |
+| Config changes require restarts | Hot-reload web console |
+| Employees can't configure models | Role-based views + minimal-config UI |
 
 ### Core Features
 
-- **🔌 OpenAI-Compatible API** — Drop-in replacement for OpenAI SDK, LangChain, LlamaIndex
-- **🔧 Configurable Adapters** — Add new AI providers (DeepSeek, Zhipu, etc.) via config or Web UI, no code needed
-- **⚖️ Smart Load Balancing** — Round-robin, weighted, least-connections, IP-hash, consistent-hash, EWMA latency-aware
-- **🎯 Rule Engine & Tag Routing** — Visual conditional routing (model name, service type, request header, client IP, weight, instance tags)
-- **🛡️ Rate Limiting** — Token bucket, leaky bucket, sliding window algorithms
-- **🔥 Circuit Breaker** — Auto failover with configurable thresholds, plus request-level failover that retries on another healthy instance
-- **🔐 Authentication & RBAC** — JWT + API Key with audit logging and data-driven RBAC (44 permission codes, 4 role templates, menu & URL authorization)
-- **📊 Observability** — Prometheus metrics, OpenTelemetry tracing, real-time dashboards, call-history analytics
-- **🔒 Record Governance** — Three recording levels (metadata-only / desensitized summary / AES-256-GCM-encrypted full content)
-- **⚡ Response Cache** — Deterministic requests reuse the downstream response and skip the backend (opt-in, tenant-isolated keys)
-- **💾 Persistence** — Redis / H2 / File storage for distributed deployment
-- **🎛️ Web Console** — Visual management, version control, configuration rollback, dark/light theme
+- **🔌 OpenAI-compatible API** — drop-in for OpenAI SDK, LangChain, LlamaIndex (plus a native Anthropic `/v1/messages` face)
+- **🔧 Configurable adapters** — add new AI providers (DeepSeek, Zhipu, etc.) via config or the web UI, no code
+- **⚖️ Smart load balancing** — round robin, weighted, least connections, IP Hash, consistent hashing, EWMA latency-aware
+- **🎯 Rule engine & tag routing** — visual conditional routing (model, service type, headers, source IP, weight, instance tags)
+- **🛡️ Traffic control** — token bucket, leaky bucket, sliding window
+- **🔥 Circuit breaking** — automatic failover with configurable thresholds, plus per-request failover (retry on healthy instances)
+- **🔐 Auth & RBAC** — JWT + API Key dual auth, audit logging, data-driven RBAC (permission codes + role templates + menu/URL permissions)
+- **📊 Observability** — Prometheus metrics, OpenTelemetry tracing, live dashboards, call history analytics
+- **🔒 Record governance** — three levels (metadata only / redacted summary / AES-256-GCM encrypted full text)
+- **💰 Quota ledger** — multi-dimensional, multi-window token quotas (MINUTE/HOUR/DAY/MONTH) with Redis distributed counting and automatic degradation
+- **⚡ Response caching** — deterministic requests served from cache (optional, tenant-isolated keys)
+- **💾 State persistence** — Redis / H2 / file storage for distributed deployments
+- **🎛️ Web console** — visual management, versioning, rollback, light/dark themes, bilingual UI
 
 ## Supported AI Backends
 
 <details>
-<summary><b>Built-in adapters</b> — chat, embedding, rerank, TTS/STT and image coverage</summary>
+<summary><b>Built-in adapters</b> — Chat / Embedding / Rerank / TTS / STT / Image matrix</summary>
 
 | Backend | Chat | Embedding | Rerank | TTS | STT | Image | Notes |
 |---------|:----:|:---------:|:------:|:---:|:---:|:-----:|-------|
 | **Ollama** | ✅ | ✅ | - | - | - | - | Local inference |
-| **vLLM** | ✅ | ✅ | - | - | - | - | High-throughput |
-| **GPUStack** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Full-featured |
+| **vLLM** | ✅ | ✅ | - | - | - | - | High throughput |
+| **GPUStack** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Full coverage |
 | **Xinference** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Multi-model |
 | **LocalAI** | ✅ | ✅ | - | ✅ | ✅ | ✅ | OpenAI-compatible |
 | **OpenAI** | ✅ | ✅ | - | ✅ | ✅ | ✅ | Cloud fallback |
@@ -194,167 +175,93 @@ JAiRouter is a **production-ready AI model gateway** for teams that run their ow
 </details>
 
 <details>
-<summary><b>Configurable adapters</b> — any OpenAI-compatible provider, no code required</summary>
+<summary><b>Configurable adapters</b> — any OpenAI-compatible provider, no code</summary>
 
 | Provider | Configuration |
-|----------|--------------|
+|----------|---------------|
 | **DeepSeek** | `adapter-definitions: deepseek: type: openai-compatible` |
 | **Zhipu (GLM)** | `adapter-definitions: zhipu: type: openai-compatible` |
 | **Moonshot** | `adapter-definitions: moonshot: type: openai-compatible` |
-| **Qwen (Tongyi)** | `adapter-definitions: qwen: type: openai-compatible` |
+| **Qwen** | `adapter-definitions: qwen: type: openai-compatible` |
 | **Baichuan** | `adapter-definitions: baichuan: type: openai-compatible` |
 | **Minimax** | `adapter-definitions: minimax: type: openai-compatible` |
 
-> 📖 See the [Adapter Configuration Guide](https://jairouter.com/configuration/adapter-config/) for details.
+> 📖 See the [Adapter configuration guide](https://trunkline.com/configuration/adapter-config/)
 
 </details>
 
-## Why Choose JAiRouter?
+## Why Trunkline?
 
-- **vs running backends directly** — no shared resilience, no central keys, no usage visibility. JAiRouter gives one endpoint, automatic failover and a full audit trail.
-- **vs One-API / new-api** — those focus on distributing and billing API keys for shared accounts. JAiRouter targets the gateway in front of **your own local inference cluster**: multi-instance load balancing, circuit breaking, rule routing, RBAC and observability for self-hosted Ollama/vLLM/GPUStack. The two approaches complement each other.
-- **vs Nginx** — Nginx is a general-purpose web server. JAiRouter is **purpose-built for AI/LLM workloads** with OpenAI-compatible routing, circuit breaking and model-aware load balancing.
-- **vs LangChain** — LangChain is an application framework. JAiRouter is the **infrastructure layer beneath it**, providing routing, failover and monitoring.
-
-| Feature | JAiRouter | Nginx | One-API | LangChain |
-|---------|:---------:|:-----:|:-------:|:---------:|
-| OpenAI Compatible | ✅ | ❌ | ✅ | ✅ |
-| Load Balancing | ✅ | ✅ | ✅ | ❌ |
-| Circuit Breaker | ✅ | ❌ | ❌ | ❌ |
-| Rate Limiting | ✅ | ✅ | ✅ | ❌ |
-| Web Console | ✅ | ❌ | ✅ | ❌ |
-| Config Hot Reload | ✅ | ❌ | ✅ | ❌ |
-| Version Control | ✅ | ❌ | ❌ | ❌ |
-| OpenTelemetry | ✅ | ❌ | ❌ | ✅ |
-
-## Architecture
-
-<details>
-<summary><b>How requests flow through the gateway</b></summary>
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Your Application                         │
-│                 (OpenAI SDK / LangChain / LlamaIndex)           │
-└─────────────────────────────────┬───────────────────────────────┘
-                                  │
-                                  ▼ OpenAI-Compatible API
-┌─────────────────────────────────────────────────────────────────┐
-│                         JAiRouter Gateway                        │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐   │
-│  │ Routing │ │ Balance │ │  Limit  │ │ Circuit │ │   Auth  │   │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │              Observability & Persistence                 │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────┬───────────────────────────────┘
-                                  │
-       ┌──────────────┬───────────┼───────────┬──────────────┐
-       ▼              ▼           ▼           ▼              ▼
-   ┌───────┐     ┌───────┐   ┌───────┐   ┌──────────┐   ┌───────┐
-   │Ollama │     │ vLLM  │   │GPUStack│  │Xinference│   │ OpenAI │
-   └───────┘     └───────┘   └───────┘   └──────────┘   └───────┘
-```
-
-</details>
+- **Versus direct backend calls** — no unified resilience, no centralized keys, no call visibility. Trunkline gives you one entry, automatic failover, and a complete audit trail.
+- **Versus One-API / new-api** — they focus on API key distribution and billing (good for account sharing / reselling); Trunkline targets **self-hosted inference clusters** as a governance gateway: multi-instance load balancing, circuit breaking, rule routing, RBAC, and observability. The two can complement each other.
+- **Versus Nginx** — Nginx is a general-purpose web server; Trunkline is **purpose-built for AI/LLM workloads** with OpenAI-compatible routing, circuit breaking, and model-aware load balancing.
+- **Versus LangChain** — LangChain is an application framework; Trunkline is the **infrastructure layer beneath it**.
 
 ## Documentation
 
 | Resource | Link |
 |----------|------|
-| Full Documentation | https://jairouter.com |
-| Deployment Guide | https://jairouter.com/en/deployment/ |
-| Configuration | https://jairouter.com/en/configuration/ |
-| Monitoring | https://jairouter.com/en/monitoring/ |
-| API Reference | http://localhost:8080/swagger-ui |
+| Full docs | https://trunkline.com |
+| Deployment | https://trunkline.com/deployment/ |
+| Configuration | https://trunkline.com/configuration/ |
+| Monitoring | https://trunkline.com/monitoring/ |
+| API reference | http://localhost:8080/swagger-ui |
 
 ## Roadmap
 
-**Released** (latest: v3.1.2)
+**Current version: 0.1.0** (version number frozen — will bump once the community edition matures; see the [iteration plan](docs/product/Trunkline-产品迭代计划.md))
 
-- [x] Core gateway with OpenAI-compatible API
-- [x] Built-in + configurable adapters (Ollama, vLLM, GPUStack, Xinference, LocalAI, OpenAI, Claude, Gemini, …)
-- [x] Multi-strategy load balancing (round-robin, weighted, least-connections, IP-hash, consistent-hash, EWMA latency-aware)
-- [x] Rate limiting (token bucket, leaky bucket, sliding window)
-- [x] Circuit breaker + request-level failover (retry on another healthy instance)
-- [x] Visual rule engine: conditional routing, service-level dynamic rate limiting, tag routing
-- [x] JWT + API Key authentication with audit logging
-- [x] Data-driven RBAC (44 permission codes, 4 role templates, menu & URL authorization)
-- [x] Call history with record governance (metadata-only / summary / AES-256-GCM full) and analytics dashboards
-- [x] Response cache (deterministic reuse; opt-in, tenant-isolated)
-- [x] Prometheus metrics + OpenTelemetry distributed tracing
-- [x] Configuration version control & rollback
-- [x] Web console with hot reload and dark/light theme
-- [x] Docker image optimization (Alpine/Distroless)
+0.1.0 inherits all capabilities of upstream JAiRouter v3.1.2 and adds the Trunkline brand system with a smooth compatibility layer (legacy config prefixes / Redis keys / config store keys migrate automatically).
 
-**Recently released**
+**Community edition stages** (stage names, not release versions):
 
-- [x] Token quota & multi-dimensional multi-window rate limiting: MINUTE/HOUR/DAY/MONTH ledger, JPA persistence, Redis distributed counting with automatic local fallback (`jairouter.quota.enabled=false` by default, v3.1.0)
-- [x] Quota runtime config & observability: `GET/PUT /api/config/quota`, quota status/usage monitoring endpoints, 3 new console pages (quota config, usage monitoring, client access guide), new permission codes `config:quota:read/write`, `monitoring:quota:read` (v3.1.0)
-- [x] OpenAI-native surface `/v1/models` endpoint (v3.1.0)
-- [x] Anthropic `/v1/messages` entry: non-streaming + streaming SSE + `count_tokens` + tool calling (`tools`/`tool_choice`/`tool_use`/`tool_result`), Claude Code direct connectivity (v3.1.0)
-- [x] Response cache P1: streaming SSE cache, invalidation API and rate-limit short-circuit (`DELETE /api/config/cache/response`, v2.9.10 — shipped in v3.0.3)
-- [x] Web console refactor series: design tokens, dark theme, governance dashboard, bilingual UI (zh/en), slow-query analytics (v2.10.x)
-- [x] Web complete-flow series: onboarding preselect loop, governance entries across pages, page-skeleton rollout (v3.0.1–v3.0.3)
+- **S1 Brand & baseline** — full brand-prefix cleanup + legacy compat mapping, NOTICE/license attribution, green test baseline
+- **S2 Debt & stability** — code cleanup, load testing, security audit
+- **S3 Production-ready** — deployment experience, TTV (deploy-to-first-response) measurement, docs site revamp
+- **S4 Config reduction & user activation** — wizard-based onboarding, table slimming, human-friendly employee-side UI
 
-**In progress**
-
-- [ ] Semantic cache evaluation (vector-similarity reuse) — separate project
-- [ ] High-availability foundation (multi-node / Redis distributed / config rollback) — assessed after v3.1.x
-
-> **Current Release**: v3.1.2
+**Commercial edition (planned)** — SSO, content safety, tamper-proof auditing, K8s HA delivery; boundary defined in the [editions page](docs/product/editions.md).
 
 ## Contributing
 
-Contributions are welcome — see the [Contributing Guide](https://jairouter.com/en/development/contributing/).
+Contributions are welcome — see the [contributing guide](https://trunkline.com/development/contributing/).
 
 ```bash
-git clone https://github.com/Lincoln-cn/JAiRouter.git
-cd JAiRouter
-mvn clean package -DskipTests
+git clone https://github.com/Lincoln-cn/trunkline.git
+cd trunkline
+./mvnw clean package -DskipTests
 java -jar target/model-router-*.jar
 ```
 
 ## Support
 
-- **Documentation**: https://jairouter.com
+- **Docs**: https://trunkline.com
 
-### Issues or Discussions — where should I post?
+### Issue or Discussion — where should it go?
 
-GitHub gives us two channels and we keep them separate on purpose, so nothing gets lost. Pick by **what you have**, not by where you happen to be:
+The two GitHub entry points are deliberately separated so no feedback falls through the cracks. Choose by **what you have in hand**:
 
-| What you have | Where to post | How we handle it |
-|---------------|---------------|------------------|
-| A **reproducible defect** — crash, wrong result, regression, broken doc | [**Issues**](https://github.com/Lincoln-cn/JAiRouter/issues) | **Fast follow-up** — triaged and answered quickly; confirmed defects are fixed or scheduled |
-| A **requirement or idea** — feature request, new adapter, design discussion, usage question, feedback | [**Discussions**](https://github.com/Lincoln-cn/JAiRouter/discussions) | **Regularly curated** — ideas are collected, voted on and folded into the [Roadmap](#roadmap) |
+| What you have | Where it goes | What happens |
+|---------------|---------------|--------------|
+| **Reproducible bug** — crash, wrong result, regression, doc error | [**Issues**](https://github.com/Lincoln-cn/trunkline/issues) | **Fast triage** — confirmed bugs get fixed or scheduled |
+| **Feature or idea** — new feature, new adapter, design talk, usage question | [**Discussions**](https://github.com/Lincoln-cn/trunkline/discussions) | **Curated regularly** — summarized, voted on, folded into the [roadmap](#roadmap) |
 
-**In one line**: a defect goes to **Issues**; a requirement or a question goes to **Discussions**.
+**In short**: bugs → **Issues**, ideas & questions → **Discussions**.
 
-> Not sure which one fits? Post in Discussions — if it turns out to be a reproducible defect, we will move it to Issues for you.
-
-Discussions is organized by category:
-
-| Category | Use it for |
-|----------|------------|
-| 💡 Ideas | Feature requests and improvement suggestions |
-| 🗳 Polls | Community votes on direction |
-| 🙏 Q&A | How-to questions for the community |
-| 🙌 Show and tell | Share what you built on JAiRouter |
-| 💬 General | Anything else |
-| 📣 Announcements | Release notes from maintainers |
+> Not sure? Start with Discussions — if it turns out to be a reproducible bug, we'll move it to Issues.
 
 ## License
 
-JAiRouter is released under the [Apache 2.0 License](LICENSE).
+This project is open-sourced under the [Apache 2.0 License](LICENSE), forked from [JAiRouter](https://github.com/Lincoln-cn/JAiRouter) (original author Lincoln-cn, also Apache-2.0). Upstream copyright notices are fully preserved in [NOTICE](NOTICE).
 
 ---
 
 <p align="center">
-  <strong>If JAiRouter saves you time, <a href="https://github.com/Lincoln-cn/JAiRouter/stargazers">star it on GitHub</a> ⭐</strong>
+  <strong>If Trunkline helps you, please give it a <a href="https://github.com/Lincoln-cn/trunkline/stargazers">Star</a> ⭐</strong>
   <br/>
-  <em>Found a bug? Open an issue. Have an idea or a question? Start a discussion.</em>
+  <em>Found a bug? Open an Issue. Have an idea? Start a Discussion.</em>
 </p>
 
 <p align="center">
-  Maintained by Lincoln-cn · Apache-2.0
+  Trunkline Team · Based on JAiRouter · Apache-2.0
 </p>

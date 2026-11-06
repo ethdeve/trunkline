@@ -20,7 +20,7 @@ import java.util.Map;
 @Slf4j
 @Service("compositeJwtBlacklistService")
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "jairouter.security.jwt.blacklist.composite.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.jwt.blacklist.composite.enabled", havingValue = "true")
 public class CompositeJwtBlacklistServiceImpl implements JwtBlacklistService {
     
     @Qualifier("redisJwtBlacklistService")
@@ -31,24 +31,31 @@ public class CompositeJwtBlacklistServiceImpl implements JwtBlacklistService {
     
     private final StorageHealthService storageHealthService;
     
+    private static final long DEFAULT_TTL_SECONDS = 24 * 60 * 60; // 24h
+
     @Override
     public Mono<Void> addToBlacklist(final String tokenHash, final String reason, final String addedBy) {
+        return addToBlacklist(tokenHash, reason, addedBy, DEFAULT_TTL_SECONDS);
+    }
+
+    @Override
+    public Mono<Void> addToBlacklist(final String tokenHash, final String reason, final String addedBy, final long ttlSeconds) {
         return storageHealthService.isRedisHealthy()
             .flatMap(isHealthy -> {
                 if (isHealthy) {
                     // Redis健康时，同时添加到Redis和StoreManager
-                    return redisService.addToBlacklist(tokenHash, reason, addedBy)
-                        .then(fallbackService.addToBlacklist(tokenHash, reason, addedBy))
+                    return redisService.addToBlacklist(tokenHash, reason, addedBy, ttlSeconds)
+                        .then(fallbackService.addToBlacklist(tokenHash, reason, addedBy, ttlSeconds))
                         .doOnSuccess(unused -> log.debug("Token added to blacklist in both Redis and StoreManager"))
                         .onErrorResume(error -> {
                             log.warn("Failed to add to blacklist in Redis, "
                                     + "falling back to StoreManager only: {}", error.getMessage());
-                            return fallbackService.addToBlacklist(tokenHash, reason, addedBy);
+                            return fallbackService.addToBlacklist(tokenHash, reason, addedBy, ttlSeconds);
                         });
                 } else {
                     // Redis不健康时，只添加到StoreManager
                     log.debug("Redis unhealthy, adding token to blacklist in StoreManager only");
-                    return fallbackService.addToBlacklist(tokenHash, reason, addedBy);
+                    return fallbackService.addToBlacklist(tokenHash, reason, addedBy, ttlSeconds);
                 }
             })
             .doOnError(error -> log.error("Failed to add token to blacklist: {}", error.getMessage(), error));

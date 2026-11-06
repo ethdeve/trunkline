@@ -7,20 +7,20 @@ LABEL description="JAiRouter - AI Model Service Routing and Load Balancing Gatew
 LABEL version="3.1.1"
 
 # 创建应用用户（安全最佳实践）
-RUN groupadd -r -g 10010 jairouter && \
-    useradd -r -u 10010 -g 10010 jairouter
+RUN groupadd -r -g 10010 trunkline && \
+    useradd -r -u 10010 -g 10010 trunkline
 
 # 设置工作目录
 WORKDIR /app
 
 # 创建必要的目录
 RUN mkdir -p /app/logs /app/config /app/config-store /app/config-dev /app/data && \
-    chown -R jairouter:jairouter /app  && \
+    chown -R trunkline:trunkline /app  && \
     chmod -R 766 /app
 
 # 直接复制外部构建好的 JAR 文件
 COPY target/model-router-*.jar app.jar
-RUN chown jairouter:jairouter app.jar
+RUN chown trunkline:trunkline app.jar
 
 # 配置文件通过卷挂载提供，无需复制到镜像中
 
@@ -59,7 +59,7 @@ ENV REDIS_TIMEOUT=2000
 EXPOSE 8080
 
 # 切换到应用用户
-USER jairouter
+USER trunkline
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

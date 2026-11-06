@@ -16,20 +16,20 @@ export interface EChartsColorPalette {
 }
 
 const FALLBACK: EChartsColorPalette = {
-  primary: '#409eff',
-  success: '#67c23a',
-  warning: '#e6a23c',
-  danger: '#f56c6c',
-  info: '#909399',
-  textColor: '#303133',
+  primary: '#176C6B',
+  success: '#2e7d32',
+  warning: '#e65100',
+  danger: '#c62828',
+  info: '#6b7d7c',
+  textColor: '#0f2322',
 }
 
 const DARK_FALLBACK: EChartsColorPalette = {
-  primary: '#409eff',
-  success: '#67c23a',
-  warning: '#e6a23c',
-  danger: '#f56c6c',
-  info: '#909399',
+  primary: '#2E9E9C',
+  success: '#55b35a',
+  warning: '#f0954f',
+  danger: '#ef6666',
+  info: '#9aabaa',
   textColor: '#e5eaf3',
 }
 

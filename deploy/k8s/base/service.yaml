@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: jairouter
+  name: trunkline
   labels:
-    app.kubernetes.io/name: jairouter
+    app.kubernetes.io/name: trunkline
     app.kubernetes.io/component: gateway
 spec:
   # ClusterIP：集群内访问。对外暴露请经 Ingress（见 ingress.yaml）。
@@ -15,7 +15,7 @@ spec:
   # 必要时把 key-dimension 改为 api-key 或 tenant。
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: jairouter
+    app.kubernetes.io/name: trunkline
   ports:
     - name: http
       port: 8080

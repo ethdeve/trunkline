@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -30,6 +31,7 @@ import java.util.Base64;
  *
  * @author JAiRouter Team
  * @since 2.9.2
+ * @modified Trunkline Team
  */
 @Slf4j
 @Component
@@ -49,7 +51,7 @@ public class RecordContentCipher {
     private final String effectiveKeySource;
 
     /**
-     * Spring 装配构造：按 {@code jairouter.call-history.encryption-key-source} 解析密钥来源。
+     * Spring 装配构造：按 {@code trunkline.call-history.encryption-key-source} 解析密钥来源。
      * #617 修复：此前 @Component 只有无参构造，硬编码 auto，配置了 env 也从不生效。
      */
     public RecordContentCipher(final CallHistoryProperties properties) {
@@ -230,12 +232,32 @@ public class RecordContentCipher {
 
     /**
      * 解析密钥文件路径
+     *
+     * <p>品牌切换（S2 任务 26a③）：默认目录从 {@code ~/.jairouter/} 改为
+     * {@code ~/.trunkline/}。新目录无密钥且旧目录存在时，把旧密钥<b>复制</b>过来
+     * （旧文件保留不删，旧版本回滚仍可用）——加密密钥丢了就解不开历史调用记录，
+     * 所以是复制不是移动。
      */
     private Path resolveKeyFile(Path dataDir) {
         if (dataDir != null) {
             return dataDir.resolve("call-history.key");
         }
         String userHome = System.getProperty("user.home");
-        return Path.of(userHome, ".jairouter", "call-history.key");
+        Path newKeyFile = Path.of(userHome, ".trunkline", "call-history.key");
+        if (Files.notExists(newKeyFile)) {
+            Path legacyKeyFile = Path.of(userHome, ".jairouter", "call-history.key");
+            if (Files.exists(legacyKeyFile)) {
+                try {
+                    Files.createDirectories(newKeyFile.getParent());
+                    Files.copy(legacyKeyFile, newKeyFile,
+                            StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                    log.info("已从旧目录复制调用记录加密密钥: {} -> {}（旧文件保留，供回滚）",
+                            legacyKeyFile, newKeyFile);
+                } catch (IOException e) {
+                    log.warn("旧密钥复制失败（将生成新密钥，历史调用记录将无法解密）: {}", e.getMessage());
+                }
+            }
+        }
+        return newKeyFile;
     }
 }

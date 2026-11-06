@@ -105,13 +105,13 @@
     },
     "globalConfig": {
       "title": "熔断器全局配置",
-      "adaptiveThresholdEnabled": "启用自适应阈值调整",
-      "stateSyncInterval": "状态同步间隔(分钟)",
-      "cleanupInterval": "过期清理间隔(分钟)",
-      "historyRetentionDays": "历史记录保留天数",
-      "defaultFailureThreshold": "默认失败阈值",
-      "defaultSuccessThreshold": "默认成功阈值",
-      "defaultTimeout": "默认超时(ms)",
+      "adaptiveThresholdEnabled": "自动调整门槛",
+      "stateSyncInterval": "多台网关多久对一次状态（分钟）",
+      "cleanupInterval": "多久清理一次过期记录（分钟）",
+      "historyRetentionDays": "历史记录保留几天",
+      "defaultFailureThreshold": "连续失败几次算故障",
+      "defaultSuccessThreshold": "连续成功几次算恢复",
+      "defaultTimeout": "等多久没回应算失败",
       "enabled": "已启用",
       "disabled": "已禁用",
       "adaptiveHint": "系统将根据失败率自动调整阈值",
@@ -122,7 +122,15 @@
         "saveFailed": "保存全局配置失败",
         "resetSuccess": "已重置为默认配置",
         "resetFailed": "重置全局配置失败"
-      }
+      },
+      "defaultFailureHint": "默认 3 次。恢复得慢就调高一些",
+      "defaultSuccessHint": "默认 2 次",
+      "defaultTimeoutHint": "单位毫秒，默认 60000（即 60 秒）",
+      "advancedTitle": "高级设置（一般不用改）",
+      "adaptiveFieldHint": "开了之后网关按实际情况自己调上面的门槛，一般保持开启",
+      "stateSyncHint": "多台网关一起跑时保持判断一致；单机不用管",
+      "cleanupHint": "内部维护参数，保持默认即可",
+      "retentionHint": "留太久占空间，默认即可"
     }
   }
 }

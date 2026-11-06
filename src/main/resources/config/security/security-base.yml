@@ -5,7 +5,7 @@
 # 各环境可以根据需要覆盖相应配置
 # 注意：security.enabled 和 jwt 配置由 config/auth/jwt.yml 控制，此处不重复设置
 
-jairouter:
+trunkline:
   security:
     # 安全功能开关由 config/auth/jwt.yml 和 config/auth/api-key.yml 分别控制
     # 此处不设置 enabled，避免覆盖其他配置文件的设置
@@ -124,35 +124,16 @@ jairouter:
 
     
     # ========================================
-    # 性能优化基础配置
+    # 安全缓存配置
     # ========================================
-    performance:
-      authentication:
-        async-enabled: true
-        thread-pool-size: 10
-        timeout-ms: 5000
-      sanitization:
-        parallel-enabled: true
-        thread-pool-size: 5
-        streaming-threshold: 1048576  # 1MB
-        regex-cache-size: 100
-      cache:
-        redis:
-          enabled: false
-          host: "${REDIS_HOST:localhost}"
-          port: "${REDIS_PORT:6379}"
-          password: "${REDIS_PASSWORD:}"
-          database: 0
-          timeout: 2000
-          pool:
-            max-active: 8
-            max-idle: 8
-            min-idle: 0
-        local:
-          enabled: true
-          api-key:
-            max-size: 1000
-            expire-after-write: 3600
-          jwt-blacklist:
-            max-size: 10000
-            expire-after-write: 86400
+    # 只保留 `cache.redis.enabled` 开关——代码读取的键是
+    # `trunkline.security.cache.redis.enabled`（见 CacheConfiguration 与
+    # MultiReplicaSharedStateGate）。原写法 `security.performance.cache.redis.enabled`
+    # 与代码键名不一致，属死配置（按仓库 yml 部署时 Redis 缓存开关永远不生效）。
+    # 连接信息（host/port/password/database/timeout/pool）无 Java 消费者，
+    # 统一由 REDIS_HOST/REDIS_PORT/REDIS_PASSWORD 环境变量（或 spring.data.redis.*）提供。
+    # 原先的 performance.authentication / performance.sanitization / cache.local 三块
+    # 均无消费者，已一并移除，避免误导。
+    cache:
+      redis:
+        enabled: false

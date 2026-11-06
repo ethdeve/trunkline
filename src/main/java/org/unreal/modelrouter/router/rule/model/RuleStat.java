@@ -8,16 +8,25 @@ public final class RuleStat {
     private String ruleId;
     private String ruleName;
     private String actionType;
+    /** 进程生命周期内累计命中次数 */
     private long hits;
+    /** 本自然月命中次数（跨月归零） */
+    private long monthHits;
 
     public RuleStat() {
     }
 
     public RuleStat(final String ruleId, final String ruleName, final String actionType, final long hits) {
+        this(ruleId, ruleName, actionType, hits, 0L);
+    }
+
+    public RuleStat(final String ruleId, final String ruleName, final String actionType,
+                    final long hits, final long monthHits) {
         this.ruleId = ruleId;
         this.ruleName = ruleName;
         this.actionType = actionType;
         this.hits = hits;
+        this.monthHits = monthHits;
     }
 
     public String getRuleId() {
@@ -50,5 +59,13 @@ public final class RuleStat {
 
     public void setHits(final long hits) {
         this.hits = hits;
+    }
+
+    public long getMonthHits() {
+        return monthHits;
+    }
+
+    public void setMonthHits(final long monthHits) {
+        this.monthHits = monthHits;
     }
 }

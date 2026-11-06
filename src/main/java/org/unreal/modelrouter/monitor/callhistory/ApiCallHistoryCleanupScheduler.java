@@ -13,11 +13,12 @@ import org.unreal.modelrouter.monitor.callhistory.config.CallHistoryProperties;
  *
  * @author JAiRouter Team
  * @since 2.7.8
+ * @modified Trunkline Team
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "jairouter.call-history.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.call-history.enabled", havingValue = "true", matchIfMissing = true)
 public class ApiCallHistoryCleanupScheduler {
 
     private final ApiCallHistoryService service;
@@ -27,7 +28,7 @@ public class ApiCallHistoryCleanupScheduler {
      * 定期清理过期数据
      * 默认每天凌晨 2 点执行
      */
-    @Scheduled(cron = "${jairouter.call-history.cleanup-cron:0 0 2 * * ?}")
+    @Scheduled(cron = "${trunkline.call-history.cleanup-cron:0 0 2 * * ?}")
     public void cleanup() {
         try {
             log.info("Starting API call history cleanup...");

@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.unreal.modelrouter.auth.security.model.ApiKeyAuthentication;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.monitor.dto.TokenUsageRecordDTO;
+import org.unreal.modelrouter.monitor.dto.TokenUsageRecentVO;
 import org.unreal.modelrouter.monitor.dto.TokenUsageStatisticsDTO;
 import org.unreal.modelrouter.persistence.jpa.entity.TokenUsageEntity;
 import org.unreal.modelrouter.monitor.service.TokenUsageService;
@@ -31,6 +32,7 @@ import java.util.List;
  *
  * @author JAiRouter Team
  * @since 1.9.5
+ * @modified Trunkline Team
  */
 @Slf4j
 @RestController
@@ -86,7 +88,7 @@ public class TokenUsageController {
     /**
      * 写入前的属主校验（issue #254）.
      *
-     * <p>本端点在 RBAC 豁免清单上（仅要求已认证，见 {@code RbacExemptEndpoints}），而请求体里的
+     * <p>本端点在权限豁免清单上（仅要求已认证，见 {@code AccessExemptEndpoints}），而请求体里的
      * {@code apiKeyId} / {@code userId} 等属主字段完全由调用方控制（{@link TokenUsageRecordDTO}），
      * 服务层原样落库。若不校验，任何持有效 API Key 的主体都能把用量记到<b>他人</b>的 key 上，
      * 污染统计与计费数据。配额强制不受影响 —— {@code auth.security.quota} 不读该表。</p>
@@ -133,16 +135,36 @@ public class TokenUsageController {
 
     /**
      * 获取最近的使用记录
+     *
+     * <p><b>P0-L 越权泄漏收敛</b>：此前本端点直接返回 {@link TokenUsageEntity} 全字段，
+     * 其中 {@code clientIp} / {@code instanceUrl} / {@code errorMessage} / {@code metadata}
+     * 属于内部排障与安全审计信息，随列表整包外泄会让任一登录用户看到全公司调用明细
+     * （含每个人的来源 IP 与上游报错原文）。现改为返回白名单投影
+     * {@link TokenUsageRecentVO}，上述字段一律不出现在响应里。</p>
+     *
+     * <p><b>为什么不在此处加方法级 {@code @PreAuthorize}</b>：本项目启用了
+     * {@code @EnableReactiveMethodSecurity}，而本控制器返回的是<b>同步</b>
+     * {@code ResponseEntity}，方法级注解在该组合下会导致请求 500
+     * （参见 {@code ApiCallHistoryController} 的同款注释）。访问控制统一由
+     * 固定角色矩阵（{@code FixedRoleAccessPolicy} → OPS 级）
+     * 承担；该 URL 不在员工角色范围内（固定矩阵 USER 仅自助端点），
+     * 员工无法再访问本端点，运维 / 管理员不受影响。</p>
      */
     @GetMapping("/recent")
-    @Operation(summary = "获取最近的使用记录", description = "获取最近发生的 Token 使用记录列表")
-    public ResponseEntity<RouterResponse<List<TokenUsageEntity>>> getRecentUsage(
+    @Operation(summary = "获取最近的使用记录", description = "获取最近发生的 Token 使用记录列表（已裁剪内部字段）")
+    public ResponseEntity<RouterResponse<List<TokenUsageRecentVO>>> getRecentUsage(
             @Parameter(description = "最大数量")
             @RequestParam(defaultValue = "20")
             int limit) {
 
-        List<TokenUsageEntity> records = tokenUsageService.getRecentUsage(limit);
-        return ResponseEntity.ok(RouterResponse.success(records));
+        final List<TokenUsageEntity> records = tokenUsageService.getRecentUsage(limit);
+        final List<TokenUsageRecentVO> items = records == null
+                ? List.of()
+                : records.stream()
+                        .map(TokenUsageRecentVO::fromEntity)
+                        .filter(java.util.Objects::nonNull)
+                        .toList();
+        return ResponseEntity.ok(RouterResponse.success(items));
     }
 
 }

@@ -14,15 +14,15 @@ if ([string]::IsNullOrEmpty($Version)) {
 # 构建镜像标签
 if ($Environment -eq "dev") {
     if ($Version -eq "latest") {
-        $ImageTag = "sodlinken/jairouter:latest-dev"
+        $ImageTag = "trunkline/trunkline:latest-dev"
     } else {
-        $ImageTag = "sodlinken/jairouter:${Version}-dev"
+        $ImageTag = "trunkline/trunkline:${Version}-dev"
     }
 } else {
     if ($Version -eq "latest") {
-        $ImageTag = "sodlinken/jairouter:latest"
+        $ImageTag = "trunkline/trunkline:latest"
     } else {
-        $ImageTag = "sodlinken/jairouter:${Version}"
+        $ImageTag = "trunkline/trunkline:${Version}"
     }
 }
 
@@ -73,7 +73,7 @@ catch {
 }
 
 # 停止现有容器（如果存在）
-$ContainerName = "jairouter-${Environment}"
+$ContainerName = "trunkline-${Environment}"
 $existingContainer = docker ps -a --format "table {{.Names}}" | Select-String "^${ContainerName}$"
 if ($existingContainer) {
     Write-Info "停止现有容器: $ContainerName"
@@ -87,14 +87,14 @@ New-Item -ItemType Directory -Force -Path "logs", "config", "config-store" | Out
 # 设置镜像标签
 if ($Environment -eq "dev") {
     if ($Version -eq "latest") {
-        $ImageTag = "sodlinken/jairouter:latest-dev"
+        $ImageTag = "trunkline/trunkline:latest-dev"
     } else {
-        $ImageTag = "sodlinken/jairouter:${Version}-dev"
+        $ImageTag = "trunkline/trunkline:${Version}-dev"
     }
     $Ports = "-p 8080:8080 -p 5005:5005"
     $JavaOpts = "-Xms256m -Xmx512m -XX:+UseG1GC -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
 } else {
-    $ImageTag = "sodlinken/jairouter:${Version}"
+    $ImageTag = "trunkline/trunkline:${Version}"
     $Ports = "-p 8080:8080"
     $JavaOpts = "-Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
 }

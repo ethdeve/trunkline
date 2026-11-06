@@ -67,6 +67,22 @@ export const COMMON_SERVICE_TYPES = [
 ]
 
 /**
+ * 各模型分类的调用端点（相对段，与后端 ServiceEndpoint 枚举一致）。
+ *
+ * <p>接入厂商时按所选分类决定请求路径：图片生成走 /images/generations，
+ * 而不是聊天模型的 /chat/completions。</p>
+ */
+export const SERVICE_TYPE_ENDPOINTS: Record<string, string> = {
+  [ServiceType.CHAT]: '/chat/completions',
+  [ServiceType.EMBEDDING]: '/embeddings',
+  [ServiceType.RERANK]: '/rerank',
+  [ServiceType.TTS]: '/audio/speech',
+  [ServiceType.STT]: '/audio/transcriptions',
+  [ServiceType.IMG_GEN]: '/images/generations',
+  [ServiceType.IMG_EDIT]: '/images/edits'
+}
+
+/**
  * 检查是否是有效的服务类型
  */
 export function isValidServiceType(value: string): boolean {

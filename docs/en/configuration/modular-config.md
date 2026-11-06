@@ -9,7 +9,7 @@
 
 ## Overview
 
-JAiRouter adopts a **modular configuration management** approach, splitting complex configurations into multiple independent configuration files by function and service module. This design improves configuration maintainability, readability, and reusability.
+Trunkline adopts a **modular configuration management** approach, splitting complex configurations into multiple independent configuration files by function and service module. This design improves configuration maintainability, readability, and reusability.
 
 ## Configuration Module Structure (v2.8.x)
 
@@ -168,7 +168,7 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
   file:
-    name: logs/jairouter.log
+    name: logs/trunkline.log
     max-size: 10MB
     max-history: 30
 ```
@@ -219,7 +219,7 @@ model:
 #### JWT Configuration (`config/auth/jwt.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: false                    # Enable JWT authentication
@@ -228,14 +228,14 @@ jairouter:
       algorithm: "HS256"                # Signing algorithm
       expiration-minutes: 60            # Access token expiration
       refresh-expiration-days: 7        # Refresh token expiration
-      issuer: "jairouter"               # Token issuer
+      issuer: "trunkline"               # Token issuer
       blacklist-enabled: true           # Enable token blacklist
 ```
 
 #### API Key Configuration (`config/auth/api-key.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       enabled: true                     # Enable API key authentication
@@ -246,7 +246,7 @@ jairouter:
 #### Audit Configuration (`config/auth/audit.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       enabled: true                     # Enable audit logging
@@ -258,7 +258,7 @@ jairouter:
 #### Data Sanitization Configuration (`config/auth/sanitization.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       enabled: true                     # Enable data sanitization
@@ -276,7 +276,7 @@ jairouter:
 #### Slow Query Alerts (`config/monitor/slow-query-alerts.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       enabled: true
@@ -288,7 +288,7 @@ jairouter:
 #### Error Tracking (`config/monitor/error-tracking.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     error-tracking:
       enabled: false                    # Disabled by default
@@ -304,10 +304,10 @@ jairouter:
 #### Tracing Configuration (`config/tracing/tracing-base.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: false
-    service-name: "jairouter"
+    service-name: "trunkline"
     sampling-rate: 1.0                  # Sampling rate (0.0 - 1.0)
     export-enabled: false
     exporter-type: "otlp"               # otlp, jaeger, zipkin
@@ -321,7 +321,7 @@ jairouter:
 #### State Persistence (`config/persistence/state-persistence-base.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   persistence:
     enabled: true
     primary-storage: "h2"               # h2, redis, memory
@@ -348,7 +348,7 @@ logging:
   level:
     root: DEBUG
 
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: false                    # Disable JWT in dev
@@ -368,7 +368,7 @@ logging:
   level:
     root: INFO
 
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: true
@@ -385,11 +385,11 @@ Mount external configuration files to override defaults:
 
 ```bash
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -v /path/to/config:/app/config \
   -e JWT_SECRET="your-secret-key" \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 ### External Configuration Structure

@@ -12,7 +12,7 @@
 
 ### What is Knowledge Base Governance
 
-Knowledge base governance is a systematic process for inventorying, deduplicating, archiving, and version-tracking the documentation assets of the JAiRouter project (`docs/` public documentation with approximately 155 files, `innerdoc/` internal documentation with approximately 165 files).
+Knowledge base governance is a systematic process for inventorying, deduplicating, archiving, and version-tracking the documentation assets of the Trunkline project (`docs/` public documentation with approximately 155 files, `innerdoc/` internal documentation with approximately 165 files).
 
 ### Why Governance is Needed
 

@@ -9,7 +9,7 @@
 
 ## 概述
 
-JAiRouter 安全黑名单功能提供了一种主动防御机制，允许管理员阻止可疑的 IP 地址、用户账户或 JWT 令牌访问系统。通过黑名单管理，可以有效防止恶意攻击、滥用行为和未授权访问。
+Trunkline 安全黑名单功能提供了一种主动防御机制，允许管理员阻止可疑的 IP 地址、用户账户或 JWT 令牌访问系统。通过黑名单管理，可以有效防止恶意攻击、滥用行为和未授权访问。
 
 ## 功能特性
 
@@ -327,7 +327,7 @@ JWT 令牌验证时检查令牌是否在黑名单中：
 ### 清理配置
 
 ```yaml
-jairouter:
+trunkline:
   security:
     blacklist:
       cleanup:
@@ -346,15 +346,15 @@ jairouter:
 
 ### 监控指标
 
-- `jairouter_security_blacklist_total`：黑名单总条目数
-- `jairouter_security_blacklist_active`：活跃黑名单条目数
-- `jairouter_security_blacklist_blocked_requests`：被黑名单阻止的请求数
-- `jairouter_security_blacklist_by_type`：按类型统计的黑名单数量
+- `trunkline_security_blacklist_total`：黑名单总条目数
+- `trunkline_security_blacklist_active`：活跃黑名单条目数
+- `trunkline_security_blacklist_blocked_requests`：被黑名单阻止的请求数
+- `trunkline_security_blacklist_by_type`：按类型统计的黑名单数量
 
 ### 告警配置
 
 ```yaml
-jairouter:
+trunkline:
   security:
     blacklist:
       alerts:

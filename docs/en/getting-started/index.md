@@ -9,11 +9,11 @@
 
 
 
-Welcome to JAiRouter! This section will help you quickly get started with JAiRouter, from installation to your first API call.
+Welcome to Trunkline! This section will help you quickly get started with Trunkline, from installation to your first API call.
 
-## What is JAiRouter?
+## What is Trunkline?
 
-JAiRouter is a Spring Boot-based AI model service routing and load balancing gateway that provides unified access to various AI model services through OpenAI-compatible APIs.
+Trunkline is a Spring Boot-based AI model service routing and load balancing gateway that provides unified access to various AI model services through OpenAI-compatible APIs.
 
 ## Key Benefits
 
@@ -25,10 +25,10 @@ JAiRouter is a Spring Boot-based AI model service routing and load balancing gat
 
 ## Quick Navigation
 
-1. **[Installation Guide](installation.md)** - Install and configure JAiRouter
+1. **[Installation Guide](installation.md)** - Install and configure Trunkline
 2. **[Quick Start](quick-start.md)** - Make your first API call
 3. **[First Steps](first-steps.md)** - Basic configuration and usage
-4. **[Claude Code Integration](claude-code.md)** - Point Claude Code at JAiRouter with zero changes (Anthropic protocol endpoint)
+4. **[Claude Code Integration](claude-code.md)** - Point Claude Code at Trunkline with zero changes (Anthropic protocol endpoint)
 
 ## Prerequisites
 
@@ -42,18 +42,18 @@ Before you begin, ensure you have:
 
 ```mermaid
 graph TB
-    Client[Client Application] --> JAiRouter[JAiRouter Gateway]
-    JAiRouter --> LB[Load Balancer]
+    Client[Client Application] --> Trunkline[Trunkline Gateway]
+    Trunkline --> LB[Load Balancer]
     LB --> Service1[AI Service 1]
     LB --> Service2[AI Service 2]
     LB --> Service3[AI Service 3]
     
-    JAiRouter --> RL[Rate Limiter]
-    JAiRouter --> CB[Circuit Breaker]
-    JAiRouter --> HC[Health Checker]
+    Trunkline --> RL[Rate Limiter]
+    Trunkline --> CB[Circuit Breaker]
+    Trunkline --> HC[Health Checker]
 ```
 
-JAiRouter sits between your applications and AI model services, providing:
+Trunkline sits between your applications and AI model services, providing:
 
 - **Load Balancing**: Distribute requests across multiple service instances
 - **Rate Limiting**: Control request rates to prevent overload
@@ -62,4 +62,4 @@ JAiRouter sits between your applications and AI model services, providing:
 
 ## Next Steps
 
-Ready to get started? Head over to the [Installation Guide](installation.md) to set up JAiRouter in your environment.
+Ready to get started? Head over to the [Installation Guide](installation.md) to set up Trunkline in your environment.

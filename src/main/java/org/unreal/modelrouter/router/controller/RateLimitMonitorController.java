@@ -19,6 +19,7 @@ import java.util.Map;
  *
  * @author JAiRouter Team
  * @since v2.10.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @RestController
@@ -99,9 +100,9 @@ public class RateLimitMonitorController {
         Map<String, Object> info = new HashMap<>();
         info.put("metricsCount", rateLimitMetricsService.getMetricsCount());
         info.put("availableMetrics", List.of(
-                "jairouter_rate_limit_events_total{service, algorithm, result}",
-                "jairouter_rate_limit_remaining{service, scope, algorithm}",
-                "jairouter_rate_limit_usage_ratio{service, scope, algorithm}"
+                "trunkline_rate_limit_events_total{service, algorithm, result}",
+                "trunkline_rate_limit_remaining{service, scope, algorithm}",
+                "trunkline_rate_limit_usage_ratio{service, scope, algorithm}"
         ));
         info.put("collectionInterval", "10s");
         return ResponseEntity.ok(info);

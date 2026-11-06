@@ -3,7 +3,7 @@
 # ========================================
 # 此文件包含错误追踪、异常监控和错误分析等配置
 
-jairouter:
+trunkline:
   monitoring:
     # 错误追踪配置
     error-tracking:
@@ -55,7 +55,7 @@ jairouter:
         enabled: true
 
         # 错误计数器前缀
-        counter-prefix: "jairouter.errors"
+        counter-prefix: "trunkline.errors"
 
         # 是否按错误类型分组
         group-by-error-type: true

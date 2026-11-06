@@ -9,7 +9,7 @@
 
 
 
-This document describes how to optimize the performance of the JAiRouter monitoring system, reduce the impact of monitoring on application performance, and improve the efficiency of the monitoring system itself.
+This document describes how to optimize the performance of the Trunkline monitoring system, reduce the impact of monitoring on application performance, and improve the efficiency of the monitoring system itself.
 
 ## Performance Impact Assessment
 
@@ -227,12 +227,12 @@ global:
   evaluation_interval: 30s
 
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     scrape_interval: 15s  # Keep shorter interval for important services
     scrape_timeout: 10s
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     
     # Metric relabeling to reduce storage
     metric_relabel_configs:
@@ -263,58 +263,58 @@ command:
 
 #### 1. Pre-aggregation of Common Queries
 ```yaml
-# rules/jairouter-recording-rules.yml
+# rules/trunkline-recording-rules.yml
 groups:
-  - name: jairouter.recording
+  - name: trunkline.recording
     interval: 30s
     rules:
       # Basic metric pre-aggregation
-      - record: jairouter:request_rate_5m
-        expr: sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:request_rate_5m
+        expr: sum(rate(trunkline_requests_total[5m]))
       
-      - record: jairouter:error_rate_5m
-        expr: sum(rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:error_rate_5m
+        expr: sum(rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum(rate(trunkline_requests_total[5m]))
       
-      - record: jairouter:response_time_p95_5m
-        expr: histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))
+      - record: trunkline:response_time_p95_5m
+        expr: histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))
       
       # Pre-aggregation by service
-      - record: jairouter:request_rate_by_service_5m
-        expr: sum by (service) (rate(jairouter_requests_total[5m]))
+      - record: trunkline:request_rate_by_service_5m
+        expr: sum by (service) (rate(trunkline_requests_total[5m]))
       
-      - record: jairouter:error_rate_by_service_5m
-        expr: sum by (service) (rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum by (service) (rate(jairouter_requests_total[5m]))
+      - record: trunkline:error_rate_by_service_5m
+        expr: sum by (service) (rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum by (service) (rate(trunkline_requests_total[5m]))
 ```
 
 #### 2. Hierarchical Recording Rules
 ```yaml
 groups:
   # High-frequency basic rules
-  - name: jairouter.recording.basic
+  - name: trunkline.recording.basic
     interval: 15s
     rules:
-      - record: jairouter:up
-        expr: up{job="jairouter"}
+      - record: trunkline:up
+        expr: up{job="trunkline"}
       
-      - record: jairouter:request_rate_1m
-        expr: sum(rate(jairouter_requests_total[1m]))
+      - record: trunkline:request_rate_1m
+        expr: sum(rate(trunkline_requests_total[1m]))
   
   # Medium-frequency aggregation rules
-  - name: jairouter.recording.aggregate
+  - name: trunkline.recording.aggregate
     interval: 60s
     rules:
-      - record: jairouter:request_rate_5m
-        expr: sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:request_rate_5m
+        expr: sum(rate(trunkline_requests_total[5m]))
       
-      - record: jairouter:backend_health_ratio
-        expr: sum(jairouter_backend_health) / count(jairouter_backend_health)
+      - record: trunkline:backend_health_ratio
+        expr: sum(trunkline_backend_health) / count(trunkline_backend_health)
   
   # Low-frequency complex rules
-  - name: jairouter.recording.complex
+  - name: trunkline.recording.complex
     interval: 300s
     rules:
-      - record: jairouter:sla_availability_24h
-        expr: avg_over_time(jairouter:up[24h])
+      - record: trunkline:sla_availability_24h
+        expr: avg_over_time(trunkline:up[24h])
 ```
 
 ## Grafana Optimization
@@ -324,10 +324,10 @@ groups:
 #### 1. Using Recording Rules
 ```promql
 # Before optimization: Complex query
-sum(rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum(rate(jairouter_requests_total[5m])) * 100
+sum(rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum(rate(trunkline_requests_total[5m])) * 100
 
 # After optimization: Using pre-aggregation
-jairouter:error_rate_5m * 100
+trunkline:error_rate_5m * 100
 ```
 
 #### 2. Query Cache Configuration
@@ -347,7 +347,7 @@ max_cache_size_mb = 100
 {
   "targets": [
     {
-      "expr": "jairouter:request_rate_5m",
+      "expr": "trunkline:request_rate_5m",
       "interval": "30s",
       "maxDataPoints": 100,
       "refId": "A"
@@ -388,7 +388,7 @@ max_cache_size_mb = 100
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     params:
       format: ['prometheus']
     honor_labels: true
@@ -456,13 +456,13 @@ public class CachedMetricsCollector {
 ```yaml
 # Add metrics for the monitoring system itself
 - record: monitoring:collection_duration_seconds
-  expr: histogram_quantile(0.95, rate(jairouter_metrics_collection_duration_seconds_bucket[5m]))
+  expr: histogram_quantile(0.95, rate(trunkline_metrics_collection_duration_seconds_bucket[5m]))
 
 - record: monitoring:memory_usage_bytes
-  expr: jvm_memory_used_bytes{area="heap", application="jairouter"}
+  expr: jvm_memory_used_bytes{area="heap", application="trunkline"}
 
 - record: monitoring:cpu_usage_percent
-  expr: rate(process_cpu_seconds_total{application="jairouter"}[5m]) * 100
+  expr: rate(process_cpu_seconds_total{application="trunkline"}[5m]) * 100
 ```
 
 #### 2. Performance Alerts
@@ -626,7 +626,7 @@ def analyze_performance(baseline_file, monitoring_file):
 #### 2. Performance Trend Monitoring
 ```promql
 # Monitor performance trends
-increase(jairouter_request_duration_seconds_sum[24h]) / increase(jairouter_request_duration_seconds_count[24h])
+increase(trunkline_request_duration_seconds_sum[24h]) / increase(trunkline_request_duration_seconds_count[24h])
 ```
 
 ## Best Practices Summary

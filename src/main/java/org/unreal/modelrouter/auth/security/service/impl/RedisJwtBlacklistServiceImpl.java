@@ -46,13 +46,21 @@ public class RedisJwtBlacklistServiceImpl implements JwtBlacklistService {
         this.fallbackOperations = new FallbackBlacklistOperations(fallbackStoreManager);
     }
 
+    private static final long DEFAULT_BLACKLIST_TTL_SECONDS = 24 * 60 * 60; // 24h
+
     @Override
     public Mono<Void> addToBlacklist(final String tokenHash, final String reason, final String addedBy) {
+        return addToBlacklist(tokenHash, reason, addedBy, DEFAULT_BLACKLIST_TTL_SECONDS);
+    }
+
+    @Override
+    public Mono<Void> addToBlacklist(final String tokenHash, final String reason, final String addedBy, final long ttlSeconds) {
         if (tokenHash == null || tokenHash.trim().isEmpty()) {
             return Mono.error(new IllegalArgumentException("Token hash cannot be null or empty"));
         }
 
         LocalDateTime now = LocalDateTime.now();
+        long ttl = ttlSeconds > 0 ? ttlSeconds : DEFAULT_BLACKLIST_TTL_SECONDS;
 
         // 创建黑名单条目
         TokenBlacklistEntry entry = new TokenBlacklistEntry();
@@ -60,7 +68,7 @@ public class RedisJwtBlacklistServiceImpl implements JwtBlacklistService {
         entry.setReason(reason != null ? reason : "Manual revocation");
         entry.setAddedBy(addedBy != null ? addedBy : "system");
         entry.setAddedAt(now);
-        entry.setExpiresAt(now.plusHours(24)); // 默认24小时后过期
+        entry.setExpiresAt(now.plusSeconds(ttl)); // TTL 可配置（C3）
 
         return redisOperations.addToBlacklist(entry)
             .onErrorResume(error -> {

@@ -9,12 +9,12 @@
 
 
 
-JAiRouter 提供了企业级的安全功能，包括身份认证、数据脱敏、安全审计和监控等。这些功能确保您的 AI 模型服务在提供高性能路由的同时，也能满足严格的安全和合规要求。
+Trunkline 提供了企业级的安全功能，包括身份认证、数据脱敏、安全审计和监控等。这些功能确保您的 AI 模型服务在提供高性能路由的同时，也能满足严格的安全和合规要求。
 
 ## 功能概览
 
 ### 🔐 身份认证
-- **API Key 认证**：支持多级权限控制和过期时间管理
+- **API Key 认证（三道闸门）**：模型分类（permissions）→ 模型分组白名单（allowedGroups）→ IP/有效期/多窗口配额告警
 - **JWT 认证**：支持标准 JWT 令牌和刷新机制
 - **双重认证**：API Key 和 JWT 可以同时使用
 - **缓存优化**：支持 Redis 和本地缓存提升性能
@@ -43,7 +43,7 @@ JAiRouter 提供了企业级的安全功能，包括身份认证、数据脱敏�
 在 `application.yml` 中启用安全功能：
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
 ```
@@ -51,7 +51,7 @@ jairouter:
 ### 2. 配置 API Key 认证
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       enabled: true
@@ -65,7 +65,7 @@ jairouter:
 ### 3. 配置数据脱敏
 
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -94,7 +94,7 @@ curl -H "X-API-Key: your-api-key" \
 
 ## 架构概览
 
-``mermaid
+```mermaid
 graph TB
     Client[客户端] --> Gateway[API网关层]
     Gateway --> Auth[认证过滤器]
@@ -123,7 +123,7 @@ graph TB
 ### 开发环境
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -144,7 +144,7 @@ jairouter:
 ### 生产环境
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -218,15 +218,16 @@ export REDIS_PASSWORD="your-redis-password"
 
 ## 监控指标
 
-### 认证指标
-- `jairouter_security_authentication_attempts_total`: 认证尝试总数
-- `jairouter_security_authentication_successes_total`: 认证成功总数
-- `jairouter_security_authentication_failures_total`: 认证失败总数
+### 认证指标（Prometheus 名）
+- `trunkline_security_authentication_attempts_total`: 认证尝试总数
+- `trunkline_security_authentication_successes_total`: 认证成功总数
+- `trunkline_security_authentication_failures_total`: 认证失败总数
 
-### 脱敏指标
-- `jairouter_security_sanitization_operations_total`: 脱敏操作总数
-- `jairouter_security_sanitization_duration_seconds`: 脱敏操作耗时
-- `jairouter_security_sanitization_patterns_matched_total`: 匹配的模式总数
+### 脱敏指标（Prometheus 名）
+- `trunkline_security_sanitization_operations_total`: 脱敏操作总数
+- `trunkline_security_sanitization_rule_matches_total`: 脱敏规则匹配总数
+
+> 完整指标清单见 [监控指标](../monitoring/metrics.md) 的「代码已注册指标」。
 
 ## 下一步
 

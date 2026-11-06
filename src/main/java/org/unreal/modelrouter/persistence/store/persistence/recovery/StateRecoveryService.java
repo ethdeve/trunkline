@@ -16,6 +16,7 @@ import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 import org.unreal.modelrouter.persistence.store.persistence.adapter.CircuitBreakerStatePersistenceAdapter;
 import org.unreal.modelrouter.persistence.store.persistence.adapter.LoadBalancerStatePersistenceAdapter;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -27,9 +28,10 @@ import java.util.Map;
  * 
  * @author JAiRouter Team
  * @since 2.4.4
+ * @modified Trunkline Team
  */
 @Service
-@ConditionalOnProperty(name = "jairouter.persistence.recovery.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.persistence.recovery.enabled", havingValue = "true", matchIfMissing = true)
 public class StateRecoveryService {
 
     private static final Logger logger = LoggerFactory.getLogger(StateRecoveryService.class);
@@ -86,11 +88,15 @@ public class StateRecoveryService {
                 recoverCircuitBreakerStates(stats),
                 recoverLoadBalancerStates(stats)
         )
-                .doOnTerminate(() -> {
-                    stats.endTime = System.currentTimeMillis();
-                    stats.durationMs = stats.endTime
-                            - stats.startTime;
+                .doOnSuccess(v -> {
                     stats.success = true;
+                    stats.endTime = System.currentTimeMillis();
+                    stats.durationMs = stats.endTime - stats.startTime;
+                })
+                .doOnError(e -> {
+                    stats.success = false;
+                    stats.endTime = System.currentTimeMillis();
+                    stats.durationMs = stats.endTime - stats.startTime;
                 })
                 .thenReturn(stats);
     }
@@ -141,11 +147,13 @@ public class StateRecoveryService {
                     stats.cbStatesRecovered = recoveredCount;
                     stats.cbStatesFailed = failedCount;
 
-                    logger.info("Circuit breaker recovery: {} recovered, {} failed", 
+                    logger.info("Circuit breaker recovery: {} recovered, {} failed",
                             recoveredCount, failedCount);
 
-                    return Mono.empty();
-                });
+                    return Mono.<Void>empty();
+                })
+                // X1: 链内 block()（restoreCircuitBreakerState 阻塞）必须在 boundedElastic 上执行
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
@@ -212,11 +220,13 @@ public class StateRecoveryService {
                     stats.lbStatesRecovered = recoveredCount;
                     stats.lbStatesFailed = failedCount;
 
-                    logger.info("Load balancer recovery: {} recovered, {} failed", 
+                    logger.info("Load balancer recovery: {} recovered, {} failed",
                             recoveredCount, failedCount);
 
-                    return Mono.empty();
-                });
+                    return Mono.<Void>empty();
+                })
+                // X1: 链内 block()（restoreLoadBalancerState 阻塞）必须在 boundedElastic 上执行
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**

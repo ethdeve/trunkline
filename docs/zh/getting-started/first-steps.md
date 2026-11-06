@@ -9,7 +9,7 @@
 
 
 
-完成 [快速开始](quick-start.md) 后，本指南将帮助您深入了解 JAiRouter 的配置和使用，逐步构建生产就绪的 AI 服务网关。
+完成 [快速开始](quick-start.md) 后，本指南将帮助您深入了解 Trunkline 的配置和使用，逐步构建生产就绪的 AI 服务网关。
 
 ## 🎯 学习路径
 
@@ -26,7 +26,7 @@
 ## 📋 前提条件
 
 - ✅ 已完成 [快速开始](quick-start.md) 指南
-- ✅ JAiRouter 服务正在运行
+- ✅ Trunkline 服务正在运行
 - ✅ 至少配置了一个 AI 服务实例
 
 ## 🎯 学习目标
@@ -44,7 +44,7 @@
 
 ### 配置方式
 
-JAiRouter 支持两种配置方式：
+Trunkline 支持两种配置方式：
 
 1. **静态配置**：通过 `application.yml` 或 JSON 配置文件
 2. **动态配置**：通过 REST API 运行时更新
@@ -60,7 +60,7 @@ JAiRouter 支持两种配置方式：
 
 ### 支持的服务类型
 
-JAiRouter 支持以下 AI 服务类型：
+Trunkline 支持以下 AI 服务类型：
 
 | 服务类型 | 说明 | 示例模型 |
 |----------|------|----------|
@@ -111,7 +111,7 @@ JAiRouter 支持以下 AI 服务类型：
 
 ### 负载均衡策略
 
-JAiRouter 支持四种负载均衡策略：
+Trunkline 支持四种负载均衡策略：
 
 #### 1. Random（随机）
 
@@ -221,7 +221,7 @@ JAiRouter 支持四种负载均衡策略：
 
 ### 限流算法
 
-JAiRouter 支持四种限流算法：
+Trunkline 支持四种限流算法：
 
 #### 1. Token Bucket（令牌桶）
 
@@ -374,7 +374,7 @@ JAiRouter 支持四种限流算法：
 
 ## 配置健康检查
 
-JAiRouter 会自动检查服务实例的健康状态：
+Trunkline 会自动检查服务实例的健康状态：
 
 ```json
 {
@@ -398,7 +398,7 @@ JAiRouter 会自动检查服务实例的健康状态：
 
 ## 配置存储
 
-JAiRouter 支持两种配置存储方式：
+Trunkline 支持两种配置存储方式：
 
 ### 内存存储
 
@@ -548,7 +548,7 @@ curl "http://localhost:8080/api/config/instance/type/chat"
 
 ### 配置文件版本管理
 
-JAiRouter 支持配置文件版本管理，通过版本管理 API 可以查看历史版本、回滚配置：
+Trunkline 支持配置文件版本管理，通过版本管理 API 可以查看历史版本、回滚配置：
 
 ```bash
 # 获取所有版本信息
@@ -565,7 +565,7 @@ curl -X POST "http://localhost:8080/api/config/versions/1/apply"
 
 ### 启用监控
 
-JAiRouter 内置了 Prometheus 指标支持：
+Trunkline 内置了 Prometheus 指标支持：
 
 ```yaml
 # application.yml
@@ -595,7 +595,7 @@ curl "http://localhost:8080/actuator/prometheus"
 
 ### 日志配置
 
-JAiRouter 支持多环境日志配置：
+Trunkline 支持多环境日志配置：
 
 ```yaml
 # application-dev.yml（开发环境）
@@ -610,7 +610,7 @@ logging:
     org.unreal.modelrouter: INFO
     org.springframework: WARN
   file:
-    name: logs/jairouter.log
+    name: logs/trunkline.log
 ```
 
 ## 下一步
@@ -658,7 +658,7 @@ curl -X POST "http://localhost:8080/api/config/merge/backup"
 
 ## 🎉 完成第一步配置！
 
-恭喜您完成了 JAiRouter 的深入配置学习！现在您已经掌握了：
+恭喜您完成了 Trunkline 的深入配置学习！现在您已经掌握了：
 
 ### ✅ 已掌握的技能
 
@@ -684,7 +684,7 @@ curl -X POST "http://localhost:8080/api/config/merge/backup"
 
 - 📖 定期查看 [更新日志](../reference/changelog.md) 了解新特性
 - 🐛 遇到问题时查看 [FAQ](../reference/faq.md)
-- 💬 参与 [GitHub 讨论](https://github.com/Lincoln-cn/JAiRouter/discussions)
+- 💬 参与 [GitHub 讨论](https://github.com/Lincoln-cn/Trunkline/discussions)
 
 ### 🎯 实践建议
 

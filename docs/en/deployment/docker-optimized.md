@@ -10,7 +10,7 @@
 
 ## Overview
 
-JAiRouter provides an optimized Docker image build solution. Through multi-stage builds and Alpine base images, the image size is reduced from **440MB to 281MB** (36% reduction).
+Trunkline provides an optimized Docker image build solution. Through multi-stage builds and Alpine base images, the image size is reduced from **440MB to 281MB** (36% reduction).
 
 ### JLink Optimization Note
 
@@ -156,7 +156,7 @@ mvn clean package -DskipTests -Pfast
 
 # Build optimized image
 docker build -f Dockerfile.optimized \
-    -t sodlinken/jairouter:latest-optimized \
+    -t trunkline/trunkline:latest-optimized \
     .
 ```
 
@@ -166,31 +166,31 @@ docker build -f Dockerfile.optimized \
 
 ```bash
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
-  -e JAIROUTER_SECURITY_ENABLED=true \
-  -e JAIROUTER_SECURITY_JWT_ENABLED=true \
-  -e JAIROUTER_SECURITY_JWT_SECRET="your-32-char-secret-key-here" \
-  sodlinken/jairouter:latest-optimized
+  -e TRUNKLINE_SECURITY_ENABLED=true \
+  -e TRUNKLINE_SECURITY_JWT_ENABLED=true \
+  -e TRUNKLINE_SECURITY_JWT_SECRET="your-32-char-secret-key-here" \
+  trunkline/trunkline:latest-optimized
 ```
 
 ### Production Environment Run
 
 ```bash
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
-  -e JAIROUTER_SECURITY_ENABLED=true \
-  -e JAIROUTER_SECURITY_JWT_ENABLED=true \
-  -e JAIROUTER_SECURITY_JWT_SECRET="your-very-strong-jwt-secret-key-at-least-32-characters-long" \
-  -e JAIROUTER_SECURITY_API_KEY_ENABLED=true \
+  -e TRUNKLINE_SECURITY_ENABLED=true \
+  -e TRUNKLINE_SECURITY_JWT_ENABLED=true \
+  -e TRUNKLINE_SECURITY_JWT_SECRET="your-very-strong-jwt-secret-key-at-least-32-characters-long" \
+  -e TRUNKLINE_SECURITY_API_KEY_ENABLED=true \
   -v $(pwd)/config:/app/config:ro \
   -v $(pwd)/logs:/app/logs \
   -v $(pwd)/data:/app/data \
   --restart unless-stopped \
-  sodlinken/jairouter:latest-optimized
+  trunkline/trunkline:latest-optimized
 ```
 
 ### Using Run Script
@@ -209,13 +209,13 @@ docker run -d \
 
 ```bash
 # Check image size
-docker images sodlinken/jairouter
+docker images trunkline/trunkline
 
 # Example output
 REPOSITORY            TAG               SIZE
-sodlinken/jairouter   latest-optimized  281MB
-sodlinken/jairouter   latest-jlink      281MB
-sodlinken/jairouter   latest            440MB
+trunkline/trunkline   latest-optimized  281MB
+trunkline/trunkline   latest-jlink      281MB
+trunkline/trunkline   latest            440MB
 ```
 
 ### Startup Time
@@ -239,10 +239,10 @@ sodlinken/jairouter   latest            440MB
 Optimized image runs as non-root user:
 
 ```dockerfile
-RUN addgroup -g 10010 -S jairouter && \
-    adduser -u 10010 -S jairouter -G jairouter
+RUN addgroup -g 10010 -S trunkline && \
+    adduser -u 10010 -S trunkline -G trunkline
 
-USER jairouter
+USER trunkline
 ```
 
 ### Minimal Privileges
@@ -258,10 +258,10 @@ Recommended to use Docker Scout or Trivy for image scanning:
 
 ```bash
 # Using Docker Scout
-docker scout cve sodlinken/jairouter:latest-optimized
+docker scout cve trunkline/trunkline:latest-optimized
 
 # Using Trivy
-trivy image sodlinken/jairouter:latest-optimized
+trivy image trunkline/trunkline:latest-optimized
 ```
 
 ## Best Practices
@@ -273,19 +273,19 @@ Recommended to use optimized image in production:
 ```yaml
 # docker-compose.yml
 services:
-  jairouter:
-    image: sodlinken/jairouter:latest-optimized
-    container_name: jairouter
+  trunkline:
+    image: trunkline/trunkline:latest-optimized
+    container_name: trunkline
 ```
 
 ### 2. Image Tag Management
 
 ```bash
 # Use specific version tags
-docker pull sodlinken/jairouter:v3.1.1-optimized
+docker pull trunkline/trunkline:v3.1.1-optimized
 
 # Avoid using latest tag in production
-# docker pull sodlinken/jairouter:latest-optimized  # Not recommended for production
+# docker pull trunkline/trunkline:latest-optimized  # Not recommended for production
 ```
 
 ### 3. Image Update Strategy
@@ -300,10 +300,10 @@ FROM eclipse-temurin:17-jre-alpine:latest
 
 ```bash
 # Use docker history to check image layers
-docker history sodlinken/jairouter:latest-optimized
+docker history trunkline/trunkline:latest-optimized
 
 # Use dive tool to analyze image layers
-dive sodlinken/jairouter:latest-optimized
+dive trunkline/trunkline:latest-optimized
 ```
 
 ## Troubleshooting
@@ -318,20 +318,20 @@ ls -la target/model-router-*.jar
 docker builder prune -a
 
 # Rebuild without cache
-docker build --no-cache -f Dockerfile.optimized -t sodlinken/jairouter:latest-optimized .
+docker build --no-cache -f Dockerfile.optimized -t trunkline/trunkline:latest-optimized .
 ```
 
 ### Container Startup Failure
 
 ```bash
 # Check container logs
-docker logs jairouter
+docker logs trunkline
 
 # Enter container for debugging
-docker exec -it jairouter sh
+docker exec -it trunkline sh
 
 # Check JVM parameters
-docker exec jairouter java -XX:+PrintFlagsFinal -version
+docker exec trunkline java -XX:+PrintFlagsFinal -version
 ```
 
 ### Slow Image Pull

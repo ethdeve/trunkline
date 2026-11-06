@@ -9,7 +9,7 @@
 
 ## Overview
 
-JAiRouter provides a **rule engine** (v2.8.5) that enables conditional routing rules configured via the Web console or YAML. Route requests flexibly by model name, request headers, client IP, and more — without writing code.
+Trunkline provides a **rule engine** (v2.8.5) that enables conditional routing rules configured via the Web console or YAML. Route requests flexibly by model name, request headers, client IP, and more — without writing code.
 
 The rule engine evaluates on **every request**: rules are matched by priority (highest first) and the first hit takes effect. When no rule matches, the original routing logic runs unchanged — behavior is **identical to a deployment without the rule engine**.
 
@@ -84,7 +84,7 @@ The rule engine evaluates on **every request**: rules are matched by priority (h
 
 ## Web Console Configuration
 
-1. Log in to the JAiRouter admin console
+1. Log in to the Trunkline admin console
 2. Click **Configuration → Routing Rules** in the left menu
 
 ### Creating a Rule
@@ -106,7 +106,7 @@ Click **「New Rule」** and fill in the form:
 
 - **Enable/Disable**: the table switch takes effect immediately
 - **Priority drag-and-drop**: drag the row handle to reorder by row position (top = highest priority) and commit in batch; YAML rules show a **YAML** badge and cannot be dragged (their priority is unaffected)
-- **Hit statistics**: the "hits" column shows accumulated match counts per rule (Prometheus metric `jairouter_rule_hits_total`); the refresh button reloads list and stats
+- **Hit statistics**: the "hits" column shows accumulated match counts per rule (Prometheus metric `trunkline_rule_hits_total`); the refresh button reloads list and stats
 - **Edit/Delete**: via the action column
 
 > Rule changes take effect **immediately** — no restart required.
@@ -290,7 +290,8 @@ model:
 
 - **Pool name = virtual model name**: requesting model=auto-model (or any configured pool name) triggers pool routing; with no pool configured, uto-model falls back to all healthy instances of the service type
 - **Selection flow**: pool members (referenced by instance ID) → status/health/circuit-breaker filter → pool weights → pool strategy; deleted instances are skipped
-- **Strategies**: weighted-random (default) / round-robin / least-connections / ip-hash / consistent-hash (note: consistent hash ignores weights)
+- **Strategies**: weighted-random (default) / 
+round-robin / least-connections / ip-hash / consistent-hash (note: consistent hash ignores weights)
 - **Rule synergy**: a rule's TARGET_MODEL target can be a pool name — the matched request then routes through the pool
 - **Response echo**: after pool routing, the response and downstream request model field reflect the actual serving instance model (non-streaming; streaming outbound requests are rewritten too)
 - **Rate limiting & circuit breaker**: the pool-selected instance continues through the existing service/instance rate-limit and circuit-breaker chain
@@ -352,13 +353,13 @@ On match, instances are selected by `tags` (an instance must contain every key-v
 Without a rule, select instances directly via the request header:
 
 ```
-X-JAiRouter-Tags: gpu_type=a100,region=cn-north
+X-Trunkline-Tags: gpu_type=a100,region=cn-north
 ```
 
 ```bash
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "X-JAiRouter-Tags: gpu_type=a100,region=cn-north" \
+  -H "X-Trunkline-Tags: gpu_type=a100,region=cn-north" \
   -d '{"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]}'
 ```
 
@@ -368,7 +369,7 @@ curl http://localhost:8080/v1/chat/completions \
 
 ### Priority and Empty-Candidate Semantics
 
-- **TARGET_TAGS takes priority over the request header**: when a `TARGET_TAGS` rule matches, its tags win and the header is ignored; `X-JAiRouter-Tags` is only parsed when no rule provides tags
+- **TARGET_TAGS takes priority over the request header**: when a `TARGET_TAGS` rule matches, its tags win and the header is ignored; `X-Trunkline-Tags` is only parsed when no rule provides tags
 - **TARGET_INSTANCE lock > tag filter**: instance locking narrows candidates by instanceId/name first; the tag filter narrows further on top (the lock action itself imposes no tag requirement)
 - **Empty candidates → 404**: `404 Not Found` when no instance matches the tags after filtering (same as TARGET_INSTANCE with no target instance)
 - With no tag selection configured, behavior is identical to not enabling the feature

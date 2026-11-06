@@ -7,9 +7,9 @@ import org.unreal.modelrouter.auth.security.util.SecretKeyValidator;
  * 密钥生成命令行工具
  *
  * 使用方式：
- * java -jar jairouter.jar --generate-key
- * java -jar jairouter.jar --generate-api-token
- * java -jar jairouter.jar --generate-password
+ * java -jar trunkline.jar --generate-key
+ * java -jar trunkline.jar --generate-api-token
+ * java -jar trunkline.jar --generate-password
  */
 public final class KeyGeneratorCommandLine {
 
@@ -132,7 +132,7 @@ public final class KeyGeneratorCommandLine {
         System.out.println();
         System.out.println("╔══════════════════════════════════════════════════════════════════════════════╗");
         System.out.println("║                                                                              ║");
-        System.out.println("║                         JAiRouter 密钥生成工具                               ║");
+        System.out.println("║                         Trunkline 密钥生成工具                               ║");
         System.out.println("║                                                                              ║");
         System.out.println("╚══════════════════════════════════════════════════════════════════════════════╝");
         System.out.println();

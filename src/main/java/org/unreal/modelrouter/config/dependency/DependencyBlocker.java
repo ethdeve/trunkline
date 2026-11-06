@@ -9,6 +9,7 @@ import java.util.Objects;
  *
  * @author JAiRouter Team
  * @since 3.3.2
+ * @modified Trunkline Team
  */
 public class DependencyBlocker {
 

@@ -4,14 +4,14 @@
 > **文档版本**: 2.0.1
 > **最后更新**: 2026-09-15
 > **Git 提交**: 0f56b957
-> **作者**: JAiRouter Team
+> **作者**: Trunkline Team
 <!-- /版本信息 -->
 
-欢迎来到 JAiRouter 开发指南！本指南为开发者提供了完整的开发环境搭建、代码规范、测试策略和贡献流程。
+欢迎来到 Trunkline 开发指南！本指南为开发者提供了完整的开发环境搭建、代码规范、测试策略和贡献流程。
 
 ## 快速开始
 
-如果您是第一次参与 JAiRouter 开发，建议按以下顺序阅读：
+如果您是第一次参与 Trunkline 开发，建议按以下顺序阅读：
 
 1. **[架构说明](architecture.md)** - 了解系统整体架构和设计原则
 2. **[贡献指南](contributing.md)** - 学习如何参与项目开发
@@ -37,8 +37,8 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/Lincoln-cn/JAiRouter.git
-cd jairouter
+git clone https://github.com/Lincoln-cn/Trunkline.git
+cd trunkline
 
 # 构建项目（中国用户推荐）
 ./mvnw clean package -Pchina
@@ -79,7 +79,7 @@ git push origin feature/your-feature-name
 
 ## 项目架构概览
 
-JAiRouter 采用模块化设计，主要包含以下核心模块：
+Trunkline 采用模块化设计，主要包含以下核心模块：
 
 | 模块 | 包路径 | 职责 |
 |------|--------|------|
@@ -212,4 +212,4 @@ JAiRouter 采用模块化设计，主要包含以下核心模块：
 
 ---
 
-感谢您对 JAiRouter 项目的贡献！
+感谢您对 Trunkline 项目的贡献！

@@ -3,7 +3,7 @@
 # ========================================
 # 此文件包含慢查询监控和告警的配置
 
-jairouter:
+trunkline:
   # 慢查询告警配置
   monitoring:
     slow-query-alert:

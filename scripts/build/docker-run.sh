@@ -82,7 +82,7 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Stopping existing container（如果存在）
-CONTAINER_NAME="jairouter-${ENVIRONMENT}"
+CONTAINER_NAME="trunkline-${ENVIRONMENT}"
 if docker ps -a --format 'table {{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     log_info "Stopping existing container：$CONTAINER_NAME"
     docker stop $CONTAINER_NAME 2>/dev/null || true
@@ -94,13 +94,13 @@ mkdir -p logs config config-store data
 
 # Setting image tag and configuration
 if [[ "$IMAGE_TYPE" == "optimized" ]]; then
-    IMAGE_TAG="sodlinken/jairouter:${VERSION}-optimized"
+    IMAGE_TAG="trunkline/trunkline:${VERSION}-optimized"
     log_info "使用optimized镜像（281MB，推荐）⭐"
 else
     if [[ "$ENVIRONMENT" == "dev" ]]; then
-        IMAGE_TAG="sodlinken/jairouter:${VERSION}-dev"
+        IMAGE_TAG="trunkline/trunkline:${VERSION}-dev"
     else
-        IMAGE_TAG="sodlinken/jairouter:${VERSION}"
+        IMAGE_TAG="trunkline/trunkline:${VERSION}"
     fi
     log_info "使用standard镜像（440MB）"
 fi

@@ -9,15 +9,15 @@
 
 
 
-This document collects the most common questions and answers encountered by users when using JAiRouter.
+This document collects the most common questions and answers encountered by users when using Trunkline.
 
 ## Basic Questions
 
-### Q1: What is JAiRouter?
+### Q1: What is Trunkline?
 
-**A**: JAiRouter is an AI model service routing and load balancing gateway based on Spring Boot. It provides a unified OpenAI-compatible API interface, supporting multiple backend AI services including GPUStack, Ollama, VLLM, and OpenAI. Key features include load balancing, rate limiting, circuit breaking, health checks, and dynamic configuration management.
+**A**: Trunkline is an AI model service routing and load balancing gateway based on Spring Boot. It provides a unified OpenAI-compatible API interface, supporting multiple backend AI services including GPUStack, Ollama, VLLM, and OpenAI. Key features include load balancing, rate limiting, circuit breaking, health checks, and dynamic configuration management.
 
-### Q2: Which AI services does JAiRouter support?
+### Q2: Which AI services does Trunkline support?
 
 **A**: Currently supported AI services include:
 - **GPUStack**: GPU cluster management platform
@@ -29,9 +29,9 @@ This document collects the most common questions and answers encountered by user
 
 Future support will include Anthropic Claude, Google Gemini, Cohere, and more services.
 
-### Q3: What distinguishes JAiRouter from other API gateways?
+### Q3: What distinguishes Trunkline from other API gateways?
 
-**A**: JAiRouter is specifically designed for AI model services with the following features:
+**A**: Trunkline is specifically designed for AI model services with the following features:
 - **AI-Specific**: Optimized for the special needs of AI model services
 - **OpenAI Compatible**: Provides standard OpenAI API format
 - **Intelligent Routing**: Supports multiple load balancing strategies
@@ -39,13 +39,13 @@ Future support will include Anthropic Claude, Google Gemini, Cohere, and more se
 - **Cost Optimization**: Supports cost-based routing strategies
 - **Easy to Use**: Simple configuration designed specifically for AI developers
 
-### Q4: Is JAiRouter free?
+### Q4: Is Trunkline free?
 
-**A**: Yes, JAiRouter is a completely open-source and free project under the MIT License. You can freely use, modify, and distribute it. We are also considering providing enterprise-level commercial support services.
+**A**: Yes, Trunkline is a completely open-source and free project under the MIT License. You can freely use, modify, and distribute it. We are also considering providing enterprise-level commercial support services.
 
 ## Installation and Deployment
 
-### Q5: What are the system requirements for JAiRouter?
+### Q5: What are the system requirements for Trunkline?
 
 **A**: Minimum system requirements:
 - **Java**: Version 17 or higher
@@ -54,26 +54,26 @@ Future support will include Anthropic Claude, Google Gemini, Cohere, and more se
 - **Storage**: Minimum 1GB available space
 - **Operating System**: Supports Linux, Windows, macOS
 
-### Q6: How to quickly get started with JAiRouter?
+### Q6: How to quickly get started with Trunkline?
 
 **A**: The simplest way is to use Docker:
 
 ```bash
 # Pull the image
-docker pull sodlinken/jairouter:latest
+docker pull trunkline/trunkline:latest
 
 # Start the service
 docker run -d -p 8080:8080 \
   -v ./config:/app/config \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 Or build from source:
 
 ```bash
 # Clone the project
-git clone https://github.com/Lincoln-cn/JAiRouter.git
-cd jairouter
+git clone https://github.com/Lincoln-cn/Trunkline.git
+cd trunkline
 
 # Build and run
 ./mvnw clean package
@@ -101,7 +101,7 @@ model:
 
 ### Q8: What deployment methods are supported?
 
-**A**: JAiRouter supports multiple deployment methods:
+**A**: Trunkline supports multiple deployment methods:
 - **Direct Run**: Running Java JAR package directly
 - **Docker Container**: Single container deployment
 - **Docker Compose**: Multi-container orchestration deployment
@@ -209,9 +209,9 @@ Making backend messages follow the UI language as well belongs to a future backe
 
 ## Monitoring and Operations
 
-### Q13: How to monitor JAiRouter's running status?
+### Q13: How to monitor Trunkline's running status?
 
-**A**: JAiRouter provides multiple monitoring methods:
+**A**: Trunkline provides multiple monitoring methods:
 
 **Health Check**:
 ```bash
@@ -233,16 +233,16 @@ curl http://localhost:8080/actuator/prometheus
 ### Q14: How to view logs?
 
 **A**: Log file locations:
-- **Container Deployment**: `/app/logs/jairouter-debug.log`
-- **Direct Run**: `./logs/jairouter-debug.log`
+- **Container Deployment**: `/app/logs/trunkline-debug.log`
+- **Direct Run**: `./logs/trunkline-debug.log`
 
 View real-time logs:
 ```bash
 # Docker container
-docker logs -f jairouter
+docker logs -f trunkline
 
 # Direct run
-tail -f logs/jairouter-debug.log
+tail -f logs/trunkline-debug.log
 ```
 
 Adjust log level:
@@ -270,12 +270,12 @@ Restore configuration:
 cp -r config-backup-20250115/ config/
 
 # Restart service to apply configuration
-docker restart jairouter
+docker restart trunkline
 ```
 
 ## Performance and Optimization
 
-### Q16: How is JAiRouter's performance?
+### Q16: How is Trunkline's performance?
 
 **A**: Performance metrics (based on standard test environment):
 - **Throughput**: 1000+ RPS
@@ -324,7 +324,7 @@ model:
 
 **A**: High-concurrency optimization strategies:
 
-1. **Horizontal Scaling**: Deploy multiple JAiRouter instances
+1. **Horizontal Scaling**: Deploy multiple Trunkline instances
 2. **Load Balancing**: Use Nginx or cloud load balancers
 3. **Connection Pool**: Increase connection pool size
 4. **Caching**: Enable response caching
@@ -378,7 +378,7 @@ curl http://localhost:8080/api/config/instance/type/chat
 
 4. **View Logs**:
 ```bash
-grep -i "connection\|timeout" logs/jairouter-debug.log
+grep -i "connection\|timeout" logs/trunkline-debug.log
 ```
 
 ### Q21: How to troubleshoot performance issues?
@@ -400,10 +400,10 @@ curl http://localhost:8080/actuator/metrics/jvm.gc.pause
 **Analyze Response Time**:
 ```bash
 # Response time distribution
-curl http://localhost:8080/actuator/metrics/jairouter.request.duration
+curl http://localhost:8080/actuator/metrics/trunkline.request.duration
 
 # Request statistics
-curl http://localhost:8080/actuator/metrics/jairouter.requests.total
+curl http://localhost:8080/actuator/metrics/trunkline.requests.total
 ```
 
 ## Development and Integration
@@ -417,8 +417,8 @@ curl http://localhost:8080/actuator/metrics/jairouter.requests.total
 # Python example
 import openai
 
-# Point OpenAI client to JAiRouter
-openai.api_base = "http://jairouter:8080/v1"
+# Point OpenAI client to Trunkline
+openai.api_base = "http://trunkline:8080/v1"
 openai.api_key = "your-api-key"
 
 response = openai.ChatCompletion.create(
@@ -432,7 +432,7 @@ response = openai.ChatCompletion.create(
 // Node.js example
 const axios = require('axios');
 
-const response = await axios.post('http://jairouter:8080/v1/chat/completions', {
+const response = await axios.post('http://trunkline:8080/v1/chat/completions', {
   model: 'gpt-3.5-turbo',
   messages: [{ role: 'user', content: 'Hello!' }]
 }, {
@@ -490,11 +490,11 @@ For detailed information, please refer to the [Contribution Guide](../developmen
 
 ### Q25: Can it be used commercially?
 
-**A**: Yes, JAiRouter uses the MIT License, allowing commercial use. You can:
+**A**: Yes, Trunkline uses the MIT License, allowing commercial use. You can:
 - Use in commercial projects
 - Modify and customize features
 - Redistribute (license must be retained)
-- Provide commercial services based on JAiRouter
+- Provide commercial services based on Trunkline
 
 ### Q26: Is technical support provided?
 
@@ -517,7 +517,7 @@ For enterprise-level requirements, please contact us to discuss custom developme
 
 ## Other Questions
 
-### Q28: What is JAiRouter's future roadmap?
+### Q28: What is Trunkline's future roadmap?
 
 **A**: Please check our [Roadmap](roadmap.md), which mainly includes:
 - Security and authentication system improvement
@@ -540,7 +540,7 @@ For enterprise-level requirements, please contact us to discuss custom developme
 2. **Search Issues**: Search for similar issues in GitHub Issues
 3. **Submit Issue**: Create a new Issue with detailed problem description
 4. **Community Discussion**: Seek help in GitHub Discussions
-5. **Email Contact**: jairouter@example.com
+5. **Email Contact**: trunkline@example.com
 
 ---
 
@@ -548,8 +548,8 @@ For enterprise-level requirements, please contact us to discuss custom developme
 
 If your question is not answered in this FAQ, please feel free to provide feedback through the following methods:
 
-- **GitHub Issues**: [Submit Issue](https://github.com/Lincoln-cn/JAiRouter/issues)
-- **GitHub Discussions**: [Participate in Discussion](https://github.com/Lincoln-cn/JAiRouter/discussions)
-- **Email Contact**: jairouter@example.com
+- **GitHub Issues**: [Submit Issue](https://github.com/Lincoln-cn/Trunkline/issues)
+- **GitHub Discussions**: [Participate in Discussion](https://github.com/Lincoln-cn/Trunkline/discussions)
+- **Email Contact**: trunkline@example.com
 
 We will continuously update the FAQ content to provide better support for users.

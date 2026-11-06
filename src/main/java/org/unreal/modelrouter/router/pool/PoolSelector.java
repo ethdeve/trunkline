@@ -17,23 +17,34 @@ import java.util.List;
 
 /**
  * 资源池选择器
- * 持有生效的池列表(YAML + 持久化合并);提供池命中解析与 auto-model 回退
+ * 持有生效的池列表(YAML + 持久化合并);提供池命中解析与成员候选解析
+ *
+ * <p><b>v3.6 治理收口：</b>不再有「全局默认池 / auto-model」这类隐式系统分组——
+ * 请求的 model 必须命中一个<b>显式创建</b>的模型分组(池)，否则一律 404。</p>
  */
 @Component
 public class PoolSelector {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PoolSelector.class);
 
-    /** 约定虚拟模型名:未配置池时回退为该服务全部健康实例 */
-    public static final String AUTO_MODEL = "auto-model";
-
-    private final SelectInstanceOptimizer optimizer;
+    // R17：由 Spring 注入共享单例；构造器内 new 仅作非 Spring 直构造场景的兜底
+    private SelectInstanceOptimizer optimizer;
 
     private volatile List<PoolDefinition> pools = new ArrayList<>();
 
     public PoolSelector(final ServiceStateManager serviceStateManager,
                         final CircuitBreakerManager circuitBreakerManager) {
         this.optimizer = new SelectInstanceOptimizer(serviceStateManager, circuitBreakerManager);
+    }
+
+    /**
+     * R17：注入共享的实例选择优化器单例（消除 PoolSelector 与 ModelServiceRegistry
+     * 各自 new 一份的重复构造；优化器本身无状态，共享无副作用）。
+     * 运行期会覆盖构造器内创建的兜底实例。
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setOptimizer(final SelectInstanceOptimizer optimizer) {
+        this.optimizer = optimizer;
     }
 
     /**
@@ -58,17 +69,12 @@ public class PoolSelector {
     /**
      * 判断模型名是否为已配置的启用池名(供处理器决定是否改写下游请求/响应的 model 字段)
      *
-     * <p><b>v3.5 治理收口：</b>{@link #AUTO_MODEL} 是<b>系统分组</b>（虚拟模型名）——
-     * 它表示「该服务分类下的全部健康实例」，不依赖任何显式池配置。
-     * 因此它必须恒被识别为分组名，才能进入分组路由分支并纳入分组白名单管控。</p>
+     * <p><b>v3.6 治理收口：</b>只有<b>显式创建</b>的分组才算分组名，
+     * 不再对任何约定名（如 {@code auto-model}）恒真。</p>
      */
     public boolean isPoolName(final String modelName) {
         if (modelName == null) {
             return false;
-        }
-        if (AUTO_MODEL.equals(modelName)) {
-            // 系统分组：恒真
-            return true;
         }
         for (PoolDefinition pool : pools) {
             if (pool.isEnabled() && pool.getPoolName() != null && pool.getPoolName().equals(modelName)) {
@@ -76,19 +82,6 @@ public class PoolSelector {
             }
         }
         return false;
-    }
-
-    /**
-     * 判断模型名是否为系统分组（{@link #AUTO_MODEL}）。
-     *
-     * <p>系统分组代表「该分类全部健康实例」，其成员是动态的（随实例增删变化），
-     * 不依赖显式池配置。</p>
-     *
-     * @param modelName 模型名
-     * @return 是系统分组返回 {@code true}
-     */
-    public boolean isSystemGroup(final String modelName) {
-        return AUTO_MODEL.equals(modelName);
     }
 
     /**
@@ -130,14 +123,6 @@ public class PoolSelector {
             resolved.add(copy);
         }
         return optimizer.filterHealthyInstances(resolved, parseServiceType(pool));
-    }
-
-    /**
-     * auto-model 无池回退:该服务全部健康实例(跳过模型名过滤)
-     */
-    public List<ModelInstance> autoFallbackCandidates(final List<ModelInstance> instances,
-                                                      final ModelServiceRegistry.ServiceType serviceType) {
-        return optimizer.filterHealthyInstances(instances, serviceType);
     }
 
     private ModelInstance findInstance(final List<ModelInstance> instances, final String instanceId) {

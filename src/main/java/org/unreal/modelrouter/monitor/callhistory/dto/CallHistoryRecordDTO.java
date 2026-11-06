@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
  *
  * @author JAiRouter Team
  * @since 2.7.8
+ * @modified Trunkline Team
  */
 @Data
 @Builder
@@ -53,9 +54,17 @@ public final class CallHistoryRecordDTO {
     private String serviceType;
 
     /**
-     * 模型名称
+     * 模型名称（上游响应体回传的厂商模型名）
      */
     private String modelName;
+
+    /**
+     * 虚拟模型名（模型分组 / 池名，如「公司主力」），v3.5 Trunkline 治理新增。
+     *
+     * <p>「调用观测」的归属维度：请求命中的虚拟模型，员工可见的对外名字。
+     * 与 {@link #modelName}（上游模型名）、{@link #instanceName}（实际实例）语义不同。</p>
+     */
+    private String virtualModel;
 
     /**
      * 适配器类型

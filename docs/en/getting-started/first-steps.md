@@ -9,7 +9,7 @@
 
 
 
-After completing the [Quick Start](quick-start.md), this guide will help you dive deeper into JAiRouter's configuration and usage, building a production-ready AI service gateway step by step.
+After completing the [Quick Start](quick-start.md), this guide will help you dive deeper into Trunkline's configuration and usage, building a production-ready AI service gateway step by step.
 
 ## 🎯 Learning Path
 
@@ -26,7 +26,7 @@ This guide is organized by real-world usage scenarios. It is recommended to foll
 ## 📋 Prerequisites
 
 - ✅ Completed the [Quick Start](quick-start.md) guide
-- ✅ JAiRouter is running
+- ✅ Trunkline is running
 - ✅ At least one AI service instance has been configured
 
 ## 🎯 Learning Objectives
@@ -44,7 +44,7 @@ After completing this guide, you will be able to:
 
 ### Configuration Methods
 
-JAiRouter supports two configuration methods:
+Trunkline supports two configuration methods:
 
 1. **Static configuration**: via `application.yml` or JSON configuration files
 2. **Dynamic configuration**: runtime updates via the REST API
@@ -60,7 +60,7 @@ JAiRouter supports two configuration methods:
 
 ### Supported Service Types
 
-JAiRouter supports the following AI service types:
+Trunkline supports the following AI service types:
 
 | Service Type | Description | Example Models |
 |--------------|-------------|----------------|
@@ -111,7 +111,7 @@ Create `config/model-router-config@1.json`:
 
 ### Load Balancing Strategies
 
-JAiRouter supports four load balancing strategies:
+Trunkline supports four load balancing strategies:
 
 #### 1. Random
 
@@ -221,7 +221,7 @@ All load balancing strategies support weight configuration:
 
 ### Rate Limiting Algorithms
 
-JAiRouter supports four rate limiting algorithms:
+Trunkline supports four rate limiting algorithms:
 
 #### 1. Token Bucket
 
@@ -374,7 +374,7 @@ When a service is unavailable, you can configure a fallback strategy:
 
 ## Configuring Health Checks
 
-JAiRouter automatically checks the health status of service instances:
+Trunkline automatically checks the health status of service instances:
 
 ```json
 {
@@ -398,7 +398,7 @@ JAiRouter automatically checks the health status of service instances:
 
 ## Configuring Storage
 
-JAiRouter supports two configuration storage methods:
+Trunkline supports two configuration storage methods:
 
 ### In-Memory Storage
 
@@ -548,7 +548,7 @@ curl "http://localhost:8080/api/config/instance/chat"
 
 ### Configuration File Version Management
 
-JAiRouter supports configuration file version management. Through the version management API, you can view historical versions and roll back configurations:
+Trunkline supports configuration file version management. Through the version management API, you can view historical versions and roll back configurations:
 
 ```bash
 # Get information about all versions
@@ -565,7 +565,7 @@ curl -X POST "http://localhost:8080/api/config/version/apply/1"
 
 ### Enabling Monitoring
 
-JAiRouter has built-in Prometheus metrics support:
+Trunkline has built-in Prometheus metrics support:
 
 ```yaml
 # application.yml
@@ -595,7 +595,7 @@ curl "http://localhost:8080/actuator/prometheus"
 
 ### Logging Configuration
 
-JAiRouter supports multi-environment logging configuration:
+Trunkline supports multi-environment logging configuration:
 
 ```yaml
 # application-dev.yml (development environment)
@@ -610,7 +610,7 @@ logging:
     org.unreal.modelrouter: INFO
     org.springframework: WARN
   file:
-    name: logs/jairouter.log
+    name: logs/trunkline.log
 ```
 
 ## Next Steps
@@ -658,7 +658,7 @@ Configuration files are backed up to the `config/backup_<timestamp>/` directory.
 
 ## 🎉 Complete the First Step of Configuration!
 
-Congratulations on completing your in-depth JAiRouter configuration learning! You have now mastered:
+Congratulations on completing your in-depth Trunkline configuration learning! You have now mastered:
 
 ### ✅ Skills Acquired
 
@@ -684,7 +684,7 @@ Choose your next step based on your needs:
 
 - 📖 Regularly check the [Changelog](../reference/changelog.md) for new features
 - 🐛 When you encounter issues, check the [FAQ](../reference/faq.md)
-- 💬 Join the [GitHub Discussions](https://github.com/Lincoln-cn/JAiRouter/discussions)
+- 💬 Join the [GitHub Discussions](https://github.com/Lincoln-cn/Trunkline/discussions)
 
 ### 🎯 Practice Suggestions
 

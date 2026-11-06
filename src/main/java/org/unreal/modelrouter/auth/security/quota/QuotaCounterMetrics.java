@@ -18,12 +18,12 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * <p>暴露三类指标（沿用仓库既有的 Micrometer 计数器 / 计时器风格）：</p>
  * <ul>
- *   <li>{@code jairouter.quota.counter.degraded}（tag {@code reason}）：降级次数，
+ *   <li>{@code trunkline.quota.counter.degraded}（tag {@code reason}）：降级次数，
  *       含 Redis 不可用 / 超时 / 未装配客户端等；</li>
- *   <li>{@code jairouter.quota.counter.redis.enabled}：当前计数后端是否为 Redis
+ *   <li>{@code trunkline.quota.counter.redis.enabled}：当前计数后端是否为 Redis
  *       （1 = Redis 权威计数，0 = 本地计数），用于确认开关是否生效；</li>
- *   <li>{@code jairouter.quota.counter.redis.commands} 与
- *       {@code jairouter.quota.counter.redis.command.duration}（tag {@code outcome}）：
+ *   <li>{@code trunkline.quota.counter.redis.commands} 与
+ *       {@code trunkline.quota.counter.redis.command.duration}（tag {@code outcome}）：
  *       Redis 命令次数与耗时，用于定位“变慢 → 超时 → 降级”的因果链。</li>
  * </ul>
  *
@@ -31,19 +31,20 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * @author JAiRouter Team
  * @since 3.1.0
+ * @modified Trunkline Team
  */
 @Slf4j
 @Component
 public class QuotaCounterMetrics {
 
     /** 降级计数器名 */
-    private static final String DEGRADED_METER = "jairouter.quota.counter.degraded";
+    private static final String DEGRADED_METER = "trunkline.quota.counter.degraded";
 
     /** Redis 命令计数器名 */
-    private static final String COMMAND_METER = "jairouter.quota.counter.redis.commands";
+    private static final String COMMAND_METER = "trunkline.quota.counter.redis.commands";
 
     /** Redis 命令耗时计时器名 */
-    private static final String COMMAND_DURATION_METER = "jairouter.quota.counter.redis.command.duration";
+    private static final String COMMAND_DURATION_METER = "trunkline.quota.counter.redis.command.duration";
 
     /** 空实现单例 */
     private static final QuotaCounterMetrics NOOP = new QuotaCounterMetrics();
@@ -69,6 +70,15 @@ public class QuotaCounterMetrics {
     /** Redis 命令失败耗时 */
     private final Timer commandFailureDuration;
 
+    /** 结算 Redis 补写失败计数器（确定性失败，增量已转入 pending，等待重试） */
+    private final Counter settlePublishFailure;
+
+    /** 结算重试仍失败计数器（本轮重试未成功，增量可能再次入队或超出队列上限被丢弃） */
+    private final Counter settleRetryFailure;
+
+    /** 结算重试因队列满被丢弃计数器（Redis 长期不可用导致积压溢出） */
+    private final Counter settleRetryDropped;
+
     /**
      * Spring 主构造器。
      *
@@ -93,7 +103,16 @@ public class QuotaCounterMetrics {
             .description("配额 Redis 计数命令耗时")
             .tag("outcome", "failure")
             .register(meterRegistry);
-        Gauge.builder("jairouter.quota.counter.redis.enabled", redisBackend, AtomicLong::doubleValue)
+        this.settlePublishFailure = Counter.builder("trunkline.quota.counter.settle.failures")
+            .description("配额结算 Redis 补写失败次数")
+            .register(meterRegistry);
+        this.settleRetryFailure = Counter.builder("trunkline.quota.counter.settle.retry.failures")
+            .description("配额结算重试失败次数")
+            .register(meterRegistry);
+        this.settleRetryDropped = Counter.builder("trunkline.quota.counter.settle.retry.dropped")
+            .description("配额结算重试因队列满被丢弃次数")
+            .register(meterRegistry);
+        Gauge.builder("trunkline.quota.counter.redis.enabled", redisBackend, AtomicLong::doubleValue)
             .description("配额计数是否使用 Redis（1=是，0=本地）")
             .register(meterRegistry);
     }
@@ -107,6 +126,9 @@ public class QuotaCounterMetrics {
         this.commandFailure = null;
         this.commandSuccessDuration = null;
         this.commandFailureDuration = null;
+        this.settlePublishFailure = null;
+        this.settleRetryFailure = null;
+        this.settleRetryDropped = null;
     }
 
     /**
@@ -176,5 +198,47 @@ public class QuotaCounterMetrics {
     public double degradationCount(final String reason) {
         final Counter counter = degradations.get(reason == null ? "unknown" : reason);
         return counter == null ? 0.0 : counter.count();
+    }
+
+    /**
+     * 记录一次结算 Redis 补写失败（确定性失败：增量已转入 pending，等待重试队列补写）。
+     */
+    public void recordSettlePublishFailure() {
+        if (settlePublishFailure != null) {
+            settlePublishFailure.increment();
+        }
+    }
+
+    /**
+     * 记录一次结算重试仍失败（本轮重试未成功，增量可能再次入队或超出队列上限被丢弃）。
+     */
+    public void recordSettleRetryFailure() {
+        if (settleRetryFailure != null) {
+            settleRetryFailure.increment();
+        }
+    }
+
+    /**
+     * 记录一次结算重试因队列满被丢弃（Redis 长期不可用导致积压溢出）。
+     */
+    public void recordSettleRetryDropped() {
+        if (settleRetryDropped != null) {
+            settleRetryDropped.increment();
+        }
+    }
+
+    /**
+     * 注册重试队列深度 gauge（便于观测积压是否增长）。
+     *
+     * @param queueSize 队列当前深度供应者，可为 {@code null}（忽略）
+     */
+    public void registerSettleRetryQueueGauge(final java.util.function.Supplier<Number> queueSize) {
+        if (meterRegistry == null || queueSize == null) {
+            return;
+        }
+        Gauge.builder("trunkline.quota.counter.settle.retry.queue.size",
+                (java.util.function.Supplier<Number>) queueSize)
+            .description("配额结算 Redis 补写重试队列积压深度")
+            .register(meterRegistry);
     }
 }

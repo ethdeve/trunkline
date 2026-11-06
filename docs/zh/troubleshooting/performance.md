@@ -9,7 +9,7 @@
 
 
 
-本文档提供 JAiRouter 性能问题的诊断方法和优化策略。
+本文档提供 Trunkline 性能问题的诊断方法和优化策略。
 
 ## 性能监控指标
 
@@ -28,10 +28,10 @@
 
 ```bash
 # 获取响应时间指标
-curl -s http://localhost:8080/actuator/metrics/jairouter.request.duration | jq
+curl -s http://localhost:8080/actuator/metrics/trunkline.request.duration | jq
 
 # 获取请求统计
-curl -s http://localhost:8080/actuator/metrics/jairouter.requests.total | jq
+curl -s http://localhost:8080/actuator/metrics/trunkline.requests.total | jq
 
 # 获取 JVM 指标
 curl -s http://localhost:8080/actuator/metrics/jvm.memory.used | jq
@@ -75,7 +75,7 @@ java -Dlogging.level.org.unreal.modelrouter=DEBUG \
      -jar target/model-router-*.jar
 
 # 分析日志中的时间戳
-grep "Processing request" logs/jairouter-debug.log | tail -10
+grep "Processing request" logs/trunkline-debug.log | tail -10
 ```
 
 **3. 检查后端服务性能**
@@ -448,15 +448,15 @@ management:
 ```yaml
 # prometheus-alerts.yml
 groups:
-  - name: jairouter.performance
+  - name: trunkline.performance
     rules:
       - alert: HighResponseTime
-        expr: histogram_quantile(0.95, jairouter_request_duration_seconds_bucket) > 5
+        expr: histogram_quantile(0.95, trunkline_request_duration_seconds_bucket) > 5
         for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "JAiRouter 响应时间过高"
+          summary: "Trunkline 响应时间过高"
           description: "P95 响应时间: {{ $value }}s"
       
       - alert: HighCPUUsage
@@ -465,7 +465,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "JAiRouter CPU 使用率过高"
+          summary: "Trunkline CPU 使用率过高"
           description: "CPU 使用率: {{ $value | humanizePercentage }}"
       
       - alert: HighMemoryUsage
@@ -474,7 +474,7 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "JAiRouter 内存使用率过高"
+          summary: "Trunkline 内存使用率过高"
           description: "内存使用率: {{ $value | humanizePercentage }}"
 ```
 
@@ -485,7 +485,7 @@ groups:
 #!/bin/bash
 # performance-benchmark.sh
 
-echo "=== JAiRouter 性能基准测试 ==="
+echo "=== Trunkline 性能基准测试 ==="
 
 # 预热
 echo "预热阶段..."
@@ -504,7 +504,7 @@ echo "生成性能报告..."
 gnuplot -e "
 set terminal png;
 set output 'performance-report.png';
-set title 'JAiRouter Performance Test';
+set title 'Trunkline Performance Test';
 set xlabel 'Request Number';
 set ylabel 'Response Time (ms)';
 plot 'benchmark.dat' using 9 with lines title 'Benchmark',
@@ -581,7 +581,7 @@ wrk -t12 -c400 -d30s --script=post.lua http://localhost:8080/v1/chat/completions
 <?xml version="1.0" encoding="UTF-8"?>
 <jmeterTestPlan version="1.2">
   <hashTree>
-    <TestPlan testname="JAiRouter Performance Test">
+    <TestPlan testname="Trunkline Performance Test">
       <elementProp name="TestPlan.arguments" elementType="Arguments" guiclass="ArgumentsPanel">
         <collectionProp name="Arguments.arguments"/>
       </elementProp>
@@ -593,4 +593,4 @@ wrk -t12 -c400 -d30s --script=post.lua http://localhost:8080/v1/chat/completions
 </jmeterTestPlan>
 ```
 
-通过遵循这些性能优化指南，可以确保 JAiRouter 在生产环境中提供稳定、高效的服务。
+通过遵循这些性能优化指南，可以确保 Trunkline 在生产环境中提供稳定、高效的服务。

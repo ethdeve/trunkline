@@ -6,8 +6,8 @@ global:
   resolve_timeout: 5m
   # SMTP 配置（邮件通知）
   smtp_smarthost: 'localhost:25'
-  smtp_from: 'alertmanager@jairouter.com'
-  smtp_auth_username: 'alertmanager@jairouter.com'
+  smtp_from: 'alertmanager@trunkline.com'
+  smtp_auth_username: 'alertmanager@trunkline.com'
   smtp_auth_password: ''
   # Slack API URL（可选）
   # slack_api_url: 'https://hooks.slack.com/services/xxx/yyy/zzz'
@@ -56,10 +56,10 @@ route:
       group_wait: 5m
       repeat_interval: 12h
     
-    # JAiRouter 异常管理告警
+    # Trunkline 异常管理告警
     - match:
-        service: jairouter
-      receiver: 'jairouter-receiver'
+        service: trunkline
+      receiver: 'trunkline-receiver'
       group_by: ['alertname', 'error_code', 'severity']
       group_wait: 30s
       group_interval: 2m
@@ -77,7 +77,7 @@ receivers:
   - name: 'critical-receiver'
     # 邮件通知
     email_configs:
-      - to: 'admin@jairouter.com'
+      - to: 'admin@trunkline.com'
         send_resolved: true
         html: '{{ template "email.default.html" . }}'
     # Webhook 通知
@@ -93,7 +93,7 @@ receivers:
   # 警告接收器
   - name: 'warning-receiver'
     email_configs:
-      - to: 'team@jairouter.com'
+      - to: 'team@trunkline.com'
         send_resolved: true
     webhook_configs:
       - url: 'http://localhost:5001/webhook/warning'
@@ -102,17 +102,17 @@ receivers:
   # 信息接收器
   - name: 'info-receiver'
     email_configs:
-      - to: 'team@jairouter.com'
+      - to: 'team@trunkline.com'
         send_resolved: true
 
-  # JAiRouter 专用接收器
-  - name: 'jairouter-receiver'
+  # Trunkline 专用接收器
+  - name: 'trunkline-receiver'
     email_configs:
-      - to: 'jairouter-alerts@jairouter.com'
+      - to: 'trunkline-alerts@trunkline.com'
         send_resolved: true
-        html: '{{ template "email.jairouter.html" . }}'
+        html: '{{ template "email.trunkline.html" . }}'
     webhook_configs:
-      - url: 'http://jairouter:8080/api/admin/alerts/webhook'
+      - url: 'http://trunkline:8080/api/admin/alerts/webhook'
         send_resolved: true
         max_alerts: 10
 
@@ -120,16 +120,16 @@ receivers:
 inhibit_rules:
   # 如果服务不可用，抑制其他告警
   - source_match:
-      alertname: 'JAiRouterServiceDown'
+      alertname: 'TrunklineServiceDown'
     target_match_re:
       alertname: '.+'
     equal: ['service', 'instance']
   
   # 如果熔断器开启，抑制下游服务告警
   - source_match:
-      alertname: 'JAiRouterCircuitBreakerOpen'
+      alertname: 'TrunklineCircuitBreakerOpen'
     target_match_re:
-      alertname: 'JAiRouterBackend.*'
+      alertname: 'TrunklineBackend.*'
     equal: ['service']
 
 # 告警模板

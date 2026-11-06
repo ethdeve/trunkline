@@ -168,6 +168,8 @@ public class LoadBalancerManager {
         try {
             loadBalancers.clear();
             initializeLoadBalancers();
+            // R6: 热更新后策略 LB 缓存也需重建，否则残留旧实例状态（轮询计数器 / least-connections 计数）
+            strategyBalancers.clear();
 
             logger.info("Load balancer configuration updated successfully");
         } catch (Exception e) {
@@ -176,6 +178,7 @@ public class LoadBalancerManager {
             // 回滚到旧配置
             loadBalancers.clear();
             loadBalancers.putAll(oldLoadBalancers);
+            strategyBalancers.clear();
             throw new RuntimeException("Failed to update configuration", e);
         }
     }
@@ -221,7 +224,7 @@ public class LoadBalancerManager {
      * @param serviceType 服务类型
      * @param loadBalanceConfig 新的负载均衡配置
      */
-    public void reinitializeLoadBalancer(final ModelServiceRegistry.ServiceType serviceType,
+    public synchronized void reinitializeLoadBalancer(final ModelServiceRegistry.ServiceType serviceType,
                                          final ModelRouterProperties.LoadBalanceConfig loadBalanceConfig) {
         try {
             // 移除旧的负载均衡器

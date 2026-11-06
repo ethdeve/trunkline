@@ -9,8 +9,8 @@ import type {
 } from '@/types'
 
 // 追踪概览相关接口
-export const getTracingOverview = () => {
-    return request.get<RouterResponse<any>>('/tracing/query/statistics')
+export const getTracingOverview = (timeRange?: TimeRange) => {
+    return request.get<RouterResponse<any>>('/tracing/query/statistics', { params: timeRange })
 }
 
 export const getTracingStats = () => {

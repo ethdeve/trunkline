@@ -311,7 +311,7 @@ onMounted(loadModels)
   overflow-x: auto;
   font-size: 13px;
   line-height: 1.6;
-  font-family: var(--el-font-family-monospace, 'Consolas', 'Monaco', monospace);
+  font-family: var(--ja-font-mono);
   margin: 0;
 }
 

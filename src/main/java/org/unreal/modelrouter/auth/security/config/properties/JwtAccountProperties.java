@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * JWT账户配置属性
- * 映射 application.yml 中的 jairouter.security.jwt.accounts 配置
+ * 映射 application.yml 中的 trunkline.security.jwt.accounts 配置
  */
 @Data
 public final class JwtAccountProperties {

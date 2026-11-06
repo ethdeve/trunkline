@@ -17,6 +17,7 @@ import org.unreal.modelrouter.config.core.helper.ConfigConverterHelper;
 import org.unreal.modelrouter.config.core.helper.ServiceTypeResolver;
 import org.unreal.modelrouter.router.fallback.FallbackManager;
 import org.unreal.modelrouter.router.loadbalancer.LoadBalancer;
+import org.unreal.modelrouter.router.loadbalancer.SelectedInstanceHolder;
 import org.unreal.modelrouter.router.loadbalancer.LoadBalancerManager;
 import org.unreal.modelrouter.router.loadbalancer.monitor.RoutingMonitorService;
 import org.unreal.modelrouter.router.ratelimit.RateLimitConfig;
@@ -90,8 +91,14 @@ public class ModelServiceRegistry {
     private final ServiceTypeResolver serviceTypeResolver;
     private final ConfigConverterHelper configConverterHelper;
 
-    // v2.7.7: 实例选择优化器
-    private final SelectInstanceOptimizer selectInstanceOptimizer;
+    // v2.7.7: 实例选择优化器（R17：由 Spring 注入共享单例；
+    // 构造器内 new 仅作非 Spring 直构造场景的兜底，运行期会被 setSelectInstanceOptimizer 覆盖）
+    private SelectInstanceOptimizer selectInstanceOptimizer;
+
+    // v3.5 治理(R3): 按基础 LB 实例缓存 StickyLoadBalancer 包装，复用其一致性哈希环，
+    // 避免每请求 new 后 cachedFingerprint 从 "" 起步导致哈希环必重建(O(instances×virtualNodes) 浪费)。
+    // 基础 LB 为 EnumMap / strategyBalancers 中的长生命周期实例，键稳定。
+    private final Map<LoadBalancer, StickyLoadBalancer> stickyLoadBalancerCache = new ConcurrentHashMap<>();
 
     // v2.7.20: WebClient缓存管理器
     private final WebClientCacheManager webClientCacheManager;
@@ -137,11 +144,20 @@ public class ModelServiceRegistry {
 
     /**
      * v2.8.9: 资源池选择器延迟注入
-     * required=false:池不可用时路由行为不变(auto-model 走原逻辑)
+     * required=false:池不可用时路由行为不变（未命中任何显式分组即 404）
      */
     @Autowired(required = false)
     public void setPoolSelector(final PoolSelector poolSelector) {
         this.poolSelector = poolSelector;
+    }
+
+    /**
+     * R17：注入共享的实例选择优化器单例（消除 ModelServiceRegistry 与 PoolSelector
+     * 各自 new 一份的重复构造；优化器本身无状态，共享无副作用）。
+     */
+    @Autowired(required = false)
+    public void setSelectInstanceOptimizer(final SelectInstanceOptimizer selectInstanceOptimizer) {
+        this.selectInstanceOptimizer = selectInstanceOptimizer;
     }
 
     public ModelServiceRegistry(final ModelRouterProperties properties,
@@ -329,9 +345,9 @@ public class ModelServiceRegistry {
         // v3.5 治理收口:未命中池时**不再**走「按实例名过滤」旁路——
         //   对外调用的唯一入口是模型分组(虚拟模型名),实例不允许被直接调用,
         //   否则会绕过所属分组的授权与配额。
-        //   仅两条例外仍然放行(均为内部行为,客户端无法直接触达):
-        //     ① 规则引擎把模型名重写为某个实例名(TARGET_MODEL)或锁定实例(TARGET_INSTANCE);
-        //     ② auto-model 系统分组 —— 显式的「全分类健康实例」虚拟分组。
+        //   唯一例外仍然放行(内部行为,客户端无法直接触达):
+        //     规则引擎把模型名重写为某个实例名(TARGET_MODEL)或锁定实例(TARGET_INSTANCE)。
+        //   v3.6 治理收口：auto-model 系统分组已移除——没有显式创建的分组就没有可调用的虚拟模型。
         // N-1: 池候选 = 池成员 ∩ candidates(candidates 已按请求标签过滤),
         // 池路由同样受 X-JAiRouter-Tags 约束(此前用全量实例解析导致标签被忽略)
         List<ModelRouterProperties.ModelInstance> availableInstances;
@@ -362,10 +378,6 @@ public class ModelServiceRegistry {
                 // ① 规则引擎显式指定了实例(管理员配置,非客户端可控)
                 availableInstances = selectInstanceOptimizer.filterAvailableInstances(
                     candidates, effectiveModelName, serviceType);
-            } else if (PoolSelector.AUTO_MODEL.equals(effectiveModelName) && poolSelector != null) {
-                // ② auto-model 系统分组:该服务分类下全部健康实例
-                availableInstances = poolSelector.autoFallbackCandidates(
-                    runtimeConfig.getInstances(), serviceType);
             } else {
                 // v3.5 治理收口:model 未命中任何分组 → 拒绝。
                 // 报错带上「可用分组」提示,避免客户端只知道 404 不知怎么改。
@@ -416,7 +428,9 @@ public class ModelServiceRegistry {
         // 对同一个池恒定不变,若套上 StickyLoadBalancer 会把该池所有请求(含不同会话)钉死到同一成员,
         // 直接废掉池自身的 round-robin/weighted 策略。池内成员选择交由池策略(matchedPool.getStrategy())负责。
         if (affinityKey != null && stickyScope != null && matchedPool == null) {
-            loadBalancer = new StickyLoadBalancer(loadBalancer, serviceStateManager, circuitBreakerManager);
+            // R3: 按基础 LB 实例缓存 StickyLoadBalancer，复用其一致性哈希环
+            loadBalancer = stickyLoadBalancerCache.computeIfAbsent(loadBalancer,
+                    base -> new StickyLoadBalancer(base, serviceStateManager, circuitBreakerManager));
         }
 
         // v2.8.8: 服务级限流检查(每请求恰一次;实例级在 selectWithRateLimit 内;无配置零开销)
@@ -451,6 +465,10 @@ public class ModelServiceRegistry {
                 availableInstances.size());
 
         loadBalancer.recordCall(selectedInstance);
+        // R1: 记录选择侧实际使用的 LB 实例，供回调 recordCallComplete/Failure 复用同一实例，
+        // 避免带状态策略(least-connections 的 connectionCounts)在"选择(策略LB)/回调(服务LB)"不同
+        // 实例间单调泄漏。取不到时回调回退 LoadBalancerManager.getLoadBalancer(serviceType)（历史行为）。
+        SelectedInstanceHolder.setLoadBalancer(loadBalancer);
         return selectedInstance;
     }
 
@@ -519,7 +537,10 @@ public class ModelServiceRegistry {
     }
 
     public void recordCallComplete(final ServiceType serviceType, final ModelRouterProperties.ModelInstance instance) {
-        LoadBalancer loadBalancer = loadBalancerManager.getLoadBalancer(serviceType);
+        LoadBalancer loadBalancer = SelectedInstanceHolder.getLoadBalancer();
+        if (loadBalancer == null) {
+            loadBalancer = loadBalancerManager.getLoadBalancer(serviceType);
+        }
         if (loadBalancer != null) {
             loadBalancer.recordCallComplete(instance);
         }
@@ -527,7 +548,10 @@ public class ModelServiceRegistry {
     }
 
     public void recordCallFailure(final ServiceType serviceType, final ModelRouterProperties.ModelInstance instance) {
-        LoadBalancer loadBalancer = loadBalancerManager.getLoadBalancer(serviceType);
+        LoadBalancer loadBalancer = SelectedInstanceHolder.getLoadBalancer();
+        if (loadBalancer == null) {
+            loadBalancer = loadBalancerManager.getLoadBalancer(serviceType);
+        }
         if (loadBalancer != null) {
             loadBalancer.recordCallFailure(instance);
         }
@@ -541,7 +565,10 @@ public class ModelServiceRegistry {
                                    final ModelRouterProperties.ModelInstance instance,
                                    final long durationMs,
                                    final boolean success) {
-        LoadBalancer loadBalancer = loadBalancerManager.getLoadBalancer(serviceType);
+        LoadBalancer loadBalancer = SelectedInstanceHolder.getLoadBalancer();
+        if (loadBalancer == null) {
+            loadBalancer = loadBalancerManager.getLoadBalancer(serviceType);
+        }
         if (loadBalancer != null) {
             loadBalancer.recordCallComplete(instance, durationMs, success);
         }
@@ -555,7 +582,10 @@ public class ModelServiceRegistry {
                                   final ModelRouterProperties.ModelInstance instance,
                                   final long durationMs,
                                   final String errorCode) {
-        LoadBalancer loadBalancer = loadBalancerManager.getLoadBalancer(serviceType);
+        LoadBalancer loadBalancer = SelectedInstanceHolder.getLoadBalancer();
+        if (loadBalancer == null) {
+            loadBalancer = loadBalancerManager.getLoadBalancer(serviceType);
+        }
         if (loadBalancer != null) {
             loadBalancer.recordCallFailure(instance, durationMs, errorCode);
         }
@@ -738,30 +768,6 @@ public class ModelServiceRegistry {
 
     public FallbackManager getFallbackManager() {
         return fallbackManager;
-    }
-
-    // ==================== 动态更新方法 ====================
-
-    public void updateServiceInstances(
-            final ServiceType serviceType,
-            final List<ModelRouterProperties.ModelInstance> instances) {
-        String serviceKey = serviceTypeResolver.getServiceConfigKey(serviceType);
-        ServiceRuntimeConfig runtimeConfig = serviceConfigCache.get(serviceKey);
-
-        if (runtimeConfig != null) {
-            runtimeConfig.setInstances(new ArrayList<>(instances));
-            LOGGER.info("已更新服务 {} 的实例，共 {} 个实例", serviceType, instances.size());
-        }
-    }
-
-    public void updateServiceAdapter(final ServiceType serviceType, final String adapter) {
-        String serviceKey = serviceTypeResolver.getServiceConfigKey(serviceType);
-        ServiceRuntimeConfig runtimeConfig = serviceConfigCache.get(serviceKey);
-
-        if (runtimeConfig != null) {
-            runtimeConfig.setAdapter(adapter);
-            LOGGER.info("已更新服务 {} 的适配器为: {}", serviceType, adapter);
-        }
     }
 
     // ==================== 私有方法 ====================

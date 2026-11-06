@@ -1,5 +1,6 @@
 package org.unreal.modelrouter.config.core;
 
+import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -10,8 +11,10 @@ import org.unreal.modelrouter.config.dto.CreateServiceConfigRequest;
 import org.unreal.modelrouter.config.dto.UpdateServiceConfigRequest;
 import org.unreal.modelrouter.common.dto.LoadBalanceConfig;
 import org.unreal.modelrouter.persistence.jpa.entity.ServiceConfigEntity;
+import org.unreal.modelrouter.persistence.jpa.entity.ServiceInstanceEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.ServiceConfigRepository;
 import org.unreal.modelrouter.persistence.jpa.repository.ServiceInstanceRepository;
+import org.unreal.modelrouter.router.circuitbreaker.CircuitBreakerManager;
 import org.unreal.modelrouter.config.sync.converter.ServiceConfigConverter;
 import org.unreal.modelrouter.config.sync.merger.ConfigMerger;
 import org.unreal.modelrouter.config.sync.repository.StoreConfigRepository;
@@ -35,6 +38,7 @@ import java.util.stream.Collectors;
  *
  * @author JAiRouter Team
  * @since v2.2.6
+ * @modified Trunkline Team
  */
 @Slf4j
 @Service
@@ -50,6 +54,9 @@ public class ServiceConfigManager {
     // JPA Repository (保留现有数据库操作)
     private final ServiceConfigRepository jpaRepository;
     private final ServiceInstanceRepository instanceRepository;
+
+    /** B1: 实例生命周期淘汰——分类删除时同步摘除其下所有实例的熔断器（可能为 null，纯单测场景） */
+    private final CircuitBreakerManager circuitBreakerManager;
 
     // ========== API 层方法 (DTO 方式) ==========
 
@@ -90,7 +97,7 @@ public class ServiceConfigManager {
 
         // 4. 保存到数据库
         ServiceConfigEntity entity = ServiceConfigEntity.builder()
-                .configKey("model-router-config")
+                .configKey(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY)
                 .serviceType(serviceType)
                 .adapter(request.getAdapter())
                 .loadBalanceType(request.getLoadBalanceType())
@@ -118,6 +125,9 @@ public class ServiceConfigManager {
     public void deleteServiceConfig(final String serviceType) {
         log.info("删除服务配置：serviceType={}", serviceType);
 
+        // 0. B1: 先淘汰该分类下所有实例的熔断器（删除后按 configId 反查实例即不可得）
+        evictCircuitBreakersForServiceType(serviceType);
+
         // 1. 从 StoreManager 删除
         try {
             configRepository.delete(serviceType);
@@ -127,6 +137,30 @@ public class ServiceConfigManager {
 
         // 2. 从数据库删除
         jpaRepository.deleteAllByServiceType(serviceType);
+    }
+
+    /**
+     * B1: 淘汰指定分类下所有实例的熔断器，防止删除分类后
+     * CircuitBreakerManager 单一注册表中残留孤儿条目。
+     */
+    private void evictCircuitBreakersForServiceType(final String serviceType) {
+        if (circuitBreakerManager == null) {
+            return;
+        }
+        try {
+            jpaRepository.findFirstByServiceTypeAndIsLatestTrue(serviceType).ifPresent(configEntity -> {
+                for (ServiceInstanceEntity instance : instanceRepository.findByServiceConfigId(configEntity.getId())) {
+                    String instanceId = instance.getInstanceId();
+                    if (instanceId != null && !instanceId.isBlank()) {
+                        String url = instance.getBaseUrl() + (instance.getPath() != null ? instance.getPath() : "");
+                        circuitBreakerManager.resetCircuitBreaker(instanceId, url);
+                    }
+                }
+            });
+        } catch (Exception e) {
+            // 淘汰失败不阻断删除主流程（熔断器残留只影响状态展示，不影响正确性）
+            log.warn("淘汰分类实例熔断器失败：serviceType={}, error={}", serviceType, e.getMessage());
+        }
     }
 
     /**
@@ -265,7 +299,7 @@ public class ServiceConfigManager {
         ServiceConfigEntity entity = jpaRepository
                 .findFirstByServiceTypeAndIsLatestTrue(serviceType)
                 .orElseGet(() -> ServiceConfigEntity.builder()
-                        .configKey("model-router-config")
+                        .configKey(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY)
                         .serviceType(serviceType)
                         .version(1)
                         .isLatest(true)

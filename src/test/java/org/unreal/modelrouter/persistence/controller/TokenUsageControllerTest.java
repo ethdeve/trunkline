@@ -1,5 +1,7 @@
 package org.unreal.modelrouter.persistence.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -18,6 +20,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.unreal.modelrouter.auth.security.model.ApiKeyAuthentication;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.monitor.dto.TokenUsageRecordDTO;
+import org.unreal.modelrouter.monitor.dto.TokenUsageRecentVO;
 import org.unreal.modelrouter.monitor.dto.TokenUsageStatisticsDTO;
 import org.unreal.modelrouter.persistence.jpa.entity.TokenUsageEntity;
 import org.unreal.modelrouter.monitor.service.TokenUsageService;
@@ -248,11 +251,41 @@ class TokenUsageControllerTest {
             when(tokenUsageService.getRecentUsage(20)).thenReturn(List.of(testEntity));
 
             // When
-            ResponseEntity<RouterResponse<List<TokenUsageEntity>>> result = controller.getRecentUsage(20);
+            ResponseEntity<RouterResponse<List<TokenUsageRecentVO>>> result = controller.getRecentUsage(20);
 
             // Then
             assertEquals(HttpStatus.OK, result.getStatusCode());
             assertEquals(1, result.getBody().getData().size());
+        }
+
+        @Test
+        @DisplayName("TOKEN-004b: P0-L 越权泄漏收敛——响应 JSON 不含内部字段（clientIp / instanceUrl / errorMessage / metadata）")
+        void testGetRecentUsage_doesNotLeakInternalFields() throws Exception {
+            // Given：实体带上内部字段（这些字段曾随列表接口整包外泄）
+            testEntity.setClientIp("10.0.0.7");
+            testEntity.setInstanceUrl("https://internal-upstream.example.com/v1");
+            testEntity.setErrorMessage("upstream said no");
+            testEntity.setMetadata("{\"secret\":\"x\"}");
+            testEntity.setInstanceName("gpt-4o");
+            testEntity.setVirtualModel("company-chat");
+            when(tokenUsageService.getRecentUsage(20)).thenReturn(List.of(testEntity));
+
+            // When
+            ResponseEntity<RouterResponse<List<TokenUsageRecentVO>>> result = controller.getRecentUsage(20);
+
+            // Then：响应元素只保留白名单字段
+            TokenUsageRecentVO vo = result.getBody().getData().get(0);
+            assertEquals("gpt-4o", vo.getInstanceName());
+            assertEquals("company-chat", vo.getVirtualModel());
+
+            final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+            final String json = mapper.writeValueAsString(vo);
+            assertFalse(json.contains("clientIp"), "响应 JSON 不得包含 clientIp: " + json);
+            assertFalse(json.contains("instanceUrl"), "响应 JSON 不得包含 instanceUrl: " + json);
+            assertFalse(json.contains("errorMessage"), "响应 JSON 不得包含 errorMessage: " + json);
+            assertFalse(json.contains("metadata"), "响应 JSON 不得包含 metadata: " + json);
+            assertFalse(json.contains("10.0.0.7"), "响应 JSON 不得包含调用方 IP: " + json);
+            assertFalse(json.contains("internal-upstream"), "响应 JSON 不得包含实例地址: " + json);
         }
     }
 }

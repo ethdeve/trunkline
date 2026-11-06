@@ -9,13 +9,13 @@
 
 
 
-本文档提供 JAiRouter 监控系统的完整配置参考，包括所有配置选项的详细说明、默认值和使用示例。
+本文档提供 Trunkline 监控系统的完整配置参考，包括所有配置选项的详细说明、默认值和使用示例。
 
 ## 配置文件结构
 
 ### 主配置文件
 
-JAiRouter 监控配置主要在 `application.yml` 中定义：
+Trunkline 监控配置主要在 `application.yml` 中定义：
 
 ```yaml
 # 监控配置
@@ -23,7 +23,7 @@ monitoring:
   metrics:
     # 基础配置
     enabled: true
-    prefix: "jairouter"
+    prefix: "trunkline"
     collection-interval: 10s
     
     # 指标类别
@@ -102,13 +102,13 @@ monitoring:
 ### monitoring.metrics.prefix
 
 **类型**: String  
-**默认值**: `"jairouter"`  
+**默认值**: `"trunkline"`  
 **描述**: 指标名称前缀，用于区分不同应用的指标
 
 ```yaml
 monitoring:
   metrics:
-    prefix: "jairouter"        # 默认前缀
+    prefix: "trunkline"        # 默认前缀
     # prefix: "my-app"         # 自定义前缀
     # prefix: ""               # 无前缀
 ```
@@ -426,7 +426,7 @@ management:
 
 ## 指标批量上报配置
 
-JAiRouter 支持将 Micrometer 指标批量上报到外部系统，包括 HTTP 端点（如 Prometheus Pushgateway、InfluxDB）和本地文件。
+Trunkline 支持将 Micrometer 指标批量上报到外部系统，包括 HTTP 端点（如 Prometheus Pushgateway、InfluxDB）和本地文件。
 
 ### 配置项说明
 
@@ -451,7 +451,7 @@ monitoring:
 | 字段 | 类型 | 默认值 | 描述 |
 |------|------|--------|------|
 | `enabled` | Boolean | false | 是否启用 HTTP 上报 |
-| `url` | String | "" | 上报端点 URL，例如 `http://localhost:9091/metrics/job/jairouter` |
+| `url` | String | "" | 上报端点 URL，例如 `http://localhost:9091/metrics/job/trunkline` |
 | `timeout` | Integer | 5000 | HTTP 请求超时时间（毫秒） |
 | `format` | String | prometheus | 上报格式，支持 `prometheus`（Prometheus 文本格式）或 `json`（通用 JSON 格式） |
 
@@ -464,7 +464,7 @@ monitoring:
     export:
       http:
         enabled: true
-        url: "http://your-pushgateway-host:9091/metrics/job/jairouter/instance/${HOSTNAME}"
+        url: "http://your-pushgateway-host:9091/metrics/job/trunkline/instance/${HOSTNAME}"
         timeout: 5000
         format: prometheus
 ```
@@ -514,7 +514,7 @@ monitoring:
 {
   "metrics": [
     {
-      "name": "jairouter_requests_total",
+      "name": "trunkline_requests_total",
       "type": "counter",
       "value": 12345.0,
       "tags": {"service": "chat", "status": "200"},
@@ -522,7 +522,7 @@ monitoring:
     }
   ],
   "timestamp": "2026-06-23T10:30:00Z",
-  "source": "jairouter",
+  "source": "trunkline",
   "count": 1
 }
 ```
@@ -530,8 +530,8 @@ monitoring:
 **Prometheus 格式输出示例**:
 
 ```text
-jairouter_requests_total{service="chat",status="200"} 12345.0 1719123456789
-jairouter_backend_latency_seconds{adapter="gpustack",operation="chat"} 0.256 1719123456789
+trunkline_requests_total{service="chat",status="200"} 12345.0 1719123456789
+trunkline_backend_latency_seconds{adapter="gpustack",operation="chat"} 0.256 1719123456789
 ```
 
 ### 批量上报原理
@@ -564,14 +564,14 @@ metricsBatchReporter.setReportTarget(ReportTarget.LOG);
 monitoring:
   metrics:
     enabled: true
-    prefix: "jairouter"
+    prefix: "trunkline"
     
     # 批量上报配置
     export:
       # HTTP 上报（如 Prometheus Pushgateway）
       http:
         enabled: true
-        url: "http://pushgateway:9091/metrics/job/jairouter"
+        url: "http://pushgateway:9091/metrics/job/trunkline"
         timeout: 5000
         format: prometheus
       
@@ -620,7 +620,7 @@ management:
 monitoring:
   metrics:
     enabled: true
-    prefix: "test_jairouter"
+    prefix: "test_trunkline"
     sampling:
       request-metrics: 0.1  # 降低采样率减少测试干扰
       backend-metrics: 0.5
@@ -682,7 +682,7 @@ management:
 
 ### 运行时配置更新
 
-JAiRouter 支持运行时动态更新监控配置：
+Trunkline 支持运行时动态更新监控配置：
 
 ```bash
 # 更新采样率
@@ -848,7 +848,7 @@ monitoring:
 monitoring:
   metrics:
     enabled: true
-    prefix: "jairouter"
+    prefix: "trunkline"
     enabled-categories:
       - system
       - business

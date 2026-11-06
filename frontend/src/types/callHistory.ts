@@ -14,6 +14,8 @@ export interface ApiCallHistoryRecord {
   contentType?: string
   serviceType: string
   modelName: string
+  /** 虚拟模型名（模型分组 / 池名，如「公司主力」） */
+  virtualModel?: string
   provider?: string
   instanceName?: string
   instanceUrl?: string
@@ -42,6 +44,14 @@ export interface CallHistoryQuery {
   startTime?: string
   endTime?: string
   modelName?: string
+  /** 虚拟模型名（模型分组 / 池名） */
+  virtualModel?: string
+  /** 员工（JWT 用户名或密钥持有人） */
+  userId?: string
+  /** 关键字：多字段模糊 OR 匹配（员工 / 虚拟模型 / Trace ID / 模型名 / 实例名） */
+  keyword?: string
+  /** 是否被限流（与 isSuccess 正交：限流时 isSuccess 仍为 true） */
+  rateLimited?: boolean
   serviceType?: string
   apiKeyId?: string
   isSuccess?: boolean

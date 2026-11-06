@@ -29,8 +29,9 @@ import static org.junit.jupiter.api.Assertions.fail;
  * <p>渲染层面的正确性（overlay 覆盖、patch 是否生效）由 {@code kubectl kustomize} 验证，
  * 不在此处重复——这里只解析未渲染的纯 YAML 源文件。</p>
  *
- * @author JAiRouter Team
+ * @author Trunkline Team
  * @since 3.2.4
+ * @modified Trunkline Team
  */
 class K8sManifestTest {
 
@@ -143,16 +144,16 @@ class K8sManifestTest {
     @Test
     @DisplayName("ConfigMap 随制品下发多副本必开的共享态开关")
     void configMapEnablesSharedStateSwitches() throws IOException {
-        Map<String, Object> configMap = findDoc("configmap.yaml", "ConfigMap", "jairouter-config-files");
+        Map<String, Object> configMap = findDoc("configmap.yaml", "ConfigMap", "trunkline-config-files");
         String applicationYml = String.valueOf(asMap(configMap.get("data")).get("application.yml"));
 
         // 与 MultiReplicaSharedStateGate.SHARED_STATE_SWITCHES 对齐
         String[] requiredSwitches = {
-            "jairouter.security.jwt.blacklist.redis.enabled",
-            "jairouter.security.jwt.persistence.redis.enabled",
-            "jairouter.security.cache.redis.enabled",
-            "jairouter.quota.distributed.enabled",
-            "jairouter.persistence.redis.enabled",
+            "trunkline.security.jwt.blacklist.redis.enabled",
+            "trunkline.security.jwt.persistence.redis.enabled",
+            "trunkline.security.cache.redis.enabled",
+            "trunkline.quota.distributed.enabled",
+            "trunkline.persistence.redis.enabled",
         };
         for (String key : requiredSwitches) {
             String leaf = key.substring(key.lastIndexOf('.') + 1);

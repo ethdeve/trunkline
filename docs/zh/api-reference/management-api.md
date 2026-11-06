@@ -1,13 +1,13 @@
 # 管理 API
 
 <!-- 版本信息 -->
-> **文档版本**: 2.0.0
-> **最后更新**: 2026-05-21
+> **文档版本**: 2.1.0
+> **最后更新**: 2026-10-28
 > **Git 提交**: 61384b4a
 > **作者**: Lincoln
 <!-- /版本信息 -->
 
-JAiRouter 提供完整的管理 API，用于动态配置管理、服务实例管理、监控配置等。所有管理 API 使用 `/api` 前缀。
+Trunkline 提供完整的管理 API，用于动态配置管理、服务实例管理、监控配置等。所有管理 API 使用 `/api` 前缀。
 
 ## 目录
 
@@ -24,6 +24,7 @@ JAiRouter 提供完整的管理 API，用于动态配置管理、服务实例管
 - [配额管理](#quota-mgmt)
 - [API Key 配额操作](#apikey-quota-ops)
 - [PII / 数据脱敏管理](#sanitization-mgmt)
+- [其他管理端点清单](#other-mgmt)
 
 ---
 
@@ -38,6 +39,9 @@ JAiRouter 提供完整的管理 API，用于动态配置管理、服务实例管
 
 #### `GET /api/config/type/services`
 获取所有可用的服务类型。
+
+#### `GET /api/config/type/services/batch`
+批量获取服务类型配置（`ServiceTypeController.java:145`）。
 
 **响应示例:**
 ```json
@@ -278,7 +282,7 @@ JAiRouter 提供完整的管理 API，用于动态配置管理、服务实例管
 ```json
 {
   "enabled": true,
-  "prefix": "jairouter",
+  "prefix": "trunkline",
   "collectionInterval": "PT30S",
   "enabledCategories": ["request", "system", "custom"],
   "sampling": {
@@ -764,7 +768,7 @@ JAiRouter 提供完整的管理 API，用于动态配置管理、服务实例管
     },
     "distributed": {
       "enabled": false,
-      "keyPrefix": "jairouter:quota",
+      "keyPrefix": "trunkline:quota",
       "timeoutMs": 50,
       "degradeToLocal": true
     },
@@ -831,7 +835,7 @@ JAiRouter 提供完整的管理 API，用于动态配置管理、服务实例管
     "windows": ["MINUTE", "HOUR", "DAY", "MONTH"],
     "distributed": {
       "enabled": false,
-      "keyPrefix": "jairouter:quota",
+      "keyPrefix": "trunkline:quota",
       "timeoutMs": 50,
       "degradeToLocal": true
     }
@@ -920,6 +924,10 @@ JAiRouter 提供完整的管理 API，用于动态配置管理、服务实例管
 
 > 带 `keyIds` 请求体、返回 `{ "requested": 2, "reset": 2 }` 的**批量重置**在另一个端点：
 > `POST /api/auth/api-keys/quota/batch-reset`（`ApiKeyManagementController.java:346-364`）。
+
+#### `POST /api/auth/api-keys/quota/batch-reset`
+
+批量重置多个 Key 的每日计数与速率。请求体携带 `keyIds` 列表，返回 `{ "requested": N, "reset": M }`（`ApiKeyManagementController.java:379`）。
 
 #### `POST /api/auth/api-keys/quota/reset-all`
 
@@ -1023,6 +1031,35 @@ JAiRouter 提供完整的管理 API，用于动态配置管理、服务实例管
 
 ---
 
+## 其他管理端点清单 {#other-mgmt}
+
+以下端点组在代码中存在（`@RestController`），但尚未展开独立章节；按基础路径汇总，便于检索。
+
+| 基础路径 | Controller（源码包） | 端点清单 |
+|---|---|---|
+| `/api/config/pools` | `router/controller/PoolConfigController` | `GET /list`、`GET /{poolName}`、`POST`（创建分组）、`PUT /{poolName}`、`DELETE /{poolName}` |
+| `/api/config/pools/{poolName}/quota` | `router/controller/PoolQuotaController` | `GET /usage`、`POST /reset` |
+| `/api/config/providers` | `config/controller/ModelProviderController` | `GET`（提供商列表）、`POST`（创建提供商） |
+| `/api/config/instance` | `router/serviceinstance/ServiceTypeInstanceController` | 服务实例 CRUD 与分页列表（按 `?page=&size=` 分页）；子路径细节待确认 |
+| `/api/config/rules` | `router/controller/RuleConfigController` | `GET /list`、`GET /{id}`、`POST`（创建规则）、`PUT /{id}`、`DELETE /{id}`、`POST /{id}/enable`、`POST /{id}/disable`、`PUT /{id}/priority`、`POST /validate`、`GET /stats` |
+| `/api/config/rules/templates` | `router/controller/RuleTemplateController` | `GET /list`、`GET /{id}`、`POST /{id}/create`（按模板生成规则） |
+| `/api/config/adapter/templates` | `router/controller/AdapterTemplateController` | `GET`（模板列表）、`GET /{id}`、`POST /{id}`、`PUT /{id}`、`DELETE /{id}`、`POST /{id}/hide`、`POST /{id}/restore`、`GET /hidden/list` |
+| `/api/config/adapter`（测试） | `router/controller/AdapterTestController` | `POST /{name}/test`、`POST /test`（适配器连通性测试） |
+| `/api`（权限） | `auth/controller/PermissionManagementController` | `GET /security/permissions`、`GET /security/permissions/roles`、`PUT /security/permissions/roles/{roleName}`、`GET /auth/permissions` |
+| `/api/config/dependencies` | `config/controller/DependencyController` | 配置依赖检测 |
+| `/api/config/cache` | `router/controller/ResponseCacheController` | `GET`（缓存配置/状态）、`PUT`（更新配置）、`DELETE`（清空缓存） |
+| `/api/config/circuit-breaker` | `config/controller/CircuitBreakerConfigController` | 熔断器全局配置读写 |
+| `/api/config/call-history` | `monitor/callhistory/controller/CallHistoryConfigController` | `GET` / `PUT` 调用历史记录配置 |
+| `/api/call-history` | `monitor/callhistory/ApiCallHistoryController` | `GET`（分页查询调用历史）；查询参数细节待确认 |
+| `/api/models/stats` | `monitor/controller/ModelStatsController` | `GET`（配置统计：服务总数 / 实例总数 / 模型总数 / 按服务分布） |
+| `/api/exceptions` | `monitor/controller/ExceptionManagementController` | 异常记录查询与管理 |
+| `/api/dashboard/metrics` | `monitor/controller/DashboardMetricsController` | 控制台仪表盘聚合指标 |
+| `/api/state-persistence` | `persistence/controller/StatePersistenceManagementController` | 状态持久化管理 |
+
+> 另有 `DebugMultipartController`（`/v1/debug/**`）为开发调试专用端点，不对生产暴露，不列入正式 API。
+
+---
+
 ## 错误响应
 
 所有 API 端点遵循一致的错误响应格式:
@@ -1053,13 +1090,17 @@ JAiRouter 提供完整的管理 API，用于动态配置管理、服务实例管
 | `RATE_LIMIT_EXCEEDED` | 请求过多 | 429 |
 | `INTERNAL_ERROR` | 服务器错误 | 500 |
 
-**认证相关错误码**:
+**认证相关错误码**（以 `AuthenticationException` / `DefaultJwtTokenValidator` / `CustomReactiveAuthenticationManager` 实际常量为准）:
 | 错误码 | 描述 |
 |--------|------|
 | `INVALID_API_KEY` | 无效的 API Key |
 | `EXPIRED_API_KEY` | API Key 已过期 |
-| `INVALID_JWT_TOKEN` | 无效的 JWT 令牌 |
-| `EXPIRED_JWT_TOKEN` | JWT 令牌已过期 |
+| `MISSING_API_KEY` | 缺少 API Key |
+| `EMPTY_API_KEY` / `API_KEY_DISABLED` / `API_KEY_AUTH_FAILED` | API Key 为空 / 已禁用 / 认证失败 |
+| `JWT_INVALID` / `JWT_EXPIRED` / `JWT_BLACKLISTED` | JWT 无效 / 已过期 / 已拉黑 |
+| `EMPTY_JWT_TOKEN` | JWT 令牌为空 |
+
+> 注意：旧文档中出现过的 `INVALID_JWT_TOKEN` / `EXPIRED_JWT_TOKEN` 并非代码实际产出的错误码，已在 v3.3.x 核验中移除。
 
 ---
 
@@ -1079,4 +1120,4 @@ JAiRouter 提供完整的管理 API，用于动态配置管理、服务实例管
 
 ---
 
-*最后更新: 2026-05-21*
+*最后更新: 2026-10-28*

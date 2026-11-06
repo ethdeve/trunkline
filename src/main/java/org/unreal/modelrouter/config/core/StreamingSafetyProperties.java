@@ -39,9 +39,10 @@ import java.time.Duration;
  *
  * @author JAiRouter Team
  * @since 3.2.3
+ * @modified Trunkline Team
  */
 @Data
-@ConfigurationProperties(prefix = "jairouter.streaming")
+@ConfigurationProperties(prefix = "trunkline.streaming")
 public final class StreamingSafetyProperties {
 
     /**

@@ -7,7 +7,7 @@
 > **作者**: Lincoln
 <!-- /版本信息 -->
 
-本文档为生产环境中 JAiRouter 分布式追踪系统的运维提供完整指南。
+本文档为生产环境中 Trunkline 分布式追踪系统的运维提供完整指南。
 
 ## 生产环境部署
 
@@ -24,11 +24,11 @@
 # docker-compose.yml 示例
 version: '3.8'
 services:
-  jairouter:
-    image: jairouter:latest
+  trunkline:
+    image: trunkline:latest
     environment:
-      - JAIROUTER_TRACING_ENABLED=true
-      - JAIROUTER_TRACING_EXPORTER_TYPE=otlp
+      - TRUNKLINE_TRACING_ENABLED=true
+      - TRUNKLINE_TRACING_EXPORTER_TYPE=otlp
     depends_on:
       - otel-collector
       
@@ -44,10 +44,10 @@ services:
 
 #### 基础配置
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
-    service-name: "jairouter-prod"
+    service-name: "trunkline-prod"
     service-version: "${app.version}"
     service-namespace: "production"
 
@@ -109,7 +109,7 @@ jairouter:
 -XX:+UnlockExperimentalVMOptions
 -XX:+UnlockDiagnosticVMOptions
 -XX:+LogVMOutput
--XX:LogFile=/var/log/jairouter/gc.log
+-XX:LogFile=/var/log/trunkline/gc.log
 -XX:+PrintGCDetails
 -XX:+PrintGCTimeStamps
 ```
@@ -122,9 +122,9 @@ jairouter:
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'jairouter-tracing'
+  - job_name: 'trunkline-tracing'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 30s
 ```
@@ -132,19 +132,19 @@ scrape_configs:
 #### 关键指标
 ```promql
 # 追踪导出成功率
-rate(jairouter_tracing_spans_exported_total[5m]) / 
-rate(jairouter_tracing_spans_created_total[5m])
+rate(trunkline_tracing_spans_exported_total[5m]) / 
+rate(trunkline_tracing_spans_created_total[5m])
 
 # 平均响应时间
-jairouter_tracing_request_duration_seconds_sum / 
-jairouter_tracing_request_duration_seconds_count
+trunkline_tracing_request_duration_seconds_sum / 
+trunkline_tracing_request_duration_seconds_count
 
 # 内存使用率
-jairouter_tracing_memory_used_bytes / 
-jairouter_tracing_memory_max_bytes
+trunkline_tracing_memory_used_bytes / 
+trunkline_tracing_memory_max_bytes
 
 # 错误率
-rate(jairouter_tracing_errors_total[5m])
+rate(trunkline_tracing_errors_total[5m])
 ```
 
 ### 告警规则
@@ -152,29 +152,29 @@ rate(jairouter_tracing_errors_total[5m])
 ```yaml
 # tracing-alerts.yml
 groups:
-  - name: jairouter_tracing
+  - name: trunkline_tracing
     rules:
       - alert: TracingExportFailureHigh
-        expr: rate(jairouter_tracing_export_errors_total[5m]) > 0.05
+        expr: rate(trunkline_tracing_export_errors_total[5m]) > 0.05
         for: 2m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "追踪数据导出失败率过高"
           description: "过去5分钟内追踪数据导出失败率超过5%"
           
       - alert: TracingMemoryUsageHigh
-        expr: jairouter_tracing_memory_used_ratio > 0.85
+        expr: trunkline_tracing_memory_used_ratio > 0.85
         for: 1m
         labels:
           severity: critical
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "追踪系统内存使用率过高"
           
       - alert: TracingSlowRequests
-        expr: histogram_quantile(0.95, jairouter_tracing_request_duration_seconds_bucket) > 5
+        expr: histogram_quantile(0.95, trunkline_tracing_request_duration_seconds_bucket) > 5
         for: 3m
         labels:
           severity: warning
@@ -188,14 +188,14 @@ groups:
 ```json
 {
   "dashboard": {
-    "title": "JAiRouter 追踪监控",
+    "title": "Trunkline 追踪监控",
     "panels": [
       {
         "title": "请求追踪概览",
         "type": "stat",
         "targets": [
           {
-            "expr": "rate(jairouter_tracing_requests_total[5m])",
+            "expr": "rate(trunkline_tracing_requests_total[5m])",
             "legendFormat": "RPS"
           }
         ]
@@ -205,11 +205,11 @@ groups:
         "type": "timeseries",
         "targets": [
           {
-            "expr": "rate(jairouter_tracing_spans_exported_total[5m])",
+            "expr": "rate(trunkline_tracing_spans_exported_total[5m])",
             "legendFormat": "导出成功"
           },
           {
-            "expr": "rate(jairouter_tracing_export_errors_total[5m])",
+            "expr": "rate(trunkline_tracing_export_errors_total[5m])",
             "legendFormat": "导出失败"
           }
         ]
@@ -230,7 +230,7 @@ groups:
 # 内存需求 = 1000 * 0.1 * 300 * 2KB ≈ 60MB
 
 # 建议配置
-jairouter:
+trunkline:
   tracing:
     # 核对（issue #159）：路径是 performance.memory，且没有 span-ttl 这个旋钮
     #（模型里没有固定 TTL，回收由 memory-limit-mb 的压力判定 + gc-interval 触发）。
@@ -245,7 +245,7 @@ jairouter:
 ```yaml
 # 核对（issue #159）：memory-threshold 与 auto-cleanup 这两组键没有对应字段；
 # 内存压力由 memory-limit-mb 直接决定（越过即回收），检查频率由 gc-interval 控制。
-jairouter:
+trunkline:
   tracing:
     performance:
       memory:
@@ -260,9 +260,9 @@ jairouter:
 # logback-spring.xml
 <configuration>
     <appender name="TRACING_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>/var/log/jairouter/tracing.log</file>
+        <file>/var/log/trunkline/tracing.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>/var/log/jairouter/tracing.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <fileNamePattern>/var/log/trunkline/tracing.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
             <maxFileSize>100MB</maxFileSize>
             <maxHistory>30</maxHistory>
             <totalSizeCap>10GB</totalSizeCap>
@@ -277,16 +277,16 @@ jairouter:
 
 ```bash
 # 定期检查敏感数据是否被正确脱敏
-grep -r "password\|token\|secret" /var/log/jairouter/tracing.log
+grep -r "password\|token\|secret" /var/log/trunkline/tracing.log
 
 # 检查配置中的敏感信息
 curl -s http://localhost:8080/actuator/configprops | \
-  jq '.jairouter.tracing.security.sensitive_headers'
+  jq '.trunkline.tracing.security.sensitive_headers'
 ```
 
 ### 访问控制审计
 
-> 核对（issue #159 / #224 批 B）：`jairouter.tracing.security.audit` 这**一整段配置不存在** ——
+> 核对（issue #159 / #224 批 B）：`trunkline.tracing.security.audit` 这**一整段配置不存在** ——
 > 它对应的字段（`enabled` / `audit-data-access` / `audit-config-changes` / `storage.audit-log-retention`
 > 等 11 个）全仓零消费方，即"追踪侧的审计能力没有落地"，字段与示例已一并删除。
 >
@@ -298,7 +298,7 @@ curl -s http://localhost:8080/actuator/configprops | \
 
 ```bash
 # 使用环境变量管理敏感配置
-export JAIROUTER_TRACING_EXPORTER_OTLP_HEADERS_API_KEY="your-api-key"
+export TRUNKLINE_TRACING_EXPORTER_OTLP_HEADERS_API_KEY="your-api-key"
 
 # 或使用 Kubernetes Secret
 kubectl create secret generic tracing-config \
@@ -322,7 +322,7 @@ while true; do
     echo "Memory: $(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2}')"
     
     # 追踪指标
-    curl -s http://localhost:8080/actuator/metrics/jairouter.tracing.spans.active | \
+    curl -s http://localhost:8080/actuator/metrics/trunkline.tracing.spans.active | \
       jq '.measurements[0].value'
     
     sleep 30
@@ -331,7 +331,7 @@ done
 
 ### 自动化调优
 
-> 核对（issue #159）：**没有 `jairouter.tracing.auto-tuning` 这一段** —— 全仓无对应字段，
+> 核对（issue #159）：**没有 `trunkline.tracing.auto-tuning` 这一段** —— 全仓无对应字段，
 > 原示例照抄不会生效。现有的"自动"行为只有两处可调：`sampling.adaptive.*`（按目标 Span 速率
 > 自动调整采样率）与 `performance.memory.gc-interval`（定期检查内存压力），见上文「内存规划」。
 
@@ -343,7 +343,7 @@ done
 # 每日配置备份脚本
 #!/bin/bash
 DATE=$(date +%Y%m%d)
-BACKUP_DIR="/backup/jairouter-config"
+BACKUP_DIR="/backup/trunkline-config"
 
 # 备份当前配置
 mkdir -p $BACKUP_DIR
@@ -375,8 +375,8 @@ curl -f http://localhost:8080/actuator/health/tracing || exit 1
 curl -s http://localhost:8080/actuator/configprops > /tmp/pre-upgrade-config.json
 
 # 3. 执行升级
-docker-compose pull jairouter
-docker-compose up -d jairouter
+docker-compose pull trunkline
+docker-compose up -d trunkline
 
 # 4. 升级后验证
 sleep 30
@@ -438,7 +438,7 @@ curl -X POST http://localhost:8080/api/admin/tracing/disable \
 ```yaml
 # 核对（issue #159）：没有 exporter.fallback 这些键。要做等效的降级，
 # 直接把导出器类型换成 logging 即可（logging 导出器是真实存在的）。
-jairouter:
+trunkline:
   tracing:
     exporter:
       type: "logging"

@@ -19,6 +19,7 @@ import org.unreal.modelrouter.monitor.callhistory.config.CallHistoryProperties;
 import org.unreal.modelrouter.monitor.callhistory.config.RecordLevel;
 import org.unreal.modelrouter.monitor.monitoring.collector.MetricsCollector;
 import org.unreal.modelrouter.monitor.service.TokenUsageRecorder;
+import org.unreal.modelrouter.router.adapter.CallerIdentityResolver;
 import org.unreal.modelrouter.router.adapter.builder.RequestBuilder;
 import org.unreal.modelrouter.router.adapter.handler.MultipartRequestHandler;
 import org.unreal.modelrouter.router.adapter.metrics.AdapterMetricsRecorder;
@@ -85,7 +86,8 @@ class NonStreamingRequestProcessorTest {
         identityTransform = req -> req;
         responseTransform = resp -> resp;
         realTokenUsageExtractor = new TokenUsageExtractor(
-                objectMapper, tokenUsageRecorder, apiKeyService, poolSelector, metricsCollector);
+                objectMapper, tokenUsageRecorder, apiKeyService, poolSelector, metricsCollector,
+                new CallerIdentityResolver(apiKeyService));
     }
 
     @Nested

@@ -21,6 +21,7 @@ import java.util.Map;
  *
  * @author JAiRouter Team
  * @since 1.9.5
+ * @modified Trunkline Team
  */
 @Slf4j
 @Service
@@ -41,6 +42,7 @@ public class TokenUsageService {
                     .traceId(record.getTraceId())
                     .serviceType(record.getServiceType())
                     .modelName(record.getModelName())
+                    .virtualModel(record.getVirtualModel())
                     .provider(record.getProvider())
                     .instanceName(record.getInstanceName())
                     .instanceUrl(record.getInstanceUrl())

@@ -32,6 +32,7 @@ import java.util.Set;
  *
  * @author JAiRouter Team
  * @since v3.1
+ * @modified Trunkline Team
  */
 @Service
 public class ModelCatalogService {
@@ -110,27 +111,17 @@ public class ModelCatalogService {
      *
      * <p>包含：</p>
      * <ul>
-     *   <li>已启用的模型分组（{@code poolName}）；</li>
-     *   <li>{@code auto-model} 系统分组——该分类下存在实例时恒为可调用（虚拟分组，
-     *       表示「该分类全部健康实例」），无需显式配置。</li>
+     *   <li>已启用的模型分组（{@code poolName}）——必须<b>显式创建</b>，
+     *       没建分组就没有可调用的虚拟模型。</li>
      * </ul>
+     *
+     * <p><b>v3.6 治理收口：</b>不再输出 {@code auto-model} 这类隐式系统分组。</p>
      *
      * @return 模型信息列表（id / object / created / owned_by / service_type / adapter）
      */
     public List<Map<String, Object>> listCallableModels() {
         final List<Map<String, Object>> models = new ArrayList<>();
         final Set<String> listed = new LinkedHashSet<>();
-
-        for (final ModelServiceRegistry.ServiceType serviceType : ModelServiceRegistry.ServiceType.values()) {
-            final Set<String> availableModels = registry.getAvailableModels(serviceType);
-            if (availableModels == null || availableModels.isEmpty()) {
-                continue;
-            }
-            // auto-model 系统分组：该分类下有实例即可调用（不受是否配置了同名池影响）
-            if (listed.add(PoolSelector.AUTO_MODEL)) {
-                models.add(buildModelEntry(PoolSelector.AUTO_MODEL, serviceType.name()));
-            }
-        }
 
         for (final PoolDefinition pool : poolSelector.getAllPools()) {
             if (!pool.isEnabled() || pool.getPoolName() == null || pool.getPoolName().isBlank()) {

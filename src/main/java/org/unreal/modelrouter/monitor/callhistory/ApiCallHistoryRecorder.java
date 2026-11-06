@@ -23,11 +23,12 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * @author JAiRouter Team
  * @since 2.7.8
+ * @modified Trunkline Team
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "jairouter.call-history.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "trunkline.call-history.enabled", havingValue = "true", matchIfMissing = true)
 public class ApiCallHistoryRecorder {
 
     private final ApiCallHistoryService service;
@@ -203,8 +204,12 @@ public class ApiCallHistoryRecorder {
             log.debug("Flushed {} call history records", batch.size());
             batch.clear();
         } catch (Exception e) {
-            log.warn("Failed to flush call history batch: {}", e.getMessage());
-            // 不清空batch，下次重试
+            // 失败不清空 batch 会导致后续记录不断追加到同一 list：DB 持续故障时内存无界增长。
+            // 这里保底丢弃整批并计入丢弃计数，优先保证进程稳定（数据可能丢失，但避免 OOM）。
+            int dropped = batch.size();
+            droppedRecords.addAndGet(dropped);
+            batch.clear();
+            log.warn("Failed to flush call history batch (dropped {} records): {}", dropped, e.getMessage());
         }
     }
 }

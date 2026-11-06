@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 这类缺陷靠读代码看不出来，只能靠「把真实 yml 绑一遍」来暴露。</p>
  *
  * <p>做法是用 Spring 自己的 {@link NoUnboundElementsBindHandler}：它会把「在
- * {@code jairouter.tracing} 前缀下存在、但类里没有对应字段」的键收集起来并让绑定失败。
+ * {@code trunkline.tracing} 前缀下存在、但类里没有对应字段」的键收集起来并让绑定失败。
  * 于是**以后往这个 yml 里加键却不加字段（或写错键名）会在这里红**，而不是等运维发现自己调参没用。</p>
  *
  * <p><b>issue #220 的补充</b>：有些键**故意**没有字段，由 {@code @Value} 或
@@ -95,8 +95,8 @@ class TracingConfigBindingGuardTest {
      */
     private static Set<String> knownNonBindingKeys() {
         return Set.of(
-                "jairouter.tracing.performance.scheduler.thread-cap",
-                "jairouter.tracing.performance.scheduler.queue-capacity");
+                "trunkline.tracing.performance.scheduler.thread-cap",
+                "trunkline.tracing.performance.scheduler.queue-capacity");
     }
 
     private static Set<String> names(final UnboundConfigurationPropertiesException thrown) {
@@ -120,7 +120,7 @@ class TracingConfigBindingGuardTest {
         Binder binder = new Binder(ConfigurationPropertySources.get(environment));
 
         BindHandler handler = strict ? new NoUnboundElementsBindHandler(BindHandler.DEFAULT) : BindHandler.DEFAULT;
-        return binder.bind("jairouter.tracing", Bindable.of(TracingConfiguration.class), handler)
+        return binder.bind("trunkline.tracing", Bindable.of(TracingConfiguration.class), handler)
                 .orElseThrow(() -> new AssertionError("未能把 " + LOCATION + " 绑到 TracingConfiguration"));
     }
 

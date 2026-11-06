@@ -1,0 +1,43 @@
+{
+  "failureExplain": {
+    "title": "Why it failed",
+    "circuitBroken": "This instance is circuit-broken and temporarily removed",
+    "rateLimited": "Called too frequently and hit rate limiting",
+    "dailyQuota": "Today's request count is used up",
+    "tokenQuota": "Today's token quota is used up",
+    "throttled": "The request was blocked by rate limiting",
+    "unauthorized": "The API key is invalid or expired",
+    "forbidden": "This key is not allowed to call this model",
+    "notFound": "Model or endpoint not found",
+    "upstreamError": "The upstream model service returned an error",
+    "timeout": "Request timed out, the upstream was too slow",
+    "badRequest": "The request parameters are invalid",
+    "actions": {
+      "keys": "Manage keys",
+      "rate": "Adjust limits",
+      "instances": "Check instances",
+      "circuit": "View circuit breaker",
+      "none": ""
+    },
+    "staff": {
+      "circuitBroken": "This model is temporarily disabled and will be reconnected once it recovers",
+      "rateLimited": "Called too often, so the request was held back briefly. Wait a few seconds and retry.",
+      "dailyQuota": "You have used all of today's requests",
+      "tokenQuota": "You have used all of today's amount",
+      "throttled": "The request was too fast and was held back. Wait a few seconds and retry.",
+      "unauthorized": "This key is invalid or has expired",
+      "forbidden": "This key is not allowed to call this model",
+      "notFound": "This model or endpoint could not be found",
+      "upstreamError": "The model service returned an error",
+      "timeout": "The model service did not respond in time",
+      "badRequest": "The request parameters are invalid",
+      "actions": {
+        "keys": "Manage keys",
+        "rate": "Adjust call speed",
+        "instances": "Check models",
+        "circuit": "Check protection settings",
+        "none": ""
+      }
+    }
+  }
+}

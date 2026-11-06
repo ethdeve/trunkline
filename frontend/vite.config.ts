@@ -40,6 +40,8 @@ export default defineConfig({
           if (m.includes('node_modules/vue/dist/')) return 'vue'
           if (m.includes('node_modules/vue-router/dist/')) return 'vue-router'
           if (m.includes('node_modules/pinia/dist/')) return 'pinia'
+          // element-plus 保持单 chunk：EP 全站 30+ 组件几乎每页都在用（实测放开聚合后
+          // 代码沉入 vendor、首屏总量不变、缓存粒度反而劣化——任何 EP 变更打爆全部缓存）
           if (m.includes('node_modules/element-plus/')) return 'element-plus'
           if (m.includes('node_modules/@element-plus/icons-vue/')) return 'element-plus-icons'
           if (m.includes('node_modules/echarts/')) return 'echarts'

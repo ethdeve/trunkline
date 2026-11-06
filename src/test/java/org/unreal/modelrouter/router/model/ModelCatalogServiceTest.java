@@ -154,8 +154,8 @@ class ModelCatalogServiceTest {
     }
 
     @Test
-    @DisplayName("auto-model 系统分组在有实例的分类下恒为可调用")
-    void listCallableModels_shouldIncludeAutoModel() {
+    @DisplayName("v3.6 治理收口：不再输出 auto-model 这类隐式系统分组")
+    void listCallableModels_shouldNotIncludeAutoModel() {
         when(registry.getAvailableModels(ModelServiceRegistry.ServiceType.chat))
                 .thenReturn(Set.of("m-chat-1"));
         when(registry.getAvailableModels(ModelServiceRegistry.ServiceType.embedding))
@@ -164,9 +164,9 @@ class ModelCatalogServiceTest {
 
         final List<Map<String, Object>> models = catalogService.listCallableModels();
 
-        assertEquals(1, models.size());
-        assertEquals(PoolSelector.AUTO_MODEL, models.get(0).get("id"));
-        assertEquals("chat", models.get(0).get("service_type"));
+        assertTrue(models.isEmpty(), "没有显式创建的分组时,可调用清单应为空");
+        assertTrue(models.stream().noneMatch(m -> "auto-model".equals(m.get("id"))),
+                "auto-model 系统分组已移除,不得出现在可调用清单中");
     }
 
     @Test

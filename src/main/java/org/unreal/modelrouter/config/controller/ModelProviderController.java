@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.common.dto.ModelProviderDTO;
+import org.unreal.modelrouter.common.dto.ProviderCatalogDTO;
 import org.unreal.modelrouter.common.dto.ServiceInstanceDTO;
+import org.unreal.modelrouter.config.dto.BatchAddModelsResult;
 import org.unreal.modelrouter.config.dto.CreateModelProviderRequest;
 import org.unreal.modelrouter.config.service.ModelProviderService;
 import reactor.core.publisher.Mono;
@@ -26,7 +28,7 @@ import java.util.Map;
  * 模型供应商控制器（v2.11.0）
  *
  * <p>供应商层 REST 面：CRUD、启停、换 Key 级联、发现模型、批量添加模型。
- * 权限与实例配置同码（{@code /api/config/**} 段规则，见 PermissionRuleRegistry）。
+ * 权限与实例配置同级（{@code /api/config/**} 段规则，见固定角色矩阵 FixedRoleAccessPolicy）。
  */
 @Slf4j
 @RestController
@@ -42,6 +44,16 @@ public class ModelProviderController {
     @GetMapping
     public ResponseEntity<RouterResponse<List<ModelProviderDTO>>> list() {
         return ResponseEntity.ok(RouterResponse.success(providerService.listAll()));
+    }
+
+    /**
+     * 供应商目录：供应商 + 其下已接入模型（合并视图，供「接入厂商」表格直接渲染）。
+     *
+     * <p>与 {@link #list()} 的区别：一次返回模型名列表，前端无需逐个供应商再查模型。</p>
+     */
+    @GetMapping("/catalog")
+    public ResponseEntity<RouterResponse<List<ProviderCatalogDTO>>> catalog() {
+        return ResponseEntity.ok(RouterResponse.success(providerService.listCatalog()));
     }
 
     /**
@@ -121,15 +133,25 @@ public class ModelProviderController {
     }
 
     /**
-     * 批量添加模型：按勾选清单创建实例（继承供应商地址与 Key）
+     * 批量添加模型：按勾选清单创建实例（继承供应商地址与 Key）。
+     * 响应携带 skipped 跳过明细（同名实例已存在，含归属供应商），前端据此逐条提示。
      */
     @PostMapping("/{id}/models")
     public ResponseEntity<RouterResponse<Map<String, Object>>> batchAddModels(
             @PathVariable final Long id,
             @RequestBody final CreateModelProviderRequest.BatchAddModelsRequest request) {
-        final int created = providerService.batchAddModels(id, request);
-        return ResponseEntity.ok(RouterResponse.success(
-                Map.of("created", created),
-                created > 0 ? "已添加 " + created + " 个模型" : "没有新模型需要添加（可能已存在）"));
+        final BatchAddModelsResult result = providerService.batchAddModels(id, request);
+        final Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("created", result.getCreated());
+        data.put("skipped", result.getSkipped());
+        final String message;
+        if (result.getCreated() > 0 && result.getSkipped().isEmpty()) {
+            message = "已添加 " + result.getCreated() + " 个模型";
+        } else if (result.getCreated() > 0) {
+            message = "已添加 " + result.getCreated() + " 个模型，跳过 " + result.getSkipped().size() + " 个（已存在）";
+        } else {
+            message = "没有新模型需要添加（可能已存在）";
+        }
+        return ResponseEntity.ok(RouterResponse.success(data, message));
     }
 }

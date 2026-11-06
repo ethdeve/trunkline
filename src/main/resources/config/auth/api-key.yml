@@ -4,7 +4,7 @@
 # 此文件包含 API Key 认证相关配置
 # 位置：org.unreal.modelrouter.auth.security
 
-jairouter:
+trunkline:
   security:
     api-key:
       # API Key 功能开关

@@ -19,12 +19,12 @@ logging:
     root: WARN
     org.unreal.modelrouter: INFO
   file:
-    name: /app/logs/jairouter.log
+    name: /app/logs/trunkline.log
 
 # 数据库配置覆盖
 spring:
   datasource:
-    url: jdbc:h2:file:/app/data/jairouter;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE
+    url: jdbc:h2:file:/app/data/trunkline;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE
     username: sa
     password: ""
 

@@ -45,6 +45,16 @@ public class JwtAccountController {
     }
 
     /**
+     * 获取全部部门列表（去重排序）。
+     *
+     * <p>供账号页部门下拉与「团队用量」部门维度筛选使用（前端不硬编码部门清单）。</p>
+     */
+    @GetMapping("/departments")
+    public ResponseEntity<RouterResponse<List<String>>> getDepartments() {
+        return ResponseEntity.ok(RouterResponse.success(jwtAccountService.getDepartments()));
+    }
+
+    /**
      * 获取单个账户
      */
     @GetMapping("/{username}")

@@ -1,6 +1,6 @@
 # 多副本部署：跨副本共享态必开配置
 
-单副本部署（仓库默认）无需阅读本文。本文面向 **JAiRouter 以 2 个及以上副本对外提供服务** 的部署，
+单副本部署（仓库默认）无需阅读本文。本文面向 **Trunkline 以 2 个及以上副本对外提供服务** 的部署，
 说明哪些配置项在多副本下**必须开启**、开与不开的差别，以及启动自检如何帮你提前发现配置缺口。
 
 ## 为什么需要
@@ -23,17 +23,17 @@
 
 | 配置项 | 默认 | 多副本应设为 | 不开的后果 |
 |---|---|---|---|
-| `jairouter.security.jwt.blacklist.redis.enabled` | `false` | `true` | 吊销的令牌在其它副本仍被放行 |
-| `jairouter.security.jwt.persistence.redis.enabled` | `false` | `true` | 令牌状态各副本独立，重启可能丢失已签发状态 |
-| `jairouter.security.cache.redis.enabled` | `false` | `true` | API Key 缓存各副本独立，吊销/新建不跨副本生效 |
-| `jairouter.quota.distributed.enabled` | `false` | `true` | 配额计数每副本一份，放行量约为配置值 × 副本数 |
-| `jairouter.persistence.redis.enabled` | `false` | `true` | 状态持久化退坡到本机 H2/文件，不做跨节点共享 |
+| `trunkline.security.jwt.blacklist.redis.enabled` | `false` | `true` | 吊销的令牌在其它副本仍被放行 |
+| `trunkline.security.jwt.persistence.redis.enabled` | `false` | `true` | 令牌状态各副本独立，重启可能丢失已签发状态 |
+| `trunkline.security.cache.redis.enabled` | `false` | `true` | API Key 缓存各副本独立，吊销/新建不跨副本生效 |
+| `trunkline.quota.distributed.enabled` | `false` | `true` | 配额计数每副本一份，放行量约为配置值 × 副本数 |
+| `trunkline.persistence.redis.enabled` | `false` | `true` | 状态持久化退坡到本机 H2/文件，不做跨节点共享 |
 
-开启配额分布式计数时还需 `jairouter.quota.enabled=true`（配额功能本身的总开关）。
+开启配额分布式计数时还需 `trunkline.quota.enabled=true`（配额功能本身的总开关）。
 
 Redis 连接信息统一由 `REDIS_HOST`、`REDIS_PORT`、`REDIS_PASSWORD`（以及 `REDIS_DATABASE`）环境变量，
 或 Spring 的 `spring.data.redis.*` 提供 —— 上面的开关只决定**用不用** Redis，不再各自读一份
-`host` / `port`：`jairouter.security.jwt.persistence.redis.host` 这类键在取消 JWT 独立 Redis
+`host` / `port`：`trunkline.security.jwt.persistence.redis.host` 这类键在取消 JWT 独立 Redis
 之后已**不再被读取**（原先写在 `config/auth/jwt.yml`、`config/security/persistence-base.yml` 里的
 那些键已随之删除）。
 
@@ -42,7 +42,7 @@ Redis 连接信息统一由 `REDIS_HOST`、`REDIS_PORT`、`REDIS_PASSWORD`（以
 应用启动就绪时会自动判定「是否多副本 + 共享态开关是否齐全」，无需额外配置即可生效：
 
 ```yaml
-jairouter:
+trunkline:
   cluster:
     # 0 = 未知，按运行环境探测；1 = 显式单副本；>1 = 多副本
     replicas: 3
@@ -101,13 +101,13 @@ K8s 探针用的是 `/actuator/health/liveness` 与 `/actuator/health/readiness`
 - **把本副本增量合入共享存储的任务**（配额快照落库、限流器状态同步）**必须每个副本都执行**。
   给它们加锁反而会让「抢到锁的副本」成为唯一写入者，直接丢掉其它副本的增量。
 - 副作用可被外部观测的任务（发告警、出日报、轮换密钥）加跨副本排他锁，
-  由 `jairouter.scheduling.distributed-lock.enabled` 控制（默认 `true`，未配 Redis 时自动降级为单实例语义）。
+  由 `trunkline.scheduling.distributed-lock.enabled` 控制（默认 `true`，未配 Redis 时自动降级为单实例语义）。
 - **本副本缓存刷新**（API Key 缓存）同样属于「每个副本都必须执行」，理由见下一节。
 
 ## 缓存跨副本收敛
 
 API Key 校验走的是各副本自己的内存镜像，只在本进程内更新。为让吊销与新建跨副本生效，
-`ApiKeyService` 按 `jairouter.security.api-key.cache-refresh-interval-seconds`（默认 60 秒）
+`ApiKeyService` 按 `trunkline.security.api-key.cache-refresh-interval-seconds`（默认 60 秒）
 从共享存储刷新本副本缓存：
 
 - **收敛上限 = 刷新间隔**：在副本 A 吊销的 Key，最迟一个刷新间隔后在副本 B 失效。
@@ -120,8 +120,7 @@ API Key 校验走的是各副本自己的内存镜像，只在本进程内更新
 
 ## 限流键维度与多副本语义
 
-限流状态**全部在 JVM 内**，且仓库**不存在分布式限流实现**（无 Redis 限流器）——这一点与配额账本、
-JWT 黑名单不同，后两者都有现成的 Redis 实现、只差开关。因此多副本下：
+限流状态默认在 JVM 内；仓库**已有**客户端维度的分布式限流实现（`RedisSlidingWindowRateLimiter`，由 `trunkline.ratelimit.distributed.enabled` 开启），但**仅覆盖客户端维度**——服务级/实例级/规则级仍是每副本一份（见下文「仍未做」）。这一点与配额账本、JWT 黑名单不同：后两者全维度都有现成 Redis 实现、只差开关。因此多副本下（客户端维度未开启分布式计数时）：
 
 > 同一客户端的实际放行量 ≈ 配置值 × 副本数，且窗口重置各副本独立，突发形态还会随请求落到哪个
 > Pod 而变化（等价于每 Pod 各发一个满额桶）。
@@ -157,7 +156,7 @@ WARN 日志与 `recordLoadBalancer(..., "random-fallback-no-client-ip")` 指标�
 
 ### 跨副本计数（可选）
 
-开启 `jairouter.ratelimit.distributed.enabled` 后，客户端维度的滑动窗口状态放到 Redis，各副本共享同一份计数 —— 放行量等于配置值，而不是配置值 × 副本数。
+开启 `trunkline.ratelimit.distributed.enabled` 后，客户端维度的滑动窗口状态放到 Redis，各副本共享同一份计数 —— 放行量等于配置值，而不是配置值 × 副本数。
 
 - **与本地实现严格对齐**：窗口 1 秒、上限 `rate` 次/秒；切换实现只改变计数范围，不改变限流行为。
 - **Lua 原子**：判定（`ZCARD`）与记录（`ZADD`）在同一段脚本内完成，多副本并发不会超发。
@@ -177,7 +176,7 @@ WARN 日志与 `recordLoadBalancer(..., "random-fallback-no-client-ip")` 指标�
 多副本下客户端连在哪个副本就只看得到哪个副本的事件——监控面板会**静默漏事件**：不是报错，
 而是看起来正常但数据不全。
 
-开启 `jairouter.cluster.events.enabled` 后，本副本产生的事件会经 Redis pub/sub 广播到全集群，
+开启 `trunkline.cluster.events.enabled` 后，本副本产生的事件会经 Redis pub/sub 广播到全集群，
 各副本把收到的事件并入自己的 WebSocket 输出流：
 
 - **回环过滤**：消息带来源副本标识，本副本发出的事件不再向下分发——本地 Sink 已经分发过一次，
@@ -194,7 +193,7 @@ WARN 日志与 `recordLoadBalancer(..., "random-fallback-no-client-ip")` 指标�
 配置：
 
 ```yaml
-jairouter:
+trunkline:
   cluster:
     events:
       enabled: true      # 默认 false：单副本部署无需跨副本广播

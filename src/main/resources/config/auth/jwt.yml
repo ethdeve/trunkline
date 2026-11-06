@@ -4,7 +4,7 @@
 # 此文件包含 JWT 认证相关配置
 # 位置：org.unreal.modelrouter.auth.security
 
-jairouter:
+trunkline:
   security:
     # 安全功能开关
     enabled: true
@@ -14,7 +14,7 @@ jairouter:
       enabled: true
       
       # JWT 令牌头名称
-      jwt-header: "Jairouter_Token"
+      jwt-header: "Trunkline_Token"
       
       # JWT 密钥（必须使用环境变量，长度 >= 32 字符；禁止使用出厂默认值）
       # R2-P0-01：默认占位仅用于本地开发；SecurityConfigurationValidator 会拒绝已知默认密钥
@@ -30,7 +30,7 @@ jairouter:
       refresh-expiration-days: 7
       
       # JWT 发行者
-      issuer: "jairouter"
+      issuer: "trunkline"
       
       # 黑名单功能
       blacklist-enabled: true

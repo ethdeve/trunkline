@@ -17,13 +17,18 @@ import org.unreal.modelrouter.monitor.tracing.query.TraceQueryService;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.security.SecureRandom;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 /**
  * 追踪查询控制器
@@ -287,36 +292,41 @@ public class TracingQueryController {
     }
 
     @GetMapping("/performance/latency")
-    @Operation(summary = "获取延迟分析", description = "获取延迟分析数据")
+    @Operation(summary = "获取延迟分析", description = "获取延迟分析数据（基于时间范围内的真实追踪数据计算）")
     @ApiResponse(responseCode = "200", description = "成功返回延迟分析")
     public Mono<ResponseEntity<Map<String, Object>>> getLatencyAnalysis(
-            @Parameter(description = "开始时间") @RequestParam(required = false) final String startTime,
-            @Parameter(description = "结束时间") @RequestParam(required = false) final String endTime) {
-        
-        return traceQueryService.getServiceStatistics()
-            .map(services -> {
+            @Parameter(description = "开始时间戳（毫秒）") @RequestParam(required = false) final Long startTime,
+            @Parameter(description = "结束时间戳（毫秒）") @RequestParam(required = false) final Long endTime) {
+
+        long[] range = resolveTimeRange(startTime, endTime);
+        return traceQueryService.getTracesInTimeRange(range[0], range[1])
+            .map(traces -> {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", true);
-                
+
                 // 构建延迟分析数据结构
                 Map<String, Object> latencyData = new HashMap<>();
-                
-                // 服务延迟分布数据
+
+                // 服务延迟分布数据（真实数据）
                 List<Map<String, Object>> distributionData = new ArrayList<>();
-                for (Map<String, Object> service : services) {
+                for (Map.Entry<String, List<TraceQueryService.TraceRecord>> entry
+                        : buildServiceStats(traces, range[0], range[1]).entrySet()) {
+                    List<Double> durations = entry.getValue().stream()
+                        .mapToDouble(TraceQueryService.TraceRecord::getDuration)
+                        .sorted().boxed().collect(Collectors.toList());
                     Map<String, Object> serviceData = new HashMap<>();
-                    serviceData.put("service", service.get("name"));
-                    serviceData.put("avgLatency", service.get("avgDuration"));
-                    serviceData.put("p95Latency", service.get("p95Duration"));
-                    serviceData.put("p99Latency", service.get("p99Duration"));
+                    serviceData.put("service", entry.getKey());
+                    serviceData.put("avgLatency", durations.stream()
+                        .mapToDouble(Double::doubleValue).average().orElse(0.0));
+                    serviceData.put("p95Latency", percentile(durations, 0.95));
+                    serviceData.put("p99Latency", percentile(durations, 0.99));
                     distributionData.add(serviceData);
                 }
                 latencyData.put("distribution", distributionData);
-                
-                // 生成延迟趋势数据（模拟）
-                List<Map<String, Object>> trendData = generateLatencyTimeSeries();
-                latencyData.put("trend", trendData);
-                
+
+                // 延迟趋势数据（真实数据，按小时分桶）
+                latencyData.put("trend", buildLatencyTrend(traces, range[0], range[1]));
+
                 response.put("data", latencyData);
                 return ResponseEntity.ok(response);
             })
@@ -324,40 +334,42 @@ public class TracingQueryController {
     }
 
     @GetMapping("/performance/errors")
-    @Operation(summary = "获取错误分析", description = "获取错误分析数据")
+    @Operation(summary = "获取错误分析", description = "获取错误分析数据（基于时间范围内的真实追踪数据计算）")
     @ApiResponse(responseCode = "200", description = "成功返回错误分析")
     public Mono<ResponseEntity<Map<String, Object>>> getErrorAnalysis(
-            @Parameter(description = "开始时间") @RequestParam(required = false) final String startTime,
-            @Parameter(description = "结束时间") @RequestParam(required = false) final String endTime) {
-        
-        return traceQueryService.getServiceStatistics()
-            .map(services -> {
+            @Parameter(description = "开始时间戳（毫秒）") @RequestParam(required = false) final Long startTime,
+            @Parameter(description = "结束时间戳（毫秒）") @RequestParam(required = false) final Long endTime) {
+
+        long[] range = resolveTimeRange(startTime, endTime);
+        return traceQueryService.getTracesInTimeRange(range[0], range[1])
+            .map(traces -> {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", true);
-                
+
                 // 构建错误分析数据结构
                 Map<String, Object> errorData = new HashMap<>();
-                
-                // 错误率分布数据 - 适配前端期望的字段名
-                List<Map<String, Object>> errorRateDistribution = new ArrayList<>();
-                for (Map<String, Object> service : services) {
-                    Map<String, Object> serviceData = new HashMap<>();
-                    serviceData.put("service", service.get("name"));
-                    serviceData.put("errorRate", service.get("errorRate"));
-                    serviceData.put("totalRequests", service.get("traces"));
-                    serviceData.put("errorCount", service.get("errors"));
-                    errorRateDistribution.add(serviceData);
-                }
-                errorData.put("errorRateDistribution", errorRateDistribution);
-                
-                // 生成错误趋势数据（模拟）
-                List<Map<String, Object>> errorTrend = generateErrorTimeSeries();
-                errorData.put("errorTrend", errorTrend);
-                
-                // 常见错误数据（模拟）
-                List<Map<String, Object>> commonErrors = new ArrayList<>();
-                errorData.put("commonErrors", commonErrors);
-                
+
+                // 错误率分布数据 - 按服务聚合（真实数据）
+                errorData.put("errorRateDistribution", buildServiceStats(traces, range[0], range[1]).entrySet().stream()
+                    .map(entry -> {
+                        long total = entry.getValue().size();
+                        long errors = countErrorTraces(entry.getValue());
+                        Map<String, Object> serviceData = new HashMap<>();
+                        serviceData.put("service", entry.getKey());
+                        serviceData.put("totalRequests", total);
+                        serviceData.put("errorCount", errors);
+                        serviceData.put("errorRate", total > 0
+                            ? Math.round(errors * 10000.0 / total) / 100.0 : 0.0);
+                        return serviceData;
+                    })
+                    .collect(Collectors.toList()));
+
+                // 错误趋势数据（真实数据，按小时分桶）
+                errorData.put("errorTrend", buildErrorTrend(traces, range[0], range[1]));
+
+                // 常见错误数据（真实数据，按错误类型聚合）
+                errorData.put("commonErrors", buildCommonErrors(traces));
+
                 response.put("data", errorData);
                 return ResponseEntity.ok(response);
             })
@@ -365,36 +377,39 @@ public class TracingQueryController {
     }
 
     @GetMapping("/performance/throughput")
-    @Operation(summary = "获取吞吐量分析", description = "获取吞吐量分析数据")
+    @Operation(summary = "获取吞吐量分析", description = "获取吞吐量分析数据（基于时间范围内的真实追踪数据计算）")
     @ApiResponse(responseCode = "200", description = "成功返回吞吐量分析")
     public Mono<ResponseEntity<Map<String, Object>>> getThroughputAnalysis(
-            @Parameter(description = "开始时间") @RequestParam(required = false) final String startTime,
-            @Parameter(description = "结束时间") @RequestParam(required = false) final String endTime) {
-        
-        return traceQueryService.getServiceStatistics()
-            .map(services -> {
+            @Parameter(description = "开始时间戳（毫秒）") @RequestParam(required = false) final Long startTime,
+            @Parameter(description = "结束时间戳（毫秒）") @RequestParam(required = false) final Long endTime) {
+
+        long[] range = resolveTimeRange(startTime, endTime);
+        return traceQueryService.getTracesInTimeRange(range[0], range[1])
+            .map(traces -> {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", true);
-                
+
                 // 构建吞吐量分析数据结构
                 Map<String, Object> throughputData = new HashMap<>();
-                
-                // 请求分布数据 - 适配前端期望的字段名
-                List<Map<String, Object>> requestDistribution = new ArrayList<>();
-                for (Map<String, Object> service : services) {
-                    Map<String, Object> serviceData = new HashMap<>();
-                    serviceData.put("service", service.get("name"));
-                    serviceData.put("requestsPerSecond",
-                            ((Number) service.get("traces")).doubleValue() / 3600.0);
-                    serviceData.put("totalRequests", service.get("traces"));
-                    requestDistribution.add(serviceData);
-                }
-                throughputData.put("requestDistribution", requestDistribution);
-                
-                // 生成QPS趋势数据（模拟）
-                List<Map<String, Object>> qpsTrend = generateThroughputTimeSeries();
-                throughputData.put("qpsTrend", qpsTrend);
-                
+
+                // 请求分布数据 - 按服务聚合（真实数据）
+                long windowSeconds = Math.max(1, (range[1] - range[0]) / 1000);
+                throughputData.put("requestDistribution",
+                    buildServiceStats(traces, range[0], range[1]).entrySet().stream()
+                        .map(entry -> {
+                            long total = entry.getValue().size();
+                            Map<String, Object> serviceData = new HashMap<>();
+                            serviceData.put("service", entry.getKey());
+                            serviceData.put("totalRequests", total);
+                            serviceData.put("requestsPerSecond",
+                                Math.round(total * 100.0 / windowSeconds) / 100.0);
+                            return serviceData;
+                        })
+                        .collect(Collectors.toList()));
+
+                // QPS/请求量趋势数据（真实数据，按小时分桶）
+                throughputData.put("qpsTrend", buildThroughputTrend(traces, range[0], range[1]));
+
                 response.put("data", throughputData);
                 return ResponseEntity.ok(response);
             })
@@ -420,59 +435,164 @@ public class TracingQueryController {
         }
     }
 
-    private List<Map<String, Object>> generateLatencyTimeSeries() {
-        List<Map<String, Object>> timeSeries = new java.util.ArrayList<>();
-        long now = System.currentTimeMillis();
-        Random random = new SecureRandom();
-        
-        for (int i = 23; i >= 0; i--) {
-            Map<String, Object> dataPoint = new HashMap<>();
-            long timestamp = now - (i * 3600000); // 每小时一个数据点
-            dataPoint.put("timestamp", timestamp);
-            dataPoint.put("hour", String.format("%02d:00", (24 - i) % 24));
-            dataPoint.put("p50", 80 + random.nextDouble() * 40);
-            dataPoint.put("p95", 200 + random.nextDouble() * 100);
-            dataPoint.put("p99", 350 + random.nextDouble() * 150);
-            dataPoint.put("avg", 100 + random.nextDouble() * 50);
-            timeSeries.add(dataPoint);
-        }
-        
-        return timeSeries;
+    /**
+     * 解析时间范围：默认最近 24 小时（与小时粒度趋势图对应）。
+     */
+    private long[] resolveTimeRange(final Long startTime, final Long endTime) {
+        long end = endTime != null ? endTime : System.currentTimeMillis();
+        long start = startTime != null ? startTime : end - 24 * 3600000L;
+        return new long[]{start, end};
     }
 
-    private List<Map<String, Object>> generateErrorTimeSeries() {
-        List<Map<String, Object>> timeSeries = new java.util.ArrayList<>();
-        long now = System.currentTimeMillis();
-        Random random = new SecureRandom();
-        
-        for (int i = 23; i >= 0; i--) {
-            Map<String, Object> dataPoint = new HashMap<>();
-            long timestamp = now - (i * 3600000);
-            dataPoint.put("timestamp", timestamp);
-            dataPoint.put("hour", String.format("%02d:00", (24 - i) % 24));
-            dataPoint.put("errorCount", random.nextInt(15));
-            dataPoint.put("errorRate", random.nextDouble() * 5.0);
-            timeSeries.add(dataPoint);
+    /**
+     * 按服务分组时间范围内的追踪记录。
+     */
+    private Map<String, List<TraceQueryService.TraceRecord>> buildServiceStats(
+            final List<TraceQueryService.TraceRecord> traces, final long start, final long end) {
+        Map<String, List<TraceQueryService.TraceRecord>> byService = new HashMap<>();
+        for (TraceQueryService.TraceRecord trace : traces) {
+            byService.computeIfAbsent(trace.getServiceName(), k -> new ArrayList<>()).add(trace);
         }
-        
-        return timeSeries;
+        return byService;
     }
 
-    private List<Map<String, Object>> generateThroughputTimeSeries() {
-        List<Map<String, Object>> timeSeries = new java.util.ArrayList<>();
-        long now = System.currentTimeMillis();
-        Random random = new SecureRandom();
-        
-        for (int i = 23; i >= 0; i--) {
-            Map<String, Object> dataPoint = new HashMap<>();
-            long timestamp = now - (i * 3600000);
-            dataPoint.put("timestamp", timestamp);
-            dataPoint.put("hour", String.format("%02d:00", (24 - i) % 24));
-            dataPoint.put("qps", 10 + random.nextDouble() * 20);
-            dataPoint.put("requestCount", 100 + random.nextInt(200));
-            timeSeries.add(dataPoint);
+    private long countErrorTraces(final List<TraceQueryService.TraceRecord> traces) {
+        return traces.stream()
+            .filter(t -> t.getSpans().stream().anyMatch(TraceQueryService.SpanRecord::isError))
+            .count();
+    }
+
+    /**
+     * 按小时分桶（桶与时间范围对齐，空桶保留 0 值，保证趋势与统计口径一致）。
+     */
+    private TreeMap<Long, List<TraceQueryService.TraceRecord>> bucketTracesByHour(
+            final List<TraceQueryService.TraceRecord> traces, final long start, final long end) {
+        TreeMap<Long, List<TraceQueryService.TraceRecord>> buckets = new TreeMap<>();
+        long startHour = Instant.ofEpochMilli(start).truncatedTo(ChronoUnit.HOURS).toEpochMilli();
+        long endHour = Instant.ofEpochMilli(end).truncatedTo(ChronoUnit.HOURS).toEpochMilli();
+        for (long h = startHour; h <= endHour; h += 3600000L) {
+            buckets.put(h, new ArrayList<>());
         }
-        
-        return timeSeries;
+        for (TraceQueryService.TraceRecord trace : traces) {
+            long hour = trace.getCreatedAt().truncatedTo(ChronoUnit.HOURS).toEpochMilli();
+            buckets.computeIfAbsent(hour, k -> new ArrayList<>()).add(trace);
+        }
+        return buckets;
+    }
+
+    private String hourLabel(final long hourEpochMilli, final boolean withDate) {
+        LocalDateTime time = LocalDateTime.ofInstant(Instant.ofEpochMilli(hourEpochMilli),
+            ZoneId.systemDefault());
+        return withDate
+            ? time.format(DateTimeFormatter.ofPattern("MM-dd HH:00"))
+            : time.format(DateTimeFormatter.ofPattern("HH:00"));
+    }
+
+    /**
+     * 错误趋势：每小时桶的 errorCount / errorRate（百分比），
+     * 与 /tracing/query/statistics 的 errorTraces 同源同口径。
+     */
+    private List<Map<String, Object>> buildErrorTrend(
+            final List<TraceQueryService.TraceRecord> traces, final long start, final long end) {
+        boolean withDate = bucketTracesByHour(traces, start, end).size() > 24;
+        List<Map<String, Object>> trend = new ArrayList<>();
+        for (Map.Entry<Long, List<TraceQueryService.TraceRecord>> entry
+                : bucketTracesByHour(traces, start, end).entrySet()) {
+            int total = entry.getValue().size();
+            long errorCount = countErrorTraces(entry.getValue());
+            Map<String, Object> point = new HashMap<>();
+            point.put("timestamp", entry.getKey());
+            point.put("hour", hourLabel(entry.getKey(), withDate));
+            point.put("total", total);
+            point.put("errorCount", errorCount);
+            point.put("errorRate", total > 0
+                ? Math.round(errorCount * 10000.0 / total) / 100.0 : 0.0);
+            trend.add(point);
+        }
+        return trend;
+    }
+
+    /**
+     * 吞吐趋势：每小时桶的 requestCount / qps。
+     */
+    private List<Map<String, Object>> buildThroughputTrend(
+            final List<TraceQueryService.TraceRecord> traces, final long start, final long end) {
+        boolean withDate = bucketTracesByHour(traces, start, end).size() > 24;
+        List<Map<String, Object>> trend = new ArrayList<>();
+        for (Map.Entry<Long, List<TraceQueryService.TraceRecord>> entry
+                : bucketTracesByHour(traces, start, end).entrySet()) {
+            long requestCount = entry.getValue().size();
+            Map<String, Object> point = new HashMap<>();
+            point.put("timestamp", entry.getKey());
+            point.put("hour", hourLabel(entry.getKey(), withDate));
+            point.put("requestCount", requestCount);
+            point.put("qps", Math.round(requestCount / 3600.0 * 10000.0) / 10000.0);
+            trend.add(point);
+        }
+        return trend;
+    }
+
+    /**
+     * 延迟趋势：每小时桶的 p50/p95/p99/avg（毫秒，基于真实追踪时长）。
+     */
+    private List<Map<String, Object>> buildLatencyTrend(
+            final List<TraceQueryService.TraceRecord> traces, final long start, final long end) {
+        boolean withDate = bucketTracesByHour(traces, start, end).size() > 24;
+        List<Map<String, Object>> trend = new ArrayList<>();
+        for (Map.Entry<Long, List<TraceQueryService.TraceRecord>> entry
+                : bucketTracesByHour(traces, start, end).entrySet()) {
+            List<Double> durations = entry.getValue().stream()
+                .mapToDouble(TraceQueryService.TraceRecord::getDuration)
+                .sorted().boxed().collect(Collectors.toList());
+            Map<String, Object> point = new HashMap<>();
+            point.put("timestamp", entry.getKey());
+            point.put("hour", hourLabel(entry.getKey(), withDate));
+            point.put("p50", Math.round(percentile(durations, 0.50) * 10.0) / 10.0);
+            point.put("p95", Math.round(percentile(durations, 0.95) * 10.0) / 10.0);
+            point.put("p99", Math.round(percentile(durations, 0.99) * 10.0) / 10.0);
+            point.put("avg", Math.round(durations.stream()
+                .mapToDouble(Double::doubleValue).average().orElse(0.0) * 10.0) / 10.0);
+            trend.add(point);
+        }
+        return trend;
+    }
+
+    /**
+     * 计算分位数（入参须为升序排列的时长列表）。
+     */
+    private double percentile(final List<Double> sortedDurations, final double p) {
+        if (sortedDurations == null || sortedDurations.isEmpty()) {
+            return 0.0;
+        }
+        int index = (int) Math.ceil(p * sortedDurations.size()) - 1;
+        return sortedDurations.get(Math.max(0, Math.min(index, sortedDurations.size() - 1)));
+    }
+
+    /**
+     * 常见错误：按错误类型（span 状态码）聚合，取出现次数前 10。
+     */
+    private List<Map<String, Object>> buildCommonErrors(final List<TraceQueryService.TraceRecord> traces) {
+        Map<String, Map<String, Object>> byType = new LinkedHashMap<>();
+        for (TraceQueryService.TraceRecord trace : traces) {
+            for (TraceQueryService.SpanRecord span : trace.getSpans()) {
+                if (!span.isError()) {
+                    continue;
+                }
+                String errorType = span.getStatusCode() != null && !span.getStatusCode().isBlank()
+                    ? span.getStatusCode() : "UNKNOWN";
+                Map<String, Object> item = byType.computeIfAbsent(errorType, k -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("errorType", k);
+                    m.put("count", 0);
+                    m.put("service", trace.getServiceName());
+                    return m;
+                });
+                item.put("count", ((Number) item.get("count")).intValue() + 1);
+            }
+        }
+        return byType.values().stream()
+            .sorted((a, b) -> ((Number) b.get("count")).intValue() - ((Number) a.get("count")).intValue())
+            .limit(10)
+            .collect(Collectors.toList());
     }
 }

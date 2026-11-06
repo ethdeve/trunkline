@@ -1,5 +1,7 @@
 package org.unreal.modelrouter.router.ratelimit;
 
+import org.unreal.modelrouter.monitor.monitoring.collector.MetricsCollector;
+
 /**
  * 限流器基础接口
  */
@@ -33,5 +35,18 @@ public interface RateLimiter {
      */
     default double getUsageRatio() {
         return -1;
+    }
+
+    /**
+     * B4 修复：限流器由 {@code ComponentFactory} 经 {@code new} 创建，
+     * 其上的 {@code @Autowired} 字段在工厂路径上恒为 null（与 R2 同源）。
+     * 通过此 setter 由工厂在创建后注入 {@link MetricsCollector}，
+     * 使限流指标不再静默丢失。默认实现为空操作（如 {@link ScopedRateLimiterWrapper}
+     * 委托内部限流器记录，无需自身持有）。
+     *
+     * @param metricsCollector 指标采集器，可为 null（无指标场景）
+     */
+    default void setMetricsCollector(final MetricsCollector metricsCollector) {
+        // no-op by default
     }
 }

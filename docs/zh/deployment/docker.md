@@ -9,7 +9,7 @@
 
 
 
-  JAiRouter 提供完整的 Docker 化部署方案，支持多环境配置和容器编排。本文档详细介绍如何使用 Docker 部署 JAiRouter，包括单机部署、集群部署和监控集成。
+  Trunkline 提供完整的 Docker 化部署方案，支持多环境配置和容器编排。本文档详细介绍如何使用 Docker 部署 Trunkline，包括单机部署、集群部署和监控集成。
 
 ## Docker 部署概述
 
@@ -53,16 +53,16 @@
 
 ```
 # 拉取最新生产镜像
-docker pull sodlinken/jairouter:latest
+docker pull trunkline/trunkline:latest
 
 # 拉取指定版本
-docker pull sodlinken/jairouter:v1.0.0
+docker pull trunkline/trunkline:v1.0.0
 
 # 中国用户（使用阿里云镜像）
-docker pull registry.cn-hangzhou.aliyuncs.com/sodlinken/jairouter:latest
+docker pull registry.cn-hangzhou.aliyuncs.com/trunkline/trunkline:latest
 
 # 验证镜像
-docker images | grep sodlinken/jairouter
+docker images | grep trunkline/trunkline
 ```
 
 ### 2. 基础运行
@@ -70,19 +70,19 @@ docker images | grep sodlinken/jairouter
 ```
 # 最简单的运行方式 默认开启JWT认证
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -e SPRING_PROFILES_ACTIVE=dev \
   -e JWT_SECRET="your-very-strong-jwt-secret-key-at-least-32-characters-long" \
   -p 8080:8080 \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
   
 # 最简单的运行方式 关闭JWT认证
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -e SPRING_PROFILES_ACTIVE=dev \
-  -e JAIROUTER_SECURITY_JWT_ENABLED=false \
+  -e TRUNKLINE_SECURITY_JWT_ENABLED=false \
   -p 8080:8080 \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 
 # 验证部署
 curl http://localhost:8080/actuator/health
@@ -93,13 +93,13 @@ curl http://localhost:8080/actuator/health
 ```
 # 挂载配置文件运行
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -e SPRING_PROFILES_ACTIVE=dev \
   -e JWT_SECRET="your-very-strong-jwt-secret-key-at-least-32-characters-long" \
   -p 8080:8080 \
   -v $(pwd)/config:/app/config:ro \
   -v $(pwd)/logs:/app/logs \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 ## 镜像构建
@@ -123,7 +123,7 @@ docker run -d \
 
 # 或者手动构建
 mvn clean package -Pchina
-docker build -f Dockerfile.china -t sodlinken/jairouter:latest .
+docker build -f Dockerfile.china -t trunkline/trunkline:latest .
 ```
 
 #### 国际用户
@@ -134,7 +134,7 @@ docker build -f Dockerfile.china -t sodlinken/jairouter:latest .
 
 # 或者手动构建
 mvn clean package
-docker build -t sodlinken/jairouter:latest .
+docker build -t trunkline/trunkline:latest .
 ```
 
 ### 2. 使用 Maven 插件
@@ -148,20 +148,20 @@ mvn clean package jib:dockerBuild -Pjib
 
 # 构建并推送到注册表
 mvn clean package jib:build -Pjib \
-  -Djib.to.image=your-registry/sodlinken/jairouter:latest
+  -Djib.to.image=your-registry/trunkline/trunkline:latest
 ```
 
 ### 3. 多环境构建
 
 ```
 # 构建开发环境镜像
-docker build -f Dockerfile.dev -t sodlinken/jairouter:dev .
+docker build -f Dockerfile.dev -t trunkline/trunkline:dev .
 
 # 构建生产环境镜像
-docker build -f Dockerfile -t sodlinken/jairouter:prod .
+docker build -f Dockerfile -t trunkline/trunkline:prod .
 
 # 构建中国优化镜像
-docker build -f Dockerfile.china -t sodlinken/jairouter:china .
+docker build -f Dockerfile.china -t trunkline/trunkline:china .
 ```
 
 ## 容器运行
@@ -170,15 +170,15 @@ docker build -f Dockerfile.china -t sodlinken/jairouter:china .
 
 ```
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e PROD_ADMIN_API_KEY=adminkey \
   -e PROD_SERVICE_API_KEY=serviceaoi \
   -e PROD_READONLY_API_KEY=readonly \
-  -e JAIROUTER_SECURITY_ENABLED=true \
-  -e JAIROUTER_SECURITY_API_KEY_ENABLED=true \
-  -e JAIROUTER_SECURITY_JWT_ENABLED=true \
+  -e TRUNKLINE_SECURITY_ENABLED=true \
+  -e TRUNKLINE_SECURITY_API_KEY_ENABLED=true \
+  -e TRUNKLINE_SECURITY_JWT_ENABLED=true \
   -e PROD_JWT_SECRET="your-very-strong-jwt-secret-key-at-least-32-characters-long" \
   -e JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"\
   -v $(pwd)/config:/app/config:ro \
@@ -190,19 +190,19 @@ docker run -d \
   --health-timeout=10s \
   --health-retries=3 \
   --health-start-period=60s \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 docker run  \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e PROD_ADMIN_API_KEY=adminkey \
   -e PROD_SERVICE_API_KEY=serviceaoi \
   -e PROD_READONLY_API_KEY=readonly \
-  -e JAIROUTER_SECURITY_ENABLED=true \
-  -e JAIROUTER_SECURITY_API_KEY_ENABLED=true \
-  -e JAIROUTER_SECURITY_JWT_ENABLED=true \
+  -e TRUNKLINE_SECURITY_ENABLED=true \
+  -e TRUNKLINE_SECURITY_API_KEY_ENABLED=true \
+  -e TRUNKLINE_SECURITY_JWT_ENABLED=true \
   -e PROD_JWT_SECRET="your-very-strong-jwt-secret-key-at-least-32-characters-long" \
   -e JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0" \
   --restart unless-stopped \
@@ -211,13 +211,13 @@ docker run  \
   --health-timeout=10s \
   --health-retries=3 \
   --health-start-period=60s \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 
 ### 2. 开发环境运行
 
 ```
 docker run -d \
-  --name jairouter-dev \
+  --name trunkline-dev \
   -p 8080:8080 \
   -p 5005:5005 \
   -e SPRING_PROFILES_ACTIVE=dev \
@@ -226,7 +226,7 @@ docker run -d \
   -v $(pwd)/config:/app/config \
   -v $(pwd)/logs:/app/logs \
   -v $(pwd)/src:/app/src:ro \
-  sodlinken/jairouter:dev
+  trunkline/trunkline:dev
 ```
 
 ### 3. 使用运行脚本
@@ -252,9 +252,9 @@ docker run -d \
 version: '3.8'
 
 services:
-  jairouter:
-    image: sodlinken/jairouter:latest
-    container_name: jairouter
+  trunkline:
+    image: trunkline/trunkline:latest
+    container_name: trunkline
     ports:
       - "8080:8080"
     environment:
@@ -262,9 +262,9 @@ services:
       - PROD_ADMIN_API_KEY=adminkey 
       - PROD_SERVICE_API_KEY=serviceaoi 
       - PROD_READONLY_API_KEY=readonly 
-      - JAIROUTER_SECURITY_ENABLED=true 
-      - JAIROUTER_SECURITY_API_KEY_ENABLED=true 
-      - JAIROUTER_SECURITY_JWT_ENABLED=true 
+      - TRUNKLINE_SECURITY_ENABLED=true 
+      - TRUNKLINE_SECURITY_API_KEY_ENABLED=true 
+      - TRUNKLINE_SECURITY_JWT_ENABLED=true 
       - PROD_JWT_SECRET="your-very-strong-jwt-secret-key-at-least-32-characters-long" 
       - JAVA_OPTS=-Xms512m -Xmx1024m -XX:+UseG1GC
     volumes:
@@ -279,10 +279,10 @@ services:
       retries: 3
       start_period: 60s
     networks:
-      - jairouter-network
+      - trunkline-network
 
 networks:
-  jairouter-network:
+  trunkline-network:
     driver: bridge
 ```
 
@@ -294,9 +294,9 @@ networks:
 version: '3.8'
 
 services:
-  jairouter:
-    image: sodlinken/jairouter:latest
-    container_name: jairouter
+  trunkline:
+    image: trunkline/trunkline:latest
+    container_name: trunkline
     ports:
       - "8080:8080"
     environment:
@@ -304,9 +304,9 @@ services:
       - PROD_ADMIN_API_KEY=adminkey 
       - PROD_SERVICE_API_KEY=serviceaoi 
       - PROD_READONLY_API_KEY=readonly 
-      - JAIROUTER_SECURITY_ENABLED=true 
-      - JAIROUTER_SECURITY_API_KEY_ENABLED=true 
-      - JAIROUTER_SECURITY_JWT_ENABLED=true 
+      - TRUNKLINE_SECURITY_ENABLED=true 
+      - TRUNKLINE_SECURITY_API_KEY_ENABLED=true 
+      - TRUNKLINE_SECURITY_JWT_ENABLED=true 
       - PROD_JWT_SECRET="your-very-strong-jwt-secret-key-at-least-32-characters-long" 
       - JAVA_OPTS=-Xms512m -Xmx1024m -XX:+UseG1GC
     volumes:
@@ -365,11 +365,11 @@ networks:
 version: '3.8'
 
 services:
-  jairouter-dev:
+  trunkline-dev:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    container_name: jairouter-dev
+    container_name: trunkline-dev
     ports:
       - "8080:8080"
       - "5005:5005"  # 调试端口
@@ -405,7 +405,7 @@ docker-compose -f docker-compose.dev.yml up -d
 docker-compose ps
 
 # 查看日志
-docker-compose logs -f jairouter
+docker-compose logs -f trunkline
 
 # 停止服务
 docker-compose down
@@ -469,7 +469,7 @@ docker-compose down
 ```
 # 桥接网络（默认）
 networks:
-  - jairouter-network
+  - trunkline-network
 
 # 主机网络
 network_mode: host
@@ -495,7 +495,7 @@ docker run -d \
   --health-timeout=10s \
   --health-retries=3 \
   --health-start-period=60s \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 ### 2. Compose 健康检查
@@ -516,7 +516,7 @@ healthcheck:
 docker ps --format "table {{.Names}}\t{{.Status}}"
 
 # 查看健康检查日志
-docker inspect jairouter --format='{{json .State.Health}}'
+docker inspect trunkline --format='{{json .State.Health}}'
 
 # 手动健康检查
 curl http://localhost:8080/actuator/health
@@ -533,21 +533,21 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 10s
 ```
 
 ### 2. Grafana 仪表板
 
-创建 `monitoring/grafana/dashboards/jairouter.json`：
+创建 `monitoring/grafana/dashboards/trunkline.json`：
 
 ```
 {
   "dashboard": {
-    "title": "JAiRouter Dashboard",
+    "title": "Trunkline Dashboard",
     "panels": [
       {
         "title": "Request Rate",
@@ -614,7 +614,7 @@ logging:
   
   # 文件日志配置
   file:
-    name: /app/logs/jairouter.log
+    name: /app/logs/trunkline.log
     max-size: 100MB
     max-history: 30
     total-size-cap: 10GB
@@ -631,26 +631,26 @@ logging:
 
 ```
 # 查看实时日志
-docker logs -f jairouter
+docker logs -f trunkline
 
 # 查看最近的日志
-docker logs --tail 100 jairouter
+docker logs --tail 100 trunkline
 
 # 查看特定时间的日志
-docker logs --since "2024-01-15T10:00:00" jairouter
+docker logs --since "2024-01-15T10:00:00" trunkline
 
 # 导出日志
-docker logs jairouter > jairouter.log 2>&1
+docker logs trunkline > trunkline.log 2>&1
 
 # 在容器内查看日志文件
-docker exec jairouter cat /app/logs/jairouter.log
+docker exec trunkline cat /app/logs/trunkline.log
 ```
 
 ### 3. 日志轮转
 
 ```
 # 配置 logrotate
-cat > /etc/logrotate.d/docker-jairouter << EOF
+cat > /etc/logrotate.d/docker-trunkline << EOF
 /var/lib/docker/containers/*/*-json.log {
     daily
     rotate 7
@@ -666,8 +666,8 @@ EOF
 version: '3.8'
 
 services:
-  jairouter:
-    image: sodlinken/jairouter:latest
+  trunkline:
+    image: trunkline/trunkline:latest
     logging:
       driver: "json-file"
       options:
@@ -689,7 +689,7 @@ logging:
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
   
   file:
-    name: /app/logs/jairouter.log
+    name: /app/logs/trunkline.log
   
   # JSON 格式日志配置
   structured:
@@ -721,7 +721,7 @@ logging:
 
 ```
 services:
-  jairouter:
+  trunkline:
     deploy:
       resources:
         limits:
@@ -746,10 +746,10 @@ services:
 ```
 # 使用自定义网络
 networks:
-  jairouter-network:
+  trunkline-network:
     driver: bridge
     driver_opts:
-      com.docker.network.bridge.name: jairouter0
+      com.docker.network.bridge.name: trunkline0
       com.docker.network.driver.mtu: 1500
 ```
 
@@ -761,16 +761,16 @@ networks:
 
 ```
 # 查看容器状态
-docker ps -a --filter "name=jairouter"
+docker ps -a --filter "name=trunkline"
 
 # 查看启动日志
-docker logs jairouter
+docker logs trunkline
 
 # 检查端口占用
 netstat -tulpn | grep 8080
 
 # 检查镜像是否存在
-docker images | grep sodlinken/jairouter
+docker images | grep trunkline/trunkline
 ```
 
 #### 健康检查失败
@@ -780,52 +780,52 @@ docker images | grep sodlinken/jairouter
 curl -v http://localhost:8080/actuator/health
 
 # 检查容器内部
-docker exec -it jairouter sh
+docker exec -it trunkline sh
 
 # 查看应用日志
-docker exec jairouter cat /app/logs/jairouter.log
+docker exec trunkline cat /app/logs/trunkline.log
 ```
 
 #### 配置文件问题
 
 ```
 # 检查配置文件挂载
-docker exec jairouter ls -la /app/config
+docker exec trunkline ls -la /app/config
 
 # 查看配置文件内容
-docker exec jairouter cat /app/config/application.yml
+docker exec trunkline cat /app/config/application.yml
 
 # 验证配置文件格式
-docker exec jairouter java -jar app.jar --spring.config.location=/app/config/application.yml --dry-run
+docker exec trunkline java -jar app.jar --spring.config.location=/app/config/application.yml --dry-run
 ```
 
 ### 2. 调试工具
 
 ```
 # 进入容器调试
-docker exec -it jairouter sh
+docker exec -it trunkline sh
 
 # 查看进程状态
-docker exec jairouter ps aux
+docker exec trunkline ps aux
 
 # 查看网络连接
-docker exec jairouter netstat -tulpn
+docker exec trunkline netstat -tulpn
 
 # 查看系统资源
-docker stats jairouter
+docker stats trunkline
 ```
 
 ### 3. 性能分析
 
 ```
 # 查看容器资源使用
-docker stats --no-stream jairouter
+docker stats --no-stream trunkline
 
 # 查看容器详细信息
-docker inspect jairouter
+docker inspect trunkline
 
 # 查看镜像层信息
-docker history sodlinken/jairouter:latest
+docker history trunkline/trunkline:latest
 ```
 
 ## 安全配置
@@ -836,34 +836,34 @@ docker history sodlinken/jairouter:latest
 # 使用非 root 用户运行容器
 docker run -d \
   --user 10010:10010 \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 
 # 设置只读文件系统（除必要目录外）
 docker run -d \
   --read-only \
   --tmpfs /tmp \
   --tmpfs /app/logs \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 
 # 限制容器能力
 docker run -d \
   --cap-drop ALL \
   --cap-add NET_BIND_SERVICE \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 
 # 设置安全选项
 docker run -d \
   --security-opt no-new-privileges:true \
   --security-opt seccomp=profile.json \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 ### 2. 网络安全
@@ -873,21 +873,21 @@ docker run -d \
 version: '3.8'
 
 services:
-  jairouter:
-    image: sodlinken/jairouter:latest
-    container_name: jairouter
+  trunkline:
+    image: trunkline/trunkline:latest
+    container_name: trunkline
     ports:
       - "8080:8080"
     # 限制容器网络访问
     networks:
-      - jairouter-network
+      - trunkline-network
     # 设置内部网络，无法访问外网
     networks:
-      jairouter-network:
+      trunkline-network:
         internal: true
 
 networks:
-  jairouter-network:
+  trunkline-network:
     driver: bridge
 ```
 
@@ -895,28 +895,28 @@ networks:
 
 ```
 # 使用 Docker secrets 管理敏感信息
-echo "your-api-key" | docker secret create jairouter-api-key -
+echo "your-api-key" | docker secret create trunkline-api-key -
 
 # 在 swarm 模式下使用 secrets
 docker service create \
-  --name jairouter \
-  --secret jairouter-api-key \
+  --name trunkline \
+  --secret trunkline-api-key \
   -p 8080:8080 \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 
 # 在 docker-compose 中使用 secrets
 version: '3.8'
 
 services:
-  jairouter:
-    image: sodlinken/jairouter:latest
+  trunkline:
+    image: trunkline/trunkline:latest
     secrets:
-      - jairouter-api-key
+      - trunkline-api-key
     environment:
-      - API_KEY_FILE=/run/secrets/jairouter-api-key
+      - API_KEY_FILE=/run/secrets/trunkline-api-key
 
 secrets:
-  jairouter-api-key:
+  trunkline-api-key:
     file: ./secrets/api-key.txt
 ```
 
@@ -941,7 +941,7 @@ security:
     secret: your-jwt-secret-key
     algorithm: HS256
     expiration-minutes: 60
-    issuer: jairouter
+    issuer: trunkline
     # 初始账号：仅在账号表为空时（首次启动）创建；账号表非空后改这里不再生效
     accounts:
       - username: admin
@@ -968,7 +968,7 @@ server:
     key-store: classpath:keystore.p12
     key-store-password: password
     key-store-type: PKCS12
-    key-alias: jairouter
+    key-alias: trunkline
 ```
 
 ## 最佳实践

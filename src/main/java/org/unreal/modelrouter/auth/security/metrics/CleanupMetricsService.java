@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * 监控JWT令牌和黑名单的清理操作统计
  */
 @Service
-@ConditionalOnProperty(name = "jairouter.security.monitoring.jwt-persistence.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "trunkline.security.monitoring.jwt-persistence.enabled", havingValue = "true")
 public class CleanupMetricsService {
     
     private static final Logger log = LoggerFactory.getLogger(CleanupMetricsService.class);

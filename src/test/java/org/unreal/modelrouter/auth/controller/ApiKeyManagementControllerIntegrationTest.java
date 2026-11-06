@@ -230,10 +230,10 @@ class ApiKeyManagementControllerIntegrationTest {
                     .permissions(Arrays.asList("chat"))
                     .build();
 
-            when(apiKeyService.createApiKey(any())).thenReturn(Mono.just(testCreationVO));
+            when(apiKeyService.createApiKey(any(), any(), any())).thenReturn(Mono.just(testCreationVO));
 
             // When
-            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.createApiKey(request);
+            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.createApiKey(request, null);
 
             // Then
             StepVerifier.create(result)
@@ -255,11 +255,11 @@ class ApiKeyManagementControllerIntegrationTest {
                     .description("Duplicate Key")
                     .build();
 
-            when(apiKeyService.createApiKey(any()))
+            when(apiKeyService.createApiKey(any(), any(), any()))
                     .thenReturn(Mono.error(new RuntimeException("Key ID already exists")));
 
             // When
-            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.createApiKey(request);
+            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.createApiKey(request, null);
 
             // Then
             // issue #94: INTERNAL_ERROR -> 500，链路以 ApiException 结束。

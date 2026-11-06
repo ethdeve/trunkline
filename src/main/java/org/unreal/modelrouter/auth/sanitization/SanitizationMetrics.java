@@ -59,39 +59,39 @@ public class SanitizationMetrics {
     
     public SanitizationMetrics(final MeterRegistry meterRegistry) {
         // 脱敏操作计数器
-        this.requestSanitizations = Counter.builder("jairouter.security.sanitization.request.count")
+        this.requestSanitizations = Counter.builder("trunkline.security.sanitization.request.count")
                 .description("请求数据脱敏次数")
                 .register(meterRegistry);
         
-        this.responseSanitizations = Counter.builder("jairouter.security.sanitization.response.count")
+        this.responseSanitizations = Counter.builder("trunkline.security.sanitization.response.count")
                 .description("响应数据脱敏次数")
                 .register(meterRegistry);
         
-        this.ruleMatches = Counter.builder("jairouter.security.sanitization.rule.matches")
+        this.ruleMatches = Counter.builder("trunkline.security.sanitization.rule.matches")
                 .description("脱敏规则匹配次数")
                 .register(meterRegistry);
         
-        this.sanitizationErrors = Counter.builder("jairouter.security.sanitization.errors")
+        this.sanitizationErrors = Counter.builder("trunkline.security.sanitization.errors")
                 .description("脱敏处理错误次数")
                 .register(meterRegistry);
         
         // 脱敏操作耗时计时器
-        this.requestSanitizationTimer = Timer.builder("jairouter.security.sanitization.request.duration")
+        this.requestSanitizationTimer = Timer.builder("trunkline.security.sanitization.request.duration")
                 .description("请求数据脱敏耗时")
                 .register(meterRegistry);
         
-        this.responseSanitizationTimer = Timer.builder("jairouter.security.sanitization.response.duration")
+        this.responseSanitizationTimer = Timer.builder("trunkline.security.sanitization.response.duration")
                 .description("响应数据脱敏耗时")
                 .register(meterRegistry);
         
-        this.ruleCompilationTimer = Timer.builder("jairouter.security.sanitization.rule.compilation.duration")
+        this.ruleCompilationTimer = Timer.builder("trunkline.security.sanitization.rule.compilation.duration")
                 .description("脱敏规则编译耗时")
                 .register(meterRegistry);
         
         // 数据大小指标
-        meterRegistry.gauge("jairouter.security.sanitization.content.total.size",
+        meterRegistry.gauge("trunkline.security.sanitization.content.total.size",
                 totalContentSize, AtomicLong::get);
-        meterRegistry.gauge("jairouter.security.sanitization.content.sanitized.size",
+        meterRegistry.gauge("trunkline.security.sanitization.content.sanitized.size",
                 totalSanitizedSize, AtomicLong::get);
         
         log.info("脱敏性能指标收集器初始化完成");

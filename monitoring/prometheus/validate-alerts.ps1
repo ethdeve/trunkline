@@ -1,4 +1,4 @@
-# JAiRouter告警规则验证脚本 (PowerShell版本)
+# Trunkline告警规则验证脚本 (PowerShell版本)
 # 用于验证告警规则的完整性和有效性
 
 param(
@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RulesDir = Join-Path $ScriptDir "rules"
 
-Write-Host "=== JAiRouter告警规则验证 ===" -ForegroundColor Green
+Write-Host "=== Trunkline告警规则验证 ===" -ForegroundColor Green
 Write-Host "规则目录: $RulesDir"
 Write-Host "Prometheus地址: $PrometheusUrl"
 Write-Host "AlertManager地址: $AlertManagerUrl"
@@ -93,7 +93,7 @@ function Test-AlertQueries {
     }
     
     # 提取告警规则查询表达式
-    $alertsFile = Join-Path $RulesDir "jairouter-alerts.yml"
+    $alertsFile = Join-Path $RulesDir "trunkline-alerts.yml"
     if (-not (Test-Path $alertsFile)) {
         Write-Host "❌ 告警规则文件未找到" -ForegroundColor Red
         return
@@ -193,7 +193,7 @@ function Test-AlertManagerConfig {
 function Test-AlertCoverage {
     Write-Host "4. 验证告警规则覆盖率..." -ForegroundColor Blue
     
-    $alertsFile = Join-Path $RulesDir "jairouter-alerts.yml"
+    $alertsFile = Join-Path $RulesDir "trunkline-alerts.yml"
     
     if (-not (Test-Path $alertsFile)) {
         Write-Host "❌ 告警规则文件未找到" -ForegroundColor Red
@@ -203,15 +203,15 @@ function Test-AlertCoverage {
     $content = Get-Content $alertsFile -Raw
     
     # 统计各类告警
-    $basicAlerts = ([regex]::Matches($content, "name: jairouter\.basic")).Count
-    $performanceAlerts = ([regex]::Matches($content, "name: jairouter\.performance")).Count
-    $backendAlerts = ([regex]::Matches($content, "name: jairouter\.backend")).Count
-    $infrastructureAlerts = ([regex]::Matches($content, "name: jairouter\.infrastructure")).Count
-    $resourceAlerts = ([regex]::Matches($content, "name: jairouter\.resources")).Count
-    $businessAlerts = ([regex]::Matches($content, "name: jairouter\.business")).Count
-    $securityAlerts = ([regex]::Matches($content, "name: jairouter\.security")).Count
-    $capacityAlerts = ([regex]::Matches($content, "name: jairouter\.capacity")).Count
-    $dependencyAlerts = ([regex]::Matches($content, "name: jairouter\.dependencies")).Count
+    $basicAlerts = ([regex]::Matches($content, "name: trunkline\.basic")).Count
+    $performanceAlerts = ([regex]::Matches($content, "name: trunkline\.performance")).Count
+    $backendAlerts = ([regex]::Matches($content, "name: trunkline\.backend")).Count
+    $infrastructureAlerts = ([regex]::Matches($content, "name: trunkline\.infrastructure")).Count
+    $resourceAlerts = ([regex]::Matches($content, "name: trunkline\.resources")).Count
+    $businessAlerts = ([regex]::Matches($content, "name: trunkline\.business")).Count
+    $securityAlerts = ([regex]::Matches($content, "name: trunkline\.security")).Count
+    $capacityAlerts = ([regex]::Matches($content, "name: trunkline\.capacity")).Count
+    $dependencyAlerts = ([regex]::Matches($content, "name: trunkline\.dependencies")).Count
     
     $totalGroups = $basicAlerts + $performanceAlerts + $backendAlerts + $infrastructureAlerts + $resourceAlerts + $businessAlerts + $securityAlerts + $capacityAlerts + $dependencyAlerts
     $totalRules = ([regex]::Matches($content, "- alert:")).Count
@@ -244,7 +244,7 @@ function Test-AlertCoverage {
 function Test-SeverityDistribution {
     Write-Host "5. 验证告警级别分布..." -ForegroundColor Blue
     
-    $alertsFile = Join-Path $RulesDir "jairouter-alerts.yml"
+    $alertsFile = Join-Path $RulesDir "trunkline-alerts.yml"
     
     if (-not (Test-Path $alertsFile)) {
         Write-Host "❌ 告警规则文件未找到" -ForegroundColor Red
@@ -281,7 +281,7 @@ function New-ValidationReport {
     $reportFile = Join-Path $ScriptDir "alert-validation-report.md"
     
     $reportContent = @"
-# JAiRouter告警规则验证报告
+# Trunkline告警规则验证报告
 
 ## 验证概要
 - 验证时间: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
@@ -319,7 +319,7 @@ AlertManager配置文件验证完成
 .\monitoring\prometheus\validate-alerts.ps1
 
 # 仅检查语法
-promtool check rules monitoring\prometheus\rules\jairouter-alerts.yml
+promtool check rules monitoring\prometheus\rules\trunkline-alerts.yml
 
 # 检查AlertManager配置
 promtool check config monitoring\alertmanager\alertmanager.yml
