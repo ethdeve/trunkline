@@ -79,7 +79,7 @@ java.lang.OutOfMemoryError: Java heap space
 #### Solutions
 ```bash
 # Increase heap memory size
-java -Xms1g -Xmx2g -jar target/model-router-*.jar
+java -Xms1g -Xmx2g -jar target/trunkline-*.jar
 
 # Or set environment variables
 export JAVA_OPTS="-Xms1g -Xmx2g"
@@ -148,7 +148,7 @@ PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderExce
 # 1. Trust all certificates (development environment only)
 java -Dcom.sun.net.ssl.checkRevocation=false \
      -Dtrust_all_cert=true \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 
 # 2. Import certificate to trust store
 keytool -import -alias backend-cert -file backend.crt -keystore $JAVA_HOME/lib/security/cacerts
@@ -213,7 +213,7 @@ jcmd <pid> GC.run_finalization
 jmap -dump:format=b,file=heap.hprof <pid>
 
 # 3. Analyze GC logs
-java -XX:+PrintGC -XX:+PrintGCDetails -Xloggc:gc.log -jar target/model-router-*.jar
+java -XX:+PrintGC -XX:+PrintGCDetails -Xloggc:gc.log -jar target/trunkline-*.jar
 ```
 
 #### Solutions
@@ -223,7 +223,7 @@ java -XX:+PrintGC -XX:+PrintGCDetails -Xloggc:gc.log -jar target/model-router-*.
 java -Xms2g -Xmx4g \
      -XX:+UseG1GC \
      -XX:MaxGCPauseMillis=200 \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 **Enable Rate Limiter Cleanup**
@@ -248,12 +248,12 @@ model:
 jstack <pid> > threads.dump
 
 # 2. Analyze CPU hotspots
-java -XX:+PrintCompilation -jar target/model-router-*.jar
+java -XX:+PrintCompilation -jar target/trunkline-*.jar
 
 # 3. Use performance analysis tools
 java -XX:+FlightRecorder \
      -XX:StartFlightRecording=duration=60s,filename=profile.jfr \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 #### Solutions
@@ -294,7 +294,7 @@ curl http://localhost:8080/api/config/store/status
 ls -la config/
 
 # 3. View application logs
-tail -f logs/jairouter-debug.log | grep -i config
+tail -f logs/trunkline-debug.log | grep -i config
 ```
 
 #### Solutions
@@ -330,7 +330,7 @@ curl http://localhost:8080/api/config/instance/chat
 curl http://localhost:8080/actuator/health
 
 # 3. Analyze request distribution
-curl http://localhost:8080/actuator/metrics/jairouter.requests.total
+curl http://localhost:8080/actuator/metrics/trunkline.requests.total
 ```
 
 #### Solutions
@@ -370,7 +370,7 @@ model:
 curl http://localhost:8080/api/config/rate-limit/status
 
 # 2. Check rate limiting metrics
-curl http://localhost:8080/actuator/metrics/jairouter.rate.limit.rejected
+curl http://localhost:8080/actuator/metrics/trunkline.rate.limit.rejected
 
 # 3. Test rate limiting behavior
 for i in {1..20}; do
@@ -436,9 +436,9 @@ management:
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 30s
 ```
@@ -498,7 +498,7 @@ sudo systemctl restart docker
 ```yaml
 # docker-compose.yml
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:latest
     deploy:
       resources:
@@ -552,7 +552,7 @@ echo "=== Health Check Complete ==="
 #!/bin/bash
 # log-analysis.sh
 
-LOG_FILE="logs/jairouter-debug.log"
+LOG_FILE="logs/trunkline-debug.log"
 
 echo "=== Log Analysis ==="
 
@@ -597,14 +597,14 @@ redis-cli -h localhost -p 6379 ping
 curl http://localhost:8080/actuator/health/jwt-persistence
 
 # 4. Check application logs for persistence errors
-tail -f logs/jairouter-debug.log | grep -i "jwt\|persistence\|redis"
+tail -f logs/trunkline-debug.log | grep -i "jwt\|persistence\|redis"
 ```
 
 #### Solutions
 
 **Enable JWT Persistence**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -642,7 +642,7 @@ redis-cli -h localhost -p 6379 keys "jwt:*"
 #### Diagnostic Steps
 ```bash
 # 1. Check token storage metrics
-curl http://localhost:8080/actuator/metrics/jairouter.jwt.tokens.active
+curl http://localhost:8080/actuator/metrics/trunkline.jwt.tokens.active
 
 # 2. Check memory usage
 curl http://localhost:8080/actuator/metrics/jvm.memory.used
@@ -655,7 +655,7 @@ curl http://localhost:8080/api/auth/jwt/blacklist/stats
 
 **Configure Memory Limits**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -667,7 +667,7 @@ jairouter:
 
 **Optimize Cleanup Schedule**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -727,7 +727,7 @@ spring:
 
 **Configure Retry Logic**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -738,7 +738,7 @@ jairouter:
 
 **Enable Fallback Storage**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -767,14 +767,14 @@ curl -X POST http://localhost:8080/api/auth/jwt/login \
      -d '{"username":"test","password":"test"}'
 
 # 4. Check for audit errors
-grep -i "audit\|security" logs/jairouter-error.log
+grep -i "audit\|security" logs/trunkline-error.log
 ```
 
 #### Solutions
 
 **Enable Security Auditing**
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       enabled: true
@@ -788,7 +788,7 @@ jairouter:
 
 **Configure Log Rotation**
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       storage:
@@ -801,7 +801,7 @@ jairouter:
 
 **Optimize Audit Performance**
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       jwt-operations:

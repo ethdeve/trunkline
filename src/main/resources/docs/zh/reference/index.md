@@ -118,7 +118,7 @@
 如果您在使用参考资料时有任何建议或发现问题：
 - **GitHub Issues**: 报告文档问题或提出改进建议
 - **GitHub Discussions**: 参与文档相关的讨论
-- **邮件联系**: jairouter@example.com
+- **邮件联系**: trunkline@example.com
 - **社区群组**: 加入用户交流群
 
 ### 更新频率
@@ -132,4 +132,4 @@
 ---
 
 **维护团队**: Trunkline 文档团队  
-**联系方式**: jairouter@example.com
+**联系方式**: trunkline@example.com

@@ -76,13 +76,13 @@ Navigate to **Configuration → Instance Management**, add or edit an instance:
 
 ## Method 2: YAML Configuration
 
-### Step 1: Edit adapter.yml
+### Step 1: Configure YAML
 
-Edit file `src/main/resources/config/router/adapter.yml`:
+> The former `src/main/resources/config/router/adapter.yml` was removed on 2026-11-09; to configure adapters via YAML, use `application-{profile}.yml` or an external mount (e.g. `/app/config/application.yml`):
 
 ```yaml
 model:
-  adapter: gpustack  # Global default adapter
+  adapter: gpustack  # Global default adapter (code default: normal)
 
 adapter-definitions:
   deepseek:

@@ -56,18 +56,23 @@ class ConfigFileStructureTest {
         File routerDir = new File(CONFIG_BASE_PATH + "/router");
         assertTrue(routerDir.exists() && routerDir.isDirectory(), "router 目录应存在且是目录");
 
-        // 验证 router 模块配置文件
-        assertTrue(new File(routerDir, "adapter.yml").exists(), "adapter.yml 应存在");
-        assertTrue(new File(routerDir, "loadbalancer.yml").exists(), "loadbalancer.yml 应存在");
+        // 验证 router 模块配置文件（2026-11-09 精简：adapter/loadbalancer/
+        // circuitbreaker/pools/rules 的默认值内置于 Java 代码，仅保留有独占生效值的 3 个）
         assertTrue(new File(routerDir, "ratelimit.yml").exists(), "ratelimit.yml 应存在");
-        assertTrue(new File(routerDir, "circuitbreaker.yml").exists(), "circuitbreaker.yml 应存在");
         assertTrue(new File(routerDir, "fallback.yml").exists(), "fallback.yml 应存在");
         assertTrue(new File(routerDir, "services.yml").exists(), "services.yml 应存在");
+
+        // 已删除文件不应复活（防止误恢复同值冗余文件）
+        assertFalse(new File(routerDir, "adapter.yml").exists(), "adapter.yml 已删除（值与代码默认重复）");
+        assertFalse(new File(routerDir, "loadbalancer.yml").exists(), "loadbalancer.yml 已删除（值与代码默认重复）");
+        assertFalse(new File(routerDir, "circuitbreaker.yml").exists(), "circuitbreaker.yml 已删除（值与代码默认重复）");
+        assertFalse(new File(routerDir, "pools.yml").exists(), "pools.yml 已删除（值与代码默认重复）");
+        assertFalse(new File(routerDir, "rules.yml").exists(), "rules.yml 已删除（值与代码默认重复）");
 
         // 验证文件数量
         File[] ymlFiles = routerDir.listFiles((dir, name) -> name.endsWith(".yml"));
         assertNotNull(ymlFiles, "应能列出配置文件");
-        assertTrue(ymlFiles.length >= 6, "router 目录应有至少 6 个配置文件");
+        assertEquals(3, ymlFiles.length, "router 目录应恰好有 3 个配置文件");
     }
 
     @Test
@@ -104,8 +109,8 @@ class ConfigFileStructureTest {
         // 验证导入了各模块配置
         assertTrue(lines.stream().anyMatch(l -> l.contains("config/auth/jwt.yml")),
                 "应导入 auth/jwt.yml");
-        assertTrue(lines.stream().anyMatch(l -> l.contains("config/router/loadbalancer.yml")),
-                "应导入 router/loadbalancer.yml");
+        assertTrue(lines.stream().anyMatch(l -> l.contains("config/router/ratelimit.yml")),
+                "应导入 router/ratelimit.yml");
         assertTrue(lines.stream().anyMatch(l -> l.contains("config/common/server.yml")),
                 "应导入 common/server.yml");
         assertTrue(lines.stream().anyMatch(l -> l.contains("config/config-service/core.yml")),
@@ -118,8 +123,12 @@ class ConfigFileStructureTest {
     @DisplayName("验证环境配置文件存在")
     void testEnvironmentConfigFiles() {
         assertTrue(new File("src/main/resources/application-dev.yml").exists(), "application-dev.yml 应存在");
-        assertTrue(new File("src/main/resources/application-staging.yml").exists(), "application-staging.yml 应存在");
         assertTrue(new File("src/main/resources/application-prod.yml").exists(), "application-prod.yml 应存在");
+        assertTrue(new File("src/main/resources/application-migrate.yml").exists(), "application-migrate.yml 应存在");
+        // staging profile 无任何部署入口激活（Dockerfile / compose / k8s 仅使用 dev、prod、migrate），
+        // 2026-11-09 配置清理时移除，加断言防止被误恢复
+        assertFalse(new File("src/main/resources/application-staging.yml").exists(),
+                "application-staging.yml 已移除，不应恢复");
     }
 
     @Test
@@ -127,16 +136,13 @@ class ConfigFileStructureTest {
     void testEnvironmentConfigFilesSimplified() throws Exception {
         // 环境配置应该比原来精简（从 763 行减少到 271 行）
         Path devYml = Path.of("src/main/resources/application-dev.yml");
-        Path stagingYml = Path.of("src/main/resources/application-staging.yml");
         Path prodYml = Path.of("src/main/resources/application-prod.yml");
 
         int devLines = Files.readAllLines(devYml).size();
-        int stagingLines = Files.readAllLines(stagingYml).size();
         int prodLines = Files.readAllLines(prodYml).size();
 
         // 精简后应该小于 150 行
         assertTrue(devLines < 150, "dev 配置应精简（当前: " + devLines + " 行）");
-        assertTrue(stagingLines < 100, "staging 配置应精简（当前: " + stagingLines + " 行）");
         assertTrue(prodLines < 150, "prod 配置应精简（当前: " + prodLines + " 行）");
     }
 

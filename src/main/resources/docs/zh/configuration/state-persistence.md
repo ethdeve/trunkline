@@ -34,7 +34,7 @@ Redis (Tier 1) → H2 (Tier 2) → File (Tier 3)
 配置文件位置：`src/main/resources/config/persistence/state-persistence-base.yml`
 
 ```yaml
-jairouter:
+trunkline:
   persistence:
     # 启用状态持久化
     enabled: true
@@ -139,7 +139,7 @@ curl -X GET http://localhost:8080/api/state-persistence/status \
 ### 1. 生产环境推荐配置
 
 ```yaml
-jairouter:
+trunkline:
   persistence:
     enabled: true
     redis:
@@ -153,7 +153,7 @@ jairouter:
 ### 2. 开发环境配置
 
 ```yaml
-jairouter:
+trunkline:
   persistence:
     enabled: true
     redis:

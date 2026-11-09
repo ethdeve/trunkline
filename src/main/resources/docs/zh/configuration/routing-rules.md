@@ -106,14 +106,14 @@ Trunkline 提供**规则引擎**（v2.8.5），允许通过 Web 页面或 YAML �
 
 - **启停**：表格"启用"开关即时生效
 - **优先级拖拽**：拖动行首手柄按行序调整优先级（顶部最高），整批提交；YAML 规则显示 **YAML** 徽章且不可拖拽（其优先级不随拖拽改变）
-- **命中统计**：表格"命中"列展示各规则累计命中数（Prometheus 指标 `jairouter_rule_hits_total`），右上角刷新按钮同步刷新
+- **命中统计**：表格"命中"列展示各规则累计命中数（Prometheus 指标 `trunkline_rule_hits_total`），右上角刷新按钮同步刷新
 - **编辑/删除**：表格操作列
 
 > 规则增删改后**立即热生效**，无需重启应用。
 
 ## YAML 配置文件
 
-编辑文件 `src/main/resources/config/router/rules.yml`：
+> 原 `src/main/resources/config/router/rules.yml` 已于 2026-11-09 删除；如需用 YAML 配置规则，写入 `application-{profile}.yml` 或外部挂载（如 `/app/config/application.yml`）：
 
 ```yaml
 model:
@@ -267,7 +267,7 @@ curl -X POST http://localhost:8080/api/config/rules/validate \
 
 ### 配置方式
 
-1. **YAML**(config/router/pools.yml):
+1. **YAML**(`model.pools` 前缀，原 config/router/pools.yml 已删除，写入 application-{profile}.yml 或外部挂载):
 
 ```yaml
 model:
@@ -353,13 +353,13 @@ model:
 不带规则时，可直接通过请求 header 圈选实例：
 
 ```
-X-JAiRouter-Tags: gpu_type=a100,region=cn-north
+X-Trunkline-Tags: gpu_type=a100,region=cn-north
 ```
 
 ```bash
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "X-JAiRouter-Tags: gpu_type=a100,region=cn-north" \
+  -H "X-Trunkline-Tags: gpu_type=a100,region=cn-north" \
   -d '{"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]}'
 ```
 
@@ -369,7 +369,7 @@ curl http://localhost:8080/v1/chat/completions \
 
 ### 优先级与空候选语义
 
-- **TARGET_TAGS 优先于请求 header**：命中 `TARGET_TAGS` 规则时以规则 tags 为准，忽略请求 header；无规则提供标签时才解析 `X-JAiRouter-Tags`
+- **TARGET_TAGS 优先于请求 header**：命中 `TARGET_TAGS` 规则时以规则 tags 为准，忽略请求 header；无规则提供标签时才解析 `X-Trunkline-Tags`
 - **TARGET_INSTANCE 锁定 > 标签过滤**：实例锁定先按 instanceId/name 圈定，标签过滤在其基础上进一步收窄（锁定动作本身不产生标签要求）
 - **空候选 404**：标签过滤后无匹配实例返回 `404 Not Found`（与 TARGET_INSTANCE 无目标实例时一致）
 - 未配置任何标签圈选时，行为与未启用该功能完全一致

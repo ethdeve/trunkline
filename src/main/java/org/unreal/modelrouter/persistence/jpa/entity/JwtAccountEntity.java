@@ -56,6 +56,14 @@ public class JwtAccountEntity {
     @Column(name = "department", length = 128)
     private String department;
 
+    /**
+     * 用户真实姓名（展示用，便于识别账号归属人；可为空）。
+     *
+     * <p>与 username（登录名）区分：name 是给人看的中文/英文姓名，不参与任何鉴权或聚合逻辑。</p>
+     */
+    @Column(name = "name", length = 64)
+    private String name;
+
     @Column(name = "enabled")
     private Boolean enabled;
 

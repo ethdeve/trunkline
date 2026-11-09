@@ -19,7 +19,7 @@ Trunkline 默认使用 JPA 持久化（嵌入式 H2，可切换 PostgreSQL）。
 
 ### JPA / H2 存储 (jpa)
 
-JPA 存储是默认方式，配置数据保存在关系型数据库中，提供事务支持与查询能力。默认数据源为嵌入式 H2（文件库 `./data/jairouter`），可通过环境变量切换到 PostgreSQL。适用于所有环境（dev、test、prod）。
+JPA 存储是默认方式，配置数据保存在关系型数据库中，提供事务支持与查询能力。默认数据源为嵌入式 H2（文件库 `./data/trunkline`），可通过环境变量切换到 PostgreSQL。适用于所有环境（dev、test、prod）。
 
 ### Redis 存储 (redis)
 
@@ -64,7 +64,7 @@ store:
 spring:
   datasource:
     # 默认嵌入式 H2（文件库）；生产环境用 DATABASE_URL 环境变量指向 PostgreSQL
-    url: ${DATABASE_URL:jdbc:h2:file:./data/jairouter;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE}
+    url: ${DATABASE_URL:jdbc:h2:file:./data/trunkline;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE}
     username: ${DATABASE_USERNAME:sa}
     password: ${DATABASE_PASSWORD:}
   jpa:
@@ -104,7 +104,7 @@ spring:
       enabled: false
       path: /h2-console
 
-jairouter:
+trunkline:
   security:
     audit:
       storage: h2
@@ -137,7 +137,7 @@ spring:
       enabled: true
       path: /h2-console
 
-jairouter:
+trunkline:
   security:
     audit:
       storage: h2
@@ -150,7 +150,7 @@ jairouter:
 store:
   type: h2
   h2:
-    url: file:/var/lib/jairouter/data/config
+    url: file:/var/lib/trunkline/data/config
   migration:
     enabled: false
   security-migration:
@@ -166,7 +166,7 @@ spring:
       max-size: 50
       max-idle-time: 30m
 
-jairouter:
+trunkline:
   security:
     audit:
       storage: h2
@@ -187,7 +187,7 @@ jairouter:
 # 启用自动合并功能并指定配置目录
 store:
   type: file
-  path: "/var/lib/jairouter/config/"
+  path: "/var/lib/trunkline/config/"
   auto-merge: true
 ```
 
@@ -340,8 +340,8 @@ store:
 生产环境建议手动迁移：
 
 ```bash
-# 1. 在测试环境验证迁移
-java -jar app.jar --spring.profiles.active=staging \
+# 1. 在生产环境验证迁移
+java -jar app.jar --spring.profiles.active=prod \
   --store.migration.enabled=true \
   --store.security-migration.enabled=true
 
@@ -419,11 +419,11 @@ cp ./backup/config-20241120.mv.db ./data/config.mv.db
 
 ```bash
 #!/bin/bash
-# /usr/local/bin/backup-jairouter-db.sh
+# /usr/local/bin/backup-trunkline-db.sh
 
 DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_DIR="/var/backups/jairouter"
-DB_FILE="/var/lib/jairouter/data/config.mv.db"
+BACKUP_DIR="/var/backups/trunkline"
+DB_FILE="/var/lib/trunkline/data/config.mv.db"
 
 mkdir -p $BACKUP_DIR
 cp $DB_FILE $BACKUP_DIR/config_$DATE.mv.db
@@ -441,7 +441,7 @@ echo "Backup completed: config_$DATE.mv.db.gz"
 
 ```bash
 # 每天凌晨3点备份
-0 3 * * * /usr/local/bin/backup-jairouter-db.sh
+0 3 * * * /usr/local/bin/backup-trunkline-db.sh
 ```
 
 ## 注意事项

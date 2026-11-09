@@ -76,13 +76,13 @@ Trunkline 支持通过配置驱动的方式添加新的 adapter，无需编写�
 
 ## 方式二：YAML配置文件
 
-### 步骤1：编辑 adapter.yml
+### 步骤1：配置 YAML
 
-编辑文件 `src/main/resources/config/router/adapter.yml`：
+> 原 `src/main/resources/config/router/adapter.yml` 已于 2026-11-09 删除；如需用 YAML 配置 adapter，写入 `application-{profile}.yml` 或外部挂载（如 `/app/config/application.yml`）：
 
 ```yaml
 model:
-  adapter: gpustack  # 全局默认adapter
+  adapter: gpustack  # 全局默认adapter（代码默认 normal）
 
 adapter-definitions:
   deepseek:

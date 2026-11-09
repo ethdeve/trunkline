@@ -10,7 +10,7 @@ FROM eclipse-temurin:17-jdk AS extract-layer
 WORKDIR /app
 
 # 复制 JAR 文件
-COPY target/model-router-*.jar app.jar
+COPY target/trunkline-*.jar app.jar
 
 # 使用 Spring Boot 工具提取分层（利用 Docker 缓存）
 RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted

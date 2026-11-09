@@ -91,11 +91,11 @@ docker run -d -p 8080:8080 \
 ```bash
 # 克隆项目
 git clone https://github.com/Lincoln-cn/JAiRouter.git
-cd jairouter
+cd trunkline
 
 # 构建运行
 ./mvnw clean package
-java -jar target/model-router-*.jar
+java -jar target/trunkline-*.jar
 ```
 
 ### Q7: 如何配置后端 AI 服务？
@@ -251,16 +251,16 @@ curl http://localhost:8080/actuator/prometheus
 ### Q14: 如何查看日志？
 
 **A**: 日志文件位置：
-- **容器部署**: `/app/logs/jairouter-debug.log`
-- **直接运行**: `./logs/jairouter-debug.log`
+- **容器部署**: `/app/logs/trunkline-debug.log`
+- **直接运行**: `./logs/trunkline-debug.log`
 
 查看实时日志：
 ```bash
 # Docker 容器
-docker logs -f jairouter
+docker logs -f trunkline
 
 # 直接运行
-tail -f logs/jairouter-debug.log
+tail -f logs/trunkline-debug.log
 ```
 
 调整日志级别：
@@ -291,7 +291,7 @@ cp -r config-backup-20250115/ config/
 curl -X POST http://localhost:8080/api/config/versions/1/apply
 
 # 重启服务使配置生效
-docker restart jairouter
+docker restart trunkline
 ```
 
 ## 性能和优化
@@ -319,7 +319,7 @@ docker restart jairouter
 java -Xms2g -Xmx4g \
      -XX:+UseG1GC \
      -XX:MaxGCPauseMillis=200 \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 **连接池优化**:
@@ -399,7 +399,7 @@ curl http://localhost:8080/api/config/instance/type/chat
 
 4. **查看日志**:
 ```bash
-grep -i "connection\|timeout" logs/jairouter-debug.log
+grep -i "connection\|timeout" logs/trunkline-debug.log
 ```
 
 ### Q21: 性能问题如何排查？
@@ -421,10 +421,10 @@ curl http://localhost:8080/actuator/metrics/jvm.gc.pause
 **分析响应时间**:
 ```bash
 # 响应时间分布
-curl http://localhost:8080/actuator/metrics/jairouter.request.duration
+curl http://localhost:8080/actuator/metrics/trunkline.request.duration
 
 # 请求统计
-curl http://localhost:8080/actuator/metrics/jairouter.requests.total
+curl http://localhost:8080/actuator/metrics/trunkline.requests.total
 ```
 
 ## 开发和集成
@@ -439,7 +439,7 @@ curl http://localhost:8080/actuator/metrics/jairouter.requests.total
 import openai
 
 # 将 OpenAI 客户端指向 JAiRouter
-openai.api_base = "http://jairouter:8080/v1"
+openai.api_base = "http://trunkline:8080/v1"
 openai.api_key = "your-api-key"
 
 response = openai.ChatCompletion.create(
@@ -453,7 +453,7 @@ response = openai.ChatCompletion.create(
 // Node.js 示例
 const axios = require('axios');
 
-const response = await axios.post('http://jairouter:8080/v1/chat/completions', {
+const response = await axios.post('http://trunkline:8080/v1/chat/completions', {
   model: 'gpt-3.5-turbo',
   messages: [{ role: 'user', content: 'Hello!' }]
 }, {
@@ -561,7 +561,7 @@ public class CustomAdapter extends BaseAdapter {
 2. **搜索 Issues**: 在 GitHub Issues 中搜索类似问题
 3. **提交 Issue**: 创建新的 Issue 详细描述问题
 4. **社区讨论**: 在 GitHub Discussions 中寻求帮助
-5. **邮件联系**: jairouter@example.com
+5. **邮件联系**: trunkline@example.com
 
 ---
 
@@ -571,7 +571,7 @@ public class CustomAdapter extends BaseAdapter {
 
 - **GitHub Issues**: [提交问题](https://github.com/Lincoln-cn/JAiRouter/issues)
 - **GitHub Discussions**: [参与讨论](https://github.com/Lincoln-cn/JAiRouter/discussions)
-- **邮件联系**: jairouter@example.com
+- **邮件联系**: trunkline@example.com
 
 我们会持续更新 FAQ 内容，为用户提供更好的支持。
 

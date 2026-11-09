@@ -16,7 +16,7 @@ Since v2.8.x, Trunkline uses a modular configuration structure:
 - Main configuration file: `application.yml`
 - Rate limit configuration: `config/router/ratelimit.yml`
 
-Global rate limit settings live in `model.rate-limit.*` (in `config/router/ratelimit.yml`), along with the distributed toggle `jairouter.ratelimit.distributed.*`. Per-service settings live in `model.services.<serviceType>.rate-limit` (in `config/router/services.yml`).
+Global rate limit settings live in `model.rate-limit.*` (in `config/router/ratelimit.yml`), along with the distributed toggle `trunkline.ratelimit.distributed.*`. Per-service settings live in `model.services.<serviceType>.rate-limit` (in `config/router/services.yml`).
 
 ## Rate Limiting Overview
 
@@ -470,10 +470,10 @@ Beyond `enabled/algorithm/capacity/rate/scope/client-ip-enable`, `model.rate-lim
 | `key-dimension` | `client-ip` | `client-ip` / `api-key` / `tenant` |
 | `key` | empty | custom rate-limit key (overrides key-dimension) |
 
-For multi-instance deployments, the distributed toggle lives under `jairouter.ratelimit.distributed`:
+For multi-instance deployments, the distributed toggle lives under `trunkline.ratelimit.distributed`:
 
 ```yaml
-jairouter:
+trunkline:
   ratelimit:
     distributed:
       enabled: false        # default off (in-memory per instance)
@@ -583,29 +583,29 @@ curl "http://localhost:8080/api/rate-limiter/summary"
 
 ```bash
 # Rate limiting events (allowed / denied)
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_events_total"
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_events_total"
 
 # Remaining capacity per limiter
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_remaining"
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_remaining"
 
 # Usage ratio per limiter
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_usage_ratio"
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_usage_ratio"
 ```
 
 ### Prometheus Metrics
 
 ```prometheus
 # Rate limiting request rate
-rate(jairouter_rate_limit_events_total[5m])
+rate(trunkline_rate_limit_events_total[5m])
 
 # Rate limiting rejection rate
-rate(jairouter_rate_limit_events_total{result="denied"}[5m]) / rate(jairouter_rate_limit_events_total[5m])
+rate(trunkline_rate_limit_events_total{result="denied"}[5m]) / rate(trunkline_rate_limit_events_total[5m])
 
 # Remaining capacity per limiter
-jairouter_rate_limit_remaining
+trunkline_rate_limit_remaining
 
 # Usage ratio per limiter
-jairouter_rate_limit_usage_ratio
+trunkline_rate_limit_usage_ratio
 ```
 
 ### Alert Rules
@@ -613,10 +613,10 @@ jairouter_rate_limit_usage_ratio
 ```yaml
 # Prometheus alert rules
 groups:
-  - name: jairouter_ratelimit
+  - name: trunkline_ratelimit
     rules:
       - alert: HighRateLimitRejection
-        expr: rate(jairouter_rate_limit_events_total{result="denied"}[5m]) / rate(jairouter_rate_limit_events_total[5m]) > 0.1
+        expr: rate(trunkline_rate_limit_events_total{result="denied"}[5m]) / rate(trunkline_rate_limit_events_total[5m]) > 0.1
         for: 2m
         labels:
           severity: warning

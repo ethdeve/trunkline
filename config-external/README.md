@@ -18,7 +18,7 @@ config-external/
 
 ```bash
 # 将配置目录复制到生产服务器
-scp -r config-external/ production-server:/path/to/jairouter/config
+scp -r config-external/ production-server:/path/to/trunkline/config
 ```
 
 ### 2. 配置环境变量
@@ -67,7 +67,7 @@ volumes:
 ### 配置文件中的写法
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       # 使用环境变量，如果未设置则为空（启动时校验）

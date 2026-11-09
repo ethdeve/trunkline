@@ -14,11 +14,11 @@ This document details the Prometheus alert rules configuration for the Trunkline
 
 ## Alert Rule Categories
 
-### 1. Basic Service Alerts (jairouter.basic)
+### 1. Basic Service Alerts (trunkline.basic)
 
 #### JAiRouterServiceDown
 - **Description**: Trunkline service unavailable
-- **Trigger Condition**: `up{job="jairouter"} == 0`
+- **Trigger Condition**: `up{job="trunkline"} == 0`
 - **Duration**: 1 minute
 - **Severity**: Critical
 - **Handling Recommendations**:
@@ -49,7 +49,7 @@ This document details the Prometheus alert rules configuration for the Trunkline
   3. Check database connections
   4. Verify dependency service availability
 
-### 2. Performance Alerts (jairouter.performance)
+### 2. Performance Alerts (trunkline.performance)
 
 #### JAiRouterHighLatency
 - **Description**: Trunkline response time too high
@@ -106,11 +106,11 @@ This document details the Prometheus alert rules configuration for the Trunkline
   3. Evaluate if resource scaling is needed
   4. Consider temporary rate limiting measures
 
-### 3. Backend Service Alerts (jairouter.backend)
+### 3. Backend Service Alerts (trunkline.backend)
 
 #### JAiRouterBackendDown
 - **Description**: Trunkline backend service unavailable
-- **Trigger Condition**: `jairouter_backend_health == 0`
+- **Trigger Condition**: `trunkline_backend_health == 0`
 - **Duration**: 1 minute
 - **Severity**: Critical
 - **Handling Recommendations**:
@@ -141,11 +141,11 @@ This document details the Prometheus alert rules configuration for the Trunkline
   3. Check authentication configuration
   4. Analyze error types
 
-### 4. Infrastructure Alerts (jairouter.infrastructure)
+### 4. Infrastructure Alerts (trunkline.infrastructure)
 
 #### JAiRouterCircuitBreakerOpen
 - **Description**: Trunkline circuit breaker opened
-- **Trigger Condition**: `jairouter_circuit_breaker_state == 1`
+- **Trigger Condition**: `trunkline_circuit_breaker_state == 1`
 - **Duration**: 30 seconds
 - **Severity**: Warning
 - **Handling Recommendations**:
@@ -176,7 +176,7 @@ This document details the Prometheus alert rules configuration for the Trunkline
   3. Analyze instance performance differences
   4. Consider adjusting weight configuration
 
-### 5. Resource Alerts (jairouter.resources)
+### 5. Resource Alerts (trunkline.resources)
 
 #### JAiRouterHighMemoryUsage
 - **Description**: Trunkline memory usage high
@@ -222,7 +222,7 @@ This document details the Prometheus alert rules configuration for the Trunkline
   3. Find thread leaks
   4. Optimize concurrent handling
 
-### 6. Business Metric Alerts (jairouter.business)
+### 6. Business Metric Alerts (trunkline.business)
 
 #### JAiRouterModelCallFailureRate
 - **Description**: Trunkline model call failure rate high
@@ -257,7 +257,7 @@ This document details the Prometheus alert rules configuration for the Trunkline
   3. Consider pagination handling
   4. Check for data leaks
 
-### 7. Security Alerts (jairouter.security)
+### 7. Security Alerts (trunkline.security)
 
 #### JAiRouterSuspiciousIPActivity
 - **Description**: Trunkline detected suspicious IP activity
@@ -292,7 +292,7 @@ This document details the Prometheus alert rules configuration for the Trunkline
   3. Verify parameter validation logic
   4. Provide better error information
 
-### 8. Capacity Planning Alerts (jairouter.capacity)
+### 8. Capacity Planning Alerts (trunkline.capacity)
 
 #### JAiRouterRequestVolumeGrowth
 - **Description**: Trunkline request volume significant growth
@@ -327,7 +327,7 @@ This document details the Prometheus alert rules configuration for the Trunkline
   3. Optimize performance bottlenecks
   4. Consider scaling
 
-### 9. Dependency Service Alerts (jairouter.dependencies)
+### 9. Dependency Service Alerts (trunkline.dependencies)
 
 #### JAiRouterDatabaseConnectionIssue
 - **Description**: Trunkline database connection pool usage high
@@ -435,7 +435,7 @@ This document details the Prometheus alert rules configuration for the Trunkline
 
 - [Prometheus Alert Rules Documentation](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/)
 - [AlertManager Configuration Documentation](https://prometheus.io/docs/alerting/latest/configuration/)
-- [Grafana Dashboards](http://localhost:3000/d/jairouter-overview)
+- [Grafana Dashboards](http://localhost:3000/d/trunkline-overview)
 - [Prometheus Web Interface](http://localhost:9090/alerts)
 
 ## Contact Information

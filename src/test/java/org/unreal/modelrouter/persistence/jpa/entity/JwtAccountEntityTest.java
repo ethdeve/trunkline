@@ -35,6 +35,7 @@ class JwtAccountEntityTest {
                 "password123",
                 "[\"ADMIN\",\"USER\"]",
                 "研发部",
+                "张三",
                 true,
                 now,
                 now,
@@ -46,6 +47,7 @@ class JwtAccountEntityTest {
         assertEquals("password123", entity.getPassword());
         assertEquals("[\"ADMIN\",\"USER\"]", entity.getRoles());
         assertEquals("研发部", entity.getDepartment());
+        assertEquals("张三", entity.getName());
         assertTrue(entity.getEnabled());
         assertEquals(now, entity.getCreatedAt());
         assertEquals(now, entity.getUpdatedAt());

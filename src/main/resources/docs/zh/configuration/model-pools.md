@@ -10,14 +10,14 @@
 
 模型分组（资源池 / Model Pool）把一组**同服务类型**的实例打包成一个命名集合。客户端请求中的 `model` 字段填**分组名**时，网关自动在组内健康实例之间分流选择，客户端无需关心后端具体实例。
 
-- 配置文件：`config/router/pools.yml`，绑定前缀 `model.pools`（默认空列表 `[]`，不配池时路由行为与之前完全一致）
+- 配置前缀：`model.pools`（默认空列表 `[]`，不配池时路由行为与之前完全一致）；原默认文件 `config/router/pools.yml` 已于 2026-11-09 删除，如需 YAML 配置池，写入 `application-{profile}.yml` 或外部挂载
 - 持久化：Web 管理端创建/修改的池持久化到 StoreManager（key=`pool_definitions`），与 YAML 合并（同 `pool-name` 时持久化配置覆盖 YAML）
 - 特殊组名 `auto-model`：未配置同名池时，`model=auto-model` 回退为该服务类型的**全部健康实例**；配置同名池后按池定义选择
 
 ## 配置结构
 
 ```yaml
-# config/router/pools.yml
+# application-{profile}.yml 或外部挂载配置
 model:
   pools:
     - pool-name: auto-model        # 分组名（即客户端请求 model 字段填写的虚拟模型名）
@@ -131,7 +131,7 @@ curl -X POST http://localhost:8080/api/config/pools \
 - 用量查询：`GET /api/config/pools/{poolName}/quota/usage`
 - 手动重置：`POST /api/config/pools/{poolName}/quota/reset`
 
-> 分组配额属于运行期配额账本体系；若同时启用多维配额账本（`jairouter.quota.enabled`），分组维度为其中的一种聚合视图。详见 [配额配置](quota.md)。
+> 分组配额属于运行期配额账本体系；若同时启用多维配额账本（`trunkline.quota.enabled`），分组维度为其中的一种聚合视图。详见 [配额配置](quota.md)。
 
 ## 已知边界
 

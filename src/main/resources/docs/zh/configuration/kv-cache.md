@@ -53,9 +53,9 @@ model:
 
 | 指标 | 类型 | 标签 | 说明 |
 |------|------|------|------|
-| `jairouter_cache_hit_tokens_total` | Counter | `adapter`, `instance` | 缓存命中 token 累计数 |
-| `jairouter_cache_miss_tokens_total` | Counter | `adapter`, `instance` | 缓存未命中 token 累计数 |
-| `jairouter_cache_hit_ratio` | Gauge | `adapter`, `instance` | 命中率 0.0~1.0，基于累计计数 hit/(hit+miss) |
+| `trunkline_cache_hit_tokens_total` | Counter | `adapter`, `instance` | 缓存命中 token 累计数 |
+| `trunkline_cache_miss_tokens_total` | Counter | `adapter`, `instance` | 缓存未命中 token 累计数 |
+| `trunkline_cache_hit_ratio` | Gauge | `adapter`, `instance` | 命中率 0.0~1.0，基于累计计数 hit/(hit+miss) |
 
 - 字段缺失按 0 容忍，不报错
 - `cache_hit_ratio` 为**累积语义**（hitTotal/(hitTotal+missTotal)），非单次请求比率
@@ -81,7 +81,7 @@ model:
 ## 四、验证
 
 - **粘性路由**：同一 `apiKeyId` 连续请求，追踪/日志中目标 `instance` 应保持一致（实例健康时）
-- **指标**：`curl http://<host>:8080/actuator/prometheus | grep jairouter_cache`（或 Grafana 查询）
+- **指标**：`curl http://<host>:8080/actuator/prometheus | grep trunkline_cache`（或 Grafana 查询）
 - **前缀卫生**：消息数组逐字透传（4 消息 + 6 消息两组回归测试），缓存 token 解析 5 组容错测试
 
 ## 五、已知限制

@@ -43,7 +43,7 @@ Trunkline 提供了企业级的安全功能，包括身份认证、数据脱敏�
 在 `application.yml` 中启用安全功能：
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
 ```
@@ -51,7 +51,7 @@ jairouter:
 ### 2. 配置 API Key 认证
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       enabled: true
@@ -65,7 +65,7 @@ jairouter:
 ### 3. 配置数据脱敏
 
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -123,7 +123,7 @@ graph TB
 ### 开发环境
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -144,7 +144,7 @@ jairouter:
 ### 生产环境
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -219,13 +219,13 @@ export REDIS_PASSWORD="your-redis-password"
 ## 监控指标
 
 ### 认证指标（Prometheus 名）
-- `jairouter_security_authentication_attempts_total`: 认证尝试总数
-- `jairouter_security_authentication_successes_total`: 认证成功总数
-- `jairouter_security_authentication_failures_total`: 认证失败总数
+- `trunkline_security_authentication_attempts_total`: 认证尝试总数
+- `trunkline_security_authentication_successes_total`: 认证成功总数
+- `trunkline_security_authentication_failures_total`: 认证失败总数
 
 ### 脱敏指标（Prometheus 名）
-- `jairouter_security_sanitization_operations_total`: 脱敏操作总数
-- `jairouter_security_sanitization_rule_matches_total`: 脱敏规则匹配总数
+- `trunkline_security_sanitization_operations_total`: 脱敏操作总数
+- `trunkline_security_sanitization_rule_matches_total`: 脱敏规则匹配总数
 
 > 完整指标清单见 [监控指标](../monitoring/metrics.md) 的「代码已注册指标」。
 

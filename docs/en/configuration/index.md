@@ -48,18 +48,16 @@ src/main/resources/
 │   │   └── tracing-base.yml           # Distributed tracing
 │   ├── persistence/
 │   │   └── state-persistence-base.yml # State persistence (3-tier fallback)
-│   ├── base/                          # Base config (backward compatible)
-│   │   ├── server-base.yml
-│   │   ├── model-services-base.yml
-│   │   └── monitoring-base.yml
+│   ├── base/                          # Base config
+│   │   └── monitoring-base.yml        # Metrics & management endpoints
+│   │                                  # (server-base / model-services-base removed:
+│   │                                  #  keys duplicated in common/*, router/*)
 │   └── security/                      # Security config (backward compatible)
 │       ├── security-base.yml
 │       ├── persistence-base.yml
 │       └── audit-base.yml
 ├── application-dev.yml                # Development profile
-├── application-staging.yml            # Staging profile
-├── application-prod.yml               # Production profile
-├── application-legacy.yml             # Legacy compatibility profile
+└── application-prod.yml               # Production profile
 └── application-migrate.yml            # Data migration profile
 ```
 
@@ -80,15 +78,11 @@ spring:
       - classpath:config/common/cluster.yml
       # config-service module
       - classpath:config/config-service/core.yml
-      # router module
-      - classpath:config/router/adapter.yml
-      - classpath:config/router/loadbalancer.yml
+      # router module (simplified on 2026-11-09: adapter/loadbalancer/circuitbreaker/pools/rules
+      # defaults are built into Java code; only files with exclusive effective values remain)
       - classpath:config/router/ratelimit.yml
-      - classpath:config/router/circuitbreaker.yml
       - classpath:config/router/fallback.yml
       - classpath:config/router/services.yml
-      - classpath:config/router/rules.yml
-      - classpath:config/router/pools.yml
       # auth module
       - classpath:config/auth/jwt.yml
       - classpath:config/auth/api-key.yml
@@ -101,9 +95,7 @@ spring:
       - classpath:config/monitor/persistence-monitoring-base.yml
       - classpath:config/tracing/tracing-base.yml
       - classpath:config/persistence/state-persistence-base.yml
-      # backward compatibility
-      - classpath:config/base/server-base.yml
-      - classpath:config/base/model-services-base.yml
+      # security base configs (formerly "backward compatibility")
       - classpath:config/security/security-base.yml
       - classpath:config/security/persistence-base.yml
       - classpath:config/security/audit-base.yml
@@ -181,7 +173,7 @@ store:
 
 ### 1. Load Balancing
 
-Distributes requests across service instances (see `config/router/loadbalancer.yml`):
+Distributes requests across service instances (defaults live in code `ModelRouterProperties`; the former `config/router/loadbalancer.yml` was removed; override via `application-{profile}.yml` / env vars / external mount):
 
 ```yaml
 model:
@@ -226,7 +218,7 @@ model:
 
 ### 3. Circuit Breaker
 
-Prevents cascading failures (see `config/router/circuitbreaker.yml`):
+Prevents cascading failures (defaults live in code `CircuitBreakerManager`; the former `config/router/circuitbreaker.yml` was removed; override as above):
 
 ```yaml
 model:
@@ -306,9 +298,7 @@ The default datasource is H2 (`spring.datasource.url: jdbc:h2:file:./data/trunkl
 ## Environment-Specific Configuration
 
 - **Development**: `application-dev.yml`
-- **Staging**: `application-staging.yml`
 - **Production**: `application-prod.yml`
-- **Legacy compatibility**: `application-legacy.yml`
 - **Data migration**: `application-migrate.yml`
 
 Profile files only contain the deltas, following Spring Boot's override mechanism.

@@ -23,14 +23,14 @@ Trunkline 从 **v3.1.0** 起提供**配额账本（quota ledger）**：在请求
 - 限额判定映射：DAY 窗口 → 日请求/日 Token；MINUTE 窗口 → 每分钟速率；`0` 表示不限制。
 - 账本关闭时仍走 API Key 认证路径的既有校验（内存统计 + TokenBucket）。
 
-- **默认关闭（opt-in）**：`jairouter.quota.enabled` 默认 `false`，即零行为变更——不累加、不查库、不落库，行为与 v3.0.x 完全一致
+- **默认关闭（opt-in）**：`trunkline.quota.enabled` 默认 `false`，即零行为变更——不累加、不查库、不落库，行为与 v3.0.x 完全一致
 - **计数后端可选**：默认为进程内 `LocalCounterBackend`（`LongAdder`），仅 `distributed.enabled=true` 时才装配 `RedisCounterBackend` 作为跨实例权威计数
 - **纯增量能力**：账本未启用时所有端点立即返回、不访问数据库与 Redis
 
 ## 快速启用
 
 ```yaml
-jairouter:
+trunkline:
   quota:
     enabled: true                  # 启用配额账本（默认 false）
     fail-open: true                # 账本异常时是否放行（默认 true）
@@ -47,14 +47,14 @@ jairouter:
       month: 13mo
     distributed:
       enabled: false               # 是否启用 Redis 分布式计数（默认 false）
-      key-prefix: "jairouter:quota"  # Redis key 前缀（默认 jairouter:quota）
+      key-prefix: "trunkline:quota"  # Redis key 前缀（默认 trunkline:quota）
       timeout: 50ms                # 单条 Redis 命令超时（默认 50ms，钳制 1ms~5s）
       degrade-to-local: true       # Redis 不可用时是否降级回本地计数（默认 true）
 ```
 
 ## 配置项
 
-所有配置项位于 `jairouter.quota` 前缀下。key 写法遵循 Spring relaxed binding（yaml 中使用 kebab-case，Java 中使用 camelCase）。
+所有配置项位于 `trunkline.quota` 前缀下。key 写法遵循 Spring relaxed binding（yaml 中使用 kebab-case，Java 中使用 camelCase）。
 
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
@@ -67,7 +67,7 @@ jairouter:
 | `retention.day` | `35d` | 天窗口保留期 |
 | `retention.month` | `13mo` | 月窗口保留期 |
 | `distributed.enabled` | `false` | 是否启用 Redis 分布式计数；为 `false` 时计数完全留在本进程内存 |
-| `distributed.key-prefix` | `jairouter:quota` | 分布式计数 Redis key 前缀 |
+| `distributed.key-prefix` | `trunkline:quota` | 分布式计数 Redis key 前缀 |
 | `distributed.timeout` | `50ms` | 单条 Redis 命令超时（钳制范围 1ms~5s） |
 | `distributed.degrade-to-local` | `true` | Redis 不可用时是否降级回本地计数视图 |
 
@@ -125,8 +125,8 @@ PUT  /api/config/quota        # 运行时部分更新
 
 ### 已知限制
 
-- 运行时改动是**内存覆盖**，重启或配置刷新后**还原为 yaml 值**（与响应缓存同口径）。持久化配置请修改 `jairouter.quota` yaml。
-- **`flushIntervalSeconds` 不可热改**：该字段已被列为需重启生效字段，携带非 `null` 值的 PUT 请求会被拒绝。原因：后端使用 `@Scheduled(fixedDelayString = "${jairouter.quota.flush-interval-seconds:60}")` 注解，该值在 Spring 调度任务注册时一次性解析并固定；修改 `QuotaProperties` bean 字段值无法改变已注册的调度间隔。如需修改落库间隔，请修改 yaml 后重启应用。
+- 运行时改动是**内存覆盖**，重启或配置刷新后**还原为 yaml 值**（与响应缓存同口径）。持久化配置请修改 `trunkline.quota` yaml。
+- **`flushIntervalSeconds` 不可热改**：该字段已被列为需重启生效字段，携带非 `null` 值的 PUT 请求会被拒绝。原因：后端使用 `@Scheduled(fixedDelayString = "${trunkline.quota.flush-interval-seconds:60}")` 注解，该值在 Spring 调度任务注册时一次性解析并固定；修改 `QuotaProperties` bean 字段值无法改变已注册的调度间隔。如需修改落库间隔，请修改 yaml 后重启应用。
 - `enabled` 热改为 `true` 后，账本立即开始累加新请求的计数；热改为 `false` 后，账本停止累加但已有内存态数据在下次 `flush` 时仍会落库。
 
 ## 观测
@@ -215,7 +215,7 @@ GET /api/monitoring/quota/usage    # 用量查询
   - 用量查询：`GET /api/config/pools/{poolName}/quota/usage`
   - 手动重置：`POST /api/config/pools/{poolName}/quota/reset`
 
-> 分组共享配额属于运行期配额体系；多维账本（`jairouter.quota.enabled`，默认关闭）开启后，分组维度是其聚合视图之一。**账本默认关闭**，关闭时仍走 API Key 认证路径的既有校验。
+> 分组共享配额属于运行期配额体系；多维账本（`trunkline.quota.enabled`，默认关闭）开启后，分组维度是其聚合视图之一。**账本默认关闭**，关闭时仍走 API Key 认证路径的既有校验。
 
 ## 相关文档
 

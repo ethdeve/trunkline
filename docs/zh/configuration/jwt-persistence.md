@@ -218,10 +218,10 @@ trunkline:
       enabled: true
 ```
 
-### 预发布环境
+### 基于 Redis 的部署
 
 ```yaml
-# application-staging.yml
+# application-prod.yml
 trunkline:
   security:
     jwt:

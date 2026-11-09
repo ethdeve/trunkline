@@ -28,7 +28,7 @@ fi
 echo -e "\033[0;32m✅ 构建成功完成\033[0m"
 
 # 查找构建好的 JAR 文件
-JAR_FILE=$(find target -name "model-router-*.jar" -type f | head -n 1)
+JAR_FILE=$(find target -name "trunkline-*.jar" -type f | head -n 1)
 
 if [ -z "$JAR_FILE" ]; then
     echo -e "\033[0;31m❌ 未找到构建好的 JAR 文件\033[0m"

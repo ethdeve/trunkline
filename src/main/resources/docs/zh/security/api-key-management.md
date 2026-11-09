@@ -90,7 +90,7 @@ Trunkline 的 API Key 认证功能为系统提供了安全的访问控制机制�
 在 `application.yml` 中启用安全功能：
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -101,7 +101,7 @@ jairouter:
 ### 2. 配置 API Key
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
@@ -179,7 +179,7 @@ Trunkline 支持全面的 API Key 配额管理功能，包括每日 Token 使用
 #### 配置示例
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
@@ -280,7 +280,7 @@ set PROD_READONLY_KEY_EXPIRES=2027-12-31T23:59:59
 ```
 # 生产环境 Docker 部署
 docker run -d \
-  --name jairouter-prod \
+  --name trunkline-prod \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e PROD_ADMIN_API_KEY="your-production-admin-api-key-here" \
@@ -300,7 +300,7 @@ docker run -d \
 ### Redis 缓存
 
 ```
-jairouter:
+trunkline:
   security:
     performance:
       cache:
@@ -315,7 +315,7 @@ jairouter:
 ### 本地缓存
 
 ```
-jairouter:
+trunkline:
   security:
     performance:
       cache:
@@ -333,7 +333,7 @@ jairouter:
 Trunkline 支持将 API Key 持久化存储以增强管理和监控：
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       # API Key 持久化配置
@@ -470,7 +470,7 @@ API Key 存储包含以下元数据：
 启用审计功能后，系统会记录所有认证相关的事件：
 
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       enabled: true
@@ -489,28 +489,28 @@ jairouter:
 
 | 指标名（Micrometer / Prometheus） | 类型 | 说明 |
 |-----------------------------------|------|------|
-| `jairouter.security.authentication.attempts(_total)` | Counter | 认证尝试总数 |
-| `jairouter.security.authentication.successes(_total)` | Counter | 认证成功总数（tag: `auth_type`） |
-| `jairouter.security.authentication.failures(_total)` | Counter | 认证失败总数（tag: `auth_type`、`failure_reason`） |
-| `jairouter.security.authentication.duration` | Timer | 认证处理耗时 |
-| `jairouter.security.jwt.validations(_total)` | Counter | JWT 验证总数（tag: `result`） |
-| `jairouter.security.jwt.refreshes(_total)` | Counter | JWT 刷新总数 |
-| `jairouter.security.jwt.expired(_total)` | Counter | JWT 过期总数 |
-| `jairouter.security.sanitization.operations(_total)` | Counter | 数据脱敏操作总数 |
-| `jairouter.security.sanitization.rule.matches(_total)` | Counter | 脱敏规则匹配总数 |
-| `jairouter.security.violations(_total)` | Counter | 安全违规事件总数 |
-| `jairouter.security.suspicious.activities(_total)` | Counter | 可疑活动总数 |
-| `jairouter.security.active.users` | Gauge | 当前活跃认证用户数 |
-| `jairouter.security.apikeys.active` | Gauge | 当前使用中的 API Key 数量 |
+| `trunkline.security.authentication.attempts(_total)` | Counter | 认证尝试总数 |
+| `trunkline.security.authentication.successes(_total)` | Counter | 认证成功总数（tag: `auth_type`） |
+| `trunkline.security.authentication.failures(_total)` | Counter | 认证失败总数（tag: `auth_type`、`failure_reason`） |
+| `trunkline.security.authentication.duration` | Timer | 认证处理耗时 |
+| `trunkline.security.jwt.validations(_total)` | Counter | JWT 验证总数（tag: `result`） |
+| `trunkline.security.jwt.refreshes(_total)` | Counter | JWT 刷新总数 |
+| `trunkline.security.jwt.expired(_total)` | Counter | JWT 过期总数 |
+| `trunkline.security.sanitization.operations(_total)` | Counter | 数据脱敏操作总数 |
+| `trunkline.security.sanitization.rule.matches(_total)` | Counter | 脱敏规则匹配总数 |
+| `trunkline.security.violations(_total)` | Counter | 安全违规事件总数 |
+| `trunkline.security.suspicious.activities(_total)` | Counter | 可疑活动总数 |
+| `trunkline.security.active.users` | Gauge | 当前活跃认证用户数 |
+| `trunkline.security.apikeys.active` | Gauge | 当前使用中的 API Key 数量 |
 
-> 说明：早期文档列出的 `jairouter_security_api_key_daily_token_usage`、`jairouter_security_api_key_quota_exceeded_total` 等指标未在当前代码注册，配额用量请通过管理 API（`GET /api/auth/api-keys/{keyId}/quota`、`/quota/overview`）查询。
+> 说明：早期文档列出的 `trunkline_security_api_key_daily_token_usage`、`trunkline_security_api_key_quota_exceeded_total` 等指标未在当前代码注册，配额用量请通过管理 API（`GET /api/auth/api-keys/{keyId}/quota`、`/quota/overview`）查询。
 
 ## 安全审计和监控
 
 ### 增强的审计配置
 
 ```yaml
-jairouter:
+trunkline:
   security:
     # 增强的审计配置
     audit:
@@ -808,7 +808,7 @@ curl -X POST "http://localhost:8080/api/auth/api-keys/import" \
 #### 配置轮换周期
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
@@ -839,7 +839,7 @@ curl -X POST "http://localhost:8080/api/auth/api-keys/{keyId}/reset" \
 #### 配置 IP 白名单
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
@@ -870,7 +870,7 @@ curl -X PUT "http://localhost:8080/api/auth/api-keys/{keyId}" \
 #### 配置每日限制
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
@@ -897,7 +897,7 @@ jairouter:
 
 ### 管理接口速率限制 (v1.6.1+)
 
-为防止管理 API（`/api/auth/api-keys/**`）被滥用，`AdminApiRateLimiter` 按客户端 IP 限流（可通过 `jairouter.auth.admin-api-rate-limit.*` 覆盖）：
+为防止管理 API（`/api/auth/api-keys/**`）被滥用，`AdminApiRateLimiter` 按客户端 IP 限流（可通过 `trunkline.auth.admin-api-rate-limit.*` 覆盖）：
 
 | 操作类型 | 每分钟 | 每小时 |
 |---------|-------|-------|
@@ -912,7 +912,7 @@ jairouter:
 ### 开发环境
 
 ```
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -928,7 +928,7 @@ jairouter:
 ### 生产环境
 
 ```
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:

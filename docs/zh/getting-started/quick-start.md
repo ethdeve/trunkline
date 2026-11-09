@@ -109,10 +109,10 @@ abc123def456   trunkline/trunkline:latest   "java -jar /app/mode…"   2 seconds
 
 ```bash
 # 如果已下载 JAR 文件
-java -jar model-router.jar
+java -jar trunkline.jar
 
 # 或指定配置文件
-java -jar model-router.jar --spring.config.location=classpath:/application.yml
+java -jar trunkline.jar --spring.config.location=classpath:/application.yml
 ```
 
 **预期输出**：
@@ -291,7 +291,7 @@ docker run -d \
 
 # JAR 重启
 # 停止当前进程（Ctrl+C），然后重新运行
-java -jar model-router.jar
+java -jar trunkline.jar
 ```
 
 ### 常见服务配置示例

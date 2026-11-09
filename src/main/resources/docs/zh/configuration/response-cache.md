@@ -11,7 +11,7 @@
 
 Trunkline 从 **v2.9.9** 起提供**响应缓存（response cache）**：将下游 LLM 服务的完整响应按缓存键（cache key）缓存，相同请求再次到达时直接复用缓存结果并**跳过下游调用**，显著降低延迟与成本。**v2.9.10** 扩展了三项能力：流式 SSE 缓存、失效 API（按服务 / 模型 / 全量清除）与缓存键三段式、以及限流提前短路语义优化。
 
-- **默认全关（opt-in）**：`jairouter.response-cache` 默认不启用；开启后不影响任何未命中请求的行为
+- **默认全关（opt-in）**：`trunkline.response-cache` 默认不启用；开启后不影响任何未命中请求的行为
 - **与 v2.9.0 前缀缓存（prefix cache / KV cache）可叠加**：两者定位不同——
   - 前缀缓存：仍调用下游，但复用其 prefill 计算，降低首 token 延迟（TTFT）与 prefill 开销
   - 响应缓存：字节级相同的请求**完全跳过下游**，直接返回缓存内容
@@ -20,7 +20,7 @@ Trunkline 从 **v2.9.9** 起提供**响应缓存（response cache）**：将下�
 ## 快速启用
 
 ```yaml
-jairouter:
+trunkline:
   response-cache:
     enabled: true        # 是否启用响应缓存（默认 false，opt-in）
     ttl: 1h              # 缓存有效期（默认 1h，对齐 liteLLM）
@@ -88,16 +88,16 @@ SHA-256(tenantKey | [user?] | serviceType | model | canonicalJson(requestBody))
 ## 命中语义
 
 - **响应结构一致**：控制台面 `/api/**` 命中时返回与正常非流式成功响应同构的 `RouterResponse`（`data` 为缓存的下游原始数据），调用方无感；原生面 `/v1/**`（OpenAI / Anthropic 兼容入口）命中时**直接返回下游原始 JSON**，不包 `RouterResponse`
-- **命中不产生调用历史**：缓存命中的请求在适配器执行前短路返回（调用历史在下游执行路径记录），因此**不写入调用历史**，仅累加命中指标；需审计命中请求时以 `jairouter_response_cache_hits_total` 为准
+- **命中不产生调用历史**：缓存命中的请求在适配器执行前短路返回（调用历史在下游执行路径记录），因此**不写入调用历史**，仅累加命中指标；需审计命中请求时以 `trunkline_response_cache_hits_total` 为准
 - **不消耗下游 token 配额**：命中请求完全跳过下游调用，不产生新的下游用量
 - **限流语义**（v2.9.10 更新）：缓存读提前到实例选择（`selectInstance`）之前——缓存查找前**先显式执行服务级限流**（扣一次），命中直接短路返回、跳过实例选择；限流超限 429 **优先于缓存**（硬边界）；未命中仍走完整 `selectInstance`（内部限流跳过，避免双扣）
 - **指标**（标签：`service`、`model`）：
 
 | 指标 | 类型 | 说明 |
 |------|------|------|
-| `jairouter_response_cache_hits_total` | Counter | 缓存命中（cache hit）累计次数 |
-| `jairouter_response_cache_misses_total` | Counter | 缓存未命中累计次数 |
-| `jairouter_response_cache_hit_ratio` | Gauge | 命中率 0.0~1.0（累积 hit/(hit+miss)） |
+| `trunkline_response_cache_hits_total` | Counter | 缓存命中（cache hit）累计次数 |
+| `trunkline_response_cache_misses_total` | Counter | 缓存未命中累计次数 |
+| `trunkline_response_cache_hit_ratio` | Gauge | 命中率 0.0~1.0（累积 hit/(hit+miss)） |
 
 ## 流式缓存
 
@@ -170,7 +170,7 @@ PUT  /api/config/cache/response/config # 运行时部分更新
 
 - **GET 状态快照**：返回 `enabled` / `ttlSeconds` / `maxSize` / `size` / `skipStreaming` / `onlyDeterministic` 及启动累计 `hits` / `misses` / `hitRatio`（无数据时为 `null`）；需 `config:cache:read` 权限
 - **PUT 运行时配置**：部分更新，仅传需变更字段——`enabled` / `skipStreaming` / `onlyDeterministic` / `ttlSeconds`（范围 1~604800，非法返回 400 `INVALID_REQUEST`）；`maxSize` 保持只读（Caffeine 构造期固定）
-- 运行时改动**重启后还原为 yaml 配置**（不持久化）；持久化配置请修改 `jairouter.response-cache`（见「快速启用」）
+- 运行时改动**重启后还原为 yaml 配置**（不持久化）；持久化配置请修改 `trunkline.response-cache`（见「快速启用」）
 
 ## 限制与后续
 

@@ -26,7 +26,7 @@ This guide is for first-time operators of the Trunkline web console ("the new co
 - The i18n app title is **"Trunkline Admin"**;
 - The browser tab title is **"<Page> · Trunkline Console"** (set by the router `afterEach`, e.g. "Overview · Trunkline Console").
 
-> Technical identifiers still keep `jairouter.*` (package names, metric names, config prefix, container names); this does not affect the product display name "Trunkline".
+> Technical identifiers still keep `trunkline.*` (package names, metric names, config prefix, container names); this does not affect the product display name "Trunkline".
 
 ### 1.3 Default account
 

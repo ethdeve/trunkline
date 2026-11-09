@@ -133,30 +133,30 @@ java -version
 # https://github.com/Lincoln-cn/Trunkline/releases
 
 # 或使用命令行（替换 VERSION 为实际版本号）
-wget https://github.com/Lincoln-cn/Trunkline/releases/download/vVERSION/model-router-VERSION.jar
+wget https://github.com/Lincoln-cn/Trunkline/releases/download/vVERSION/trunkline-VERSION.jar
 ```
 
 ### 3. 运行应用
 
 ```bash
 # 基本运行
-java -jar model-router.jar
+java -jar trunkline.jar
 
 # 指定配置文件
-java -jar model-router.jar --spring.config.location=classpath:/application.yml
+java -jar trunkline.jar --spring.config.location=classpath:/application.yml
 
 # 指定 JVM 参数
-java -Xmx1g -Xms512m -jar model-router.jar
+java -Xmx1g -Xms512m -jar trunkline.jar
 
 # 后台运行
-nohup java -jar model-router.jar > trunkline.log 2>&1 &
+nohup java -jar trunkline.jar > trunkline.log 2>&1 &
 ```
 
 ### 4. 验证安装
 
 ```bash
 # 检查进程
-ps aux | grep model-router
+ps aux | grep trunkline
 
 # 测试 API
 curl http://localhost:8080/actuator/health
@@ -251,13 +251,13 @@ mvn clean package
 
 ```bash
 # 运行构建的 JAR 文件
-java -jar target/model-router-*.jar
+java -jar target/trunkline-*.jar
 
 # 指定配置文件运行
-java -jar target/model-router-*.jar --spring.config.location=classpath:/application.yml
+java -jar target/trunkline-*.jar --spring.config.location=classpath:/application.yml
 
 # 指定 JVM 参数
-java -Xmx1g -Xms512m -jar target/model-router-*.jar
+java -Xmx1g -Xms512m -jar target/trunkline-*.jar
 ```
 
 ## Docker 镜像构建
@@ -419,7 +419,7 @@ netstat -tulpn | grep 8080
 lsof -i :8080
 
 # 更改端口
-java -jar model-router.jar --server.port=8081
+java -jar trunkline.jar --server.port=8081
 ```
 
 #### 3. 内存不足
@@ -429,7 +429,7 @@ java -jar model-router.jar --server.port=8081
 # 解决方案：增加 JVM 内存
 
 # 设置内存参数
-java -Xmx2g -Xms1g -jar model-router.jar
+java -Xmx2g -Xms1g -jar trunkline.jar
 ```
 
 #### 4. 依赖下载失败
@@ -478,7 +478,7 @@ netstat -tulpn | grep 8080
 lsof -i :8080
 
 # 更改端口
-java -jar model-router.jar --server.port=8081
+java -jar trunkline.jar --server.port=8081
 ```
 
 #### 2. Java 版本不兼容
@@ -505,7 +505,7 @@ yum install java-17-openjdk
 **解决方案**:
 ```bash
 # 增加 JVM 内存
-java -Xmx2g -Xms1g -jar model-router.jar
+java -Xmx2g -Xms1g -jar trunkline.jar
 ```
 
 #### 4. 依赖下载失败

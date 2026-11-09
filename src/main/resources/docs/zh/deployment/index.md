@@ -175,7 +175,7 @@ docker pull sodlinken/jairouter:latest
 
 # 启动容器
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -v $(pwd)/config:/app/config:ro \
   sodlinken/jairouter:latest
@@ -188,7 +188,7 @@ curl http://localhost:8080/actuator/health
 
 ```
 # 下载配置文件
-wget https://raw.githubusercontent.com/your-org/jairouter/main/docker-compose.yml
+wget https://raw.githubusercontent.com/your-org/trunkline/main/docker-compose.yml
 
 # 启动服务
 docker-compose up -d
@@ -205,7 +205,7 @@ docker pull registry.cn-hangzhou.aliyuncs.com/sodlinken/jairouter:latest
 
 # 启动容器
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   registry.cn-hangzhou.aliyuncs.com/sodlinken/jairouter:latest
 ```
@@ -286,7 +286,7 @@ Trunkline 支持灵活的日志配置，包括：
    netstat -tulpn | grep 8080
    
    # 查看容器日志
-   docker logs jairouter
+   docker logs trunkline
    ```
 
 2. **健康检查失败**
@@ -295,13 +295,13 @@ Trunkline 支持灵活的日志配置，包括：
    curl -v http://localhost:8080/actuator/health
    
    # 检查应用状态
-   docker ps --filter "name=jairouter"
+   docker ps --filter "name=trunkline"
    ```
 
 3. **性能问题**
    ```bash
    # 查看资源使用
-   docker stats jairouter
+   docker stats trunkline
    
    # 查看应用指标
    curl http://localhost:8080/actuator/metrics
@@ -311,13 +311,13 @@ Trunkline 支持灵活的日志配置，包括：
 
 ```bash
 # 进入容器调试
-docker exec -it jairouter sh
+docker exec -it trunkline sh
 
 # 查看配置
-docker exec jairouter cat /app/config/application.yml
+docker exec trunkline cat /app/config/application.yml
 
 # 查看日志
-docker logs -f jairouter
+docker logs -f trunkline
 ```
 
 ## 最佳实践

@@ -13,11 +13,11 @@
 
 ## 告警规则分类
 
-### 1. 基础服务告警 (jairouter.basic)
+### 1. 基础服务告警 (trunkline.basic)
 
 #### JAiRouterServiceDown
 - **描述**: Trunkline服务不可用
-- **触发条件**: `up{job="jairouter"} == 0`
+- **触发条件**: `up{job="trunkline"} == 0`
 - **持续时间**: 1分钟
 - **严重级别**: Critical
 - **处理建议**:
@@ -48,7 +48,7 @@
   3. 检查数据库连接
   4. 验证依赖服务可用性
 
-### 2. 性能告警 (jairouter.performance)
+### 2. 性能告警 (trunkline.performance)
 
 #### JAiRouterHighLatency
 - **描述**: Trunkline响应时间过高
@@ -105,11 +105,11 @@
   3. 评估是否需要扩容资源
   4. 考虑临时限流措施
 
-### 3. 后端服务告警 (jairouter.backend)
+### 3. 后端服务告警 (trunkline.backend)
 
 #### JAiRouterBackendDown
 - **描述**: Trunkline后端服务不可用
-- **触发条件**: `jairouter_backend_health == 0`
+- **触发条件**: `trunkline_backend_health == 0`
 - **持续时间**: 1分钟
 - **严重级别**: Critical
 - **处理建议**:
@@ -140,11 +140,11 @@
   3. 检查认证配置
   4. 分析错误类型
 
-### 4. 基础设施告警 (jairouter.infrastructure)
+### 4. 基础设施告警 (trunkline.infrastructure)
 
 #### JAiRouterCircuitBreakerOpen
 - **描述**: Trunkline熔断器开启
-- **触发条件**: `jairouter_circuit_breaker_state == 1`
+- **触发条件**: `trunkline_circuit_breaker_state == 1`
 - **持续时间**: 30秒
 - **严重级别**: Warning
 - **处理建议**:
@@ -175,7 +175,7 @@
   3. 分析实例性能差异
   4. 考虑调整权重配置
 
-### 5. 资源告警 (jairouter.resources)
+### 5. 资源告警 (trunkline.resources)
 
 #### JAiRouterHighMemoryUsage
 - **描述**: Trunkline内存使用率高
@@ -221,7 +221,7 @@
   3. 查找线程泄漏
   4. 优化并发处理
 
-### 6. 业务指标告警 (jairouter.business)
+### 6. 业务指标告警 (trunkline.business)
 
 #### JAiRouterModelCallFailureRate
 - **描述**: Trunkline模型调用失败率高
@@ -256,7 +256,7 @@
   3. 考虑分页处理
   4. 检查是否有数据泄漏
 
-### 7. 安全告警 (jairouter.security)
+### 7. 安全告警 (trunkline.security)
 
 #### JAiRouterSuspiciousIPActivity
 - **描述**: Trunkline检测到可疑IP活动
@@ -291,7 +291,7 @@
   3. 验证参数校验逻辑
   4. 提供更好的错误信息
 
-### 8. 容量规划告警 (jairouter.capacity)
+### 8. 容量规划告警 (trunkline.capacity)
 
 #### JAiRouterRequestVolumeGrowth
 - **描述**: Trunkline请求量显著增长
@@ -326,7 +326,7 @@
   3. 优化性能瓶颈
   4. 考虑扩容
 
-### 9. 依赖服务告警 (jairouter.dependencies)
+### 9. 依赖服务告警 (trunkline.dependencies)
 
 #### JAiRouterDatabaseConnectionIssue
 - **描述**: Trunkline数据库连接池使用率高
@@ -434,7 +434,7 @@
 
 - [Prometheus告警规则文档](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/)
 - [AlertManager配置文档](https://prometheus.io/docs/alerting/latest/configuration/)
-- [Grafana仪表板](http://localhost:3000/d/jairouter-overview)
+- [Grafana仪表板](http://localhost:3000/d/trunkline-overview)
 - [Prometheus Web界面](http://localhost:9090/alerts)
 
 ## 联系方式

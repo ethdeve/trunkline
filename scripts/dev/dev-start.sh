@@ -32,7 +32,7 @@ echo -e "${GREEN}✓${NC} Node.js 已安装"
 # 停止现有进程
 echo ""
 echo "停止现有进程..."
-pkill -f "model-router-1.2.5.jar" 2>/dev/null || true
+pkill -f "trunkline-1.2.5.jar" 2>/dev/null || true
 pkill -f "vite" 2>/dev/null || true
 sleep 2
 
@@ -42,7 +42,7 @@ echo "========================================"
 echo "  启动后端服务（端口 8080）"
 echo "========================================"
 cd /home/ubuntu/trunkline/modelrouter
-nohup java -jar target/model-router-1.2.5.jar \
+nohup java -jar target/trunkline-1.2.5.jar \
   --server.port=8080 \
   --spring.profiles.active=dev \
   --store.type=h2 \
@@ -100,6 +100,6 @@ echo "  后端：/tmp/backend.log"
 echo "  前端：/tmp/frontend.log"
 echo ""
 echo "停止服务:"
-echo "  pkill -f 'model-router-1.2.5.jar'"
+echo "  pkill -f 'trunkline-1.2.5.jar'"
 echo "  pkill -f 'vite'"
 echo ""

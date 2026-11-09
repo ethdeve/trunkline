@@ -52,7 +52,7 @@ Uses two build stages to separate build and runtime environments:
 ```dockerfile
 # Stage 1: Build stage
 FROM eclipse-temurin:17-jre-alpine AS extract-layer
-COPY target/model-router-*.jar app.jar
+COPY target/trunkline-*.jar app.jar
 RUN java -Djarmode=layertools -jar app.jar extract --destination extracted
 
 # Stage 2: Runtime stage
@@ -166,7 +166,7 @@ docker build -f Dockerfile.optimized \
 
 ```bash
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e JAIROUTER_SECURITY_ENABLED=true \
@@ -179,7 +179,7 @@ docker run -d \
 
 ```bash
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e JAIROUTER_SECURITY_ENABLED=true \
@@ -239,10 +239,10 @@ sodlinken/jairouter   latest            440MB
 Optimized image runs as non-root user:
 
 ```dockerfile
-RUN addgroup -g 10010 -S jairouter && \
-    adduser -u 10010 -S jairouter -G jairouter
+RUN addgroup -g 10010 -S trunkline && \
+    adduser -u 10010 -S trunkline -G trunkline
 
-USER jairouter
+USER trunkline
 ```
 
 ### Minimal Privileges
@@ -273,9 +273,9 @@ Recommended to use optimized image in production:
 ```yaml
 # docker-compose.yml
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:latest-optimized
-    container_name: jairouter
+    container_name: trunkline
 ```
 
 ### 2. Image Tag Management
@@ -312,7 +312,7 @@ dive sodlinken/jairouter:latest-optimized
 
 ```bash
 # Check if JAR file exists
-ls -la target/model-router-*.jar
+ls -la target/trunkline-*.jar
 
 # Clean build cache
 docker builder prune -a
@@ -325,13 +325,13 @@ docker build --no-cache -f Dockerfile.optimized -t sodlinken/jairouter:latest-op
 
 ```bash
 # Check container logs
-docker logs jairouter
+docker logs trunkline
 
 # Enter container for debugging
-docker exec -it jairouter sh
+docker exec -it trunkline sh
 
 # Check JVM parameters
-docker exec jairouter java -XX:+PrintFlagsFinal -version
+docker exec trunkline java -XX:+PrintFlagsFinal -version
 ```
 
 ### Slow Image Pull

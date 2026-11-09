@@ -60,7 +60,7 @@ spring:
 Configure in `error-tracking.yml`:
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     error-tracking:
       enabled: true
@@ -71,7 +71,7 @@ jairouter:
 ### 2. Configure Stack Trace Sanitization
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     error-tracking:
       sanitization:
@@ -89,7 +89,7 @@ jairouter:
 ### 3. Enable Metric Monitoring
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     error-tracking:
       metrics:
@@ -124,7 +124,7 @@ jairouter:
 | Configuration Item | Type | Default Value | Description |
 |--------------------|------|---------------|-------------|
 | `metrics.enabled` | boolean | true | Whether to enable error metrics |
-| `metrics.counter-prefix` | String | "jairouter.errors" | Error counter prefix |
+| `metrics.counter-prefix` | String | "trunkline.errors" | Error counter prefix |
 | `metrics.group-by-error-type` | boolean | true | Whether to group by error type |
 | `metrics.group-by-operation` | boolean | true | Whether to group by operation |
 | `metrics.record-duration` | boolean | true | Whether to record error duration |
@@ -146,16 +146,16 @@ The error tracking system exports the following Prometheus metrics:
 
 ```prometheus
 # Total error counter
-jairouter_errors_total{error_type="NullPointerException", operation="chat_request"}
+trunkline_errors_total{error_type="NullPointerException", operation="chat_request"}
 
 # Error duration distribution
-jairouter_errors_duration_seconds{error_type="TimeoutException", operation="embedding_request"}
+trunkline_errors_duration_seconds{error_type="TimeoutException", operation="embedding_request"}
 
 # Active error aggregations
-jairouter_errors_active_aggregations{error_type="IllegalArgumentException"}
+trunkline_errors_active_aggregations{error_type="IllegalArgumentException"}
 
 # Error aggregation count
-jairouter_errors_aggregation_count
+trunkline_errors_aggregation_count
 ```
 
 ### Alert Rule Example
@@ -164,10 +164,10 @@ Configure alert rules in Prometheus:
 
 ```yaml
 groups:
-  - name: jairouter.error-tracking
+  - name: trunkline.error-tracking
     rules:
       - alert: JAiRouterErrorRateTooHigh
-        expr: rate(jairouter_errors_total[5m]) > 10
+        expr: rate(trunkline_errors_total[5m]) > 10
         for: 1m
         labels:
           severity: critical
@@ -176,7 +176,7 @@ groups:
           description: "Error rate exceeds 10 per minute in 5 minutes"
       
       - alert: JAiRouterNewErrorTypeDetected
-        expr: increase(jairouter_errors_total[10m]) > 0 and changes(jairouter_errors_total[10m]) > 0
+        expr: increase(trunkline_errors_total[10m]) > 0 and changes(trunkline_errors_total[10m]) > 0
         for: 0m
         labels:
           severity: warning
@@ -242,7 +242,7 @@ Different environments can override error tracking configuration through corresp
 ### Development Environment (application-dev.yml)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     error-tracking:
       enabled: true
@@ -257,7 +257,7 @@ jairouter:
 ### Production Environment (application-prod.yml)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     error-tracking:
       enabled: true

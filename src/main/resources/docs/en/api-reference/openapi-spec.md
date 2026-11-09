@@ -162,14 +162,14 @@ public class OpenApiConfig {
                         .description("AI Model Service Routing and Load Balancing Gateway API Documentation")
                         .contact(new Contact()
                                 .name("JAiRouter Team")
-                                .email("support@jairouter.com")
+                                .email("support@trunkline.com")
                                 .url("https://github.com/Lincoln-cn/JAiRouter"))
                         .license(new License()
                                 .name("Apache 2.0")
                                 .url("https://www.apache.org/licenses/LICENSE-2.0")))
                 .servers(Arrays.asList(
                         new Server().url("http://localhost:8080").description("Development Environment"),
-                        new Server().url("https://api.jairouter.com").description("Production Environment")
+                        new Server().url("https://api.trunkline.com").description("Production Environment")
                 ))
                 .components(new Components()
                         .addSecuritySchemes("bearerAuth",
@@ -234,10 +234,10 @@ You can export OpenAPI specification files in the following ways:
 
 ```bash
 # Export JSON format
-curl http://localhost:8080/v3/api-docs > jairouter-openapi.json
+curl http://localhost:8080/v3/api-docs > trunkline-openapi.json
 
 # Export YAML format
-curl http://localhost:8080/v3/api-docs.yaml > jairouter-openapi.yaml
+curl http://localhost:8080/v3/api-docs.yaml > trunkline-openapi.yaml
 ```
 
 ### 2. Integration with Documentation Sites
@@ -276,7 +276,7 @@ openapi-generator-cli generate \
   -i http://localhost:8080/v3/api-docs \
   -g python \
   -o ./clients/python \
-  --package-name jairouter_client
+  --package-name trunkline_client
 
 # Generate JavaScript client
 openapi-generator-cli generate \
@@ -289,7 +289,7 @@ openapi-generator-cli generate \
   -i http://localhost:8080/v3/api-docs \
   -g java \
   -o ./clients/java \
-  --package-name com.jairouter.client
+  --package-name com.trunkline.client
 ```
 
 ## Best Practices

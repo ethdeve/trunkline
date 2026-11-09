@@ -339,17 +339,17 @@ LABEL description="JAiRouter - AI Model Service Routing and Load Balancing Gatew
 LABEL version="3.1.1"
 
 # 创建应用用户
-RUN addgroup -g 10010 jairouter && \
-    adduser -D -s /bin/sh -u 10010 -G jairouter jairouter
+RUN addgroup -g 10010 trunkline && \
+    adduser -D -s /bin/sh -u 10010 -G trunkline trunkline
 
 WORKDIR /app
 
 # 创建必要的目录
 RUN mkdir -p /app/logs /app/config /app/config-store && \
-    chown -R jairouter:jairouter /app
+    chown -R trunkline:trunkline /app
 
 # 复制JAR文件
-COPY --from=builder /app/target/model-router-*.jar app.jar
+COPY --from=builder /app/target/trunkline-*.jar app.jar
 
 # 设置环境变量
 ENV JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
@@ -358,7 +358,7 @@ ENV SERVER_PORT=8080
 
 EXPOSE 8080
 
-USER jairouter
+USER trunkline
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
@@ -456,9 +456,9 @@ options timeout:2 attempts:3 rotate single-request-reopen
 version: '3.8'
 
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:china
-    container_name: jairouter-china
+    container_name: trunkline-china
     dns:
       - 223.5.5.5      # 阿里云 DNS
       - 119.29.29.29   # 腾讯 DNS
@@ -484,7 +484,7 @@ networks:
   china-network:
     driver: bridge
     driver_opts:
-      com.docker.network.bridge.name: jairouter-china
+      com.docker.network.bridge.name: trunkline-china
 ```
 
 ## AI 服务提供商优化
@@ -583,7 +583,7 @@ proxy:
 version: '3.8'
 
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:china
     # ... 其他配置
     
@@ -782,7 +782,7 @@ verify_deployment() {
         echo "  API 文档: http://localhost:8080/swagger-ui/index.html"
     else
         echo "✗ 应用健康检查失败"
-        echo "请检查日志: docker logs jairouter-china"
+        echo "请检查日志: docker logs trunkline-china"
         exit 1
     fi
 }
@@ -913,7 +913,7 @@ function Test-Deployment {
         }
     } catch {
         Write-Error "应用健康检查失败"
-        Write-Host "请检查日志: docker logs jairouter-china" -ForegroundColor Red
+        Write-Host "请检查日志: docker logs trunkline-china" -ForegroundColor Red
         exit 1
     }
 }
@@ -1032,16 +1032,16 @@ rm -rf ~/.m2/repository
 
 ```bash
 # 检查容器状态
-docker ps --filter "name=jairouter"
+docker ps --filter "name=trunkline"
 
 # 检查容器日志
-docker logs jairouter-china --tail 100
+docker logs trunkline-china --tail 100
 
 # 检查网络连接
-docker exec jairouter-china netstat -tulpn
+docker exec trunkline-china netstat -tulpn
 
 # 检查 DNS 解析
-docker exec jairouter-china nslookup baidu.com
+docker exec trunkline-china nslookup baidu.com
 ```
 
 ## 最佳实践
@@ -1108,7 +1108,7 @@ export ALIYUN_CDN_ACCESS_KEY_SECRET="your-aliyun-cdn-access-key-secret"
 ```bash
 # 生产环境 Docker 部署（国内优化版本）
 docker run -d \
-  --name jairouter-china \
+  --name trunkline-china \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=china \
   -e PROD_ADMIN_API_KEY="your-production-admin-api-key-here" \
@@ -1155,7 +1155,7 @@ security:
     provider: aliyun
     access-key-id: ${ALIYUN_CDN_ACCESS_KEY_ID}
     access-key-secret: ${ALIYUN_CDN_ACCESS_KEY_SECRET}
-    domain: jairouter.example.com
+    domain: trunkline.example.com
 ```
 
 ### 2. 国内证书和密钥管理
@@ -1164,14 +1164,14 @@ security:
 # 使用国内 CA 机构证书
 # 配置阿里云 SSL 证书服务
 aliyun cas CreateCertificateWithCsr \
-  --DomainName jairouter.example.com \
+  --DomainName trunkline.example.com \
   --KeySpec RSA_2048 \
   --Years 1
 
 # 或使用腾讯云 SSL 证书服务
 tc ssl ApplyCertificate \
-  --Domain jairouter.example.com \
-  --Alias jairouter-cert
+  --Domain trunkline.example.com \
+  --Alias trunkline-cert
 ```
 
 ### 3. 国内安全合规配置
@@ -1246,7 +1246,7 @@ logging:
   aliyun-sls:
     enabled: true
     endpoint: cn-hangzhou.log.aliyuncs.com
-    project: jairouter-logs
+    project: trunkline-logs
     logstore: application-logs
     access-key-id: ${ALIYUN_SLS_ACCESS_KEY_ID}
     access-key-secret: ${ALIYUN_SLS_ACCESS_KEY_SECRET}
@@ -1255,7 +1255,7 @@ logging:
   tencent-cls:
     enabled: false
     endpoint: ap-guangzhou.cls.tencentcs.com
-    topic-id: jairouter-logs
+    topic-id: trunkline-logs
     secret-id: ${TENCENT_CLS_SECRET_ID}
     secret-key: ${TENCENT_CLS_SECRET_KEY}
 ```
@@ -1269,9 +1269,9 @@ logging:
 version: '3.8'
 
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:china
-    container_name: jairouter-china
+    container_name: trunkline-china
     dns:
       - 223.5.5.5
       - 119.29.29.29
@@ -1343,7 +1343,7 @@ logging:
     cloud:
       aliyun-oss:
         enabled: true
-        bucket: jairouter-logs
+        bucket: trunkline-logs
         endpoint: oss-cn-hangzhou.aliyuncs.com
         access-key-id: ${ALIYUN_OSS_ACCESS_KEY_ID}
         access-key-secret: ${ALIYUN_OSS_ACCESS_KEY_SECRET}
@@ -1351,7 +1351,7 @@ logging:
       
       tencent-cos:
         enabled: false
-        bucket: jairouter-logs
+        bucket: trunkline-logs
         region: ap-guangzhou
         secret-id: ${TENCENT_COS_SECRET_ID}
         secret-key: ${TENCENT_COS_SECRET_KEY}
@@ -1383,8 +1383,8 @@ logging:
 # 国内日志监控告警配置
 global:
   smtp_smarthost: 'smtp.mxhichina.com:465'
-  smtp_from: 'alerts@jairouter.com'
-  smtp_auth_username: 'alerts@jairouter.com'
+  smtp_from: 'alerts@trunkline.com'
+  smtp_auth_username: 'alerts@trunkline.com'
   smtp_auth_password: '${EMAIL_PASSWORD}'
 
 route:
@@ -1397,7 +1397,7 @@ route:
 receivers:
   - name: 'china-logging-alerts'
     email_configs:
-      - to: 'ops-team@jairouter.com'
+      - to: 'ops-team@trunkline.com'
         subject: '[JAiRouter] {{ .GroupLabels.alertname }}'
         html: |
           <p><strong>告警名称:</strong> {{ .GroupLabels.alertname }}</p>
@@ -1436,11 +1436,11 @@ rule_files:
 ```yaml
 # 国内日志监控规则
 groups:
-  - name: jairouter.china.logging.rules
+  - name: trunkline.china.logging.rules
     rules:
       # 安全日志告警
       - alert: JAiRouterSecurityLogsChina
-        expr: rate(jairouter_security_logs_total[5m]) > 5
+        expr: rate(trunkline_security_logs_total[5m]) > 5
         for: 1m
         labels:
           severity: critical
@@ -1451,7 +1451,7 @@ groups:
       
       # 错误日志告警
       - alert: JAiRouterErrorLogsChina
-        expr: rate(jairouter_error_logs_total[5m]) > 20
+        expr: rate(trunkline_error_logs_total[5m]) > 20
         for: 2m
         labels:
           severity: warning
@@ -1462,7 +1462,7 @@ groups:
       
       # 访问日志告警
       - alert: JAiRouterAccessLogsChina
-        expr: rate(jairouter_access_logs_total[5m]) > 1000
+        expr: rate(trunkline_access_logs_total[5m]) > 1000
         for: 1m
         labels:
           severity: info

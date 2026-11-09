@@ -178,7 +178,13 @@ public class SecurityReportGenerator {
                                   final List<AuditEventType> eventTypes, final String clientIp,
                                   final Boolean success) {
         return Mono.fromCallable(() -> auditRepository.countByConditions(
-                        startTime, endTime, eventTypes, null, null, clientIp, success, null, null))
+                        startTime, endTime,
+                        // eventTypes 集合参数在 PG 上无法参与 `:x IS NULL` 判型（42P18），
+                        // 查询侧已去掉 IS NULL 子句：null/空 = 不过滤，这里兜底传全枚举值。
+                        (eventTypes == null || eventTypes.isEmpty())
+                                ? Arrays.asList(AuditEventType.values())
+                                : eventTypes,
+                        null, null, clientIp, success, null, null))
                 .subscribeOn(Schedulers.boundedElastic());
     }
 

@@ -106,14 +106,14 @@ Click **「New Rule」** and fill in the form:
 
 - **Enable/Disable**: the table switch takes effect immediately
 - **Priority drag-and-drop**: drag the row handle to reorder by row position (top = highest priority) and commit in batch; YAML rules show a **YAML** badge and cannot be dragged (their priority is unaffected)
-- **Hit statistics**: the "hits" column shows accumulated match counts per rule (Prometheus metric `jairouter_rule_hits_total`); the refresh button reloads list and stats
+- **Hit statistics**: the "hits" column shows accumulated match counts per rule (Prometheus metric `trunkline_rule_hits_total`); the refresh button reloads list and stats
 - **Edit/Delete**: via the action column
 
 > Rule changes take effect **immediately** — no restart required.
 
 ## YAML Configuration
 
-Edit `src/main/resources/config/router/rules.yml`:
+> The former `src/main/resources/config/router/rules.yml` was removed on 2026-11-09; to configure rules via YAML, use `application-{profile}.yml` or an external mount (e.g. `/app/config/application.yml`):
 
 ```yaml
 model:
@@ -267,7 +267,7 @@ A resource pool bundles a named set of instances of one service type. When a req
 
 ### Configuration
 
-1. **YAML** (config/router/pools.yml):
+1. **YAML** (`model.pools` prefix; the former config/router/pools.yml was removed — use application-{profile}.yml or an external mount):
 
 ``yaml
 model:
@@ -353,13 +353,13 @@ On match, instances are selected by `tags` (an instance must contain every key-v
 Without a rule, select instances directly via the request header:
 
 ```
-X-JAiRouter-Tags: gpu_type=a100,region=cn-north
+X-Trunkline-Tags: gpu_type=a100,region=cn-north
 ```
 
 ```bash
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "X-JAiRouter-Tags: gpu_type=a100,region=cn-north" \
+  -H "X-Trunkline-Tags: gpu_type=a100,region=cn-north" \
   -d '{"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]}'
 ```
 
@@ -369,7 +369,7 @@ curl http://localhost:8080/v1/chat/completions \
 
 ### Priority and Empty-Candidate Semantics
 
-- **TARGET_TAGS takes priority over the request header**: when a `TARGET_TAGS` rule matches, its tags win and the header is ignored; `X-JAiRouter-Tags` is only parsed when no rule provides tags
+- **TARGET_TAGS takes priority over the request header**: when a `TARGET_TAGS` rule matches, its tags win and the header is ignored; `X-Trunkline-Tags` is only parsed when no rule provides tags
 - **TARGET_INSTANCE lock > tag filter**: instance locking narrows candidates by instanceId/name first; the tag filter narrows further on top (the lock action itself imposes no tag requirement)
 - **Empty candidates → 404**: `404 Not Found` when no instance matches the tags after filtering (same as TARGET_INSTANCE with no target instance)
 - With no tag selection configured, behavior is identical to not enabling the feature

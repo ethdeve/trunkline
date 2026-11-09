@@ -47,10 +47,10 @@ config/
 │   └── tracing-base.yml
 ├── persistence/         # 持久化服务
 │   └── state-persistence-base.yml
-├── base/                # 基础配置（遗留）
-│   ├── server-base.yml
-│   ├── model-services-base.yml
-│   └── monitoring-base.yml
+├── base/                # 基础配置
+│   └── monitoring-base.yml   # 监控指标与管理端点
+│                            # （server-base / model-services-base 已删：全部键与
+│                            #   common/*、router/*、config-service/core.yml 同值重复）
 └── security/            # 安全配置（遗留）
     ├── security-base.yml
     ├── persistence-base.yml
@@ -89,15 +89,11 @@ spring:
       # config-service 模块
       - classpath:config/config-service/core.yml
 
-      # router 模块
-      - classpath:config/router/adapter.yml
-      - classpath:config/router/loadbalancer.yml
+      # router 模块（2026-11-09 精简：adapter/loadbalancer/circuitbreaker/pools/rules
+      # 的默认值内置于 Java 代码，仅保留有独占生效值的 3 个文件）
       - classpath:config/router/ratelimit.yml
-      - classpath:config/router/circuitbreaker.yml
       - classpath:config/router/fallback.yml
       - classpath:config/router/services.yml
-      - classpath:config/router/rules.yml
-      - classpath:config/router/pools.yml
 
       # auth 模块
       - classpath:config/auth/jwt.yml
@@ -113,9 +109,7 @@ spring:
       - classpath:config/tracing/tracing-base.yml
       - classpath:config/persistence/state-persistence-base.yml
 
-      # 向后兼容配置
-      - classpath:config/base/server-base.yml
-      - classpath:config/base/model-services-base.yml
+      # security 基础配置（原「向后兼容」组）
       - classpath:config/security/security-base.yml
       - classpath:config/security/persistence-base.yml
       - classpath:config/security/audit-base.yml
@@ -188,20 +182,24 @@ logging:
 
 ### Router 模块
 
-#### 适配器配置（`config/router/adapter.yml`）
+#### 适配器配置
+
+> 2026-11-09 起 `config/router/adapter.yml` 已删除，默认值内置于代码（`ModelRouterProperties`）；覆盖方式：`application-{profile}.yml` / 环境变量 / 外部挂载。
 
 ```yaml
 model:
-  adapter: "gpustack"                     # 默认适配器（实际默认值）
+  adapter: "normal"                       # 代码默认值
   # 支持: normal, gpustack, ollama, vllm, xinference, localai, claude, gemini
 ```
 
-#### 负载均衡配置（`config/router/loadbalancer.yml`）
+#### 负载均衡配置
+
+> `config/router/loadbalancer.yml` 已删除，默认值内置于代码（`ModelRouterProperties` / `RoutingMonitorConfig`）。
 
 ```yaml
 model:
   load-balance:
-    type: "random"                        # random / round-robin / least-connections / ip-hash / consistent-hash / latency
+    type: "random"                        # 代码默认值：random / round-robin / least-connections / ip-hash / consistent-hash / latency
 ```
 
 #### 限流配置（`config/router/ratelimit.yml`）
@@ -213,15 +211,17 @@ model:
     algorithm: "token-bucket"             # token-bucket / leaky-bucket / sliding-window / warm-up
 ```
 
-#### 熔断器配置（`config/router/circuitbreaker.yml`）
+#### 熔断器配置
+
+> `config/router/circuitbreaker.yml` 已删除，默认值内置于代码（`CircuitBreakerManager`）。
 
 ```yaml
 model:
   circuit-breaker:
     enabled: true
-    failureThreshold: 5                   # 触发熔断的失败次数
-    successThreshold: 2                   # 恢复所需成功次数
-    timeout: 60000                        # OPEN 状态持续时间（毫秒）
+    failureThreshold: 5                   # 触发熔断的失败次数（代码默认值）
+    successThreshold: 2                   # 恢复所需成功次数（代码默认值）
+    timeout: 60000                        # OPEN 状态持续时间（毫秒，代码默认值）
 ```
 
 ---

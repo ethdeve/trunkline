@@ -26,7 +26,7 @@
 - 语言包应用标题为「**Trunkline 管理后台**」（英文：**Trunkline Admin**）；
 - 浏览器标签页标题格式为「**<当前页名> · Trunkline 控制台**」（由路由 `afterEach` 设置，如「总览 · Trunkline 控制台」）。
 
-> 技术标识仍保留 `jairouter.*`（包名、指标名、配置前缀、容器名等），不影响产品展示名为 Trunkline。
+> 技术标识仍保留 `trunkline.*`（包名、指标名、配置前缀、容器名等），不影响产品展示名为 Trunkline。
 
 ### 1.3 默认账号
 

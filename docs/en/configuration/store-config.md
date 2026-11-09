@@ -338,8 +338,8 @@ store:
 It is recommended to manually migrate in production environments:
 
 ```bash
-# 1. Validate migration in staging environment
-java -jar app.jar --spring.profiles.active=staging \
+# 1. Validate migration in production environment
+java -jar app.jar --spring.profiles.active=prod \
   --store.migration.enabled=true \
   --store.security-migration.enabled=true
 

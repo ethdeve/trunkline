@@ -339,17 +339,17 @@ LABEL description="JAiRouter - AI Model Service Routing and Load Balancing Gatew
 LABEL version="1.0-SNAPSHOT"
 
 # Create application user
-RUN addgroup -g 1001 jairouter && \
-    adduser -D -s /bin/sh -u 1001 -G jairouter jairouter
+RUN addgroup -g 1001 trunkline && \
+    adduser -D -s /bin/sh -u 1001 -G trunkline trunkline
 
 WORKDIR /app
 
 # Create necessary directories
 RUN mkdir -p /app/logs /app/config /app/config-store && \
-    chown -R jairouter:jairouter /app
+    chown -R trunkline:trunkline /app
 
 # Copy JAR file
-COPY --from=builder /app/target/model-router-*.jar app.jar
+COPY --from=builder /app/target/trunkline-*.jar app.jar
 
 # Set environment variables
 ENV JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
@@ -358,7 +358,7 @@ ENV SERVER_PORT=8080
 
 EXPOSE 8080
 
-USER jairouter
+USER trunkline
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
@@ -456,9 +456,9 @@ Configure in `docker-compose.china.yml`:
 version: '3.8'
 
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:china
-    container_name: jairouter-china
+    container_name: trunkline-china
     dns:
       - 223.5.5.5      # Alibaba Cloud DNS
       - 119.29.29.29   # Tencent DNS
@@ -484,7 +484,7 @@ networks:
   china-network:
     driver: bridge
     driver_opts:
-      com.docker.network.bridge.name: jairouter-china
+      com.docker.network.bridge.name: trunkline-china
 ```
 
 ## AI Service Provider Optimization
@@ -583,7 +583,7 @@ Configure to use domestic monitoring services:
 version: '3.8'
 
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:china
     # ... other configurations
     
@@ -782,7 +782,7 @@ verify_deployment() {
         echo "  API Documentation: http://localhost:8080/swagger-ui/index.html"
     else
         echo "✗ Application health check failed"
-        echo "Please check logs: docker logs jairouter-china"
+        echo "Please check logs: docker logs trunkline-china"
         exit 1
     fi
 }
@@ -913,7 +913,7 @@ function Test-Deployment {
         }
     } catch {
         Write-Error "Application health check failed"
-        Write-Host "Please check logs: docker logs jairouter-china" -ForegroundColor Red
+        Write-Host "Please check logs: docker logs trunkline-china" -ForegroundColor Red
         exit 1
     }
 }
@@ -970,7 +970,7 @@ aliyun configure
 
 # 3. Apply for certificate
 aliyun cas RequestCertificate \
-  --DomainName "jairouter.example.com" \
+  --DomainName "trunkline.example.com" \
   --SubjectAlternativeNames "www.example.com" \
   --ProductCode "cas" \
   --CertificateType "DV" \
@@ -1038,7 +1038,7 @@ security:
     secret: your-domestic-jwt-secret
     algorithm: HS256
     expiration-minutes: 30  # Shorter expiration for domestic compliance
-    issuer: jairouter-china
+    issuer: trunkline-china
 ```
 
 ## Log Configuration
@@ -1059,7 +1059,7 @@ logging:
   aliyun-sls:
     enabled: true
     endpoint: cn-hangzhou.log.aliyuncs.com
-    project: jairouter-logs
+    project: trunkline-logs
     logstore: application-logs
     access-key-id: your-access-key-id
     access-key-secret: your-access-key-secret
@@ -1080,7 +1080,7 @@ logging:
 <configuration>
     <!-- Alibaba Cloud SLS Appender -->
     <appender name="ALIYUN_SLS" class="com.aliyun.openservices.log.logback.LoghubAppender">
-        <project>jairouter-logs</project>
+        <project>trunkline-logs</project>
         <logStore>application-logs</logStore>
         <endpoint>cn-hangzhou.log.aliyuncs.com</endpoint>
         <accessKeyId>your-access-key-id</accessKeyId>
@@ -1105,7 +1105,7 @@ Configure log storage and analysis for domestic requirements:
 logging:
   # Local log storage (required for compliance)
   file:
-    name: /app/logs/jairouter.log
+    name: /app/logs/trunkline.log
     max-size: 100MB
     max-history: 30
     total-size-cap: 10GB
@@ -1121,7 +1121,7 @@ logging:
       message: "message"
       thread: "thread"
       traceId: "traceId"
-      service: "jairouter"
+      service: "trunkline"
       region: "china"
       
   # Security audit logging
@@ -1170,7 +1170,7 @@ monitoring:
   # Alibaba Cloud ARMS configuration
   aliyun-arms:
     enabled: true
-    app-name: jairouter-china
+    app-name: trunkline-china
     license-key: your-license-key
     region: cn-hangzhou
     
@@ -1200,9 +1200,9 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  - job_name: 'jairouter-china'
+  - job_name: 'trunkline-china'
     static_configs:
-      - targets: ['jairouter-cn:8080']
+      - targets: ['trunkline-cn:8080']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 10s
     
@@ -1250,7 +1250,7 @@ Optimize storage for domestic environments:
 storage:
   # Use domestic storage services
   provider: aliyun-oss
-  bucket: jairouter-china
+  bucket: trunkline-china
   region: oss-cn-hangzhou
   access-key-id: your-access-key-id
   access-key-secret: your-access-key-secret
@@ -1302,7 +1302,7 @@ Conduct regular security assessments:
 echo "Running security assessment for China deployment..."
 
 # Check for domestic certificate
-openssl x509 -in /etc/ssl/certs/jairouter.crt -text | grep "Subject:.*CN"
+openssl x509 -in /etc/ssl/certs/trunkline.crt -text | grep "Subject:.*CN"
 
 # Check data localization
 df -h | grep "/app/data" | grep "cn-"
@@ -1416,16 +1416,16 @@ rm -rf ~/.m2/repository
 
 ```bash
 # Check container status
-docker ps --filter "name=jairouter"
+docker ps --filter "name=trunkline"
 
 # Check container logs
-docker logs jairouter-china --tail 100
+docker logs trunkline-china --tail 100
 
 # Check network connections
-docker exec jairouter-china netstat -tulpn
+docker exec trunkline-china netstat -tulpn
 
 # Check DNS resolution
-docker exec jairouter-china nslookup baidu.com
+docker exec trunkline-china nslookup baidu.com
 ```
 
 ## Best Practices

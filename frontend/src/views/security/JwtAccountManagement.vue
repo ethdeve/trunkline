@@ -46,6 +46,12 @@
     <!-- 账户列表 -->
     <el-table ref="accountsTableRef" :data="filteredAccounts" :max-height="accountsMaxHeight" style="width: 100%" v-loading="loading" stripe border>
       <el-table-column prop="username" :label="t('accounts.username')" min-width="120" show-overflow-tooltip />
+      <el-table-column prop="name" :label="t('accounts.name')" min-width="120" show-overflow-tooltip>
+        <template #default="scope">
+          <span v-if="scope.row.name">{{ scope.row.name }}</span>
+          <span v-else class="cell-muted">{{ t('accounts.nameUnassigned') }}</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="department" :label="t('accounts.department')" min-width="110" show-overflow-tooltip>
         <template #default="scope">
           <span v-if="scope.row.department">{{ scope.row.department }}</span>
@@ -139,6 +145,15 @@
             :placeholder="t('accounts.usernamePlaceholder')"
           />
           <div class="form-hint">{{ t('accounts.usernameHint') }}</div>
+        </el-form-item>
+        <el-form-item :label="t('accounts.name')" prop="name">
+          <el-input
+            v-model="accountForm.name"
+            :placeholder="t('accounts.namePlaceholder')"
+            maxlength="64"
+            show-word-limit
+          />
+          <div class="form-hint">{{ t('accounts.nameHint') }}</div>
         </el-form-item>
         <el-form-item :label="t('accounts.password')" prop="password">
           <el-input
@@ -267,6 +282,7 @@ const accountForm = reactive({
   password: '',
   confirmPassword: '',
   department: '',
+  name: '',
   role: '' as RoleName | '',
   enabled: true
 })
@@ -294,8 +310,10 @@ const loadDepartments = async () => {
 // 过滤后的账户列表
 const filteredAccounts = computed(() => {
   if (!searchKeyword.value) return accounts.value
+  const kw = searchKeyword.value.toLowerCase()
   return accounts.value.filter(a =>
-    a.username.toLowerCase().includes(searchKeyword.value.toLowerCase())
+    a.username.toLowerCase().includes(kw) ||
+    (a.name && a.name.toLowerCase().includes(kw))
   )
 })
 
@@ -380,6 +398,7 @@ const submitAccount = async () => {
           const updateData: Partial<JwtAccount> = {
             roles: accountForm.role ? [accountForm.role] : [],
             department: accountForm.department,
+            name: accountForm.name,
             enabled: accountForm.enabled
           }
           // 只有填写了密码才更新
@@ -396,6 +415,7 @@ const submitAccount = async () => {
             password: accountForm.password,
             roles: accountForm.role ? [accountForm.role] : [],
             department: accountForm.department,
+            name: accountForm.name,
             enabled: accountForm.enabled
           }
           await createJwtAccount(createRequest)
@@ -422,6 +442,7 @@ const editAccount = (account: JwtAccount) => {
   accountForm.confirmPassword = ''
   accountForm.role = pickPrimaryRole(account.roles)
   accountForm.department = account.department || ''
+  accountForm.name = account.name || ''
   accountForm.enabled = account.enabled
   showCreateDialog.value = true
 }
@@ -476,6 +497,7 @@ const resetForm = () => {
   accountForm.password = ''
   accountForm.confirmPassword = ''
   accountForm.department = ''
+  accountForm.name = ''
   accountForm.role = ''
   accountForm.enabled = true
   editingAccount.value = null

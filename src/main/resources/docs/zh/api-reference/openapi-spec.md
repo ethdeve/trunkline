@@ -162,14 +162,14 @@ public class OpenApiConfig {
                         .description("AI 模型服务路由和负载均衡网关 API 文档")
                         .contact(new Contact()
                                 .name("JAiRouter Team")
-                                .email("support@jairouter.com")
+                                .email("support@trunkline.com")
                                 .url("https://github.com/Lincoln-cn/JAiRouter"))
                         .license(new License()
                                 .name("Apache 2.0")
                                 .url("https://www.apache.org/licenses/LICENSE-2.0")))
                 .servers(Arrays.asList(
                         new Server().url("http://localhost:8080").description("开发环境"),
-                        new Server().url("https://api.jairouter.com").description("生产环境")
+                        new Server().url("https://api.trunkline.com").description("生产环境")
                 ))
                 .components(new Components()
                         .addSecuritySchemes("bearerAuth",
@@ -234,10 +234,10 @@ public Mono<ResponseEntity<?>> chatCompletions(
 
 ```bash
 # 导出 JSON 格式
-curl http://localhost:8080/v3/api-docs > jairouter-openapi.json
+curl http://localhost:8080/v3/api-docs > trunkline-openapi.json
 
 # 导出 YAML 格式
-curl http://localhost:8080/v3/api-docs.yaml > jairouter-openapi.yaml
+curl http://localhost:8080/v3/api-docs.yaml > trunkline-openapi.yaml
 ```
 
 ### 2. 集成到文档站点
@@ -276,7 +276,7 @@ openapi-generator-cli generate \
   -i http://localhost:8080/v3/api-docs \
   -g python \
   -o ./clients/python \
-  --package-name jairouter_client
+  --package-name trunkline_client
 
 # 生成 JavaScript 客户端
 openapi-generator-cli generate \
@@ -289,7 +289,7 @@ openapi-generator-cli generate \
   -i http://localhost:8080/v3/api-docs \
   -g java \
   -o ./clients/java \
-  --package-name com.jairouter.client
+  --package-name com.trunkline.client
 ```
 
 ## 最佳实践

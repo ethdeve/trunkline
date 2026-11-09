@@ -1,7 +1,7 @@
 {
   "accounts": {
     "title": "JWT Account Management",
-    "searchPlaceholder": "Search username...",
+    "searchPlaceholder": "Search username or name...",
     "createAccount": "Create Account",
     "editAccount": "Edit Account",
     "refresh": "Refresh",
@@ -70,6 +70,10 @@
     "department": "Department",
     "departmentPlaceholder": "Select or type a department (e.g. R&D)",
     "departmentHint": "Departments drive the by-department view in Team Usage; usage of the same department is aggregated together.",
-    "departmentUnassigned": "Unassigned"
+    "departmentUnassigned": "Unassigned",
+    "name": "Name",
+    "namePlaceholder": "Enter the user's real name",
+    "nameHint": "Display name shown for the account owner to aid identification; leave blank to show \"Unassigned\".",
+    "nameUnassigned": "Unassigned"
   }
 }

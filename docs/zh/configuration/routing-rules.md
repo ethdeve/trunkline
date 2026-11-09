@@ -113,7 +113,7 @@ Trunkline 提供**规则引擎**（v2.8.5），允许通过 Web 页面或 YAML �
 
 ## YAML 配置文件
 
-编辑文件 `src/main/resources/config/router/rules.yml`：
+> 原 `src/main/resources/config/router/rules.yml` 已于 2026-11-09 删除；如需用 YAML 配置规则，写入 `application-{profile}.yml` 或外部挂载（如 `/app/config/application.yml`）：
 
 ```yaml
 model:
@@ -267,7 +267,7 @@ curl -X POST http://localhost:8080/api/config/rules/validate \
 
 ### 配置方式
 
-1. **YAML**(config/router/pools.yml):
+1. **YAML**(`model.pools` 前缀，原 config/router/pools.yml 已删除，写入 application-{profile}.yml 或外部挂载):
 
 ```yaml
 model:

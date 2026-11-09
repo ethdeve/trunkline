@@ -79,7 +79,7 @@ java.lang.OutOfMemoryError: Java heap space
 #### 解决方案
 ```bash
 # 增加堆内存大小
-java -Xms1g -Xmx2g -jar target/model-router-*.jar
+java -Xms1g -Xmx2g -jar target/trunkline-*.jar
 
 # 或设置环境变量
 export JAVA_OPTS="-Xms1g -Xmx2g"
@@ -148,7 +148,7 @@ PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderExce
 # 1. 信任所有证书（仅开发环境）
 java -Dcom.sun.net.ssl.checkRevocation=false \
      -Dtrust_all_cert=true \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 
 # 2. 导入证书到信任库
 keytool -import -alias backend-cert -file backend.crt -keystore $JAVA_HOME/lib/security/cacerts
@@ -213,7 +213,7 @@ jcmd <pid> GC.run_finalization
 jmap -dump:format=b,file=heap.hprof <pid>
 
 # 3. 分析 GC 日志
-java -XX:+PrintGC -XX:+PrintGCDetails -Xloggc:gc.log -jar target/model-router-*.jar
+java -XX:+PrintGC -XX:+PrintGCDetails -Xloggc:gc.log -jar target/trunkline-*.jar
 ```
 
 #### 解决方案
@@ -223,7 +223,7 @@ java -XX:+PrintGC -XX:+PrintGCDetails -Xloggc:gc.log -jar target/model-router-*.
 java -Xms2g -Xmx4g \
      -XX:+UseG1GC \
      -XX:MaxGCPauseMillis=200 \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 **启用限流器清理**
@@ -248,12 +248,12 @@ model:
 jstack <pid> > threads.dump
 
 # 2. 分析 CPU 热点
-java -XX:+PrintCompilation -jar target/model-router-*.jar
+java -XX:+PrintCompilation -jar target/trunkline-*.jar
 
 # 3. 使用性能分析工具
 java -XX:+FlightRecorder \
      -XX:StartFlightRecording=duration=60s,filename=profile.jfr \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 #### 解决方案

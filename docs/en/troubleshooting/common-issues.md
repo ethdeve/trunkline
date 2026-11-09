@@ -79,7 +79,7 @@ java.lang.OutOfMemoryError: Java heap space
 #### Solutions
 ```bash
 # Increase heap memory size
-java -Xms1g -Xmx2g -jar target/model-router-*.jar
+java -Xms1g -Xmx2g -jar target/trunkline-*.jar
 
 # Or set environment variables
 export JAVA_OPTS="-Xms1g -Xmx2g"
@@ -148,7 +148,7 @@ PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderExce
 # 1. Trust all certificates (development environment only)
 java -Dcom.sun.net.ssl.checkRevocation=false \
      -Dtrust_all_cert=true \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 
 # 2. Import certificate to trust store
 keytool -import -alias backend-cert -file backend.crt -keystore $JAVA_HOME/lib/security/cacerts
@@ -213,7 +213,7 @@ jcmd <pid> GC.run_finalization
 jmap -dump:format=b,file=heap.hprof <pid>
 
 # 3. Analyze GC logs
-java -XX:+PrintGC -XX:+PrintGCDetails -Xloggc:gc.log -jar target/model-router-*.jar
+java -XX:+PrintGC -XX:+PrintGCDetails -Xloggc:gc.log -jar target/trunkline-*.jar
 ```
 
 #### Solutions
@@ -223,7 +223,7 @@ java -XX:+PrintGC -XX:+PrintGCDetails -Xloggc:gc.log -jar target/model-router-*.
 java -Xms2g -Xmx4g \
      -XX:+UseG1GC \
      -XX:MaxGCPauseMillis=200 \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 **Enable Rate Limiter Cleanup**
@@ -248,12 +248,12 @@ model:
 jstack <pid> > threads.dump
 
 # 2. Analyze CPU hotspots
-java -XX:+PrintCompilation -jar target/model-router-*.jar
+java -XX:+PrintCompilation -jar target/trunkline-*.jar
 
 # 3. Use performance analysis tools
 java -XX:+FlightRecorder \
      -XX:StartFlightRecording=duration=60s,filename=profile.jfr \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 #### Solutions

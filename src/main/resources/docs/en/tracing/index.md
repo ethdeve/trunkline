@@ -146,7 +146,7 @@ Structured logging component:
 
 ## Tag / Attribute design
 
-Span names and attribute keys are centralized in `org.unreal.modelrouter.monitor.tracing.TracingConstants`. The names below are the real ones in code (the technical service identifier `jairouter` is kept as-is).
+Span names and attribute keys are centralized in `org.unreal.modelrouter.monitor.tracing.TracingConstants`. The names below are the real ones in code (the technical service identifier `trunkline` is kept as-is).
 
 ### Span operations
 

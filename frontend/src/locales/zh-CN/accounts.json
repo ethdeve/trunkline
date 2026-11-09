@@ -1,7 +1,7 @@
 {
   "accounts": {
     "title": "JWT 账户管理",
-    "searchPlaceholder": "搜索用户名...",
+    "searchPlaceholder": "搜索用户名或姓名...",
     "createAccount": "创建账户",
     "editAccount": "编辑账户",
     "refresh": "刷新",
@@ -70,6 +70,10 @@
     "department": "部门",
     "departmentPlaceholder": "选择或输入部门（如 研发部）",
     "departmentHint": "部门用于「团队用量」按部门统计；同一部门的用量会汇总在一起。",
-    "departmentUnassigned": "未分配部门"
+    "departmentUnassigned": "未分配部门",
+    "name": "姓名",
+    "namePlaceholder": "请输入用户姓名",
+    "nameHint": "用于显示的真实姓名，便于识别账号归属人；留空则展示「未填写」。",
+    "nameUnassigned": "未填写"
   }
 }

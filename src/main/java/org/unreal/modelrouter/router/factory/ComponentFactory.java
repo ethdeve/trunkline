@@ -91,8 +91,17 @@ public class ComponentFactory {
 
     public RateLimiter createRateLimiter(final RateLimitConfig cfg) {
         if (cfg == null || !cfg.isEnabled()) return null;
-        
-        RateLimiter rateLimiter = switch (cfg.getAlgorithm().toLowerCase()) {
+
+        // 防御性兜底：算法缺失时回退 token-bucket（而非 NPE 使整个服务不可用）。
+        // 正常路径已由 convert/Builder 默认值保证非空，此处覆盖规则限流等直传配置的旁路。
+        String algorithm = cfg.getAlgorithm();
+        if (algorithm == null || algorithm.isBlank()) {
+            logger.warn("RateLimitConfig.algorithm is blank, fallback to token-bucket (capacity={}, rate={}, scope={})",
+                    cfg.getCapacity(), cfg.getRate(), cfg.getScope());
+            algorithm = "token-bucket";
+        }
+
+        RateLimiter rateLimiter = switch (algorithm.toLowerCase()) {
             case "token-bucket" -> new TokenBucketRateLimiter(cfg);
             case "leaky-bucket" -> new LeakyBucketRateLimiter(cfg);
             case "sliding-window" -> new SlidingWindowRateLimiter(cfg);

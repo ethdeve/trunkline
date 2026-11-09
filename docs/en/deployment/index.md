@@ -48,10 +48,10 @@ For simple deployments without Docker:
 # https://github.com/Lincoln-cn/Trunkline/releases
 
 # Or use wget (replace VERSION with actual version number)
-wget https://github.com/Lincoln-cn/Trunkline/releases/download/vVERSION/model-router-VERSION.jar
+wget https://github.com/Lincoln-cn/Trunkline/releases/download/vVERSION/trunkline-VERSION.jar
 
 # Run the application
-java -jar model-router-VERSION.jar
+java -jar trunkline-VERSION.jar
 ```
 
 ## Configuration for Deployment

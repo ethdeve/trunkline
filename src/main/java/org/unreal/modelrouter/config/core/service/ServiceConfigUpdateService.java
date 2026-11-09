@@ -86,7 +86,8 @@ public class ServiceConfigUpdateService {
     private Map<String, Object> buildRateLimitMap(final RateLimitConfig rl) {
         Map<String, Object> rlMap = new HashMap<>();
         rlMap.put("enabled", rl.getEnabled());
-        rlMap.put("algorithm", rl.getAlgorithm());
+        // 落库兜底：算法缺省时写 token-bucket，避免运行时加载后 NPE（与 convert 默认值一致）
+        rlMap.put("algorithm", rl.getAlgorithm() != null ? rl.getAlgorithm() : "token-bucket");
         rlMap.put("capacity", rl.getCapacity());
         rlMap.put("rate", rl.getRate());
         rlMap.put("scope", rl.getScope());

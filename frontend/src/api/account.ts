@@ -9,6 +9,8 @@ export interface JwtAccount {
   roles: string[]
   /** 所属部门（团队用量按部门统计的维度来源；历史数据可能为空） */
   department?: string
+  /** 用户真实姓名（展示用；可为空） */
+  name?: string
   enabled: boolean
   createdAt?: string
   updatedAt?: string
@@ -22,6 +24,8 @@ export interface CreateJwtAccountRequest {
   roles: string[]
   /** 所属部门（如「研发部」） */
   department?: string
+  /** 用户真实姓名（展示用） */
+  name?: string
   enabled: boolean
 }
 

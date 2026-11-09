@@ -48,18 +48,16 @@ src/main/resources/
 │   │   └── tracing-base.yml           # 链路追踪
 │   ├── persistence/
 │   │   └── state-persistence-base.yml # 状态持久化（三层退坡）
-│   ├── base/                          # 基础配置（向后兼容）
-│   │   ├── server-base.yml
-│   │   ├── model-services-base.yml
-│   │   └── monitoring-base.yml
+│   ├── base/                          # 基础配置
+│   │   └── monitoring-base.yml        # 监控指标与管理端点
+│   │                                  # （server-base / model-services-base 已删：
+│   │                                  #   键与 common/*、router/* 同值重复）
 │   └── security/                      # 安全配置（向后兼容）
 │       ├── security-base.yml
 │       ├── persistence-base.yml
 │       └── audit-base.yml
 ├── application-dev.yml                # 开发环境配置
-├── application-staging.yml            # 预发布环境配置
 ├── application-prod.yml               # 生产环境配置
-├── application-legacy.yml             # 向后兼容配置
 └── application-migrate.yml            # 数据迁移配置
 ```
 
@@ -80,15 +78,11 @@ spring:
       - classpath:config/common/cluster.yml
       # config-service 模块
       - classpath:config/config-service/core.yml
-      # router 模块
-      - classpath:config/router/adapter.yml
-      - classpath:config/router/loadbalancer.yml
+      # router 模块（2026-11-09 精简：adapter/loadbalancer/circuitbreaker/pools/rules
+      # 的默认值内置于 Java 代码，仅保留有独占生效值的 3 个文件）
       - classpath:config/router/ratelimit.yml
-      - classpath:config/router/circuitbreaker.yml
       - classpath:config/router/fallback.yml
       - classpath:config/router/services.yml
-      - classpath:config/router/rules.yml
-      - classpath:config/router/pools.yml
       # auth 模块
       - classpath:config/auth/jwt.yml
       - classpath:config/auth/api-key.yml
@@ -101,9 +95,7 @@ spring:
       - classpath:config/monitor/persistence-monitoring-base.yml
       - classpath:config/tracing/tracing-base.yml
       - classpath:config/persistence/state-persistence-base.yml
-      # 向后兼容配置
-      - classpath:config/base/server-base.yml
-      - classpath:config/base/model-services-base.yml
+      # security 基础配置（原「向后兼容」组）
       - classpath:config/security/security-base.yml
       - classpath:config/security/persistence-base.yml
       - classpath:config/security/audit-base.yml
@@ -185,7 +177,7 @@ Trunkline 支持以下服务类型：
 
 ### 1. 负载均衡
 
-配置请求如何在服务实例之间分发（配置文件 `config/router/loadbalancer.yml`）：
+配置请求如何在服务实例之间分发（默认值内置于代码 `ModelRouterProperties`，原 `config/router/loadbalancer.yml` 已删除；覆盖方式：`application-{profile}.yml` / 环境变量 / 外部挂载）：
 
 ```yaml
 model:
@@ -230,7 +222,7 @@ model:
 
 ### 3. 熔断器
 
-使用熔断器模式防止级联故障（配置文件 `config/router/circuitbreaker.yml`）：
+使用熔断器模式防止级联故障（默认值内置于代码 `CircuitBreakerManager`，原 `config/router/circuitbreaker.yml` 已删除；覆盖方式同上）：
 
 ```yaml
 model:
@@ -312,9 +304,7 @@ store:
 Trunkline 支持多种环境配置文件：
 
 - **开发环境**: `application-dev.yml`
-- **预发布环境**: `application-staging.yml`
 - **生产环境**: `application-prod.yml`
-- **兼容模式**: `application-legacy.yml`
 - **数据迁移**: `application-migrate.yml`
 
 环境配置文件只包含与基础配置的差异部分，遵循 Spring Boot 的配置覆盖机制。

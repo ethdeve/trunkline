@@ -38,7 +38,7 @@
 ```bash
 # 克隆项目
 git clone https://github.com/Lincoln-cn/JAiRouter.git
-cd jairouter
+cd trunkline
 
 # 构建项目（中国用户推荐）
 ./mvnw clean package -Pchina

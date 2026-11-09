@@ -19,7 +19,7 @@ Trunkline defaults to JPA persistence (embedded H2, switchable to PostgreSQL).
 
 ### JPA / H2 Storage (jpa)
 
-JPA storage is the default method, keeping configuration data in a relational database with transaction support. The default datasource is embedded H2 (file database `./data/jairouter`), switchable to PostgreSQL via environment variables. Suitable for all environments (dev, test, prod).
+JPA storage is the default method, keeping configuration data in a relational database with transaction support. The default datasource is embedded H2 (file database `./data/trunkline`), switchable to PostgreSQL via environment variables. Suitable for all environments (dev, test, prod).
 
 ### Redis Storage (redis)
 
@@ -63,7 +63,7 @@ store:
 ```yaml
 spring:
   datasource:
-    url: ${DATABASE_URL:jdbc:h2:file:./data/jairouter;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE}
+    url: ${DATABASE_URL:jdbc:h2:file:./data/trunkline;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE}
     username: ${DATABASE_USERNAME:sa}
     password: ${DATABASE_PASSWORD:}
   jpa:
@@ -102,7 +102,7 @@ spring:
       enabled: false
       path: /h2-console
 
-jairouter:
+trunkline:
   security:
     audit:
       storage: h2
@@ -135,7 +135,7 @@ spring:
       enabled: true
       path: /h2-console
 
-jairouter:
+trunkline:
   security:
     audit:
       storage: h2
@@ -148,7 +148,7 @@ jairouter:
 store:
   type: h2
   h2:
-    url: file:/var/lib/jairouter/data/config
+    url: file:/var/lib/trunkline/data/config
   migration:
     enabled: false
   security-migration:
@@ -164,7 +164,7 @@ spring:
       max-size: 50
       max-idle-time: 30m
 
-jairouter:
+trunkline:
   security:
     audit:
       storage: h2
@@ -185,7 +185,7 @@ When the auto-merge function is enabled, the system will periodically scan multi
 # Enable auto-merge function and specify configuration directory
 store:
   type: file
-  path: "/var/lib/jairouter/config/"
+  path: "/var/lib/trunkline/config/"
   auto-merge: true
 ```
 
@@ -338,8 +338,8 @@ store:
 It is recommended to manually migrate in production environments:
 
 ```bash
-# 1. Validate migration in staging environment
-java -jar app.jar --spring.profiles.active=staging \
+# 1. Validate migration in production environment
+java -jar app.jar --spring.profiles.active=prod \
   --store.migration.enabled=true \
   --store.security-migration.enabled=true
 
@@ -417,11 +417,11 @@ cp ./backup/config-20241120.mv.db ./data/config.mv.db
 
 ```bash
 #!/bin/bash
-# /usr/local/bin/backup-jairouter-db.sh
+# /usr/local/bin/backup-trunkline-db.sh
 
 DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_DIR="/var/backups/jairouter"
-DB_FILE="/var/lib/jairouter/data/config.mv.db"
+BACKUP_DIR="/var/backups/trunkline"
+DB_FILE="/var/lib/trunkline/data/config.mv.db"
 
 mkdir -p $BACKUP_DIR
 cp $DB_FILE $BACKUP_DIR/config_$DATE.mv.db
@@ -439,7 +439,7 @@ Add to crontab:
 
 ```bash
 # Backup daily at 3 AM
-0 3 * * * /usr/local/bin/backup-jairouter-db.sh
+0 3 * * * /usr/local/bin/backup-trunkline-db.sh
 ```
 
 ## Notes

@@ -27,7 +27,7 @@
 2. **访问界面**
    - URL: http://localhost:3000
    - 用户名: admin
-   - 密码: jairouter2024
+   - 密码: trunkline2024
 
 3. **验证数据源**
    - 导航到 Configuration → Data Sources
@@ -92,7 +92,7 @@ Trunkline 提供以下预配置仪表板：
 ### 核心业务指标
 
 #### 1. 服务类型分布
-**查询**: `sum by (service) (rate(jairouter_requests_total[5m]))`
+**查询**: `sum by (service) (rate(trunkline_requests_total[5m]))`
 
 显示各种 AI 服务的使用情况：
 - **Chat 服务**: 聊天对话请求统计
@@ -101,21 +101,21 @@ Trunkline 提供以下预配置仪表板：
 - **其他服务**: TTS、STT、图像生成等
 
 #### 2. 模型调用成功率
-**查询**: `sum(rate(jairouter_model_calls_total{status="success"}[5m])) / sum(rate(jairouter_model_calls_total[5m])) * 100`
+**查询**: `sum(rate(trunkline_model_calls_total{status="success"}[5m])) / sum(rate(trunkline_model_calls_total[5m])) * 100`
 
 - 显示各个后端适配器的成功率
 - 按时间趋势显示成功率变化
 - 设置告警阈值（通常 < 95% 需要关注）
 
 #### 3. 请求大小分布
-**查询**: `histogram_quantile(0.95, rate(jairouter_request_size_bytes_bucket[5m]))`
+**查询**: `histogram_quantile(0.95, rate(trunkline_request_size_bytes_bucket[5m]))`
 
 - P50、P95、P99 请求大小
 - 按服务类型分组显示
 - 识别异常大小的请求
 
 #### 4. 响应时间分析
-**查询**: `histogram_quantile(0.95, rate(jairouter_request_duration_seconds_bucket[5m]))`
+**查询**: `histogram_quantile(0.95, rate(trunkline_request_duration_seconds_bucket[5m]))`
 
 - 各服务类型的响应时间分布
 - 识别性能瓶颈
@@ -138,7 +138,7 @@ Trunkline 提供以下预配置仪表板：
 ### 负载均衡监控
 
 #### 1. 负载均衡策略分布
-**查询**: `sum by (strategy) (jairouter_loadbalancer_selections_total)`
+**查询**: `sum by (strategy) (trunkline_loadbalancer_selections_total)`
 
 显示不同策略的使用情况：
 - **Random**: 随机策略使用次数
@@ -147,14 +147,14 @@ Trunkline 提供以下预配置仪表板：
 - **IP Hash**: IP 哈希策略使用次数
 
 #### 2. 后端实例健康状态
-**查询**: `jairouter_backend_health`
+**查询**: `trunkline_backend_health`
 
 - 实时显示各后端实例的健康状态
 - 健康实例数量统计
 - 故障实例告警
 
 #### 3. 请求分发均匀度
-**查询**: `sum by (instance) (rate(jairouter_backend_calls_total[5m]))`
+**查询**: `sum by (instance) (rate(trunkline_backend_calls_total[5m]))`
 
 - 各实例接收请求的分布
 - 识别负载不均衡问题
@@ -163,14 +163,14 @@ Trunkline 提供以下预配置仪表板：
 ### 限流器监控
 
 #### 1. 限流器状态
-**查询**: `jairouter_rate_limit_tokens`
+**查询**: `trunkline_rate_limit_tokens`
 
 - 各服务的可用令牌数
 - 令牌消耗速率
 - 限流触发频率
 
 #### 2. 限流事件统计
-**查询**: `sum by (result) (rate(jairouter_rate_limit_events_total[5m]))`
+**查询**: `sum by (result) (rate(trunkline_rate_limit_events_total[5m]))`
 
 - 通过的请求数
 - 被限流的请求数
@@ -179,7 +179,7 @@ Trunkline 提供以下预配置仪表板：
 ### 熔断器监控
 
 #### 1. 熔断器状态
-**查询**: `jairouter_circuit_breaker_state`
+**查询**: `trunkline_circuit_breaker_state`
 
 状态说明：
 - **CLOSED (0)**: 正常状态
@@ -187,7 +187,7 @@ Trunkline 提供以下预配置仪表板：
 - **HALF_OPEN (2)**: 半开状态
 
 #### 2. 熔断事件
-**查询**: `sum by (event) (rate(jairouter_circuit_breaker_events_total[5m]))`
+**查询**: `sum by (event) (rate(trunkline_circuit_breaker_events_total[5m]))`
 
 - 成功调用
 - 失败调用
@@ -211,14 +211,14 @@ Trunkline 提供以下预配置仪表板：
 ### 吞吐量分析
 
 #### 1. 请求吞吐量
-**查询**: `sum(rate(jairouter_requests_total[1m]))`
+**查询**: `sum(rate(trunkline_requests_total[1m]))`
 
 - 每分钟处理的请求数
 - 峰值吞吐量记录
 - 容量利用率分析
 
 #### 2. 后端调用吞吐量
-**查询**: `sum by (adapter) (rate(jairouter_backend_calls_total[1m]))`
+**查询**: `sum by (adapter) (rate(trunkline_backend_calls_total[1m]))`
 
 - 各适配器的调用频率
 - 后端服务负载分析
@@ -280,13 +280,13 @@ Trunkline 提供以下预配置仪表板：
 **自定义业务指标**:
 ```promql
 # 特定用户的请求统计
-sum by (user_id) (rate(jairouter_requests_total{user_id!=""}[5m]))
+sum by (user_id) (rate(trunkline_requests_total{user_id!=""}[5m]))
 
 # 特定时间段的错误率
-sum(rate(jairouter_requests_total{status=~"4..|5.."}[1h])) / sum(rate(jairouter_requests_total[1h])) * 100
+sum(rate(trunkline_requests_total{status=~"4..|5.."}[1h])) / sum(rate(trunkline_requests_total[1h])) * 100
 
 # 后端服务响应时间对比
-histogram_quantile(0.95, sum by (adapter, le) (rate(jairouter_backend_call_duration_seconds_bucket[5m])))
+histogram_quantile(0.95, sum by (adapter, le) (rate(trunkline_backend_call_duration_seconds_bucket[5m])))
 ```
 
 ### 仪表板模板变量
@@ -295,14 +295,14 @@ histogram_quantile(0.95, sum by (adapter, le) (rate(jairouter_backend_call_durat
 ```
 名称: environment
 类型: Query
-查询: label_values(jairouter_requests_total, environment)
+查询: label_values(trunkline_requests_total, environment)
 ```
 
 #### 2. 服务类型变量
 ```
 名称: service
 类型: Query
-查询: label_values(jairouter_requests_total, service)
+查询: label_values(trunkline_requests_total, service)
 ```
 
 #### 3. 时间范围变量

@@ -77,7 +77,7 @@ cd trunkline
 
 # Build and run
 ./mvnw clean package
-java -jar target/model-router-*.jar
+java -jar target/trunkline-*.jar
 ```
 
 ### Q7: How to configure backend AI services?
@@ -298,7 +298,7 @@ Actual performance depends on:
 java -Xms2g -Xmx4g \
      -XX:+UseG1GC \
      -XX:MaxGCPauseMillis=200 \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 **Connection Pool Optimization**:

@@ -145,7 +145,7 @@ check_migration_readiness() {
     fi
     
     # 检查是否有运行中的Trunkline实例
-    if pgrep -f "model-router" >/dev/null; then
+    if pgrep -f "trunkline" >/dev/null; then
         log_warning "检测到运行中的Trunkline实例，建议停止后再迁移"
     else
         log_success "没有运行中的Trunkline实例"

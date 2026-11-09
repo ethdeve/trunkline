@@ -230,7 +230,7 @@ Contributions are welcome — see the [contributing guide](https://trunkline.com
 git clone https://github.com/Lincoln-cn/trunkline.git
 cd trunkline
 ./mvnw clean package -DskipTests
-java -jar target/model-router-*.jar
+java -jar target/trunkline-*.jar
 ```
 
 ## Support

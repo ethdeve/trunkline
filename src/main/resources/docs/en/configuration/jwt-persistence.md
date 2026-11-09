@@ -30,7 +30,7 @@ spring:
 ### Basic Persistence Configuration
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       # Token persistence configuration
@@ -86,7 +86,7 @@ jairouter:
 ### Blacklist Configuration
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       # Blacklist persistence configuration
@@ -123,7 +123,7 @@ jairouter:
 ### Security Audit Configuration
 
 ```yaml
-jairouter:
+trunkline:
   security:
     # Enhanced audit configuration
     audit:
@@ -175,7 +175,7 @@ jairouter:
 
 ```yaml
 # application-dev.yml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -213,7 +213,7 @@ management:
 
 ```yaml
 # application-prod.yml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -253,17 +253,17 @@ jairouter:
       retention-days: 180   # Longer retention for production
 
 # Monitoring configuration
-jairouter:
+trunkline:
   monitoring:
     jwt-persistence:
       enabled: true
 ```
 
-### Staging Environment
+### Redis-backed Deployment
 
 ```yaml
-# application-staging.yml
-jairouter:
+# application-prod.yml
+trunkline:
   security:
     jwt:
       persistence:
@@ -313,7 +313,7 @@ management:
         include: health,metrics,jwt-tokens,jwt-blacklist
   metrics:
     tags:
-      application: jairouter
+      application: trunkline
     export:
       prometheus:
         enabled: true
@@ -324,7 +324,7 @@ management:
       enabled: false
 
 # Custom monitoring metrics
-jairouter:
+trunkline:
   monitoring:
     jwt-persistence:
       enabled: false  # Default: disabled, enable per environment
@@ -410,7 +410,7 @@ spring:
 ### Key Security Settings
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -458,7 +458,7 @@ management:
 ### Memory Optimization
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -474,7 +474,7 @@ jairouter:
 ### Redis Optimization
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -496,7 +496,7 @@ spring:
 ### Cleanup Optimization
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -540,7 +540,7 @@ management:
 ### Metrics for Troubleshooting
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     jwt-persistence:
       enabled: true
@@ -615,7 +615,7 @@ cp application.yml application.yml.backup
 2. **Update Configuration Gradually**
 ```yaml
 # Start with memory-only persistence
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -627,7 +627,7 @@ jairouter:
 3. **Enable Redis After Testing**
 ```yaml
 # Upgrade to Redis with memory fallback
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -639,7 +639,7 @@ jairouter:
 4. **Enable Full Auditing**
 ```yaml
 # Enable comprehensive auditing
-jairouter:
+trunkline:
   security:
     audit:
       enabled: true
@@ -655,7 +655,7 @@ jairouter:
 
 1. **Never Log Sensitive Data**
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       jwt-operations:
@@ -674,7 +674,7 @@ spring:
 
 3. **Limit Memory Usage**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -687,7 +687,7 @@ jairouter:
 
 1. **Optimize Cleanup Schedule**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -698,7 +698,7 @@ jairouter:
 
 2. **Use Appropriate TTL**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -708,7 +708,7 @@ jairouter:
 
 3. **Monitor Performance**
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     jwt-persistence:
       enabled: true

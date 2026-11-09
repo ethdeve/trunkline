@@ -73,11 +73,11 @@ Or build from source:
 ```bash
 # Clone the project
 git clone https://github.com/Lincoln-cn/JAiRouter.git
-cd jairouter
+cd trunkline
 
 # Build and run
 ./mvnw clean package
-java -jar target/model-router-*.jar
+java -jar target/trunkline-*.jar
 ```
 
 ### Q7: How to configure backend AI services?
@@ -233,16 +233,16 @@ curl http://localhost:8080/actuator/prometheus
 ### Q14: How to view logs?
 
 **A**: Log file locations:
-- **Container Deployment**: `/app/logs/jairouter-debug.log`
-- **Direct Run**: `./logs/jairouter-debug.log`
+- **Container Deployment**: `/app/logs/trunkline-debug.log`
+- **Direct Run**: `./logs/trunkline-debug.log`
 
 View real-time logs:
 ```bash
 # Docker container
-docker logs -f jairouter
+docker logs -f trunkline
 
 # Direct run
-tail -f logs/jairouter-debug.log
+tail -f logs/trunkline-debug.log
 ```
 
 Adjust log level:
@@ -270,7 +270,7 @@ Restore configuration:
 cp -r config-backup-20250115/ config/
 
 # Restart service to apply configuration
-docker restart jairouter
+docker restart trunkline
 ```
 
 ## Performance and Optimization
@@ -298,7 +298,7 @@ Actual performance depends on:
 java -Xms2g -Xmx4g \
      -XX:+UseG1GC \
      -XX:MaxGCPauseMillis=200 \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 **Connection Pool Optimization**:
@@ -378,7 +378,7 @@ curl http://localhost:8080/api/config/instance/type/chat
 
 4. **View Logs**:
 ```bash
-grep -i "connection\|timeout" logs/jairouter-debug.log
+grep -i "connection\|timeout" logs/trunkline-debug.log
 ```
 
 ### Q21: How to troubleshoot performance issues?
@@ -400,10 +400,10 @@ curl http://localhost:8080/actuator/metrics/jvm.gc.pause
 **Analyze Response Time**:
 ```bash
 # Response time distribution
-curl http://localhost:8080/actuator/metrics/jairouter.request.duration
+curl http://localhost:8080/actuator/metrics/trunkline.request.duration
 
 # Request statistics
-curl http://localhost:8080/actuator/metrics/jairouter.requests.total
+curl http://localhost:8080/actuator/metrics/trunkline.requests.total
 ```
 
 ## Development and Integration
@@ -418,7 +418,7 @@ curl http://localhost:8080/actuator/metrics/jairouter.requests.total
 import openai
 
 # Point OpenAI client to JAiRouter
-openai.api_base = "http://jairouter:8080/v1"
+openai.api_base = "http://trunkline:8080/v1"
 openai.api_key = "your-api-key"
 
 response = openai.ChatCompletion.create(
@@ -432,7 +432,7 @@ response = openai.ChatCompletion.create(
 // Node.js example
 const axios = require('axios');
 
-const response = await axios.post('http://jairouter:8080/v1/chat/completions', {
+const response = await axios.post('http://trunkline:8080/v1/chat/completions', {
   model: 'gpt-3.5-turbo',
   messages: [{ role: 'user', content: 'Hello!' }]
 }, {
@@ -540,7 +540,7 @@ For enterprise-level requirements, please contact us to discuss custom developme
 2. **Search Issues**: Search for similar issues in GitHub Issues
 3. **Submit Issue**: Create a new Issue with detailed problem description
 4. **Community Discussion**: Seek help in GitHub Discussions
-5. **Email Contact**: jairouter@example.com
+5. **Email Contact**: trunkline@example.com
 
 ---
 
@@ -550,6 +550,6 @@ If your question is not answered in this FAQ, please feel free to provide feedba
 
 - **GitHub Issues**: [Submit Issue](https://github.com/Lincoln-cn/JAiRouter/issues)
 - **GitHub Discussions**: [Participate in Discussion](https://github.com/Lincoln-cn/JAiRouter/discussions)
-- **Email Contact**: jairouter@example.com
+- **Email Contact**: trunkline@example.com
 
 We will continuously update the FAQ content to provide better support for users.

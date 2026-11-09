@@ -2,8 +2,8 @@
 # 提供便捷的构建和部署命令
 
 # 变量定义
-PROJECT_NAME := jairouter
-ARTIFACT_ID := model-router
+PROJECT_NAME := trunkline
+ARTIFACT_ID := trunkline
 VERSION := $(shell mvn help:evaluate -Dexpression=project.version -q -DforceStdout 2>/dev/null || echo "1.0-SNAPSHOT")
 DOCKER_IMAGE := $(PROJECT_NAME)/$(ARTIFACT_ID)
 

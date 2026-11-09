@@ -13,14 +13,14 @@
         :closable="false"
         show-icon
         class="bi-hint"
-        title="每行一个账号：用户名, 部门, 角色（后两项可省略，角色默认 USER）"
-        description="示例：zhangsan, 研发部, USER。系统会为每个账号自动生成随机初始密码，导入完成后可一次性复制或下载，分发给对应员工。"
+        title="每行一个账号：用户名, 部门, 角色, 姓名（后三项可省略，角色默认 USER，姓名可省略）"
+        description="示例：zhangsan, 研发部, USER, 张三。系统会为每个账号自动生成随机初始密码，导入完成后可一次性复制或下载，分发给对应员工。"
       />
       <el-input
         v-model="rawInput"
         type="textarea"
         :rows="8"
-        placeholder="zhangsan, 研发部, USER&#10;lisi, 市场部&#10;wangwu"
+        placeholder="zhangsan, 研发部, USER, 张三&#10;lisi, 市场部&#10;wangwu"
         class="bi-textarea"
       />
 
@@ -54,6 +54,9 @@
       />
       <el-table :data="results" size="small" max-height="360" style="width: 100%">
         <el-table-column prop="username" label="用户名" min-width="110" />
+        <el-table-column prop="name" label="姓名" min-width="90">
+          <template #default="{ row }">{{ row.name || '—' }}</template>
+        </el-table-column>
         <el-table-column prop="department" label="部门" min-width="90">
           <template #default="{ row }">{{ row.department || '—' }}</template>
         </el-table-column>
@@ -152,6 +155,7 @@ interface ImportRow {
   username: string
   department: string
   role: string
+  name: string
 }
 interface ImportResult extends ImportRow {
   password: string
@@ -163,7 +167,7 @@ const results = ref<ImportResult[]>([])
 /** 允许的角色（与后端 JwtAccountRoleMigration 的角色集一致） */
 const ALLOWED_ROLES = ['USER', 'OPERATOR', 'ADMIN']
 
-/** 解析输入：一行 = 用户名[,部门[,角色]]；跳过空行与注释行 */
+/** 解析输入：一行 = 用户名[,部门[,角色[,姓名]]]；跳过空行与注释行 */
 const parsed = computed<{ rows: ImportRow[]; errors: string[] }>(() => {
   const rows: ImportRow[] = []
   const errors: string[] = []
@@ -171,7 +175,7 @@ const parsed = computed<{ rows: ImportRow[]; errors: string[] }>(() => {
   rawInput.value.split('\n').forEach((line, idx) => {
     const text = line.trim()
     if (!text || text.startsWith('#')) return
-    const [username, department = '', role = 'USER'] = text.split(/[,，]/).map(s => s.trim())
+    const [username, department = '', role = 'USER', name = ''] = text.split(/[,，]/).map(s => s.trim())
     if (!/^[a-zA-Z0-9_.-]{2,64}$/.test(username || '')) {
       errors.push(`第 ${idx + 1} 行「${text}」：用户名只允许字母/数字/点/下划线/连字符，2-64 位`)
       return
@@ -185,8 +189,12 @@ const parsed = computed<{ rows: ImportRow[]; errors: string[] }>(() => {
       errors.push(`第 ${idx + 1} 行：角色必须是 ${ALLOWED_ROLES.join('/')} 之一`)
       return
     }
+    if (name.length > 64) {
+      errors.push(`第 ${idx + 1} 行：姓名长度不能超过 64 个字符`)
+      return
+    }
     seen.add(username)
-    rows.push({ username, department, role: upperRole })
+    rows.push({ username, department, role: upperRole, name })
   })
   return { rows, errors }
 })
@@ -257,6 +265,7 @@ async function runImport() {
         password,
         roles: [row.role],
         department: row.department || undefined,
+        name: row.name || undefined,
         enabled: true
       })
       results.value.push({ ...row, password, ok: true })
@@ -285,18 +294,18 @@ async function copyOne(password: string) {
 async function copyAll() {
   const text = results.value
     .filter(r => r.ok)
-    .map(r => `${r.username}  ${r.password}  (${r.role}${r.department ? ' / ' + r.department : ''})`)
+    .map(r => `${r.username}  ${r.password}  (${r.role}${r.department ? ' / ' + r.department : ''}${r.name ? ' / ' + r.name : ''})`)
     .join('\n')
   const ok = await copyToClipboard(text)
   ok ? ElMessage.success(`已复制 ${successCount.value} 个账号的初始密码`) : ElMessage.warning('复制失败')
 }
 
 function downloadCsv() {
-  const lines = ['username,department,role,initialPassword']
+  const lines = ['username,name,department,role,initialPassword']
   for (const r of results.value.filter(r => r.ok)) {
-    // CSV 转义：部门名可能含逗号（理论上不会，但防御一下）
+    // CSV 转义：部门/姓名可能含逗号（理论上不会，但防御一下）
     const esc = (s: string) => `"${(s || '').replace(/"/g, '""')}"`
-    lines.push([r.username, esc(r.department), r.role, r.password].join(','))
+    lines.push([r.username, esc(r.name), esc(r.department), r.role, r.password].join(','))
   }
   const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)

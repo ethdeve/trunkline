@@ -30,7 +30,7 @@ public class TraceConfig {
     public TraceConfig() {
         this.enabled = false;
         this.samplingRate = 1.0;
-        this.serviceName = "model-router";
+        this.serviceName = "trunkline";
         this.exporterType = "logging";
         this.exporterConfig = new HashMap<>();
         this.version = 1;

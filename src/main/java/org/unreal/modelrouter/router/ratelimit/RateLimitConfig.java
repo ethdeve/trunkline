@@ -7,11 +7,14 @@ import java.util.Map;
  * 移除了冗余的from方法，简化构造和使用
  */
 public class RateLimitConfig {
+    // 字段默认值与 Builder 保持一致：fromMap / new 直构造的路径（如动态配置应用、
+    // 控制台保存回放）缺省字段时不再得到 capacity=0（令牌桶容量 0，所有请求 429）
+    // 或 algorithm=null（创建限流器时 NPE，服务整体 500）
     private boolean enabled;
-    private String algorithm;
-    private long capacity;
-    private long rate;
-    private String scope;
+    private String algorithm = "token-bucket";
+    private long capacity = 100L;
+    private long rate = 10L;
+    private String scope = "service";
     private String key;
     private long warmUpPeriod = 600; // 预热期（秒），默认10分钟
 

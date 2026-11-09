@@ -100,10 +100,10 @@ docker-compose exec redis redis-cli ping
 
 ```bash
 # 启动 JAiRouter 应用
-docker-compose up -d jairouter
+docker-compose up -d trunkline
 
 # 监控启动日志
-docker-compose logs -f jairouter
+docker-compose logs -f trunkline
 
 # 等待应用就绪
 curl -f http://localhost:8080/actuator/health
@@ -213,11 +213,11 @@ curl http://localhost:3000/api/health
 ```bash
 # 1. 禁用 JWT 持久化
 export JWT_PERSISTENCE_ENABLED=false
-docker-compose restart jairouter
+docker-compose restart trunkline
 
 # 2. 或回滚到之前的配置
 git checkout HEAD~1 -- src/main/resources/config/security/
-docker-compose restart jairouter
+docker-compose restart trunkline
 
 # 3. 或停止 Redis 使用内存模式
 docker-compose stop redis
@@ -253,7 +253,7 @@ docker-compose stop redis
 2. **JWT 持久化不工作**
    ```bash
    # 检查应用日志
-   docker-compose logs jairouter | grep -i jwt
+   docker-compose logs trunkline | grep -i jwt
 
    # 检查健康端点
    curl http://localhost:8080/actuator/health/jwt-persistence

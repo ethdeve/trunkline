@@ -27,12 +27,12 @@ spring:
 
 ## 核心配置
 
-JWT 认证与令牌持久化配置位于 `config/auth/jwt.yml`，前缀 `jairouter.security.jwt`：
+JWT 认证与令牌持久化配置位于 `config/auth/jwt.yml`，前缀 `trunkline.security.jwt`：
 
 ### 基本持久化配置
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       # 认证基础配置
@@ -42,7 +42,7 @@ jairouter:
       algorithm: HS256                  # 签名算法
       expiration-minutes: 60            # 访问令牌有效期（分钟）
       refresh-expiration-days: 7        # 刷新令牌有效期（天）
-      issuer: jairouter
+      issuer: trunkline
 
       # 令牌持久化配置
       persistence:
@@ -68,7 +68,7 @@ jairouter:
 ### 黑名单配置
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       blacklist:
@@ -85,10 +85,10 @@ jairouter:
 
 ### 安全审计配置
 
-审计配置位于 `config/auth/audit.yml`，前缀 `jairouter.security.audit`：
+审计配置位于 `config/auth/audit.yml`，前缀 `trunkline.security.audit`：
 
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       enabled: true
@@ -134,7 +134,7 @@ jairouter:
 
 ```yaml
 # application-dev.yml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -172,7 +172,7 @@ management:
 
 ```yaml
 # application-prod.yml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -212,17 +212,17 @@ jairouter:
       retention-days: 180   # 生产环境更长保留期
 
 # 监控配置
-jairouter:
+trunkline:
   monitoring:
     jwt-persistence:
       enabled: true
 ```
 
-### 预发布环境
+### 基于 Redis 的部署
 
 ```yaml
-# application-staging.yml
-jairouter:
+# application-prod.yml
+trunkline:
   security:
     jwt:
       persistence:
@@ -272,7 +272,7 @@ management:
         include: health,metrics,jwt-tokens,jwt-blacklist
   metrics:
     tags:
-      application: jairouter
+      application: trunkline
     export:
       prometheus:
         enabled: true
@@ -283,7 +283,7 @@ management:
       enabled: false
 
 # 自定义监控指标
-jairouter:
+trunkline:
   monitoring:
     jwt-persistence:
       enabled: false  # 默认：禁用，按环境启用
@@ -369,7 +369,7 @@ spring:
 ### 密钥安全设置
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -417,7 +417,7 @@ management:
 ### 内存优化
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -433,7 +433,7 @@ jairouter:
 ### Redis 优化
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -455,7 +455,7 @@ spring:
 ### 清理优化
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -499,7 +499,7 @@ management:
 ### 故障排除指标
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     jwt-persistence:
       enabled: true
@@ -574,7 +574,7 @@ cp application.yml application.yml.backup
 2. **逐步更新配置**
 ```yaml
 # 从内存持久化开始
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -586,7 +586,7 @@ jairouter:
 3. **测试后启用 Redis**
 ```yaml
 # 升级到 Redis，保留内存作为备选
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -598,7 +598,7 @@ jairouter:
 4. **启用完整审计**
 ```yaml
 # 启用全面审计
-jairouter:
+trunkline:
   security:
     audit:
       enabled: true
@@ -614,7 +614,7 @@ jairouter:
 
 1. **永不记录敏感数据**
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       jwt-operations:
@@ -633,7 +633,7 @@ spring:
 
 3. **限制内存使用**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -646,7 +646,7 @@ jairouter:
 
 1. **优化清理计划**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -657,7 +657,7 @@ jairouter:
 
 2. **使用合适的 TTL**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -667,7 +667,7 @@ jairouter:
 
 3. **监控性能**
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     jwt-persistence:
       enabled: true

@@ -2,7 +2,7 @@
 <configuration>
     <!-- 定义日志文件路径 -->
     <property name="LOG_PATH" value="logs"/>
-    <property name="APP_NAME" value="jairouter"/>
+    <property name="APP_NAME" value="trunkline"/>
 
     <!-- 副本标识（容器里由 Downward API 注入 POD_NAME / INSTANCE_ID），为空时不写入 JSON（issue #211） -->
     <springProperty scope="context" name="INSTANCE_ID" source="INSTANCE_ID" defaultValue=""/>

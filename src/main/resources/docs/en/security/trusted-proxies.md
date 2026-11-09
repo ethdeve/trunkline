@@ -17,7 +17,7 @@ forwarding headers such as `X-Forwarded-For`.
 
 | Item | Value |
 |------|-------|
-| Key | `jairouter.security.rate-limit.trusted-proxies` |
+| Key | `trunkline.security.rate-limit.trusted-proxies` |
 | Type | String, comma-separated list |
 | Default | Empty string (`""`) |
 | Semantics | `X-Forwarded-For` / `X-Real-IP` are honored only when the direct TCP peer address is in this list; otherwise the connection `remoteAddress` is always used |
@@ -25,7 +25,7 @@ forwarding headers such as `X-Forwarded-For`.
 | Hot reload | No; restart required after changes |
 
 ```yaml
-jairouter:
+trunkline:
   security:
     rate-limit:
       # Comma-separated; list your own reverse-proxy addresses
@@ -100,7 +100,7 @@ With client → proxy A → proxy B → Trunkline, `X-Forwarded-For` looks like
 
 ```yaml
 # ❌ Disaster configuration — equivalent to disabling the protection
-jairouter:
+trunkline:
   security:
     rate-limit:
       # An address the attacker can originate from (their VPS / rented host)
@@ -122,7 +122,7 @@ trusted-proxies: "0.0.0.0/0"   # trust the whole Internet — never do this
 
 ```yaml
 # ✅ Trust only your own reverse proxy
-jairouter:
+trunkline:
   security:
     rate-limit:
       trusted-proxies: "10.0.0.1"
@@ -151,7 +151,7 @@ and forbid third parties from connecting directly to the Trunkline port.
 
    ```bash
    # Forged XFF must have no effect: the logged IP should be the curl client
-   curl -H "X-Forwarded-For: 1.2.3.4" http://jairouter:8080/api/auth/api-keys
+   curl -H "X-Forwarded-For: 1.2.3.4" http://trunkline:8080/api/auth/api-keys
    ```
 
    If the log shows `1.2.3.4`, a header that should not be trusted was
@@ -198,11 +198,11 @@ different causes:
 | Symptom | Cause | Action |
 |---------|-------|--------|
 | **429 Too Many Requests** | Management-API rate limiting. Usually `trusted-proxies` not configured → shared bucket | Configure per this document; confirm with the "Verifying" section |
-| **403 Forbidden** | RBAC permission. Unmatched permission rules are denied by default for non-ADMIN (fail-closed) | Check JWT `roles` / `permissions` and `jairouter.security.rbac.unmatched-policy` (default `DENY_ALL`); **this is unrelated to IP** |
+| **403 Forbidden** | RBAC permission. Unmatched permission rules are denied by default for non-ADMIN (fail-closed) | Check JWT `roles` / `permissions` and `trunkline.security.rbac.unmatched-policy` (default `DENY_ALL`); **this is unrelated to IP** |
 | 403 and "I do have permission" | The token lacks the required permission code, or the path is not registered in the permission rules | See [RBAC Permission Management](rbac-permissions.md) and the RBAC coverage self-check |
 | Suspecting "my IP is blocked" | The system has **no** per-IP denial logic; 403 is not an IP problem | Separate 403 from 429 first |
 
-Tip: temporarily set `jairouter.security.rbac.unmatched-policy=AUTHENTICATED`
+Tip: temporarily set `trunkline.security.rbac.unmatched-policy=AUTHENTICATED`
 to fall back to the legacy permissive behavior while isolating the RBAC
 variable, and **switch it back to `DENY_ALL` afterwards**.
 

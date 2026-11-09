@@ -52,9 +52,10 @@ config/
 │   └── tracing-base.yml
 ├── persistence/         # Persistence service
 │   └── state-persistence-base.yml
-├── base/                # Base configurations (legacy)
-│   ├── server-base.yml
-│   └── model-services-base.yml
+├── base/                # Base configuration
+│   └── monitoring-base.yml   # Metrics & management endpoints
+│                            # (server-base / model-services-base removed: every key
+│                            #  duplicated verbatim in common/*, router/*, core.yml)
 └── security/            # Security configurations (legacy)
     ├── security-base.yml
     ├── persistence-base.yml
@@ -82,11 +83,9 @@ spring:
       # config-service module
       - classpath:config/config-service/core.yml
 
-      # router module
-      - classpath:config/router/adapter.yml
-      - classpath:config/router/loadbalancer.yml
+      # router module (simplified on 2026-11-09: adapter/loadbalancer/circuitbreaker
+      # defaults are built into Java code; only files with exclusive effective values remain)
       - classpath:config/router/ratelimit.yml
-      - classpath:config/router/circuitbreaker.yml
       - classpath:config/router/fallback.yml
       - classpath:config/router/services.yml
 
@@ -223,21 +222,21 @@ trunkline:
 
 ### Adapter Configuration
 
-#### File: `config/router/adapter.yml`
+> Since 2026-11-09 `config/router/adapter.yml` has been removed; the default lives in code (`ModelRouterProperties`). Override via `application-{profile}.yml` or external mount.
 
 ```yaml
 model:
-  adapter: "ollama"                       # Default adapter type
+  adapter: "normal"                       # Code default
 ```
 
 ### Load Balancer Configuration
 
-#### File: `config/router/loadbalancer.yml`
+> `config/router/loadbalancer.yml` has been removed; defaults live in code (`ModelRouterProperties` / `RoutingMonitorConfig`).
 
 ```yaml
 model:
   load-balance:
-    type: "random"                        # Default: random, round-robin, least-connections, ip-hash
+    type: "random"                        # Code default: random, round-robin, least-connections, ip-hash
 ```
 
 ### Rate Limiting Configuration
@@ -253,15 +252,15 @@ model:
 
 ### Circuit Breaker Configuration
 
-#### File: `config/router/circuitbreaker.yml`
+> `config/router/circuitbreaker.yml` has been removed; defaults live in code (`CircuitBreakerManager`).
 
 ```yaml
 model:
   circuit-breaker:
     enabled: true
-    failureThreshold: 5                   # Failures to trigger open
-    successThreshold: 3                   # Successes to close
-    timeout: 60000                        # Open state timeout (ms)
+    failureThreshold: 5                   # Failures to trigger open (code default)
+    successThreshold: 2                   # Successes to close (code default)
+    timeout: 60000                        # Open state timeout (ms, code default)
 ```
 
 ---

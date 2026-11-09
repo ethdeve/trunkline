@@ -14,9 +14,9 @@ Trunkline has a built-in circuit breaker mechanism to prevent service avalanches
 Starting from v1.0.0, Trunkline adopts a modular configuration structure with circuit breaker related configurations moved to separate configuration files:
 
 - Main configuration file: `application.yml`
-- Model services base configuration: `config/router/circuitbreaker.yml`
+- Circuit breaker configuration: the former `config/router/circuitbreaker.yml` was removed on 2026-11-09; defaults live in code (`CircuitBreakerManager`). Override via `application-{profile}.yml` or external mount.
 
-You can find all circuit breaker related configurations in the `config/router/circuitbreaker.yml` file, including global configurations, service type configurations, and instance configurations.
+All circuit breaker related configurations use `model.circuit-breaker.*` keys, including global configurations, service type configurations (in `config/router/services.yml` under `model.services.<serviceType>.circuit-breaker`), and instance configurations.
 
 ## Circuit Breaker Overview
 
@@ -59,10 +59,10 @@ stateDiagram-v2
 
 ### Basic Configuration
 
-Configure global circuit breaker in the `config/router/circuitbreaker.yml` file:
+Global circuit breaker defaults live in code (the former `config/router/circuitbreaker.yml` was removed); override via any higher-priority configuration source:
 
 ```yaml
-# config/router/circuitbreaker.yml
+# application-{profile}.yml or external mount
 model:
   # Global circuit breaker configuration
   circuit-breaker:
@@ -124,7 +124,7 @@ model:
 
 ### YAML Configuration
 
-Configure circuit breaker for each service type in the `config/router/circuitbreaker.yml` file:
+Configure circuit breaker for each service type in the `config/router/services.yml` file:
 
 ```yaml
 model:

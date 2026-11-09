@@ -72,7 +72,7 @@ curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8080/v1/chat/complet
 ```bash
 # 启用请求追踪
 java -Dlogging.level.org.unreal.modelrouter=DEBUG \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 
 # 分析日志中的时间戳
 grep "Processing request" logs/trunkline-debug.log | tail -10
@@ -228,7 +228,7 @@ jmap -dump:format=b,file=heap.hprof <pid>
 # 启用内存泄漏检测
 java -XX:+HeapDumpOnOutOfMemoryError \
      -XX:HeapDumpPath=/tmp/heapdump.hprof \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 #### 优化策略
@@ -243,7 +243,7 @@ java -Xms2g -Xmx4g \
      -XX:G1NewSizePercent=20 \
      -XX:G1MaxNewSizePercent=30 \
      -XX:InitiatingHeapOccupancyPercent=45 \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 **内存管理优化**
@@ -291,7 +291,7 @@ top -H -p <pid>
 # 生成 CPU 性能分析
 java -XX:+FlightRecorder \
      -XX:StartFlightRecording=duration=60s,filename=cpu-profile.jfr \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 
 # 分析性能数据
 jfr print --events CPULoad cpu-profile.jfr
@@ -314,7 +314,7 @@ grep <hex-thread-id> threads.dump  # 在转储中查找
 java -XX:+PrintCompilation \
      -XX:+UnlockDiagnosticVMOptions \
      -XX:+PrintInlining \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 #### 优化策略
@@ -389,7 +389,7 @@ java -Xms4g -Xmx4g \                    # 固定堆大小，避免动态调整
      -XX:InitiatingHeapOccupancyPercent=45 \  # GC 触发阈值
      -XX:+UnlockExperimentalVMOptions \ # 启用实验性选项
      -XX:+UseStringDeduplication \      # 字符串去重
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 #### GC 日志配置

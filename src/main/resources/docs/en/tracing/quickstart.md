@@ -22,20 +22,20 @@ This guide will help you quickly enable and configure the distributed tracing fe
 Add tracing configuration in `application.yml`:
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
-    service-name: "jairouter"
+    service-name: "trunkline"
     service-version: "1.0.0"
 ```
 
 ### 2. Configure Sampling Strategy
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
-    service-name: "jairouter"
+    service-name: "trunkline"
     sampling:
       strategy: "ratio"  # Options: ratio (default), rule, adaptive — see config-reference (issue #234)
       ratio: 1.0         # 100% sampling (recommended for development)
@@ -46,10 +46,10 @@ jairouter:
 #### Console Log Export (Recommended for Development)
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
-    service-name: "jairouter"
+    service-name: "trunkline"
     exporter:
       type: "logging"
 ```
@@ -57,10 +57,10 @@ jairouter:
 #### Jaeger Export (Recommended for Production)
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
-    service-name: "jairouter"
+    service-name: "trunkline"
     exporter:
       type: "jaeger"
       jaeger:
@@ -70,10 +70,10 @@ jairouter:
 #### OTLP Export (Standard Protocol)
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
-    service-name: "jairouter"
+    service-name: "trunkline"
     exporter:
       type: "otlp"
       otlp:
@@ -102,7 +102,7 @@ After startup, you should see tracing logs similar to the following in the conso
 {
   "timestamp": "2024-01-15T10:30:15.123Z",
   "level": "INFO",
-  "service": "jairouter",
+  "service": "trunkline",
   "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
   "spanId": "00f067aa0ba902b7",
   "message": "Request processed successfully",
@@ -137,7 +137,7 @@ tail -f logs/application.log | grep traceId
 ```
 
 #### Jaeger UI
-Open browser and visit `http://localhost:16686`, search for service name "jairouter".
+Open browser and visit `http://localhost:16686`, search for service name "trunkline".
 
 #### OTLP Collector
 Check your OTEL collector configuration and backend storage.
@@ -147,7 +147,7 @@ Check your OTEL collector configuration and backend storage.
 ### Ratio Sampling (Development Environment)
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       # Sampling strategy (real since issue #234): ratio uses the ratio only, rule matches rules,
@@ -159,7 +159,7 @@ jairouter:
 ### Rule Sampling (Production Environment)
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       # Rule sampling needs strategy: rule (issue #234); a rule is condition + ratio
@@ -176,7 +176,7 @@ jairouter:
 ### Adaptive Sampling (Recommended)
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       # Adaptive sampling needs strategy: adaptive AND adaptive.enabled=true (issue #234); the three
@@ -195,7 +195,7 @@ jairouter:
 ### 1. Async Export Configuration
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     # Checked in issue #224: the batch processor parameters are **not** under open-telemetry
     # (the old sdk.trace.processors.batch.* keys had no consumer and were deleted) but under
@@ -211,7 +211,7 @@ jairouter:
 ### 2. Memory Management
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     # Checked in issue #159: the real path is performance.memory, and cleanup-interval /
     # span-ttl do not exist (the fields are max-spans-in-memory / memory-limit-mb / gc-interval).
@@ -227,7 +227,7 @@ jairouter:
 It is recommended to start with a low sampling rate in production environments:
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       adaptive:
@@ -259,17 +259,17 @@ Visit `http://localhost:8080/actuator/prometheus` to view tracing-related metric
 
 ### 2. Key Metrics
 
-- `jairouter_tracing_spans_created_total` - Total number of created Spans
-- `jairouter_tracing_spans_exported_total` - Total number of exported Spans
-- `jairouter_tracing_sampling_rate` - Current sampling rate
-- `jairouter_tracing_export_duration` - Export duration
+- `trunkline_tracing_spans_created_total` - Total number of created Spans
+- `trunkline_tracing_spans_exported_total` - Total number of exported Spans
+- `trunkline_tracing_sampling_rate` - Current sampling rate
+- `trunkline_tracing_export_duration` - Export duration
 
 ## Common Issues
 
 ### Q: Tracing data is not exported
 
 **Check items:**
-1. Confirm `jairouter.tracing.enabled=true`
+1. Confirm `trunkline.tracing.enabled=true`
 2. Check if exporter configuration is correct
 3. Verify network connection (Jaeger/OTLP endpoint)
 4. Check error messages in application logs

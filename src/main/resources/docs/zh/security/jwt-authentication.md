@@ -41,7 +41,7 @@ Trunkline 支持 JWT（JSON Web Token）认证，可以与现有的身份认证�
 配置文件：`config/auth/jwt.yml`
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: true
@@ -75,7 +75,7 @@ export JWT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nyour-private-key-here\n----
 ### 3. 配置用户账户
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: true
@@ -83,7 +83,7 @@ jairouter:
       algorithm: "HS256"
       expiration-minutes: 60
       refresh-expiration-days: 7
-      issuer: "jairouter"
+      issuer: "trunkline"
       blacklist-enabled: true
       # 用户账户配置
       accounts:
@@ -160,7 +160,7 @@ curl -X POST http://localhost:8080/api/auth/jwt/login \
 | `algorithm` | string | "HS256" | JWT 签名算法 |
 | `expiration-minutes` | int | 60 | 访问令牌过期时间（分钟） |
 | `refresh-expiration-days` | int | 7 | 刷新令牌过期时间（天） |
-| `issuer` | string | "jairouter" | JWT 发行者标识 |
+| `issuer` | string | "trunkline" | JWT 发行者标识 |
 | `blacklist-enabled` | boolean | true | 是否启用黑名单功能 |
 | `jwt-header` | string | "Jairouter_Token" | 自定义 JWT 头名称 |
 | `accounts` | array | [] | 用户账户列表 |
@@ -176,7 +176,7 @@ curl -X POST http://localhost:8080/api/auth/jwt/login \
 - **HS512**：HMAC using SHA-512
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       algorithm: "HS256"
@@ -190,7 +190,7 @@ jairouter:
 - **RS512**：RSASSA-PKCS1-v1_5 using SHA-512
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       algorithm: "RS256"
@@ -211,7 +211,7 @@ jairouter:
 ### 配置刷新令牌
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       expiration-minutes: 15        # 访问令牌15分钟过期
@@ -247,7 +247,7 @@ curl -X POST http://localhost:8080/api/auth/jwt/refresh \
 ### 启用令牌持久化
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       persistence:
@@ -276,7 +276,7 @@ jairouter:
 ### 启用黑名单
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       blacklist-enabled: true
@@ -350,7 +350,7 @@ curl -X GET "http://localhost:8080/api/auth/jwt/blacklist/stats" \
 JWT 认证可以与 API Key 认证同时使用：
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:

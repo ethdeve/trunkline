@@ -113,7 +113,7 @@ Click **「New Rule」** and fill in the form:
 
 ## YAML Configuration
 
-Edit `src/main/resources/config/router/rules.yml`:
+> The former `src/main/resources/config/router/rules.yml` was removed on 2026-11-09; to configure rules via YAML, use `application-{profile}.yml` or an external mount (e.g. `/app/config/application.yml`):
 
 ```yaml
 model:
@@ -267,7 +267,7 @@ A resource pool bundles a named set of instances of one service type. When a req
 
 ### Configuration
 
-1. **YAML** (config/router/pools.yml):
+1. **YAML** (`model.pools` prefix; the former config/router/pools.yml was removed — use application-{profile}.yml or an external mount):
 
 ``yaml
 model:

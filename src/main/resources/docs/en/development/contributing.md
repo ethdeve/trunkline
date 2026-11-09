@@ -33,7 +33,7 @@ Thank you for your interest in the Trunkline project! We welcome all forms of co
 1. **Clone the Project**
    ```bash
    git clone https://github.com/Lincoln-cn/JAiRouter.git
-   cd jairouter
+   cd trunkline
    ```
 
 2. **Verify Java Version**
@@ -59,7 +59,7 @@ Thank you for your interest in the Trunkline project! We welcome all forms of co
 
 5. **Start the Application**
    ```bash
-   java -jar target/model-router-*.jar
+   java -jar target/trunkline-*.jar
    ```
 
 ### IDE Configuration

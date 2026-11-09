@@ -62,7 +62,7 @@ class ModelCatalogServiceTest {
             assertNotNull(model.get("id"));
             assertEquals("model", model.get("object"));
             assertNotNull(model.get("created"));
-            assertEquals("model-router", model.get("owned_by"));
+            assertEquals("trunkline", model.get("owned_by"));
             assertNotNull(model.get("service_type"));
             assertNotNull(model.get("adapter"), "适配器字段必须存在（不可用时为 unknown）");
         }

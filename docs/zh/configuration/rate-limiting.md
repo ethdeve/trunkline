@@ -79,7 +79,7 @@ graph TB
 
 在 `config/router/ratelimit.yml` 文件中配置全局限流：
 ```yaml
-# config/base/model-services-base.yml
+# config/router/ratelimit.yml
 model:
   # 全局限流配置
   rate-limit:

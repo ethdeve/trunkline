@@ -101,10 +101,10 @@ docker-compose exec redis redis-cli ping
 
 ```bash
 # Start JAiRouter application
-docker-compose up -d jairouter
+docker-compose up -d trunkline
 
 # Monitor startup logs
-docker-compose logs -f jairouter
+docker-compose logs -f trunkline
 
 # Wait for application to be ready
 curl -f http://localhost:8080/actuator/health
@@ -214,11 +214,11 @@ If JWT persistence causes issues:
 ```bash
 # 1. Disable JWT persistence
 export JWT_PERSISTENCE_ENABLED=false
-docker-compose restart jairouter
+docker-compose restart trunkline
 
 # 2. Or rollback to previous configuration
 git checkout HEAD~1 -- src/main/resources/config/security/
-docker-compose restart jairouter
+docker-compose restart trunkline
 
 # 3. Or stop Redis and use memory-only mode
 docker-compose stop redis
@@ -254,7 +254,7 @@ For planned rollback:
 2. **JWT Persistence Not Working**
    ```bash
    # Check application logs
-   docker-compose logs jairouter | grep -i jwt
+   docker-compose logs trunkline | grep -i jwt
    
    # Check health endpoint
    curl http://localhost:8080/actuator/health/jwt-persistence

@@ -14,9 +14,9 @@ Trunkline 内置熔断器机制，用于防止服务雪崩和级联故障。当�
 从 v2.8.x 版本开始，Trunkline 采用模块化配置结构，熔断器相关配置位于独立的配置文件中：
 
 - 主配置文件: `application.yml`
-- 熔断器配置: `config/router/circuitbreaker.yml`
+- 熔断器配置: 原独立文件 `config/router/circuitbreaker.yml` 已于 2026-11-09 删除，默认值内置于代码（`CircuitBreakerManager`）；如需覆盖，写入 `application-{profile}.yml` 或外部挂载
 
-您可以在 `config/router/circuitbreaker.yml` 文件中找到全局熔断器配置（`model.circuit-breaker.*`）；各服务类型的熔断配置写在 `config/router/services.yml` 的 `model.services.<serviceType>.circuit-breaker` 下，实例级熔断状态可通过 `/api/config/instance/{serviceType}/{instanceId}/circuit-breaker` 查看与调整。
+全局熔断器配置为 `model.circuit-breaker.*`；各服务类型的熔断配置写在 `config/router/services.yml` 的 `model.services.<serviceType>.circuit-breaker` 下，实例级熔断状态可通过 `/api/config/instance/{serviceType}/{instanceId}/circuit-breaker` 查看与调整。
 
 ## 熔断器概述
 
@@ -59,10 +59,10 @@ stateDiagram-v2
 
 ### 基础配置
 
-在 `config/router/circuitbreaker.yml` 文件中配置全局熔断器：
+全局熔断器默认值内置于代码（原 `config/router/circuitbreaker.yml` 已删除），如需覆盖可写入任意更高优先级配置源：
 
 ```yaml
-# config/base/model-services-base.yml
+# application-{profile}.yml 或外部挂载配置
 model:
   # 全局熔断配置
   circuit-breaker:
@@ -107,7 +107,7 @@ model:
 
 ### YAML 配置
 
-在 `config/base/model-services-base.yml` 文件中配置各服务类型的熔断器：
+在 `config/router/services.yml` 文件中配置各服务类型的熔断器：
 
 ```yaml
 model:

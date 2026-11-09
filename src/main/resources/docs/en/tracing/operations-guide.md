@@ -24,8 +24,8 @@ This document provides a complete guide for operating the Trunkline distributed 
 # docker-compose.yml example
 version: '3.8'
 services:
-  jairouter:
-    image: jairouter:latest
+  trunkline:
+    image: trunkline:latest
     environment:
       - JAIROUTER_TRACING_ENABLED=true
       - JAIROUTER_TRACING_EXPORTER_TYPE=otlp
@@ -44,10 +44,10 @@ services:
 
 #### Basic Configuration
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
-    service-name: "jairouter-prod"
+    service-name: "trunkline-prod"
     service-version: "${app.version}"
     service-namespace: "production"
 
@@ -109,7 +109,7 @@ jairouter:
 -XX:+UnlockExperimentalVMOptions
 -XX:+UnlockDiagnosticVMOptions
 -XX:+LogVMOutput
--XX:LogFile=/var/log/jairouter/gc.log
+-XX:LogFile=/var/log/trunkline/gc.log
 -XX:+PrintGCDetails
 -XX:+PrintGCTimeStamps
 ```
@@ -122,9 +122,9 @@ jairouter:
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'jairouter-tracing'
+  - job_name: 'trunkline-tracing'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 30s
 ```
@@ -132,18 +132,18 @@ scrape_configs:
 #### Key Metrics
 ```promql
 # Tracing export success rate
-rate(jairouter_tracing_spans_exported_total[5m]) / 
-rate(jairouter_tracing_spans_created_total[5m])
+rate(trunkline_tracing_spans_exported_total[5m]) / 
+rate(trunkline_tracing_spans_created_total[5m])
 
 # Average response time
-jairouter_tracing_request_duration_seconds_sum / 
-jairouter_tracing_request_duration_seconds_count
+trunkline_tracing_request_duration_seconds_sum / 
+trunkline_tracing_request_duration_seconds_count
 
 # Memory usage ratio
-jairouter_tracing_memory_used_ratio
+trunkline_tracing_memory_used_ratio
 
 # Error rate
-rate(jairouter_tracing_errors_total[5m])
+rate(trunkline_tracing_errors_total[5m])
 ```
 
 ### Alert Rules
@@ -151,29 +151,29 @@ rate(jairouter_tracing_errors_total[5m])
 ```yaml
 # tracing-alerts.yml
 groups:
-  - name: jairouter_tracing
+  - name: trunkline_tracing
     rules:
       - alert: TracingExportFailureHigh
-        expr: rate(jairouter_tracing_export_errors_total[5m]) > 0.05
+        expr: rate(trunkline_tracing_export_errors_total[5m]) > 0.05
         for: 2m
         labels:
           severity: warning
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "High tracing data export failure rate"
           description: "Tracing data export failure rate exceeded 5% in the last 5 minutes"
           
       - alert: TracingMemoryUsageHigh
-        expr: jairouter_tracing_memory_used_ratio > 0.85
+        expr: trunkline_tracing_memory_used_ratio > 0.85
         for: 1m
         labels:
           severity: critical
-          service: jairouter
+          service: trunkline
         annotations:
           summary: "High tracing system memory usage"
           
       - alert: TracingSlowRequests
-        expr: histogram_quantile(0.95, jairouter_tracing_request_duration_seconds_bucket) > 5
+        expr: histogram_quantile(0.95, trunkline_tracing_request_duration_seconds_bucket) > 5
         for: 3m
         labels:
           severity: warning
@@ -194,7 +194,7 @@ groups:
         "type": "stat",
         "targets": [
           {
-            "expr": "rate(jairouter_tracing_requests_total[5m])",
+            "expr": "rate(trunkline_tracing_requests_total[5m])",
             "legendFormat": "RPS"
           }
         ]
@@ -204,11 +204,11 @@ groups:
         "type": "timeseries",
         "targets": [
           {
-            "expr": "rate(jairouter_tracing_spans_exported_total[5m])",
+            "expr": "rate(trunkline_tracing_spans_exported_total[5m])",
             "legendFormat": "Export Success"
           },
           {
-            "expr": "rate(jairouter_tracing_export_errors_total[5m])",
+            "expr": "rate(trunkline_tracing_export_errors_total[5m])",
             "legendFormat": "Export Failed"
           }
         ]
@@ -229,7 +229,7 @@ groups:
 # Memory requirement = 1000 * 0.1 * 300 * 2KB ≈ 60MB
 
 # Recommended configuration
-jairouter:
+trunkline:
   tracing:
     # Checked in issue #159: the path is performance.memory, and there is no span-ttl knob
     # (the model has no fixed TTL; eviction is driven by memory-limit-mb plus gc-interval).
@@ -245,7 +245,7 @@ jairouter:
 # Checked in issue #159: neither memory-threshold nor auto-cleanup has a backing field.
 # Memory pressure is driven by memory-limit-mb (eviction starts once it is exceeded) and the
 # check frequency is gc-interval.
-jairouter:
+trunkline:
   tracing:
     performance:
       memory:
@@ -260,9 +260,9 @@ jairouter:
 # logback-spring.xml
 <configuration>
     <appender name="TRACING_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>/var/log/jairouter/tracing.log</file>
+        <file>/var/log/trunkline/tracing.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>/var/log/jairouter/tracing.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <fileNamePattern>/var/log/trunkline/tracing.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
             <maxFileSize>100MB</maxFileSize>
             <maxHistory>30</maxHistory>
             <totalSizeCap>10GB</totalSizeCap>
@@ -277,16 +277,16 @@ jairouter:
 
 ```bash
 # Regularly check if sensitive data is properly sanitized
-grep -r "password\|token\|secret" /var/log/jairouter/tracing.log
+grep -r "password\|token\|secret" /var/log/trunkline/tracing.log
 
 # Check sensitive information in configuration
 curl -s http://localhost:8080/actuator/configprops | \
-  jq '.jairouter.tracing.security.sensitive_headers'
+  jq '.trunkline.tracing.security.sensitive_headers'
 ```
 
 ### Access Control Audit
 
-> Checked in issues #159 / #224 batch B: the whole `jairouter.tracing.security.audit` section
+> Checked in issues #159 / #224 batch B: the whole `trunkline.tracing.security.audit` section
 > **does not exist** — its fields (`enabled` / `audit-data-access` / `audit-config-changes` /
 > `storage.audit-log-retention` and 7 more) had no consumer anywhere: tracing-side auditing was never
 > implemented. The fields and the example were removed.
@@ -323,7 +323,7 @@ while true; do
     echo "Memory: $(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2}')"
     
     # Tracing metrics
-    curl -s http://localhost:8080/actuator/metrics/jairouter.tracing.spans.active | \
+    curl -s http://localhost:8080/actuator/metrics/trunkline.tracing.spans.active | \
       jq '.measurements[0].value'
     
     sleep 30
@@ -332,7 +332,7 @@ done
 
 ### Automated Tuning
 
-> Checked in issue #159: **there is no `jairouter.tracing.auto-tuning` section** — nothing in the
+> Checked in issue #159: **there is no `trunkline.tracing.auto-tuning` section** — nothing in the
 > code base binds it, so the example had no effect. The only "automatic" behaviors that exist are
 > `sampling.adaptive.*` (adjusts the sampling ratio towards a target span rate) and
 > `performance.memory.gc-interval` (periodic memory-pressure check) — see "Memory Planning" above.
@@ -345,7 +345,7 @@ done
 # Daily configuration backup script
 #!/bin/bash
 DATE=$(date +%Y%m%d)
-BACKUP_DIR="/backup/jairouter-config"
+BACKUP_DIR="/backup/trunkline-config"
 
 # Backup current configuration
 mkdir -p $BACKUP_DIR
@@ -378,8 +378,8 @@ curl -f http://localhost:8080/actuator/health/tracing || exit 1
 curl -s http://localhost:8080/actuator/configprops > /tmp/pre-upgrade-config.json
 
 # 3. Perform upgrade
-docker-compose pull jairouter
-docker-compose up -d jairouter
+docker-compose pull trunkline
+docker-compose up -d trunkline
 
 # 4. Post-upgrade verification
 sleep 30
@@ -441,7 +441,7 @@ curl -X POST http://localhost:8080/api/admin/tracing/disable \
 ```yaml
 # Checked in issue #159: there are no exporter.fallback keys. To degrade the same way, simply
 # switch the exporter type to logging (that exporter does exist).
-jairouter:
+trunkline:
   tracing:
     exporter:
       type: "logging"

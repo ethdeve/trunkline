@@ -213,7 +213,7 @@ CREATE TABLE config_change_audit_log (
 Periodically clean up expired audit logs:
 
 ```yaml
-jairouter:
+trunkline:
   security:
     audit-log:
       cleanup:
@@ -227,7 +227,7 @@ jairouter:
 Supports archiving historical logs to external storage:
 
 ```yaml
-jairouter:
+trunkline:
   security:
     audit-log:
       archive:
@@ -259,18 +259,18 @@ curl -X POST "http://localhost:8080/api/security/audit-logs/export" \
 
 ### Monitoring Metrics
 
-- `jairouter_audit_logs_total`: total audit logs
-- `jairouter_audit_logs_by_operation`: statistics by operation type
-- `jairouter_audit_logs_by_status`: statistics by status
-- `jairouter_audit_logs_failed`: number of failed operations
+- `trunkline_audit_logs_total`: total audit logs
+- `trunkline_audit_logs_by_operation`: statistics by operation type
+- `trunkline_audit_logs_by_status`: statistics by status
+- `trunkline_audit_logs_failed`: number of failed operations
 
 ### Alert Configuration
 
-Security alerts are configured under `jairouter.security.monitoring.alerts` (the
-`jairouter.security.audit-log.alerts.*` prefix shown here previously does not exist in code):
+Security alerts are configured under `trunkline.security.monitoring.alerts` (the
+`trunkline.security.audit-log.alerts.*` prefix shown here previously does not exist in code):
 
 ```yaml
-jairouter:
+trunkline:
   security:
     monitoring:
       alerts:
@@ -288,7 +288,7 @@ jairouter:
           cooldown-minutes: 15
 ```
 
-Alerts reach Prometheus (`jairouter.security.violations`) and WARN logs (`安全告警触发: type=..., severity=...`).
+Alerts reach Prometheus (`trunkline.security.violations`) and WARN logs (`安全告警触发: type=..., severity=...`).
 
 ## Best Practices
 
@@ -327,7 +327,7 @@ Alerts reach Prometheus (`jairouter.security.violations`) and WARN logs (`安全
 - Insufficient log table space
 
 **Solutions**:
-1. Check the `jairouter.security.audit-log.enabled` configuration
+1. Check the `trunkline.security.audit-log.enabled` configuration
 2. Check database space and connections
 
 #### 2. Slow log queries

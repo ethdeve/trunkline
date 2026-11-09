@@ -282,7 +282,7 @@ Trunkline 提供完整的管理 API，用于动态配置管理、服务实例管
 ```json
 {
   "enabled": true,
-  "prefix": "jairouter",
+  "prefix": "trunkline",
   "collectionInterval": "PT30S",
   "enabledCategories": ["request", "system", "custom"],
   "sampling": {
@@ -768,7 +768,7 @@ Trunkline 提供完整的管理 API，用于动态配置管理、服务实例管
     },
     "distributed": {
       "enabled": false,
-      "keyPrefix": "jairouter:quota",
+      "keyPrefix": "trunkline:quota",
       "timeoutMs": 50,
       "degradeToLocal": true
     },
@@ -835,7 +835,7 @@ Trunkline 提供完整的管理 API，用于动态配置管理、服务实例管
     "windows": ["MINUTE", "HOUR", "DAY", "MONTH"],
     "distributed": {
       "enabled": false,
-      "keyPrefix": "jairouter:quota",
+      "keyPrefix": "trunkline:quota",
       "timeoutMs": 50,
       "degradeToLocal": true
     }

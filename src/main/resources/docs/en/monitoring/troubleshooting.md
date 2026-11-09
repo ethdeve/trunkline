@@ -63,7 +63,7 @@ curl http://localhost:8080/actuator/health
 curl http://localhost:8080/actuator
 
 # Check application logs
-docker logs jairouter | grep -i actuator
+docker logs trunkline | grep -i actuator
 ```
 
 **Solution**:
@@ -95,7 +95,7 @@ curl http://localhost:8080/actuator/configprops | jq '.contexts.application.bean
 curl http://localhost:8080/actuator/metrics
 
 # Check specific metrics
-curl http://localhost:8080/actuator/metrics/jairouter.requests.total
+curl http://localhost:8080/actuator/metrics/trunkline.requests.total
 ```
 
 **Possible Causes and Solutions**:
@@ -173,10 +173,10 @@ monitoring:
 **Diagnosis Steps**:
 ```bash
 # 1. Check Prometheus configuration
-cat monitoring/prometheus/prometheus.yml | grep -A 10 jairouter
+cat monitoring/prometheus/prometheus.yml | grep -A 10 trunkline
 
 # 2. Check network connectivity
-docker exec prometheus curl http://jairouter:8080/actuator/prometheus
+docker exec prometheus curl http://trunkline:8080/actuator/prometheus
 
 # 3. Check Prometheus logs
 docker logs prometheus | grep -i error
@@ -192,7 +192,7 @@ networks:
     driver: bridge
 
 services:
-  jairouter:
+  trunkline:
     networks:
       - monitoring
   prometheus:
@@ -204,9 +204,9 @@ services:
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
-      - targets: ['jairouter:8080']  # Use service name instead of localhost
+      - targets: ['trunkline:8080']  # Use service name instead of localhost
     metrics_path: '/actuator/prometheus'
     scrape_interval: 10s
     scrape_timeout: 5s
@@ -250,7 +250,7 @@ command:
 curl http://localhost:3000/api/datasources/proxy/1/api/v1/query?query=up
 
 # 2. Check query syntax
-curl "http://localhost:9090/api/v1/query?query=jairouter_requests_total"
+curl "http://localhost:9090/api/v1/query?query=trunkline_requests_total"
 
 # 3. Check time range
 # Adjust time range to last 5 minutes in Grafana
@@ -272,10 +272,10 @@ datasources:
 **Query Optimization**:
 ```promql
 # Ensure query syntax is correct
-sum(rate(jairouter_requests_total[5m]))
+sum(rate(trunkline_requests_total[5m]))
 
 # Check if labels exist
-label_values(jairouter_requests_total, service)
+label_values(trunkline_requests_total, service)
 ```
 
 #### Issue 7: Grafana Dashboard Loading Slow
@@ -298,12 +298,12 @@ curl "http://localhost:9090/api/v1/query?query=prometheus_tsdb_head_samples_appe
 **Query Optimization**:
 ```promql
 # Use recording rules to pre-aggregate data
-# rules/jairouter-recording-rules.yml
+# rules/trunkline-recording-rules.yml
 groups:
-  - name: jairouter.recording
+  - name: trunkline.recording
     rules:
-      - record: jairouter:request_rate_5m
-        expr: sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:request_rate_5m
+        expr: sum(rate(trunkline_requests_total[5m]))
 ```
 
 **Panel Optimization**:
@@ -328,7 +328,7 @@ curl http://localhost:9090/api/v1/rules
 curl http://localhost:9093/api/v1/alerts
 
 # 3. Check alert rule syntax
-promtool check rules monitoring/prometheus/rules/jairouter-alerts.yml
+promtool check rules monitoring/prometheus/rules/trunkline-alerts.yml
 ```
 
 **Solutions**:
@@ -377,8 +377,8 @@ amtool silence query
 # alertmanager.yml
 global:
   smtp_smarthost: 'smtp.example.com:587'
-  smtp_from: 'alerts@jairouter.com'
-  smtp_auth_username: 'alerts@jairouter.com'
+  smtp_from: 'alerts@trunkline.com'
+  smtp_auth_username: 'alerts@trunkline.com'
   smtp_auth_password: 'your-password'
 ```
 
@@ -462,22 +462,22 @@ global:
   evaluation_interval: 30s
 
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     scrape_interval: 15s  # Keep shorter interval for important services
 ```
 
 **Use Recording Rules**:
 ```yaml
-# rules/jairouter-recording-rules.yml
+# rules/trunkline-recording-rules.yml
 groups:
-  - name: jairouter.recording
+  - name: trunkline.recording
     interval: 30s
     rules:
-      - record: jairouter:request_rate_5m
-        expr: sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:request_rate_5m
+        expr: sum(rate(trunkline_requests_total[5m]))
       
-      - record: jairouter:error_rate_5m
-        expr: sum(rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:error_rate_5m
+        expr: sum(rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum(rate(trunkline_requests_total[5m]))
 ```
 
 ## Data Consistency Issues
@@ -494,7 +494,7 @@ groups:
 ntpdate -q pool.ntp.org
 
 # Check Prometheus data integrity
-curl "http://localhost:9090/api/v1/query?query=up{job=\"jairouter\"}"
+curl "http://localhost:9090/api/v1/query?query=up{job=\"trunkline\"}"
 
 # Check Grafana cache settings
 ```
@@ -549,7 +549,7 @@ echo "=== Metrics Information ===" > ${LOG_DIR}/metrics.log
 curl -s http://localhost:8080/actuator/prometheus | head -100 >> ${LOG_DIR}/metrics.log
 
 # Collect application logs
-docker logs jairouter > ${LOG_DIR}/jairouter.log 2>&1
+docker logs trunkline > ${LOG_DIR}/trunkline.log 2>&1
 docker logs prometheus > ${LOG_DIR}/prometheus.log 2>&1
 docker logs grafana > ${LOG_DIR}/grafana.log 2>&1
 docker logs alertmanager > ${LOG_DIR}/alertmanager.log 2>&1
@@ -568,13 +568,13 @@ echo "Diagnostic information collected to ${LOG_DIR} directory"
 #### 1. Trunkline Application Logs
 ```bash
 # View monitoring-related errors
-docker logs jairouter | grep -i "metric\|monitor\|prometheus"
+docker logs trunkline | grep -i "metric\|monitor\|prometheus"
 
 # View performance-related logs
-docker logs jairouter | grep -i "performance\|slow\|timeout"
+docker logs trunkline | grep -i "performance\|slow\|timeout"
 
 # View configuration loading logs
-docker logs jairouter | grep -i "config\|property"
+docker logs trunkline | grep -i "config\|property"
 ```
 
 #### 2. Prometheus Logs
@@ -620,7 +620,7 @@ docker-compose -f docker-compose-monitoring.yml up -d
 #### 2. Individual Service Restart
 ```bash
 # Restart JAiRouter
-docker-compose -f docker-compose-monitoring.yml restart jairouter
+docker-compose -f docker-compose-monitoring.yml restart trunkline
 
 # Restart Prometheus
 docker-compose -f docker-compose-monitoring.yml restart prometheus

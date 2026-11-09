@@ -581,11 +581,12 @@ public class ConfigValidatorHelper {
             return null;
         }
 
+        // 缺省值兜底（同 ConfigConverterHelper.convertRateLimitConfig）：显式传 null 会覆盖 Builder 默认值
         return RateLimitConfig.builder()
-                .algorithm(config.getAlgorithm())
-                .capacity(config.getCapacity())
-                .rate(config.getRate())
-                .scope(config.getScope())
+                .algorithm(config.getAlgorithm() != null ? config.getAlgorithm() : "token-bucket")
+                .capacity(config.getCapacity() != null ? config.getCapacity() : 100L)
+                .rate(config.getRate() != null ? config.getRate() : 10L)
+                .scope(config.getScope() != null ? config.getScope() : "service")
                 .key(config.getKey())
                 .build();
     }

@@ -277,7 +277,7 @@ Get current monitoring configuration.
 ```json
 {
   "enabled": true,
-  "prefix": "jairouter",
+  "prefix": "trunkline",
   "collectionInterval": "PT30S",
   "enabledCategories": ["request", "system", "custom"],
   "sampling": {
@@ -740,7 +740,7 @@ Get the current quota configuration snapshot (including runtime overrides).
     },
     "distributed": {
       "enabled": false,
-      "keyPrefix": "jairouter:quota",
+      "keyPrefix": "trunkline:quota",
       "timeoutMs": 50,
       "degradeToLocal": true
     },
@@ -804,7 +804,7 @@ Query the quota ledger runtime status.
     "windows": ["MINUTE", "HOUR", "DAY", "MONTH"],
     "distributed": {
       "enabled": false,
-      "keyPrefix": "jairouter:quota",
+      "keyPrefix": "trunkline:quota",
       "timeoutMs": 50,
       "degradeToLocal": true
     }

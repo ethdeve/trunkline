@@ -27,7 +27,7 @@ This guide provides detailed instructions on how to use Trunkline's Grafana dash
 2. **Access the Interface**
    - URL: http://localhost:3000
    - Username: admin
-   - Password: jairouter2024
+   - Password: trunkline2024
 
 3. **Verify Data Sources**
    - Navigate to Configuration → Data Sources
@@ -92,7 +92,7 @@ Common time ranges:
 ### Core Business Metrics
 
 #### 1. Service Type Distribution
-**Query**: `sum by (service) (rate(jairouter_requests_total[5m]))`
+**Query**: `sum by (service) (rate(trunkline_requests_total[5m]))`
 
 Displays usage of various AI services:
 - **Chat Service**: Chat conversation request statistics
@@ -101,21 +101,21 @@ Displays usage of various AI services:
 - **Other Services**: TTS, STT, image generation, etc.
 
 #### 2. Model Call Success Rate
-**Query**: `sum(rate(jairouter_model_calls_total{status="success"}[5m])) / sum(rate(jairouter_model_calls_total[5m])) * 100`
+**Query**: `sum(rate(trunkline_model_calls_total{status="success"}[5m])) / sum(rate(trunkline_model_calls_total[5m])) * 100`
 
 - Displays success rates of various backend adapters
 - Shows success rate trends over time
 - Sets alert thresholds (usually < 95% requires attention)
 
 #### 3. Request Size Distribution
-**Query**: `histogram_quantile(0.95, rate(jairouter_request_size_bytes_bucket[5m]))`
+**Query**: `histogram_quantile(0.95, rate(trunkline_request_size_bytes_bucket[5m]))`
 
 - P50, P95, P99 request sizes
 - Displayed grouped by service type
 - Identifies requests with abnormal sizes
 
 #### 4. Response Time Analysis
-**Query**: `histogram_quantile(0.95, rate(jairouter_request_duration_seconds_bucket[5m]))`
+**Query**: `histogram_quantile(0.95, rate(trunkline_request_duration_seconds_bucket[5m]))`
 
 - Response time distribution by service type
 - Identifies performance bottlenecks
@@ -138,7 +138,7 @@ Displays usage of various AI services:
 ### Load Balancer Monitoring
 
 #### 1. Load Balancing Strategy Distribution
-**Query**: `sum by (strategy) (jairouter_loadbalancer_selections_total)`
+**Query**: `sum by (strategy) (trunkline_loadbalancer_selections_total)`
 
 Displays usage of different strategies:
 - **Random**: Number of times random strategy is used
@@ -147,14 +147,14 @@ Displays usage of different strategies:
 - **IP Hash**: Number of times IP hash strategy is used
 
 #### 2. Backend Instance Health Status
-**Query**: `jairouter_backend_health`
+**Query**: `trunkline_backend_health`
 
 - Real-time display of backend instance health status
 - Statistics of healthy instances
 - Alerts for faulty instances
 
 #### 3. Request Distribution Uniformity
-**Query**: `sum by (instance) (rate(jairouter_backend_calls_total[5m]))`
+**Query**: `sum by (instance) (rate(trunkline_backend_calls_total[5m]))`
 
 - Distribution of requests received by each instance
 - Identifies load imbalance issues
@@ -163,14 +163,14 @@ Displays usage of different strategies:
 ### Rate Limiter Monitoring
 
 #### 1. Rate Limiter Status
-**Query**: `jairouter_rate_limit_tokens`
+**Query**: `trunkline_rate_limit_tokens`
 
 - Available tokens for each service
 - Token consumption rate
 - Rate limiting trigger frequency
 
 #### 2. Rate Limiting Event Statistics
-**Query**: `sum by (result) (rate(jairouter_rate_limit_events_total[5m]))`
+**Query**: `sum by (result) (rate(trunkline_rate_limit_events_total[5m]))`
 
 - Number of requests passed through
 - Number of requests rate-limited
@@ -179,7 +179,7 @@ Displays usage of different strategies:
 ### Circuit Breaker Monitoring
 
 #### 1. Circuit Breaker Status
-**Query**: `jairouter_circuit_breaker_state`
+**Query**: `trunkline_circuit_breaker_state`
 
 Status Explanation:
 - **CLOSED (0)**: Normal state
@@ -187,7 +187,7 @@ Status Explanation:
 - **HALF_OPEN (2)**: Half-open state
 
 #### 2. Circuit Breaker Events
-**Query**: `sum by (event) (rate(jairouter_circuit_breaker_events_total[5m]))`
+**Query**: `sum by (event) (rate(trunkline_circuit_breaker_events_total[5m]))`
 
 - Successful calls
 - Failed calls
@@ -211,14 +211,14 @@ Status Explanation:
 ### Throughput Analysis
 
 #### 1. Request Throughput
-**Query**: `sum(rate(jairouter_requests_total[1m]))`
+**Query**: `sum(rate(trunkline_requests_total[1m]))`
 
 - Number of requests processed per minute
 - Peak throughput records
 - Capacity utilization analysis
 
 #### 2. Backend Call Throughput
-**Query**: `sum by (adapter) (rate(jairouter_backend_calls_total[1m]))`
+**Query**: `sum by (adapter) (rate(trunkline_backend_calls_total[1m]))`
 
 - Call frequency of each adapter
 - Backend service load analysis
@@ -280,13 +280,13 @@ Displayed information:
 **Custom Business Metrics**:
 ```promql
 # Request statistics for specific users
-sum by (user_id) (rate(jairouter_requests_total{user_id!=""}[5m]))
+sum by (user_id) (rate(trunkline_requests_total{user_id!=""}[5m]))
 
 # Error rate for specific time periods
-sum(rate(jairouter_requests_total{status=~"4..|5.."}[1h])) / sum(rate(jairouter_requests_total[1h])) * 100
+sum(rate(trunkline_requests_total{status=~"4..|5.."}[1h])) / sum(rate(trunkline_requests_total[1h])) * 100
 
 # Backend service response time comparison
-histogram_quantile(0.95, sum by (adapter, le) (rate(jairouter_backend_call_duration_seconds_bucket[5m])))
+histogram_quantile(0.95, sum by (adapter, le) (rate(trunkline_backend_call_duration_seconds_bucket[5m])))
 ```
 
 ### Dashboard Template Variables
@@ -295,14 +295,14 @@ histogram_quantile(0.95, sum by (adapter, le) (rate(jairouter_backend_call_durat
 ```
 Name: environment
 Type: Query
-Query: label_values(jairouter_requests_total, environment)
+Query: label_values(trunkline_requests_total, environment)
 ```
 
 #### 2. Service Type Variable
 ```
 Name: service
 Type: Query
-Query: label_values(jairouter_requests_total, service)
+Query: label_values(trunkline_requests_total, service)
 ```
 
 #### 3. Time Range Variable

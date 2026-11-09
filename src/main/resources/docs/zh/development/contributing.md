@@ -33,7 +33,7 @@
 1. **克隆项目**
    ```bash
    git clone https://github.com/Lincoln-cn/JAiRouter.git
-   cd jairouter
+   cd trunkline
    ```
 
 2. **验证Java版本**
@@ -59,7 +59,7 @@
 
 5. **启动应用**
    ```bash
-   java -jar target/model-router-*.jar
+   java -jar target/trunkline-*.jar
    ```
 
 ### IDE 配置

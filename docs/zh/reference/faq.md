@@ -95,7 +95,7 @@ cd trunkline
 
 # 构建运行
 ./mvnw clean package
-java -jar target/model-router-*.jar
+java -jar target/trunkline-*.jar
 ```
 
 ### Q7: 如何配置后端 AI 服务？
@@ -319,7 +319,7 @@ docker restart trunkline
 java -Xms2g -Xmx4g \
      -XX:+UseG1GC \
      -XX:MaxGCPauseMillis=200 \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 **连接池优化**:

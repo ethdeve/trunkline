@@ -340,8 +340,8 @@ store:
 生产环境建议手动迁移：
 
 ```bash
-# 1. 在测试环境验证迁移
-java -jar app.jar --spring.profiles.active=staging \
+# 1. 在生产环境验证迁移
+java -jar app.jar --spring.profiles.active=prod \
   --store.migration.enabled=true \
   --store.security-migration.enabled=true
 

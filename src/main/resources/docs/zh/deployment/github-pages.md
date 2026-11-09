@@ -43,7 +43,7 @@ Trunkline 文档站点通过 GitHub Pages 自动部署，提供在线文档访�
 ## 访问地址
 
 - **默认地址**：https://lincoln-cn.github.io/Trunkline
-- **自定义域名**：`jairouter.com`（需要配置 DNS）
+- **自定义域名**：`trunkline.com`（需要配置 DNS）
 
 ## 部署状态检查
 

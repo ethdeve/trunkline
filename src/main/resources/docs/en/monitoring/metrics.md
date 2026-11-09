@@ -11,7 +11,7 @@
 
 This document provides detailed descriptions of all available monitoring metrics in the Trunkline system, including metric definitions, label explanations, usage scenarios, and query examples.
 
-> ⚠️ **Trust the code.** The generic HTTP/business/backend metric names below (e.g. `jairouter_requests_total`, `jairouter_model_calls_total`, `jairouter_backend_health`) are **design illustrations**. The metrics actually registered on the `MeterRegistry` and scrapable at `/actuator/prometheus` are the "Code-registered metrics" below; the rest are **to be confirmed** — trust the live `/actuator/prometheus` output.
+> ⚠️ **Trust the code.** The generic HTTP/business/backend metric names below (e.g. `trunkline_requests_total`, `trunkline_model_calls_total`, `trunkline_backend_health`) are **design illustrations**. The metrics actually registered on the `MeterRegistry` and scrapable at `/actuator/prometheus` are the "Code-registered metrics" below; the rest are **to be confirmed** — trust the live `/actuator/prometheus` output.
 
 ## Code-registered metrics
 
@@ -21,30 +21,30 @@ Micrometer names (Prometheus counters get the `_total` suffix):
 
 | Micrometer name | Type | Tags |
 |-----------------|------|--------|
-| `jairouter.security.authentication.attempts` | Counter | — |
-| `jairouter.security.authentication.successes` | Counter | `auth_type` |
-| `jairouter.security.authentication.failures` | Counter | `auth_type`, `failure_reason` |
-| `jairouter.security.authentication.duration` | Timer | — |
-| `jairouter.security.jwt.validations` | Counter | `result` |
-| `jairouter.security.jwt.refreshes` / `.expired` | Counter | — |
-| `jairouter.security.sanitization.operations` | Counter | `content_type`, `direction` |
-| `jairouter.security.sanitization.rule.matches` | Counter | `rule_id`, `rule_type` |
-| `jairouter.security.violations` | Counter | `violation_type`, `severity` |
-| `jairouter.security.suspicious.activities` | Counter | `activity_type`, `client_ip_hash` |
-| `jairouter.security.active.users` | Gauge | — |
-| `jairouter.security.apikeys.active` | Gauge | — |
+| `trunkline.security.authentication.attempts` | Counter | — |
+| `trunkline.security.authentication.successes` | Counter | `auth_type` |
+| `trunkline.security.authentication.failures` | Counter | `auth_type`, `failure_reason` |
+| `trunkline.security.authentication.duration` | Timer | — |
+| `trunkline.security.jwt.validations` | Counter | `result` |
+| `trunkline.security.jwt.refreshes` / `.expired` | Counter | — |
+| `trunkline.security.sanitization.operations` | Counter | `content_type`, `direction` |
+| `trunkline.security.sanitization.rule.matches` | Counter | `rule_id`, `rule_type` |
+| `trunkline.security.violations` | Counter | `violation_type`, `severity` |
+| `trunkline.security.suspicious.activities` | Counter | `activity_type`, `client_ip_hash` |
+| `trunkline.security.active.users` | Gauge | — |
+| `trunkline.security.apikeys.active` | Gauge | — |
 
 ### Rate-limit metrics (exposed by `router/controller/RateLimitMonitorController`)
 
 | Metric | Type | Tags |
 |--------|------|--------|
-| `jairouter_rate_limit_events_total` | Counter | `service`, `algorithm`, `result` |
-| `jairouter_rate_limit_remaining` | Gauge | `service`, `scope`, `algorithm` |
-| `jairouter_rate_limit_usage_ratio` | Gauge | `service`, `scope`, `algorithm` |
+| `trunkline_rate_limit_events_total` | Counter | `service`, `algorithm`, `result` |
+| `trunkline_rate_limit_remaining` | Gauge | `service`, `scope`, `algorithm` |
+| `trunkline_rate_limit_usage_ratio` | Gauge | `service`, `scope`, `algorithm` |
 
 ### Monitoring-system metrics (read by `DashboardMetricsController`)
 
-`jairouter.metrics.cache.hits/misses(.total)`, `jairouter.metrics.cache.size`, `jairouter.metrics.retry.attempts/successes/failures(.total)`, `jairouter.metrics.retry.active`, `jairouter.metrics.degradation.level`, `jairouter.metrics.degradations.total`, `jairouter.metrics.errors.total`; audit `jairouter.audit.events.total`, `jairouter.audit.buffer.size`, `jairouter.audit.health.score`.
+`trunkline.metrics.cache.hits/misses(.total)`, `trunkline.metrics.cache.size`, `trunkline.metrics.retry.attempts/successes/failures(.total)`, `trunkline.metrics.retry.active`, `trunkline.metrics.degradation.level`, `trunkline.metrics.degradations.total`, `trunkline.metrics.errors.total`; audit `trunkline.audit.events.total`, `trunkline.audit.buffer.size`, `trunkline.audit.health.score`.
 
 ### JVM / HTTP generic metrics
 
@@ -56,15 +56,15 @@ Trunkline monitoring metrics are categorized by function into the following grou
 
 | Category | Prefix | Description | Usage |
 |----------|--------|-------------|-------|
-| System Metrics | `jairouter_system_*` | JVM, HTTP, and system resource related metrics | System health monitoring |
-| Business Metrics | `jairouter_business_*` | AI model services and user request related metrics | Business analysis and optimization |
-| Infrastructure Metrics | `jairouter_infrastructure_*` | Load balancing, rate limiting, and circuit breaker related metrics | Infrastructure monitoring |
-| Request Metrics | `jairouter_requests_*` | HTTP request statistics | Performance and availability monitoring |
-| Backend Call Metrics | `jairouter_backend_*` | Backend adapter call metrics | Backend service monitoring |
+| System Metrics | `trunkline_system_*` | JVM, HTTP, and system resource related metrics | System health monitoring |
+| Business Metrics | `trunkline_business_*` | AI model services and user request related metrics | Business analysis and optimization |
+| Infrastructure Metrics | `trunkline_infrastructure_*` | Load balancing, rate limiting, and circuit breaker related metrics | Infrastructure monitoring |
+| Request Metrics | `trunkline_requests_*` | HTTP request statistics | Performance and availability monitoring |
+| Backend Call Metrics | `trunkline_backend_*` | Backend adapter call metrics | Backend service monitoring |
 
 ## HTTP Request Metrics
 
-### jairouter_requests_total
+### trunkline_requests_total
 **Type**: Counter  
 **Description**: Total count of HTTP requests  
 **Unit**: Count
@@ -84,19 +84,19 @@ Trunkline monitoring metrics are categorized by function into the following grou
 **Query Examples**:
 ```promql
 # Total request rate (RPS)
-sum(rate(jairouter_requests_total[5m]))
+sum(rate(trunkline_requests_total[5m]))
 
 # Request rate grouped by service type
-sum by (service) (rate(jairouter_requests_total[5m]))
+sum by (service) (rate(trunkline_requests_total[5m]))
 
 # Error rate calculation
-sum(rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum(rate(jairouter_requests_total[5m])) * 100
+sum(rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum(rate(trunkline_requests_total[5m])) * 100
 
 # Success rate calculation
-sum(rate(jairouter_requests_total{status=~"2.."}[5m])) / sum(rate(jairouter_requests_total[5m])) * 100
+sum(rate(trunkline_requests_total{status=~"2.."}[5m])) / sum(rate(trunkline_requests_total[5m])) * 100
 ```
 
-### jairouter_request_duration_seconds
+### trunkline_request_duration_seconds
 **Type**: Histogram  
 **Description**: Distribution of HTTP request response times  
 **Unit**: Seconds
@@ -116,19 +116,19 @@ sum(rate(jairouter_requests_total{status=~"2.."}[5m])) / sum(rate(jairouter_requ
 **Query Examples**:
 ```promql
 # P95 response time
-histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))
 
 # P99 response time grouped by service
-histogram_quantile(0.99, sum by (service, le) (rate(jairouter_request_duration_seconds_bucket[5m])))
+histogram_quantile(0.99, sum by (service, le) (rate(trunkline_request_duration_seconds_bucket[5m])))
 
 # Average response time
-sum(rate(jairouter_request_duration_seconds_sum[5m])) / sum(rate(jairouter_request_duration_seconds_count[5m]))
+sum(rate(trunkline_request_duration_seconds_sum[5m])) / sum(rate(trunkline_request_duration_seconds_count[5m]))
 
 # Proportion of requests exceeding 2 seconds
-sum(rate(jairouter_request_duration_seconds_bucket{le="2"}[5m])) / sum(rate(jairouter_request_duration_seconds_count[5m]))
+sum(rate(trunkline_request_duration_seconds_bucket{le="2"}[5m])) / sum(rate(trunkline_request_duration_seconds_count[5m]))
 ```
 
-### jairouter_request_size_bytes
+### trunkline_request_size_bytes
 **Type**: Histogram  
 **Description**: Distribution of HTTP request sizes  
 **Unit**: Bytes
@@ -142,16 +142,16 @@ sum(rate(jairouter_request_duration_seconds_bucket{le="2"}[5m])) / sum(rate(jair
 **Query Examples**:
 ```promql
 # P95 request size
-histogram_quantile(0.95, sum(rate(jairouter_request_size_bytes_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(trunkline_request_size_bytes_bucket[5m])) by (le))
 
 # Average request size
-sum(rate(jairouter_request_size_bytes_sum[5m])) / sum(rate(jairouter_request_size_bytes_count[5m]))
+sum(rate(trunkline_request_size_bytes_sum[5m])) / sum(rate(trunkline_request_size_bytes_count[5m]))
 
 # Proportion of large requests (>1MB)
-sum(rate(jairouter_request_size_bytes_bucket{le="1000000"}[5m])) / sum(rate(jairouter_request_size_bytes_count[5m]))
+sum(rate(trunkline_request_size_bytes_bucket{le="1000000"}[5m])) / sum(rate(trunkline_request_size_bytes_count[5m]))
 ```
 
-### jairouter_response_size_bytes
+### trunkline_response_size_bytes
 **Type**: Histogram  
 **Description**: Distribution of HTTP response sizes  
 **Unit**: Bytes
@@ -163,15 +163,15 @@ sum(rate(jairouter_request_size_bytes_bucket{le="1000000"}[5m])) / sum(rate(jair
 **Query Examples**:
 ```promql
 # P95 response size
-histogram_quantile(0.95, sum(rate(jairouter_response_size_bytes_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(trunkline_response_size_bytes_bucket[5m])) by (le))
 
 # Average response size grouped by service type
-sum by (service) (rate(jairouter_response_size_bytes_sum[5m])) / sum by (service) (rate(jairouter_response_size_bytes_count[5m]))
+sum by (service) (rate(trunkline_response_size_bytes_sum[5m])) / sum by (service) (rate(trunkline_response_size_bytes_count[5m]))
 ```
 
 ## Business Metrics
 
-### jairouter_model_calls_total
+### trunkline_model_calls_total
 **Type**: Counter  
 **Description**: Total count of AI model calls  
 **Unit**: Count
@@ -190,19 +190,19 @@ sum by (service) (rate(jairouter_response_size_bytes_sum[5m])) / sum by (service
 **Query Examples**:
 ```promql
 # Model call rate
-sum(rate(jairouter_model_calls_total[5m]))
+sum(rate(trunkline_model_calls_total[5m]))
 
 # Call rate grouped by model type
-sum by (model_type) (rate(jairouter_model_calls_total[5m]))
+sum by (model_type) (rate(trunkline_model_calls_total[5m]))
 
 # Model call success rate
-sum(rate(jairouter_model_calls_total{status="success"}[5m])) / sum(rate(jairouter_model_calls_total[5m])) * 100
+sum(rate(trunkline_model_calls_total{status="success"}[5m])) / sum(rate(trunkline_model_calls_total[5m])) * 100
 
 # Most popular models
-topk(5, sum by (model_name) (rate(jairouter_model_calls_total[5m])))
+topk(5, sum by (model_name) (rate(trunkline_model_calls_total[5m])))
 ```
 
-### jairouter_model_call_duration_seconds
+### trunkline_model_call_duration_seconds
 **Type**: Histogram  
 **Description**: Distribution of model call response times  
 **Unit**: Seconds
@@ -217,16 +217,16 @@ topk(5, sum by (model_name) (rate(jairouter_model_calls_total[5m])))
 **Query Examples**:
 ```promql
 # P95 model call response time
-histogram_quantile(0.95, sum(rate(jairouter_model_call_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(trunkline_model_call_duration_seconds_bucket[5m])) by (le))
 
 # Average response time grouped by model type
-sum by (model_type) (rate(jairouter_model_call_duration_seconds_sum[5m])) / sum by (model_type) (rate(jairouter_model_call_duration_seconds_count[5m]))
+sum by (model_type) (rate(trunkline_model_call_duration_seconds_sum[5m])) / sum by (model_type) (rate(trunkline_model_call_duration_seconds_count[5m]))
 
 # Fastest responding models
-bottomk(5, sum by (model_name) (rate(jairouter_model_call_duration_seconds_sum[5m])) / sum by (model_name) (rate(jairouter_model_call_duration_seconds_count[5m])))
+bottomk(5, sum by (model_name) (rate(trunkline_model_call_duration_seconds_sum[5m])) / sum by (model_name) (rate(trunkline_model_call_duration_seconds_count[5m])))
 ```
 
-### jairouter_user_sessions_active
+### trunkline_user_sessions_active
 **Type**: Gauge  
 **Description**: Current number of active user sessions  
 **Unit**: Count
@@ -238,16 +238,16 @@ bottomk(5, sum by (model_name) (rate(jairouter_model_call_duration_seconds_sum[5
 **Query Examples**:
 ```promql
 # Total active sessions
-sum(jairouter_user_sessions_active)
+sum(trunkline_user_sessions_active)
 
 # Active sessions grouped by region
-sum by (region) (jairouter_user_sessions_active)
+sum by (region) (trunkline_user_sessions_active)
 
 # Session growth rate
-rate(jairouter_user_sessions_active[5m])
+rate(trunkline_user_sessions_active[5m])
 ```
 
-### jairouter_user_sessions_total
+### trunkline_user_sessions_total
 **Type**: Counter  
 **Description**: Total number of user sessions  
 **Unit**: Count
@@ -259,17 +259,17 @@ rate(jairouter_user_sessions_active[5m])
 **Query Examples**:
 ```promql
 # New session creation rate
-sum(rate(jairouter_user_sessions_total{session_type="new"}[5m]))
+sum(rate(trunkline_user_sessions_total{session_type="new"}[5m]))
 
 # Returning user ratio
-sum(rate(jairouter_user_sessions_total{session_type="returning"}[5m])) / sum(rate(jairouter_user_sessions_total[5m])) * 100
+sum(rate(trunkline_user_sessions_total{session_type="returning"}[5m])) / sum(rate(trunkline_user_sessions_total[5m])) * 100
 ```
 
 ## Infrastructure Metrics
 
 ### Load Balancer Metrics
 
-#### jairouter_loadbalancer_selections_total
+#### trunkline_loadbalancer_selections_total
 **Type**: Counter  
 **Description**: Total number of times the load balancer selects backend instances  
 **Unit**: Count
@@ -282,21 +282,21 @@ sum(rate(jairouter_user_sessions_total{session_type="returning"}[5m])) / sum(rat
 **Query Examples**:
 ```promql
 # Load balancer selection rate
-sum(rate(jairouter_loadbalancer_selections_total[5m]))
+sum(rate(trunkline_loadbalancer_selections_total[5m]))
 
 # Selection distribution grouped by strategy
-sum by (strategy) (rate(jairouter_loadbalancer_selections_total[5m]))
+sum by (strategy) (rate(trunkline_loadbalancer_selections_total[5m]))
 
 # Instance selection uniformity
-stddev by (service) (sum by (service, selected_instance) (rate(jairouter_loadbalancer_selections_total[5m])))
+stddev by (service) (sum by (service, selected_instance) (rate(trunkline_loadbalancer_selections_total[5m])))
 
 # Most frequently selected instances
-topk(5, sum by (selected_instance) (rate(jairouter_loadbalancer_selections_total[5m])))
+topk(5, sum by (selected_instance) (rate(trunkline_loadbalancer_selections_total[5m])))
 ```
 
 ### Rate Limiter Metrics
 
-#### jairouter_rate_limit_events_total
+#### trunkline_rate_limit_events_total
 **Type**: Counter  
 **Description**: Total number of rate limiting events  
 **Unit**: Count
@@ -309,16 +309,16 @@ topk(5, sum by (selected_instance) (rate(jairouter_loadbalancer_selections_total
 **Query Examples**:
 ```promql
 # Rate limit pass rate
-sum(rate(jairouter_rate_limit_events_total{result="allowed"}[5m])) / sum(rate(jairouter_rate_limit_events_total[5m])) * 100
+sum(rate(trunkline_rate_limit_events_total{result="allowed"}[5m])) / sum(rate(trunkline_rate_limit_events_total[5m])) * 100
 
 # Rate limit rejection rate
-sum(rate(jairouter_rate_limit_events_total{result="denied"}[5m])) / sum(rate(jairouter_rate_limit_events_total[5m])) * 100
+sum(rate(trunkline_rate_limit_events_total{result="denied"}[5m])) / sum(rate(trunkline_rate_limit_events_total[5m])) * 100
 
 # Rate limiting effectiveness grouped by algorithm
-sum by (algorithm) (rate(jairouter_rate_limit_events_total{result="denied"}[5m]))
+sum by (algorithm) (rate(trunkline_rate_limit_events_total{result="denied"}[5m]))
 ```
 
-#### jairouter_rate_limit_remaining
+#### trunkline_rate_limit_remaining
 **Type**: Gauge  
 **Description**: Remaining quota in the rate limiter (by service/scope/algorithm)  
 **Unit**: Count
@@ -331,13 +331,13 @@ sum by (algorithm) (rate(jairouter_rate_limit_events_total{result="denied"}[5m])
 **Query Examples**:
 ```promql
 # Remaining quota for a service
-jairouter_rate_limit_remaining{service="chat"}
+trunkline_rate_limit_remaining{service="chat"}
 
 # Service with the least remaining quota
-min by (service) (jairouter_rate_limit_remaining)
+min by (service) (trunkline_rate_limit_remaining)
 ```
 
-#### jairouter_rate_limit_usage_ratio
+#### trunkline_rate_limit_usage_ratio
 **Type**: Gauge  
 **Description**: Rate-limit quota usage ratio (0–1)  
 **Unit**: Ratio
@@ -350,14 +350,14 @@ min by (service) (jairouter_rate_limit_remaining)
 **Query Examples**:
 ```promql
 # Services over 90% used
-jairouter_rate_limit_usage_ratio > 0.9
+trunkline_rate_limit_usage_ratio > 0.9
 ```
 
-> Note: the earlier `jairouter_rate_limit_tokens` (and `_max`) is **not** registered in the current code; use `remaining` and `usage_ratio` above.
+> Note: the earlier `trunkline_rate_limit_tokens` (and `_max`) is **not** registered in the current code; use `remaining` and `usage_ratio` above.
 
 ### Circuit Breaker Metrics
 
-#### jairouter_circuit_breaker_state
+#### trunkline_circuit_breaker_state
 **Type**: Gauge  
 **Description**: Current state of the circuit breaker  
 **Unit**: State value
@@ -374,16 +374,16 @@ jairouter_rate_limit_usage_ratio > 0.9
 **Query Examples**:
 ```promql
 # Circuit breaker state
-jairouter_circuit_breaker_state
+trunkline_circuit_breaker_state
 
 # Number of services with open circuit breakers
-count(jairouter_circuit_breaker_state == 1)
+count(trunkline_circuit_breaker_state == 1)
 
 # Circuit breakers in half-open state
-jairouter_circuit_breaker_state == 2
+trunkline_circuit_breaker_state == 2
 ```
 
-#### jairouter_circuit_breaker_events_total
+#### trunkline_circuit_breaker_events_total
 **Type**: Counter  
 **Description**: Total number of circuit breaker events  
 **Unit**: Count
@@ -396,16 +396,16 @@ jairouter_circuit_breaker_state == 2
 **Query Examples**:
 ```promql
 # Circuit breaker success rate
-sum(rate(jairouter_circuit_breaker_events_total{event="success"}[5m])) / sum(rate(jairouter_circuit_breaker_events_total{event=~"success|error"}[5m])) * 100
+sum(rate(trunkline_circuit_breaker_events_total{event="success"}[5m])) / sum(rate(trunkline_circuit_breaker_events_total{event=~"success|error"}[5m])) * 100
 
 # Circuit breaker opening frequency
-sum(rate(jairouter_circuit_breaker_events_total{event="circuit_open"}[5m]))
+sum(rate(trunkline_circuit_breaker_events_total{event="circuit_open"}[5m]))
 
 # Circuit breaker recovery frequency
-sum(rate(jairouter_circuit_breaker_events_total{event="circuit_close"}[5m]))
+sum(rate(trunkline_circuit_breaker_events_total{event="circuit_close"}[5m]))
 ```
 
-#### jairouter_circuit_breaker_failure_rate
+#### trunkline_circuit_breaker_failure_rate
 **Type**: Gauge  
 **Description**: Current failure rate of the circuit breaker  
 **Unit**: Percentage
@@ -417,18 +417,18 @@ sum(rate(jairouter_circuit_breaker_events_total{event="circuit_close"}[5m]))
 **Query Examples**:
 ```promql
 # Failure rate
-jairouter_circuit_breaker_failure_rate
+trunkline_circuit_breaker_failure_rate
 
 # Services with failure rate exceeding threshold
-jairouter_circuit_breaker_failure_rate > 0.5
+trunkline_circuit_breaker_failure_rate > 0.5
 
 # Failure rate trend
-rate(jairouter_circuit_breaker_failure_rate[5m])
+rate(trunkline_circuit_breaker_failure_rate[5m])
 ```
 
 ## Backend Service Metrics
 
-### jairouter_backend_health
+### trunkline_backend_health
 **Type**: Gauge  
 **Description**: Health status of backend services  
 **Unit**: Status value
@@ -445,19 +445,19 @@ rate(jairouter_circuit_breaker_failure_rate[5m])
 **Query Examples**:
 ```promql
 # Number of healthy backend instances
-sum(jairouter_backend_health)
+sum(trunkline_backend_health)
 
 # Unhealthy backend instances
-jairouter_backend_health == 0
+trunkline_backend_health == 0
 
 # Number of healthy instances grouped by adapter
-sum by (adapter) (jairouter_backend_health)
+sum by (adapter) (trunkline_backend_health)
 
 # Health rate
-sum(jairouter_backend_health) / count(jairouter_backend_health) * 100
+sum(trunkline_backend_health) / count(trunkline_backend_health) * 100
 ```
 
-### jairouter_backend_calls_total
+### trunkline_backend_calls_total
 **Type**: Counter  
 **Description**: Total number of backend adapter calls  
 **Unit**: Count
@@ -471,19 +471,19 @@ sum(jairouter_backend_health) / count(jairouter_backend_health) * 100
 **Query Examples**:
 ```promql
 # Backend call rate
-sum(rate(jairouter_backend_calls_total[5m]))
+sum(rate(trunkline_backend_calls_total[5m]))
 
 # Call rate grouped by adapter
-sum by (adapter) (rate(jairouter_backend_calls_total[5m]))
+sum by (adapter) (rate(trunkline_backend_calls_total[5m]))
 
 # Backend call success rate
-sum(rate(jairouter_backend_calls_total{status="success"}[5m])) / sum(rate(jairouter_backend_calls_total[5m])) * 100
+sum(rate(trunkline_backend_calls_total{status="success"}[5m])) / sum(rate(trunkline_backend_calls_total[5m])) * 100
 
 # Busiest backend instances
-topk(5, sum by (instance) (rate(jairouter_backend_calls_total[5m])))
+topk(5, sum by (instance) (rate(trunkline_backend_calls_total[5m])))
 ```
 
-### jairouter_backend_call_duration_seconds
+### trunkline_backend_call_duration_seconds
 **Type**: Histogram  
 **Description**: Distribution of backend call response times  
 **Unit**: Seconds
@@ -498,13 +498,13 @@ topk(5, sum by (instance) (rate(jairouter_backend_calls_total[5m])))
 **Query Examples**:
 ```promql
 # P95 backend call response time
-histogram_quantile(0.95, sum(rate(jairouter_backend_call_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(trunkline_backend_call_duration_seconds_bucket[5m])) by (le))
 
 # Average response time grouped by adapter
-sum by (adapter) (rate(jairouter_backend_call_duration_seconds_sum[5m])) / sum by (adapter) (rate(jairouter_backend_call_duration_seconds_count[5m]))
+sum by (adapter) (rate(trunkline_backend_call_duration_seconds_sum[5m])) / sum by (adapter) (rate(trunkline_backend_call_duration_seconds_count[5m]))
 
 # Fastest responding adapters
-bottomk(3, sum by (adapter) (rate(jairouter_backend_call_duration_seconds_sum[5m])) / sum by (adapter) (rate(jairouter_backend_call_duration_seconds_count[5m])))
+bottomk(3, sum by (adapter) (rate(trunkline_backend_call_duration_seconds_sum[5m])) / sum by (adapter) (rate(trunkline_backend_call_duration_seconds_count[5m])))
 ```
 
 ## JVM Metrics
@@ -578,7 +578,7 @@ rate(jvm_threads_live_threads[5m])
 
 ## Connection Pool Metrics
 
-### jairouter_backend_connection_pool_active
+### trunkline_backend_connection_pool_active
 **Type**: Gauge  
 **Description**: Number of active connections in backend connection pool  
 **Unit**: Count
@@ -590,13 +590,13 @@ rate(jvm_threads_live_threads[5m])
 **Query Examples**:
 ```promql
 # Connection pool usage
-jairouter_backend_connection_pool_active
+trunkline_backend_connection_pool_active
 
 # Connection pool utilization rate
-jairouter_backend_connection_pool_active / jairouter_backend_connection_pool_max * 100
+trunkline_backend_connection_pool_active / trunkline_backend_connection_pool_max * 100
 
 # Instances with exhausted connection pools
-jairouter_backend_connection_pool_active >= jairouter_backend_connection_pool_max
+trunkline_backend_connection_pool_active >= trunkline_backend_connection_pool_max
 ```
 
 ## Custom Metrics
@@ -608,16 +608,16 @@ Trunkline supports custom business metrics, which can be added as follows:
 ```java
 @Component
 public class CustomMetrics {
-    private final Counter customCounter = Counter.builder("jairouter.custom.counter")
+    private final Counter customCounter = Counter.builder("trunkline.custom.counter")
         .description("Custom counter")
         .tag("type", "business")
         .register(Metrics.globalRegistry);
     
-    private final Gauge customGauge = Gauge.builder("jairouter.custom.gauge")
+    private final Gauge customGauge = Gauge.builder("trunkline.custom.gauge")
         .description("Custom gauge")
         .register(Metrics.globalRegistry, this, CustomMetrics::getValue);
     
-    private final Timer customTimer = Timer.builder("jairouter.custom.timer")
+    private final Timer customTimer = Timer.builder("trunkline.custom.timer")
         .description("Custom timer")
         .register(Metrics.globalRegistry);
 }
@@ -629,38 +629,38 @@ public class CustomMetrics {
 
 ```promql
 # HTTP error rate
-sum(rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum(rate(jairouter_requests_total[5m])) * 100
+sum(rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum(rate(trunkline_requests_total[5m])) * 100
 
 # Backend call error rate
-sum(rate(jairouter_backend_calls_total{status="error"}[5m])) / sum(rate(jairouter_backend_calls_total[5m])) * 100
+sum(rate(trunkline_backend_calls_total{status="error"}[5m])) / sum(rate(trunkline_backend_calls_total[5m])) * 100
 
 # Model call error rate
-sum(rate(jairouter_model_calls_total{status!="success"}[5m])) / sum(rate(jairouter_model_calls_total[5m])) * 100
+sum(rate(trunkline_model_calls_total{status!="success"}[5m])) / sum(rate(trunkline_model_calls_total[5m])) * 100
 ```
 
 ### Response Time Analysis
 
 ```promql
 # P50, P95, P99 response times
-histogram_quantile(0.50, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))
-histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))
-histogram_quantile(0.99, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.50, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.99, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))
 
 # Response times grouped by service
-histogram_quantile(0.95, sum by (service, le) (rate(jairouter_request_duration_seconds_bucket[5m])))
+histogram_quantile(0.95, sum by (service, le) (rate(trunkline_request_duration_seconds_bucket[5m])))
 ```
 
 ### Throughput Analysis
 
 ```promql
 # Total throughput (RPS)
-sum(rate(jairouter_requests_total[5m]))
+sum(rate(trunkline_requests_total[5m]))
 
 # Throughput grouped by service
-sum by (service) (rate(jairouter_requests_total[5m]))
+sum by (service) (rate(trunkline_requests_total[5m]))
 
 # Successful request throughput
-sum(rate(jairouter_requests_total{status=~"2.."}[5m]))
+sum(rate(trunkline_requests_total{status=~"2.."}[5m]))
 ```
 
 ### Resource Usage Analysis
@@ -673,20 +673,20 @@ rate(process_cpu_seconds_total[5m]) * 100
 jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"} * 100
 
 # Connection pool utilization rate
-jairouter_backend_connection_pool_active / jairouter_backend_connection_pool_max * 100
+trunkline_backend_connection_pool_active / trunkline_backend_connection_pool_max * 100
 ```
 
 ### Service Health Status
 
 ```promql
 # Service availability
-up{job="jairouter"}
+up{job="trunkline"}
 
 # Backend service health status
-sum(jairouter_backend_health) / count(jairouter_backend_health) * 100
+sum(trunkline_backend_health) / count(trunkline_backend_health) * 100
 
 # Services with open circuit breakers
-count(jairouter_circuit_breaker_state == 1)
+count(trunkline_circuit_breaker_state == 1)
 ```
 
 ## Alert Queries
@@ -695,13 +695,13 @@ count(jairouter_circuit_breaker_state == 1)
 
 ```promql
 # Service unavailable
-up{job="jairouter"} == 0
+up{job="trunkline"} == 0
 
 # High error rate
-sum(rate(jairouter_requests_total{status=~"5.."}[5m])) / sum(rate(jairouter_requests_total[5m])) > 0.05
+sum(rate(trunkline_requests_total{status=~"5.."}[5m])) / sum(rate(trunkline_requests_total[5m])) > 0.05
 
 # Long response time
-histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le)) > 5
+histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le)) > 5
 ```
 
 ### Warning Alerts
@@ -711,7 +711,7 @@ histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])
 jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"} > 0.8
 
 # High connection pool usage
-jairouter_backend_connection_pool_active / jairouter_backend_connection_pool_max > 0.8
+trunkline_backend_connection_pool_active / trunkline_backend_connection_pool_max > 0.8
 
 # Long GC time
 sum(rate(jvm_gc_pause_seconds_sum[5m])) / sum(rate(jvm_gc_pause_seconds_count[5m])) > 0.1
@@ -723,10 +723,10 @@ sum(rate(jvm_gc_pause_seconds_sum[5m])) / sum(rate(jvm_gc_pause_seconds_count[5m
 
 ```promql
 # Request volume growth trend
-increase(jairouter_requests_total[24h])
+increase(trunkline_requests_total[24h])
 
 # User growth trend
-increase(jairouter_user_sessions_total[24h])
+increase(trunkline_user_sessions_total[24h])
 
 # Resource usage growth trend
 increase(jvm_memory_used_bytes[24h])
@@ -736,10 +736,10 @@ increase(jvm_memory_used_bytes[24h])
 
 ```promql
 # Daily peak request rate
-max_over_time(sum(rate(jairouter_requests_total[5m]))[24h:5m])
+max_over_time(sum(rate(trunkline_requests_total[5m]))[24h:5m])
 
 # Weekly peak response time
-max_over_time(histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))[7d:1h])
+max_over_time(histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))[7d:1h])
 ```
 
 ## Metric Label Best Practices
@@ -764,10 +764,10 @@ max_over_time(histogram_quantile(0.95, sum(rate(jairouter_request_duration_secon
 
 ```promql
 # Good query - using low cardinality labels
-sum by (service, status) (rate(jairouter_requests_total[5m]))
+sum by (service, status) (rate(trunkline_requests_total[5m]))
 
 # Avoided query - using high cardinality labels
-sum by (client_ip) (rate(jairouter_requests_total[5m]))  # May cause high cardinality issues
+sum by (client_ip) (rate(trunkline_requests_total[5m]))  # May cause high cardinality issues
 ```
 
 ## Recording Rules
@@ -775,22 +775,22 @@ sum by (client_ip) (rate(jairouter_requests_total[5m]))  # May cause high cardin
 To improve query performance, it is recommended to use Recording Rules to pre-aggregate common metrics:
 
 ```yaml
-# rules/jairouter-recording-rules.yml
+# rules/trunkline-recording-rules.yml
 groups:
-  - name: jairouter.recording
+  - name: trunkline.recording
     interval: 30s
     rules:
-      - record: jairouter:request_rate_5m
-        expr: sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:request_rate_5m
+        expr: sum(rate(trunkline_requests_total[5m]))
       
-      - record: jairouter:error_rate_5m
-        expr: sum(rate(jairouter_requests_total{status=~"4..|5.."}[5m])) / sum(rate(jairouter_requests_total[5m]))
+      - record: trunkline:error_rate_5m
+        expr: sum(rate(trunkline_requests_total{status=~"4..|5.."}[5m])) / sum(rate(trunkline_requests_total[5m]))
       
-      - record: jairouter:response_time_p95_5m
-        expr: histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))
+      - record: trunkline:response_time_p95_5m
+        expr: histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))
       
-      - record: jairouter:backend_health_ratio
-        expr: sum(jairouter_backend_health) / count(jairouter_backend_health)
+      - record: trunkline:backend_health_ratio
+        expr: sum(trunkline_backend_health) / count(trunkline_backend_health)
 ```
 
 ## Related Documentation

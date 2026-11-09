@@ -64,7 +64,7 @@ docker pull sodlinken/jairouter:v3.1.1
 ```bash
 # Start with the dev profile — a built-in development key is included
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=dev \
   sodlinken/jairouter:latest
@@ -75,14 +75,14 @@ docker run -d \
 ```bash
 # Production requires your own JWT secret (at least 32 characters)
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e JWT_SECRET="<your-secret-at-least-32-characters>" \
   sodlinken/jairouter:latest
 
 # With custom config directory mounted
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e JWT_SECRET="<your-secret-at-least-32-characters>" \
   -v $(pwd)/config:/app/config:ro \
@@ -94,10 +94,10 @@ docker run -d \
 
 ```bash
 # Check the container status
-docker ps --filter "name=jairouter"
+docker ps --filter "name=trunkline"
 
 # View the logs
-docker logs jairouter
+docker logs trunkline
 
 # Test the API
 curl http://localhost:8080/actuator/health
@@ -133,30 +133,30 @@ Download the latest JAR file from [GitHub Releases](https://github.com/Lincoln-c
 # https://github.com/Lincoln-cn/JAiRouter/releases
 
 # Or use the command line (replace VERSION with the actual version number)
-wget https://github.com/Lincoln-cn/JAiRouter/releases/download/vVERSION/model-router-VERSION.jar
+wget https://github.com/Lincoln-cn/JAiRouter/releases/download/vVERSION/trunkline-VERSION.jar
 ```
 
 ### 3. Run the Application
 
 ```bash
 # Basic run
-java -jar model-router.jar
+java -jar trunkline.jar
 
 # Specify a configuration file
-java -jar model-router.jar --spring.config.location=classpath:/application.yml
+java -jar trunkline.jar --spring.config.location=classpath:/application.yml
 
 # Specify JVM parameters
-java -Xmx1g -Xms512m -jar model-router.jar
+java -Xmx1g -Xms512m -jar trunkline.jar
 
 # Run in the background
-nohup java -jar model-router.jar > jairouter.log 2>&1 &
+nohup java -jar trunkline.jar > jairouter.log 2>&1 &
 ```
 
 ### 4. Verify the Installation
 
 ```bash
 # Check the process
-ps aux | grep model-router
+ps aux | grep trunkline
 
 # Test the API
 curl http://localhost:8080/actuator/health
@@ -170,7 +170,7 @@ Building from source is suitable for developers and users who need customization
 
 ```bash
 git clone https://github.com/Lincoln-cn/JAiRouter.git
-cd jairouter
+cd trunkline
 ```
 
 ### 2. Choosing a Build Method
@@ -251,13 +251,13 @@ Suitable for development environments and quick testing:
 
 ```bash
 # Run the built JAR file
-java -jar target/model-router-*.jar
+java -jar target/trunkline-*.jar
 
 # Run with a specified configuration file
-java -jar target/model-router-*.jar --spring.config.location=classpath:/application.yml
+java -jar target/trunkline-*.jar --spring.config.location=classpath:/application.yml
 
 # Specify JVM parameters
-java -Xmx1g -Xms512m -jar target/model-router-*.jar
+java -Xmx1g -Xms512m -jar target/trunkline-*.jar
 ```
 
 ## Building Docker Images
@@ -419,7 +419,7 @@ netstat -tulpn | grep 8080
 lsof -i :8080
 
 # Change the port
-java -jar model-router.jar --server.port=8081
+java -jar trunkline.jar --server.port=8081
 ```
 
 #### 3. Insufficient Memory
@@ -429,7 +429,7 @@ java -jar model-router.jar --server.port=8081
 # Solution: increase JVM memory
 
 # Set memory parameters
-java -Xmx2g -Xms1g -jar model-router.jar
+java -Xmx2g -Xms1g -jar trunkline.jar
 ```
 
 #### 4. Dependency Download Failure
@@ -478,7 +478,7 @@ netstat -tulpn | grep 8080
 lsof -i :8080
 
 # Change the port
-java -jar model-router.jar --server.port=8081
+java -jar trunkline.jar --server.port=8081
 ```
 
 #### 2. Incompatible Java Version
@@ -505,7 +505,7 @@ yum install java-17-openjdk
 **Solution**:
 ```bash
 # Increase JVM memory
-java -Xmx2g -Xms1g -jar model-router.jar
+java -Xmx2g -Xms1g -jar trunkline.jar
 ```
 
 #### 4. Dependency Download Failure

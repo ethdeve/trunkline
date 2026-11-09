@@ -8,7 +8,7 @@ H2 的单文件库**同一时刻只能被一个进程打开**。实测（H2 2.3.
 
 ```
 [B] 失败: org.h2.jdbc.JdbcSQLNonTransientConnectionException:
-    Database may be already in use: ".../data/jairouter.mv.db".
+    Database may be already in use: ".../data/trunkline.mv.db".
     Possible solutions: close all other connection(s); use the server mode [90020-232]
 ```
 
@@ -40,7 +40,7 @@ H2 的单文件库**同一时刻只能被一个进程打开**。实测（H2 2.3.
 # config/config-service/core.yml
 spring:
   datasource:
-    url: ${DATABASE_URL:jdbc:h2:file:./data/jairouter;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE}
+    url: ${DATABASE_URL:jdbc:h2:file:./data/trunkline;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE}
     username: ${DATABASE_USERNAME:sa}
     password: ${DATABASE_PASSWORD:}
 ```
@@ -48,8 +48,8 @@ spring:
 连接到 PostgreSQL：
 
 ```bash
-export DATABASE_URL="jdbc:postgresql://pg.internal:5432/jairouter"
-export DATABASE_USERNAME="jairouter"
+export DATABASE_URL="jdbc:postgresql://pg.internal:5432/trunkline"
+export DATABASE_USERNAME="trunkline"
 export DATABASE_PASSWORD="<强密码>"
 ```
 
@@ -57,7 +57,7 @@ export DATABASE_PASSWORD="<强密码>"
 
 - **不要设置 `spring.jpa.properties.hibernate.dialect`**。方言由 Hibernate 按连接自动探测；显式写死会在换库时被静默沿用，生成错误的 DDL 且报错难以定位。
 - 驱动无需显式声明（`driver-class-name` 已移除），Spring 会按 URL 前缀推断。
-- 数据库需**预先创建**（`CREATE DATABASE jairouter;`），应用只负责建表。
+- 数据库需**预先创建**（`CREATE DATABASE trunkline;`），应用只负责建表。
 
 ### 连接池
 
@@ -93,10 +93,9 @@ Hibernate 遇到这种冲突**只记 WARN 并继续**，结果是**索引被静�
 
 `service_instance` 的 `tags` / `headers` 用 JSON 映射（`@JdbcTypeCode(SqlTypes.JSON)`），**实体不再硬编码 `columnDefinition`**：物理类型交给方言 —— PostgreSQL 上建为 **`jsonb`**（实测 `information_schema.columns.udt_name = jsonb`），H2 / MySQL 上为各自的 `json` 类型，读写正常。
 
-`tags` / `headers` 的物理类型一致性现在由**版本化迁移**保证：PostgreSQL 上
-`db/migration/postgres/V2__legacy_convergence.sql` 把早期补成 `TEXT` / `CLOB` 的列**收敛为 `jsonb`**，
-于是两种来历的库收敛到同一物理类型（原分歧见 issue #190）；H2 侧历史上不存在这种分歧
-（旧库的 `tags` / `headers` 一直是 `json`，与实体一致），因此没有收敛步骤。
+`tags` / `headers` 的物理类型一致性现在由**版本化迁移基线**保证：合并后的 `V1__baseline.sql` 在 PostgreSQL 上
+**直接建为 `jsonb`**、在 H2 / MySQL 上建为各自的 `json`（早期补成 `TEXT` / `CLOB` 的分歧已在 #190
+中收敛并固化进 V1 基线，两种来历的库都落到同一物理类型）；因此新库无需任何收敛步骤。
 
 > 核对某库的实际类型：
 > `SELECT udt_name FROM information_schema.columns WHERE table_name = 'service_instance' AND column_name IN ('tags', 'headers');`
@@ -124,34 +123,46 @@ URL 的方言自行决定用哪套脚本，见 `FlywayDialectEnvironmentPostProc
 两侧的 `V1__baseline.sql` 都是**当前实体模型的完整 schema**，由 Hibernate 的 schema 导出生成
 （不是手写 DDL），因此与实体映射天然一致 —— 这是 PostgreSQL 上 `validate` 能通过的前提。
 
+> **V1 是「合并基线」**：2026-11-09 重新基线时，把演进到第 18 版（`V1` + `V2`…`V18` 增量叠加）
+> 的完善表结构**固化回一份单一的 V1** —— 它已包含原 `V2__legacy_convergence` 的收敛结果、
+> `model_provider` / `model_price` 的新建、`jwt_accounts.department/name/tenant_id`、
+> 7 张表预埋的 `tenant_id`、`virtual_model` 维度、`quota_ledger` 唯一约束、`security_audit.event_type`
+> 补充 `DATA_SANITIZATION`、以及 `role_permissions` 的移除。原 `V2`…`V18` 脚本已**归档**到仓库根
+> `db-migration-archive/{h2,postgres}/`（git 保留、Flyway 不再扫描、不进 jar），仅供追溯。
+> 已发布的 V1 基线**不可再改**（Flyway 按校验和判定）；后续 schema 变更一律走 **V2 / V3 …** 新脚本。
+
 - **空库**：Flyway 从头执行 `V1`，建成与实体一致的 schema（历史表记 `version = 1`、`type = SQL`）。
 - **已有库**（表已存在、无 `flyway_schema_history`）：`baseline-on-migrate=true` 使其**被记为基线 1 而不执行** `V1`（历史表记 `type = BASELINE`），库内容不动。
 
-> 历史上的 `V2` / `V3` 两个脚本已随 #191 删除，原因可核对：它们无任何代码引用，且 `V2` 要给 `service_instance` 补 5 个**当前模型已不存在**的列（限流、熔断字段现已独立为 `instance_rate_limit` / `instance_circuit_breaker` 两张表）。
+### 重新基线（re-baseline）一个已在运行的实例
 
-### 老库收敛（`V2__legacy_convergence.sql`，两侧都有）
+合并基线之后，若某个运行实例的 `flyway_schema_history` 还停在旧的版本链（`V1` 或 `V1`+`V2`…`V18`），
+而 jar 内只剩 `V1`，直接启动会因版本号不匹配报错。推荐的 re-baseline 操作（本仓库 2026-11-09
+对 8080 实例即这样处理）：
 
-改造前，老库的兼容修补由两个**启动期** Java 组件承担（补列、收敛 JSON 列、把 `security_blacklist.expires_at` 改可空）。它们的执行时机都在 Hibernate 建 `EntityManagerFactory` **之后**，而 `validate` 恰恰就在那一步 —— 所以缺列的老库会在补丁跑到之前就启动失败。**这两个组件已随 #192 删除**，语义搬进了版本化脚本（执行时机早于 Hibernate，更安全）：
+1. **停掉运行实例**（确保不再有连接占用库文件，H2 尤其关键）。
+2. **清掉 Flyway 元数据表**（让库表现为「非空但无历史表」，从而触发 `baseline-on-migrate`）：
+   - H2：用 H2 Shell 或 `DROP TABLE IF EXISTS flyway_schema_history;`（注意是 **DROP 整张表**，
+     不是 `DELETE FROM flyway_schema_history` —— 只删行的表仍存在，Flyway 会误以为「未迁移过」
+     而重跑 V1、建表失败）。
+   - PostgreSQL：`DROP TABLE IF EXISTS flyway_schema_history;`
+3. **用干净 jar 重新启动**（`mvnw clean package` 重打包，确保 `target/classes` 不含被移除的旧
+   `V2`…`V18`）—— Flyway 会建表并记为基线 1（日志：`Successfully baselined schema with version: 1`），
+   现有表不动、不再执行任何 `V2`…`V18`，随后 `validate` 通过、应用正常起来。
 
-- **空库**：`V1` 已建好一切，`V2` 每一步都是空操作。
-- **老库**（缺列，或 PG 上 `tags` / `headers` 仍是早期补成的 `text`）：`V1` 不执行（只记为基线 1），`V2` 补齐缺列，并在 PG 上把 JSON 列收敛为 `jsonb`；PG 随后 `validate` 通过 —— **不需要任何人工前置动作**。
-- 两侧脚本的所有语句都幂等，重复执行安全。
-
-> 版本号提示：这里的 `V2__legacy_convergence.sql` 与上面提到的、已删除的历史脚本 `V2__add_rate_limit_circuit_breaker_fields.sql` 只是编号撞车，内容无关。
->
-> 核对老库收敛结果（PostgreSQL）：
-> `SELECT column_name, udt_name FROM information_schema.columns WHERE table_name = 'service_instance' AND column_name IN ('tags', 'headers');`
-> 两列都应已是 `jsonb`。
+> ⚠️ 关键陷阱：`mvnw package` 是**增量覆盖**资源、不会删除 `target/classes` 里已移除的旧迁移文件，
+> 导致 jar 仍含旧 `V2`…`V18`、启动报 `Duplicate column` 之类错误。重命名/移动迁移脚本后**务必**
+> `mvnw clean package`。
 
 ### H2 为什么仍是 `update`（不切 `validate`）
 
 实测（H2 2.3.232 + Hibernate 6.6）：应用默认 URL 带 `DATABASE_TO_UPPER=FALSE`，对象建成**小写**（`PUBLIC.api_call_history`），而 Hibernate 的 schema 校验在 JDBC 元数据里按另一侧大小写去找 schema 名，一律报 `Schema-validation: missing table …` —— 用 JDBC 元数据探针确认 `getTables(cat, 'PUBLIC', …)` 命中、`'public'` 不命中，且 `default_schema=PUBLIC` 与 `jdbc_metadata_extraction_strategy=grouped` 都不解决。同一份脚本在**去掉**该模式的 H2 默认大小写下跑得通（实测：迁移 + 校验 + 启动、退出码 0），但那会让既有小写 H2 库全部失配、必须重建 —— 属破坏性变更，本步不做。H2 因此是「Flyway 版本化 + Hibernate `update`」：**建表与老库补齐归 Flyway，`update` 只是让存在漂移的开发库仍能起来**。
 
-> ⚠️ 已知限制（与改造前一致，未变差）：≤v2.9.7 的老 H2 库若 `tags` 列曾被补成 `CLOB`，H2 无法就地转成 `json`，`V2` 不会修它（原先的 Java 组件在 H2 上也只打一条 WARN）。处理办法是删除该 H2 库文件让它重建。
+> ⚠️ 已知限制（与改造前一致，未变差）：≤v2.9.7 的老 H2 库若 `tags` 列曾被补成 `CLOB`，H2 无法就地转成 `json`，V1 基线只为**空库**建出正确的 `json`、`不会改既有老列`。处理办法是删除该 H2 库文件让它重建。
 
 ### 写新迁移
 
-- 已发布的脚本**不可再改**（Flyway 按校验和判定）；schema 变更请**两侧都**新增 `V3__…`（`V2` 已被老库收敛占用）。
+- 已发布的脚本**不可再改**（Flyway 按校验和判定）；schema 变更请**两侧都**新增 `V2__…`（`V1` 是合并基线、已发布不可改，`V2` 起即为新功能迁移）。
 - 脚本只针对各自方言（PG 用 `jsonb` / `generated by default as identity`，H2 用 `json` / `TEXT` / `enum`）。
 - 并发语义：Flyway 在 `flyway_schema_history` 上有自己的锁，多实例同时启动只有一个真正执行、其余等待 —— 已比「每个 Pod 都跑 DDL」安全。进一步做法是让迁移由先行的 K8s Job 跑完（见 `kubernetes.md`）。
 
@@ -170,7 +181,7 @@ URL 的方言自行决定用哪套脚本，见 `FlywayDialectEnvironmentPostProc
 3. **导入到 PostgreSQL**：
 
    ```bash
-   psql -h pg.internal -U jairouter -d jairouter \
+   psql -h pg.internal -U trunkline -d trunkline \
      -c "\copy api_call_history FROM '/tmp/export/api_call_history.csv' CSV HEADER"
    ```
 
@@ -195,7 +206,7 @@ URL 的方言自行决定用哪套脚本，见 `FlywayDialectEnvironmentPostProc
    WHERE table_schema = 'public' ORDER BY table_name;
    ```
 
-   应看到 20 张业务表（另有 Flyway 自己的 `flyway_schema_history`）。
+   应看到 21 张业务表（另有 Flyway 自己的 `flyway_schema_history`）。
 3. **确认迁移已跑且没有失败记录**：
 
    ```sql

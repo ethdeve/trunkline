@@ -60,7 +60,7 @@ spring:
 Configure in `slow-query-alerts.yml`:
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       enabled: true
@@ -75,7 +75,7 @@ jairouter:
 ### 2. Configure Operation-Specific Thresholds
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       operations:
@@ -181,7 +181,7 @@ Configure alert rules in Prometheus:
 
 ```yaml
 groups:
-  - name: jairouter.slow-query-alerts
+  - name: trunkline.slow-query-alerts
     rules:
       - alert: JAiRouterSlowQueryDetected
         expr: increase(slow_query_total[5m]) > 0
@@ -249,7 +249,7 @@ Different environments can override slow query alert configuration through corre
 ### Development Environment (application-dev.yml)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       enabled: true
@@ -261,7 +261,7 @@ jairouter:
 ### Production Environment (application-prod.yml)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       enabled: true

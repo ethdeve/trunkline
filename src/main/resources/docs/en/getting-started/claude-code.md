@@ -92,7 +92,7 @@ Three rules to remember:
 
 > **Native-surface authentication note**: `/v1/**` accepts both `X-API-Key` (API Key) and
 > `Jairouter_Token` (JWT). When both are present, **JWT takes precedence**. JWT must be enabled
-> (`jairouter.security.jwt.enabled`) and the token must not be expired or revoked.
+> (`trunkline.security.jwt.enabled`) and the token must not be expired or revoked.
 > For Claude Code, using `ANTHROPIC_API_KEY` (i.e. `x-api-key`) is the simplest approach; if you
 > prefer JWT, make sure the above conditions are met. The console surface `/api/**` is not affected.
 
@@ -477,7 +477,7 @@ each `id` can be used as the `model` field.
 | **Streaming `message_start.id` / `model` come from the gateway** | `id` is a gateway-generated `msg_*` (the event is emitted before the first downstream chunk, so the downstream id is unknown yet); `model` is the **requested** model | Use the non-streaming endpoint when the real downstream `id` matters (it is passed through) |
 | **Streaming emits text blocks plus `tool_use` blocks** | The text block is always `index: 0` and tool blocks increment in order of appearance; no `thinking` / `redacted_thinking` blocks are emitted (a request `thinking` field is accepted but not consumed) | Connect to Anthropic directly when thinking is required |
 | **`tool_choice:"none"` omits `tools`** | Per protocol that value disables tools, so the gateway forwards neither `tools` nor `tool_choice` (instead of sending `"none"`) | Use it whenever you want "no tools at all" |
-| **Response-cache hit (non-streaming)** | With `jairouter.response-cache.enabled=true`, a cache hit on the native surface (`/v1/**`) returns **native JSON** (fixed in v3.1 — no console envelope); the cache key now includes `tools` / `tool_choice` / tool-conversation messages (PR-5), so different tool rounds never collide | Streaming requests skip the cache by default (`skip-streaming: true`); with `false`, a hit is replayed chunk-by-chunk into the event sequence |
+| **Response-cache hit (non-streaming)** | With `trunkline.response-cache.enabled=true`, a cache hit on the native surface (`/v1/**`) returns **native JSON** (fixed in v3.1 — no console envelope); the cache key now includes `tools` / `tool_choice` / tool-conversation messages (PR-5), so different tool rounds never collide | Streaming requests skip the cache by default (`skip-streaming: true`); with `false`, a hit is replayed chunk-by-chunk into the event sequence |
 | **`count_tokens` is an estimate** | It excludes the `tools` JSON Schema, `tool_use` / `tool_result` block bodies, image blocks, and downstream tokenizer differences | Treat it as an upper-bound reference |
 
 ## Troubleshooting

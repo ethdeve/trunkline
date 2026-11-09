@@ -30,13 +30,13 @@ curl -H "Authorization: Bearer admin-token" \
 
 ```bash
 # 查看应用日志
-tail -f logs/jairouter.log
+tail -f logs/trunkline.log
 
 # 查看安全审计日志
 tail -f logs/security-audit.log
 
 # 查看错误日志
-grep ERROR logs/jairouter.log
+grep ERROR logs/trunkline.log
 ```
 
 ### 3. 检查监控指标
@@ -88,7 +88,7 @@ curl -H "Authorization: Bearer admin-token" \
 1. **检查 API Key 值**
 ```yaml
 # 确保配置正确
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
@@ -148,7 +148,7 @@ curl -H "Authorization: Bearer admin-token" \
 
 1. **检查 JWT 配置**
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: true
@@ -233,7 +233,7 @@ curl -H "Authorization: Bearer admin-token" \
 
 1. **启用脱敏功能**
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -244,7 +244,7 @@ jairouter:
 
 2. **修正正则表达式**
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -290,7 +290,7 @@ pii-patterns:
 
 2. **调整规则优先级**
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -301,7 +301,7 @@ jairouter:
 
 3. **添加例外规则**
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       request:
@@ -334,7 +334,7 @@ curl http://localhost:8080/actuator/prometheus | grep thread_pool
 
 1. **启用缓存**
 ```yaml
-jairouter:
+trunkline:
   security:
     performance:
       cache:
@@ -346,7 +346,7 @@ jairouter:
 
 2. **优化线程池**
 ```yaml
-jairouter:
+trunkline:
   security:
     performance:
       authentication:
@@ -385,7 +385,7 @@ curl http://localhost:8080/actuator/prometheus | grep regex_cache
 
 1. **启用并行处理**
 ```yaml
-jairouter:
+trunkline:
   security:
     performance:
       sanitization:
@@ -403,7 +403,7 @@ pii-patterns:
 
 3. **启用流式处理**
 ```yaml
-jairouter:
+trunkline:
   security:
     performance:
       sanitization:
@@ -498,7 +498,7 @@ source ~/.profile
 
 1. **启用监控功能**
 ```yaml
-jairouter:
+trunkline:
   security:
     monitoring:
       enabled: true
@@ -533,7 +533,7 @@ curl http://localhost:8080/actuator/prometheus
 
 1. **确认告警已启用**（默认开启；置为 `false` 时两个告警 bean 都不会装配）
 ```yaml
-jairouter:
+trunkline:
   security:
     monitoring:
       alerts:
@@ -550,7 +550,7 @@ jairouter:
    计数在存储侧完成，不受「一次取回多少条」限制；若审计表里没有对应类型的事件（例如脱敏事件未以 `DATA_SANITIZATION` 落库），判据会恒为 0。
 
 3. **确认出口**：告警只进**指标与日志**，仓内不实现邮件 / webhook 推送 ——
-   - 指标 `jairouter.security.violations`（tag `violationType` / `severity`），抓 `GET /actuator/prometheus`；
+   - 指标 `trunkline.security.violations`（tag `violationType` / `severity`），抓 `GET /actuator/prometheus`；
    - 日志 `安全告警触发: type=..., severity=...`（WARN 级）。
    同类型告警受 `cooldown-minutes`（默认 15 分钟）冷却约束，冷却期内重复命中不会再次触发。
 
@@ -590,7 +590,7 @@ curl -H "Authorization: Bearer admin-token" \
 #!/bin/bash
 # security-log-analyzer.sh
 
-LOG_FILE="logs/jairouter.log"
+LOG_FILE="logs/trunkline.log"
 AUDIT_FILE="logs/security-audit.log"
 
 echo "=== 认证失败统计 ==="
@@ -624,11 +624,11 @@ curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \
 
 echo "=== 认证性能指标 ==="
 curl -s "$BASE_URL/actuator/prometheus" | \
-     grep "jairouter_security_authentication_duration_seconds"
+     grep "trunkline_security_authentication_duration_seconds"
 
 echo "=== 脱敏性能指标 ==="
 curl -s "$BASE_URL/actuator/prometheus" | \
-     grep "jairouter_security_sanitization_duration_seconds"
+     grep "trunkline_security_sanitization_duration_seconds"
 ```
 
 ## 常用命令参考
@@ -684,8 +684,8 @@ curl -H "Authorization: Bearer admin-token" \
 如果以上解决方案无法解决您的问题，请联系技术支持：
 
 - **GitHub Issues**: https://github.com/Lincoln-cn/JAiRouter/issues
-- **邮箱支持**: support@jairouter.com
-- **文档中心**: https://jairouter.com
+- **邮箱支持**: support@trunkline.com
+- **文档中心**: https://trunkline.com
 
 提交问题时，请包含以下信息：
 1. 问题详细描述

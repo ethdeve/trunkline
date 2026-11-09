@@ -14,10 +14,10 @@ Trunkline 提供六种负载均衡策略，支持全局、服务级别和实例�
 从 v2.8.x 版本开始，Trunkline 采用模块化配置结构，负载均衡相关配置位于独立的配置文件中：
 
 - 主配置文件: `application.yml`
-- 负载均衡配置: `config/router/loadbalancer.yml`
+- 负载均衡配置: 原独立文件 `config/router/loadbalancer.yml` 已于 2026-11-09 删除，默认值内置于代码（`ModelRouterProperties` / `RoutingMonitorConfig`）；如需覆盖，写入 `application-{profile}.yml` 或外部挂载
 - 服务实例配置: `config/router/services.yml`
 
-您可以在 `config/router/loadbalancer.yml` 文件中找到全局负载均衡配置（`model.load-balance.*`）与路由监控配置（`trunkline.loadbalancer.routing-monitor.*`）；各服务类型的实例与权重写在 `config/router/services.yml` 中。
+全局负载均衡配置为 `model.load-balance.*`，路由监控配置为 `trunkline.loadbalancer.routing-monitor.*`；各服务类型的实例与权重写在 `config/router/services.yml` 中。
 
 ## 负载均衡概述
 
@@ -54,10 +54,10 @@ graph TB
 
 ### 基础配置
 
-在 `config/router/loadbalancer.yml` 文件中配置全局负载均衡策略：
+全局负载均衡默认值内置于代码（原 `config/router/loadbalancer.yml` 已删除），如需覆盖可写入任意更高优先级配置源：
 
 ```yaml
-# config/router/loadbalancer.yml
+# application-{profile}.yml 或外部挂载配置
 model:
   # 全局配置
   load-balance:

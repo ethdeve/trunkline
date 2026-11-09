@@ -300,10 +300,17 @@ public class ExtendedSecurityAuditServiceImpl implements ExtendedSecurityAuditSe
                     Sort.by(Sort.Direction.fromString(query.getSortDirection()), query.getSortBy())
             );
 
+            // eventTypes 集合参数在 PG 上无法参与 `:x IS NULL` 判型（42P18），
+            // 查询侧已去掉 IS NULL 子句：null/空 = 不过滤，这里兜底传全枚举值。
+            final List<AuditEventType> effectiveEventTypes =
+                    (query.getEventTypes() == null || query.getEventTypes().isEmpty())
+                            ? Arrays.asList(AuditEventType.values())
+                            : query.getEventTypes();
+
             Page<SecurityAuditEventEntity> page = auditRepository.findByConditions(
                     query.getStartTime(),
                     query.getEndTime(),
-                    query.getEventTypes(),
+                    effectiveEventTypes,
                     query.getUserId(),
                     query.getResourceId(),
                     query.getIpAddress(),
@@ -327,7 +334,9 @@ public class ExtendedSecurityAuditServiceImpl implements ExtendedSecurityAuditSe
             return auditRepository.countByConditions(
                     query.getStartTime(),
                     query.getEndTime(),
-                    query.getEventTypes(),
+                    (query.getEventTypes() == null || query.getEventTypes().isEmpty())
+                            ? Arrays.asList(AuditEventType.values())
+                            : query.getEventTypes(),
                     query.getUserId(),
                     query.getResourceId(),
                     query.getIpAddress(),

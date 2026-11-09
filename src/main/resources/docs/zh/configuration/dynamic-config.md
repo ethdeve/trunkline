@@ -323,7 +323,7 @@ curl -v "http://localhost:8080/api/config/instance/add/chat" \
   -d '{"name": "test", ...}'
 
 # Check service logs
-docker logs jairouter
+docker logs trunkline
 
 # Validate configuration file
 cat config/model-router-config@1.json | jq .

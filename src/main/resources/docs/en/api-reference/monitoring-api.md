@@ -121,29 +121,29 @@ jvm_memory_used_bytes{area="heap",id="PS Eden Space",} 2.38026752E8
 jvm_memory_used_bytes{area="heap",id="PS Survivor Space",} 1048576.0
 jvm_memory_used_bytes{area="heap",id="PS Old Gen",} 4.2991616E7
 
-# HELP jairouter_requests_total Total number of requests
-# TYPE jairouter_requests_total counter
-jairouter_requests_total{service="chat",method="POST",status="200",} 1247.0
-jairouter_requests_total{service="chat",method="POST",status="500",} 23.0
-jairouter_requests_total{service="chat",method="POST",status="200",} 1156.0
-jairouter_requests_total{service="chat",method="POST",status="500",} 18.0
+# HELP trunkline_requests_total Total number of requests
+# TYPE trunkline_requests_total counter
+trunkline_requests_total{service="chat",method="POST",status="200",} 1247.0
+trunkline_requests_total{service="chat",method="POST",status="500",} 23.0
+trunkline_requests_total{service="chat",method="POST",status="200",} 1156.0
+trunkline_requests_total{service="chat",method="POST",status="500",} 18.0
 
-# HELP jairouter_request_duration_seconds Request duration in seconds
-# TYPE jairouter_request_duration_seconds histogram
-jairouter_request_duration_seconds_bucket{service="chat",method="POST",le="0.1",} 234.0
-jairouter_request_duration_seconds_bucket{service="chat",method="POST",le="0.5",} 892.0
-jairouter_request_duration_seconds_bucket{service="chat",method="POST",le="1.0",} 1156.0
-jairouter_request_duration_seconds_bucket{service="chat",method="POST",le="+Inf",} 1270.0
+# HELP trunkline_request_duration_seconds Request duration in seconds
+# TYPE trunkline_request_duration_seconds histogram
+trunkline_request_duration_seconds_bucket{service="chat",method="POST",le="0.1",} 234.0
+trunkline_request_duration_seconds_bucket{service="chat",method="POST",le="0.5",} 892.0
+trunkline_request_duration_seconds_bucket{service="chat",method="POST",le="1.0",} 1156.0
+trunkline_request_duration_seconds_bucket{service="chat",method="POST",le="+Inf",} 1270.0
 
-# HELP jairouter_circuit_breaker_state Circuit breaker state (0=CLOSED, 1=OPEN, 2=HALF_OPEN)
-# TYPE jairouter_circuit_breaker_state gauge
-jairouter_circuit_breaker_state{service="chat",method="POST",} 0.0
-jairouter_circuit_breaker_state{service="chat",method="POST",} 0.0
+# HELP trunkline_circuit_breaker_state Circuit breaker state (0=CLOSED, 1=OPEN, 2=HALF_OPEN)
+# TYPE trunkline_circuit_breaker_state gauge
+trunkline_circuit_breaker_state{service="chat",method="POST",} 0.0
+trunkline_circuit_breaker_state{service="chat",method="POST",} 0.0
 
-# HELP jairouter_rate_limit_remaining Rate limit remaining requests
-# TYPE jairouter_rate_limit_remaining gauge
-jairouter_rate_limit_remaining{service="chat",client_ip="192.168.1.100",} 45.0
-jairouter_rate_limit_remaining{service="chat",client_ip="192.168.1.101",} 38.0
+# HELP trunkline_rate_limit_remaining Rate limit remaining requests
+# TYPE trunkline_rate_limit_remaining gauge
+trunkline_rate_limit_remaining{service="chat",client_ip="192.168.1.100",} 45.0
+trunkline_rate_limit_remaining{service="chat",client_ip="192.168.1.101",} 38.0
 ```
 
 ### Metrics Summary
@@ -162,11 +162,11 @@ GET /actuator/metrics
     "jvm.memory.max", 
     "jvm.gc.pause",
     "http.server.requests",
-    "jairouter_requests_total",
-    "jairouter_request_duration_seconds",
-    "jairouter_circuit_breaker_state",
-    "jairouter_rate_limit_remaining",
-    "jairouter_loadbalancer_selections_total"
+    "trunkline_requests_total",
+    "trunkline_request_duration_seconds",
+    "trunkline_circuit_breaker_state",
+    "trunkline_rate_limit_remaining",
+    "trunkline_loadbalancer_selections_total"
   ]
 }
 ```
@@ -176,13 +176,13 @@ GET /actuator/metrics
 Get details for a specific metric:
 
 ```http
-GET /actuator/metrics/jairouter_requests_total
+GET /actuator/metrics/trunkline_requests_total
 ```
 
 **Response:**
 ```json
 {
-  "name": "jairouter_requests_total",
+  "name": "trunkline_requests_total",
   "description": "Total number of requests processed by model router",
   "baseUnit": null,
   "measurements": [
@@ -228,8 +228,8 @@ GET /actuator/info
   },
   "build": {
     "version": "3.3.1",
-    "artifact": "model-router",
-    "name": "model-router",
+    "artifact": "trunkline",
+    "name": "trunkline",
     "group": "org.unreal",
     "time": "2025-08-19T08:15:30.123Z"
   },
@@ -260,7 +260,7 @@ GET /actuator/env
 ```
 
 > ⚠️ `env` is **not in the default exposure list** (`config/base/monitoring-base.yml:60` exposes
-> only health / info / metrics / prometheus / jairouter-metrics / error-tracking; see
+> only health / info / metrics / prometheus / trunkline-metrics / error-tracking; see
 > `application-prod.yml:40` for prod). Add `env` to
 > `management.endpoints.web.exposure.include` first if you need it.
 
@@ -280,13 +280,13 @@ GET /actuator/env
     {
       "name": "applicationConfig: [classpath:/application.yml]",
       "properties": {
-        "model-router.load-balancer.default-strategy": {
+        "trunkline.load-balancer.default-strategy": {
           "value": "ROUND_ROBIN"
         },
-        "model-router.rate-limit.default-algorithm": {
+        "trunkline.rate-limit.default-algorithm": {
           "value": "TOKEN_BUCKET"
         },
-        "model-router.circuit-breaker.failure-threshold": {
+        "trunkline.circuit-breaker.failure-threshold": {
           "value": 5
         }
       }
@@ -296,7 +296,7 @@ GET /actuator/env
 ```
 
 > ⚠️ The output above is illustrative: every configuration key in this project lives under the
-> `jairouter.*` prefix — there are **no `model-router.*` keys** (no match anywhere under
+> `jairouter.*` prefix — there are **no `trunkline.*` keys** (no match anywhere under
 > `src/main/resources`).
 
 ## Custom Monitoring Endpoints
@@ -372,7 +372,7 @@ Trunkline exposes metrics in Prometheus format at `/actuator/prometheus`. Config
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
       - targets: ['localhost:8080']
     metrics_path: '/actuator/prometheus'
@@ -430,10 +430,10 @@ Set up alerts for critical conditions:
 ```yaml
 # Prometheus alerting rules
 groups:
-  - name: jairouter
+  - name: trunkline
     rules:
       - alert: HighErrorRate
-        expr: rate(jairouter_requests_total{status="500"}[5m]) / rate(jairouter_requests_total[5m]) > 0.1
+        expr: rate(trunkline_requests_total{status="500"}[5m]) / rate(trunkline_requests_total[5m]) > 0.1
         for: 2m
         labels:
           severity: warning
@@ -441,7 +441,7 @@ groups:
           summary: "High error rate detected"
           
       - alert: CircuitBreakerOpen
-        expr: jairouter_circuit_breaker_state > 0
+        expr: trunkline_circuit_breaker_state > 0
         for: 1m
         labels:
           severity: critical
@@ -449,7 +449,7 @@ groups:
           summary: "Circuit breaker is open"
           
       - alert: InstanceDown
-        expr: up{job="jairouter"} == 0
+        expr: up{job="trunkline"} == 0
         for: 1m
         labels:
           severity: critical

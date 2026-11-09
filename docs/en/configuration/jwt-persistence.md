@@ -259,10 +259,10 @@ trunkline:
       enabled: true
 ```
 
-### Staging Environment
+### Redis-backed Deployment
 
 ```yaml
-# application-staging.yml
+# application-prod.yml
 trunkline:
   security:
     jwt:

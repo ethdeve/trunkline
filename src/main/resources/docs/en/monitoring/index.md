@@ -29,7 +29,7 @@ Trunkline provides comprehensive monitoring, including system metric collection,
 
 - **Trunkline app**: http://localhost:8080
 - **Prometheus**: http://localhost:9090
-- **Grafana**: http://localhost:3000 (admin/jairouter2024)
+- **Grafana**: http://localhost:3000 (admin/trunkline2024)
 - **Metrics endpoint**: http://localhost:8080/actuator/prometheus
 
 ## Monitoring Architecture
@@ -113,31 +113,31 @@ graph TB
 ### System health
 ```promql
 # Service availability
-up{job="jairouter"}
+up{job="trunkline"}
 
 # Request error rate
-sum(rate(jairouter_requests_total{status=~"5.."}[5m])) / sum(rate(jairouter_requests_total[5m]))
+sum(rate(trunkline_requests_total{status=~"5.."}[5m])) / sum(rate(trunkline_requests_total[5m]))
 
 # P95 response time
-histogram_quantile(0.95, sum(rate(jairouter_request_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(trunkline_request_duration_seconds_bucket[5m])) by (le))
 ```
 
 ### Business metrics
 ```promql
 # Model call success rate
-sum(rate(jairouter_model_calls_total{status="success"}[5m])) / sum(rate(jairouter_model_calls_total[5m]))
+sum(rate(trunkline_model_calls_total{status="success"}[5m])) / sum(rate(trunkline_model_calls_total[5m]))
 
 # Active user sessions
-sum(jairouter_user_sessions_active)
+sum(trunkline_user_sessions_active)
 ```
 
 ### Infrastructure
 ```promql
 # Healthy backend instances
-sum(jairouter_backend_health)
+sum(trunkline_backend_health)
 
 # Services with an open circuit breaker
-count(jairouter_circuit_breaker_state == 1)
+count(trunkline_circuit_breaker_state == 1)
 ```
 
 ## Support and Feedback

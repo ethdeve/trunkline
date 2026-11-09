@@ -33,7 +33,7 @@ Trunkline 监控系统测试分为以下几个层次：
 monitoring:
   metrics:
     enabled: true
-    prefix: "test_jairouter"
+    prefix: "test_trunkline"
     collection-interval: 1s  # 加快测试速度
     
     enabled-categories:
@@ -79,7 +79,7 @@ spring:
 version: '3.8'
 
 services:
-  jairouter-test:
+  trunkline-test:
     image: sodlinken/jairouter:test
     ports:
       - "8080:8080"
@@ -173,7 +173,7 @@ class MetricsCollectorTest {
         
         // Then
         ArgumentCaptor<Tags> tagsCaptor = ArgumentCaptor.forClass(Tags.class);
-        verify(meterRegistry).counter(eq("jairouter.requests.total"), tagsCaptor.capture());
+        verify(meterRegistry).counter(eq("trunkline.requests.total"), tagsCaptor.capture());
         
         Tags capturedTags = tagsCaptor.getValue();
         assertEquals(service, capturedTags.stream()
@@ -376,8 +376,8 @@ class PrometheusEndpointIntegrationTest {
         
         // Then
         String body = response.getBody();
-        assertTrue(body.contains("jairouter_requests_total"));
-        assertTrue(body.contains("jairouter_request_duration_seconds"));
+        assertTrue(body.contains("trunkline_requests_total"));
+        assertTrue(body.contains("trunkline_request_duration_seconds"));
     }
     
     @Test
@@ -391,7 +391,7 @@ class PrometheusEndpointIntegrationTest {
         // Then
         String body = response.getBody();
         assertTrue(body.contains("environment=\"test\""));
-        assertTrue(body.contains("application=\"jairouter\""));
+        assertTrue(body.contains("application=\"trunkline\""));
     }
     
     @Test
@@ -451,7 +451,7 @@ class MonitoringDataFlowEndToEndTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         
         // 验证指标记录
-        Counter requestCounter = meterRegistry.find("jairouter.requests.total")
+        Counter requestCounter = meterRegistry.find("trunkline.requests.total")
             .tag("method", "GET")
             .tag("status", "200")
             .counter();
@@ -465,7 +465,7 @@ class MonitoringDataFlowEndToEndTest {
             String.class
         );
         
-        assertTrue(metricsResponse.getBody().contains("jairouter_requests_total"));
+        assertTrue(metricsResponse.getBody().contains("trunkline_requests_total"));
     }
     
     @Test
@@ -493,7 +493,7 @@ class MonitoringDataFlowEndToEndTest {
         Thread.sleep(3000); // 等待异步处理
         
         // Then
-        Counter requestCounter = meterRegistry.find("jairouter.requests.total").counter();
+        Counter requestCounter = meterRegistry.find("trunkline.requests.total").counter();
         assertNotNull(requestCounter);
         assertTrue(requestCounter.count() >= concurrentRequests);
     }

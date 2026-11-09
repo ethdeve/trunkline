@@ -327,7 +327,7 @@ JWT 令牌验证时检查令牌是否在黑名单中：
 ### 清理配置
 
 ```yaml
-jairouter:
+trunkline:
   security:
     blacklist:
       cleanup:
@@ -346,15 +346,15 @@ jairouter:
 
 ### 监控指标
 
-- `jairouter_security_blacklist_total`：黑名单总条目数
-- `jairouter_security_blacklist_active`：活跃黑名单条目数
-- `jairouter_security_blacklist_blocked_requests`：被黑名单阻止的请求数
-- `jairouter_security_blacklist_by_type`：按类型统计的黑名单数量
+- `trunkline_security_blacklist_total`：黑名单总条目数
+- `trunkline_security_blacklist_active`：活跃黑名单条目数
+- `trunkline_security_blacklist_blocked_requests`：被黑名单阻止的请求数
+- `trunkline_security_blacklist_by_type`：按类型统计的黑名单数量
 
 ### 告警配置
 
 ```yaml
-jairouter:
+trunkline:
   security:
     blacklist:
       alerts:

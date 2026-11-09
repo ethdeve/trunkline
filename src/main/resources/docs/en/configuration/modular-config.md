@@ -43,9 +43,10 @@ config/
 │   └── tracing-base.yml
 ├── persistence/         # Persistence service
 │   └── state-persistence-base.yml
-├── base/                # Base configurations (legacy)
-│   ├── server-base.yml
-│   └── model-services-base.yml
+├── base/                # Base configuration
+│   └── monitoring-base.yml   # Metrics & management endpoints
+│                            # (server-base / model-services-base removed: every key
+│                            #  duplicated verbatim in common/*, router/*, core.yml)
 └── security/            # Security configurations (legacy)
     ├── security-base.yml
     ├── persistence-base.yml
@@ -87,11 +88,9 @@ spring:
       # config-service module
       - classpath:config/config-service/core.yml
 
-      # router module
-      - classpath:config/router/adapter.yml
-      - classpath:config/router/loadbalancer.yml
+      # router module (simplified on 2026-11-09: adapter/loadbalancer/circuitbreaker
+      # defaults are built into Java code; only files with exclusive effective values remain)
       - classpath:config/router/ratelimit.yml
-      - classpath:config/router/circuitbreaker.yml
       - classpath:config/router/fallback.yml
       - classpath:config/router/services.yml
 
@@ -168,7 +167,7 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
   file:
-    name: logs/jairouter.log
+    name: logs/trunkline.log
     max-size: 10MB
     max-history: 30
 ```
@@ -177,19 +176,23 @@ logging:
 
 ### Router Module
 
-#### Adapter Configuration (`config/router/adapter.yml`)
+#### Adapter Configuration
+
+> Since 2026-11-09 `config/router/adapter.yml` has been removed; the default lives in code (`ModelRouterProperties`); override via `application-{profile}.yml` / env vars / external mount.
 
 ```yaml
 model:
-  adapter: "ollama"                       # Default adapter type
+  adapter: "normal"                       # Code default
 ```
 
-#### Load Balancer Configuration (`config/router/loadbalancer.yml`)
+#### Load Balancer Configuration
+
+> `config/router/loadbalancer.yml` has been removed; defaults live in code (`ModelRouterProperties` / `RoutingMonitorConfig`).
 
 ```yaml
 model:
   load-balance:
-    type: "random"                        # random, round-robin, least-connections, ip-hash
+    type: "random"                        # Code default: random, round-robin, least-connections, ip-hash
 ```
 
 #### Rate Limiting Configuration (`config/router/ratelimit.yml`)
@@ -201,15 +204,17 @@ model:
     algorithm: "token-bucket"             # Supported: token-bucket, sliding-window
 ```
 
-#### Circuit Breaker Configuration (`config/router/circuitbreaker.yml`)
+#### Circuit Breaker Configuration
+
+> `config/router/circuitbreaker.yml` has been removed; defaults live in code (`CircuitBreakerManager`).
 
 ```yaml
 model:
   circuit-breaker:
     enabled: true
-    failureThreshold: 5                   # Failures to trigger open
-    successThreshold: 3                   # Successes to close
-    timeout: 60000                        # Open state timeout (ms)
+    failureThreshold: 5                   # Failures to trigger open (code default)
+    successThreshold: 2                   # Successes to close (code default)
+    timeout: 60000                        # Open state timeout (ms, code default)
 ```
 
 ---
@@ -219,7 +224,7 @@ model:
 #### JWT Configuration (`config/auth/jwt.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: false                    # Enable JWT authentication
@@ -228,14 +233,14 @@ jairouter:
       algorithm: "HS256"                # Signing algorithm
       expiration-minutes: 60            # Access token expiration
       refresh-expiration-days: 7        # Refresh token expiration
-      issuer: "jairouter"               # Token issuer
+      issuer: "trunkline"               # Token issuer
       blacklist-enabled: true           # Enable token blacklist
 ```
 
 #### API Key Configuration (`config/auth/api-key.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       enabled: true                     # Enable API key authentication
@@ -246,7 +251,7 @@ jairouter:
 #### Audit Configuration (`config/auth/audit.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       enabled: true                     # Enable audit logging
@@ -258,7 +263,7 @@ jairouter:
 #### Data Sanitization Configuration (`config/auth/sanitization.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       enabled: true                     # Enable data sanitization
@@ -276,7 +281,7 @@ jairouter:
 #### Slow Query Alerts (`config/monitor/slow-query-alerts.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       enabled: true
@@ -288,7 +293,7 @@ jairouter:
 #### Error Tracking (`config/monitor/error-tracking.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     error-tracking:
       enabled: false                    # Disabled by default
@@ -304,10 +309,10 @@ jairouter:
 #### Tracing Configuration (`config/tracing/tracing-base.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: false
-    service-name: "jairouter"
+    service-name: "trunkline"
     sampling-rate: 1.0                  # Sampling rate (0.0 - 1.0)
     export-enabled: false
     exporter-type: "otlp"               # otlp, jaeger, zipkin
@@ -321,7 +326,7 @@ jairouter:
 #### State Persistence (`config/persistence/state-persistence-base.yml`)
 
 ```yaml
-jairouter:
+trunkline:
   persistence:
     enabled: true
     primary-storage: "h2"               # h2, redis, memory
@@ -348,7 +353,7 @@ logging:
   level:
     root: DEBUG
 
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: false                    # Disable JWT in dev
@@ -368,7 +373,7 @@ logging:
   level:
     root: INFO
 
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: true
@@ -385,11 +390,11 @@ Mount external configuration files to override defaults:
 
 ```bash
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -v /path/to/config:/app/config \
   -e JWT_SECRET="your-secret-key" \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 ### External Configuration Structure

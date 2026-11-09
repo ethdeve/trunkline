@@ -26,18 +26,18 @@ A multi-replica deployment must enable all five items below and point them at a 
 
 | Configuration key | Default | Set to | Consequence if left off |
 |---|---|---|---|
-| `jairouter.security.jwt.blacklist.redis.enabled` | `false` | `true` | Revoked tokens are still accepted on other replicas |
-| `jairouter.security.jwt.persistence.redis.enabled` | `false` | `true` | Token state is per replica; restart may lose issued state |
-| `jairouter.security.cache.redis.enabled` | `false` | `true` | API key cache stays local; revocations and creates do not propagate |
-| `jairouter.quota.distributed.enabled` | `false` | `true` | Quota is counted per replica; allowed volume ≈ configured value × replicas |
-| `jairouter.persistence.redis.enabled` | `false` | `true` | State persistence falls back to local H2/file, never shared |
+| `trunkline.security.jwt.blacklist.redis.enabled` | `false` | `true` | Revoked tokens are still accepted on other replicas |
+| `trunkline.security.jwt.persistence.redis.enabled` | `false` | `true` | Token state is per replica; restart may lose issued state |
+| `trunkline.security.cache.redis.enabled` | `false` | `true` | API key cache stays local; revocations and creates do not propagate |
+| `trunkline.quota.distributed.enabled` | `false` | `true` | Quota is counted per replica; allowed volume ≈ configured value × replicas |
+| `trunkline.persistence.redis.enabled` | `false` | `true` | State persistence falls back to local H2/file, never shared |
 
-Enabling distributed quota also requires `jairouter.quota.enabled=true` (the feature's master switch).
+Enabling distributed quota also requires `trunkline.quota.enabled=true` (the feature's master switch).
 
 Connection details come from the `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` (and `REDIS_DATABASE`)
 environment variables, or from Spring's `spring.data.redis.*`. The switches above only decide
 *whether* Redis is used; they no longer read their own `host` / `port` — keys such as
-`jairouter.security.jwt.persistence.redis.host` are **no longer read** after the JWT-specific Redis was
+`trunkline.security.jwt.persistence.redis.host` are **no longer read** after the JWT-specific Redis was
 removed (the corresponding keys in `config/auth/jwt.yml` and `config/security/persistence-base.yml` were
 deleted with them).
 
@@ -47,7 +47,7 @@ Once the application is ready it automatically assesses "am I multi-replica, and
 switches complete?" No extra configuration is needed for the check to run:
 
 ```yaml
-jairouter:
+trunkline:
   cluster:
     # 0 = unknown, probe the runtime; 1 = explicitly single replica; >1 = multi-replica
     replicas: 3
@@ -119,7 +119,7 @@ unavailability.
   silently drop every other replica's delta.
 - Tasks whose side effects are externally observable (emitting alerts, daily reports, key rotation)
   take a cross-replica exclusive lock, controlled by
-  `jairouter.scheduling.distributed-lock.enabled` (default `true`; degrades to single-instance
+  `trunkline.scheduling.distributed-lock.enabled` (default `true`; degrades to single-instance
   semantics when Redis is not configured).
 - **Per-replica cache refresh** (the API key cache) is likewise work every replica must run — see the
   next section.
@@ -128,7 +128,7 @@ unavailability.
 
 API key validation reads each replica's own in-memory mirror, updated only within that process. So
 that revocations and creations take effect across replicas, `ApiKeyService` refreshes its cache from
-shared storage every `jairouter.security.api-key.cache-refresh-interval-seconds` (default 60 seconds):
+shared storage every `trunkline.security.api-key.cache-refresh-interval-seconds` (default 60 seconds):
 
 - **Convergence bound = the refresh interval.** A key revoked on replica A stops being accepted on
   replica B within one interval.
@@ -143,7 +143,7 @@ shared storage every `jairouter.security.api-key.cache-refresh-interval-seconds`
 
 ## Rate-limit key dimension and multi-replica semantics
 
-Rate-limit state lives in the JVM by default; the repository **does** ship a client-dimension distributed rate limiter (`RedisSlidingWindowRateLimiter`, enabled by `jairouter.ratelimit.distributed.enabled`), but it **only covers the client dimension** — service/instance/rule-level limiters are still per-replica (see "Still not done" below). This is unlike the quota ledger and JWT blacklist, which ship Redis implementations for all dimensions and only need their switches turned on. Under multiple replicas (when client-dimension distributed counting is off):
+Rate-limit state lives in the JVM by default; the repository **does** ship a client-dimension distributed rate limiter (`RedisSlidingWindowRateLimiter`, enabled by `trunkline.ratelimit.distributed.enabled`), but it **only covers the client dimension** — service/instance/rule-level limiters are still per-replica (see "Still not done" below). This is unlike the quota ledger and JWT blacklist, which ship Redis implementations for all dimensions and only need their switches turned on. Under multiple replicas (when client-dimension distributed counting is off):
 
 > the effective allowed volume for one client is roughly `configured value × replica count`, window
 > resets are per replica, and burst shape depends on which pod a request lands on (equivalent to
@@ -184,7 +184,7 @@ operators could not see "affinity is nominal" from metrics.
 
 ### Cross-replica counting (optional)
 
-With `jairouter.ratelimit.distributed.enabled` on, the client-dimension sliding window lives in Redis and
+With `trunkline.ratelimit.distributed.enabled` on, the client-dimension sliding window lives in Redis and
 every replica shares one counter — allowed volume equals the configured value instead of
 `configured value × replicas`.
 
@@ -215,7 +215,7 @@ callbacks** (routing decisions, breaker state changes). With multiple replicas, 
 the events of the replica it is connected to — the monitoring panel then **silently misses events**:
 not an error, just incomplete data that looks normal.
 
-With `jairouter.cluster.events.enabled` on, an event produced on one replica is broadcast to the whole
+With `trunkline.cluster.events.enabled` on, an event produced on one replica is broadcast to the whole
 cluster over Redis pub/sub, and every replica merges what it receives into its own WebSocket stream:
 
 - **Loopback filtering**: messages carry the source replica id, and a replica does not re-distribute its
@@ -235,7 +235,7 @@ that a proactive change notification may lag by up to one snapshot period (5 sec
 Configuration:
 
 ```yaml
-jairouter:
+trunkline:
   cluster:
     events:
       enabled: true      # default false: single-replica deployments need no cross-replica broadcast

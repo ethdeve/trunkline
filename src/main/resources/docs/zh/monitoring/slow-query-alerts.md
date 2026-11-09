@@ -60,7 +60,7 @@ spring:
 在 `slow-query-alerts.yml` 中配置：
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       enabled: true
@@ -75,7 +75,7 @@ jairouter:
 ### 2. 配置操作特定阈值
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       operations:
@@ -181,7 +181,7 @@ slow_query_alert_active{operation="chat_request", severity="warning"}
 
 ```yaml
 groups:
-  - name: jairouter.slow-query-alerts
+  - name: trunkline.slow-query-alerts
     rules:
       - alert: JAiRouterSlowQueryDetected
         expr: increase(slow_query_total[5m]) > 0
@@ -249,7 +249,7 @@ GET /api/monitoring/slow-queries/alerts/status
 ### 开发环境 (application-dev.yml)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       enabled: true
@@ -261,7 +261,7 @@ jairouter:
 ### 生产环境 (application-prod.yml)
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       enabled: true

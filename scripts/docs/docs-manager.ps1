@@ -97,7 +97,7 @@ function Start-DocsServer {
     Write-ColorOutput "启动本地文档服务器..." "Green"
 
     # 切换到项目根目录
-    $projectRoot = "D:\IdeaProjects\model-router"
+    $projectRoot = "D:\IdeaProjects\trunkline"
     Push-Location $projectRoot
 
     try {
@@ -163,7 +163,7 @@ function Invoke-LinkCheck {
     }
 
     # 切换到项目根目录
-    $projectRoot = "D:\IdeaProjects\model-router"
+    $projectRoot = "D:\IdeaProjects\trunkline"
     Push-Location $projectRoot
 
     try {
@@ -193,7 +193,7 @@ function Invoke-LinkFix {
     }
 
     # 切换到项目根目录
-    $projectRoot = "D:\IdeaProjects\model-router"
+    $projectRoot = "D:\IdeaProjects\trunkline"
     Push-Location $projectRoot
 
     try {
@@ -222,7 +222,7 @@ function Invoke-SyncCheck {
     }
 
     # 直接调用，使用简单的方法避免参数冲突
-    $projectRoot = "D:\IdeaProjects\model-router"
+    $projectRoot = "D:\IdeaProjects\trunkline"
 
     try {
         if ($Output -and $FailOnError) {
@@ -349,7 +349,7 @@ function Invoke-VersionManagement {
         exit 1
     }
 
-    $projectRoot = "D:\IdeaProjects\model-router"
+    $projectRoot = "D:\IdeaProjects\trunkline"
 
     try {
         # 构建 Python 脚本参数
@@ -393,7 +393,7 @@ function Invoke-Validation {
     Write-ColorOutput "✅ 验证文档结构..." "Green"
 
     # 切换到项目根目录
-    $projectRoot = "D:\IdeaProjects\model-router"
+    $projectRoot = "D:\IdeaProjects\trunkline"
     Push-Location $projectRoot
 
     try {

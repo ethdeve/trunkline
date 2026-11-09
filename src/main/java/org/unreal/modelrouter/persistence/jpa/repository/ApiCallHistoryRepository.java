@@ -82,18 +82,19 @@ public interface ApiCallHistoryRepository extends JpaRepository<ApiCallHistoryEn
      * <p>{@code keyword} 的大小写不敏感（{@code lower(...)} 双侧包裹），
      * 命中员工 / 虚拟模型 / Trace ID / 模型名 / 实例名任一即返回。</p>
      */
+    // ⚠️ 可空参数必须 cast 显式定型（PG 42P18，见 SecurityAuditEventRepository 同注）。
     @Query("SELECT c FROM ApiCallHistoryEntity c WHERE "
-           + "(:startTime IS NULL OR c.createdAt >= :startTime) AND "
-           + "(:endTime IS NULL OR c.createdAt <= :endTime) AND "
-           + "(:modelName IS NULL OR c.modelName = :modelName) AND "
-           + "(:virtualModel IS NULL OR c.virtualModel = :virtualModel) AND "
-           + "(:userId IS NULL OR c.userId = :userId) AND "
-           + "(:serviceType IS NULL OR c.serviceType = :serviceType) AND "
-           + "(:apiKeyId IS NULL OR c.apiKeyId = :apiKeyId) AND "
-           + "(:isSuccess IS NULL OR c.isSuccess = :isSuccess) AND "
-           + "(:rateLimited IS NULL OR c.rateLimited = :rateLimited) AND "
-           + "(:httpStatusCode IS NULL OR c.httpStatusCode = :httpStatusCode) AND "
-           + "(:keyword IS NULL OR "
+           + "(cast(:startTime as timestamp) IS NULL OR c.createdAt >= :startTime) AND "
+           + "(cast(:endTime as timestamp) IS NULL OR c.createdAt <= :endTime) AND "
+           + "(cast(:modelName as string) IS NULL OR c.modelName = :modelName) AND "
+           + "(cast(:virtualModel as string) IS NULL OR c.virtualModel = :virtualModel) AND "
+           + "(cast(:userId as string) IS NULL OR c.userId = :userId) AND "
+           + "(cast(:serviceType as string) IS NULL OR c.serviceType = :serviceType) AND "
+           + "(cast(:apiKeyId as string) IS NULL OR c.apiKeyId = :apiKeyId) AND "
+           + "(cast(:isSuccess as boolean) IS NULL OR c.isSuccess = :isSuccess) AND "
+           + "(cast(:rateLimited as boolean) IS NULL OR c.rateLimited = :rateLimited) AND "
+           + "(cast(:httpStatusCode as integer) IS NULL OR c.httpStatusCode = :httpStatusCode) AND "
+           + "(cast(:keyword as string) IS NULL OR "
            + "  lower(c.userId) LIKE lower(concat('%', :keyword, '%')) OR "
            + "  lower(c.virtualModel) LIKE lower(concat('%', :keyword, '%')) OR "
            + "  lower(c.traceId) LIKE lower(concat('%', :keyword, '%')) OR "
@@ -120,8 +121,8 @@ public interface ApiCallHistoryRepository extends JpaRepository<ApiCallHistoryEn
      * 查询错误调用（失败的请求）
      */
     @Query("SELECT c FROM ApiCallHistoryEntity c WHERE c.isSuccess = false "
-           + "AND (:startTime IS NULL OR c.createdAt >= :startTime) "
-           + "AND (:endTime IS NULL OR c.createdAt <= :endTime) "
+           + "AND (cast(:startTime as timestamp) IS NULL OR c.createdAt >= :startTime) "
+           + "AND (cast(:endTime as timestamp) IS NULL OR c.createdAt <= :endTime) "
            + "ORDER BY c.createdAt DESC")
     List<ApiCallHistoryEntity> findErrors(
             @Param("startTime") LocalDateTime startTime,
@@ -132,8 +133,8 @@ public interface ApiCallHistoryRepository extends JpaRepository<ApiCallHistoryEn
      * 查询慢调用（响应时间超过阈值）
      */
     @Query("SELECT c FROM ApiCallHistoryEntity c WHERE c.responseTimeMs > :threshold "
-           + "AND (:startTime IS NULL OR c.createdAt >= :startTime) "
-           + "AND (:endTime IS NULL OR c.createdAt <= :endTime) "
+           + "AND (cast(:startTime as timestamp) IS NULL OR c.createdAt >= :startTime) "
+           + "AND (cast(:endTime as timestamp) IS NULL OR c.createdAt <= :endTime) "
            + "ORDER BY c.responseTimeMs DESC")
     List<ApiCallHistoryEntity> findSlowCalls(
             @Param("threshold") Long threshold,

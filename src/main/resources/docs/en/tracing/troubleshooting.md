@@ -25,17 +25,17 @@ This document provides diagnosis and solutions for common issues with the Trunkl
 curl http://localhost:8080/actuator/health/tracing
 
 # 2. Check configuration
-curl http://localhost:8080/actuator/configprops | jq '.jairouter.tracing'
+curl http://localhost:8080/actuator/configprops | jq '.trunkline.tracing'
 
 # 3. Check sampling rate
-curl http://localhost:8080/actuator/metrics/jairouter.tracing.sampling.rate
+curl http://localhost:8080/actuator/metrics/trunkline.tracing.sampling.rate
 ```
 
 **Common Causes and Solutions**:
 
 | Cause | Solution |
 |------|----------|
-| Tracing not enabled | Set `jairouter.tracing.enabled=true` |
+| Tracing not enabled | Set `trunkline.tracing.enabled=true` |
 | Sampling rate too low | Temporarily set `sampling.ratio=1.0` for testing |
 | Exporter configuration error | Check exporter endpoint and authentication configuration |
 | Filter order issue | Ensure TracingWebFilter is at the front of the filter chain |
@@ -51,7 +51,7 @@ curl http://localhost:8080/actuator/metrics/jairouter.tracing.sampling.rate
 
 ```yaml
 # Temporarily increase sampling rate for debugging
-jairouter:
+trunkline:
   tracing:
     sampling:
       ratio: 1.0
@@ -87,7 +87,7 @@ curl -s http://localhost:8080/actuator/metrics/jvm.threads.live
 **Optimization Measures**:
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     # Reduce sampling rate
     sampling:
@@ -119,7 +119,7 @@ jairouter:
 
 ```bash
 # 1. Check Span count
-curl http://localhost:8080/actuator/metrics/jairouter.tracing.spans.active
+curl http://localhost:8080/actuator/metrics/trunkline.tracing.spans.active
 
 # 2. Check memory usage
 jmap -histo <pid> | grep Span
@@ -132,7 +132,7 @@ jcmd <pid> VM.gc
 **Solutions**:
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     # Checked in issue #159: the real path is performance.memory, and cleanup-interval /
     # span-ttl do not exist (memory pressure is driven by memory-limit-mb).
@@ -159,14 +159,14 @@ jairouter:
 python -c "import yaml; yaml.safe_load(open('application.yml'))"
 
 # Check configuration binding
-curl http://localhost:8080/actuator/configprops | jq '.jairouter.tracing'
+curl http://localhost:8080/actuator/configprops | jq '.trunkline.tracing'
 ```
 
 **Common Configuration Errors**:
 
 ```yaml
 # ❌ Wrong configuration
-jairouter:
+trunkline:
   tracing:
     sampling:
       ratio: 1.5                   # Out of range [0.0, 1.0]
@@ -180,7 +180,7 @@ each one passes YAML syntax validation):
 
 ```yaml
 # ✅ Correct configuration  
-jairouter:
+trunkline:
   tracing:
     sampling:
       ratio: 1.0
@@ -226,7 +226,7 @@ netstat -an | grep 14268
 **Configuration Adjustment**:
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     exporter:
       type: "jaeger"
@@ -327,12 +327,12 @@ groups:
   - name: tracing_alerts
     rules:
       - alert: TracingExportFailure
-        expr: rate(jairouter_tracing_export_errors_total[5m]) > 0.1
+        expr: rate(trunkline_tracing_export_errors_total[5m]) > 0.1
         labels:
           severity: warning
           
       - alert: TracingMemoryHigh
-        expr: jairouter_tracing_memory_used_ratio > 0.8
+        expr: trunkline_tracing_memory_used_ratio > 0.8
         labels:
           severity: critical
 ```

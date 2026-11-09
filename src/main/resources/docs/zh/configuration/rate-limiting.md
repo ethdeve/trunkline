@@ -16,7 +16,7 @@ Trunkline 提供多种限流算法，支持全局、服务级别和实例级别�
 - 主配置文件: `application.yml`
 - 限流配置: `config/router/ratelimit.yml`
 
-您可以在 `config/router/ratelimit.yml` 文件中找到全局限流配置（`model.rate-limit.*`）与分布式限流开关（`jairouter.ratelimit.distributed.*`）；各服务类型的限流配置写在 `config/router/services.yml` 的 `model.services.<serviceType>.rate-limit` 下。
+您可以在 `config/router/ratelimit.yml` 文件中找到全局限流配置（`model.rate-limit.*`）与分布式限流开关（`trunkline.ratelimit.distributed.*`）；各服务类型的限流配置写在 `config/router/services.yml` 的 `model.services.<serviceType>.rate-limit` 下。
 
 ## 限流概述
 
@@ -79,7 +79,7 @@ graph TB
 
 在 `config/router/ratelimit.yml` 文件中配置全局限流：
 ```yaml
-# config/base/model-services-base.yml
+# config/router/ratelimit.yml
 model:
   # 全局限流配置
   rate-limit:
@@ -467,10 +467,10 @@ curl "http://localhost:8080/api/rate-limiter/metrics"
 | `key-dimension` | `client-ip` | 限流键维度：`client-ip` / `api-key` / `tenant` |
 | `key` | 空 | 自定义限流键（优先级高于 key-dimension） |
 
-多实例部署时，分布式限流开关位于 `jairouter.ratelimit.distributed` 前缀下：
+多实例部署时，分布式限流开关位于 `trunkline.ratelimit.distributed` 前缀下：
 
 ```yaml
-jairouter:
+trunkline:
   ratelimit:
     distributed:
       enabled: false        # 默认关闭（单机内存限流）
@@ -580,29 +580,29 @@ curl "http://localhost:8080/api/rate-limiter/summary"
 
 ```bash
 # 限流事件（允许/拒绝）
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_events_total"
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_events_total"
 
 # 各限流器剩余容量
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_remaining"
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_remaining"
 
 # 各限流器使用率
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_usage_ratio"
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_usage_ratio"
 ```
 
 ### Prometheus 指标
 
 ```prometheus
 # 限流请求速率
-rate(jairouter_rate_limit_events_total[5m])
+rate(trunkline_rate_limit_events_total[5m])
 
 # 限流拒绝率
-rate(jairouter_rate_limit_events_total{result="denied"}[5m]) / rate(jairouter_rate_limit_events_total[5m])
+rate(trunkline_rate_limit_events_total{result="denied"}[5m]) / rate(trunkline_rate_limit_events_total[5m])
 
 # 各限流器剩余容量
-jairouter_rate_limit_remaining
+trunkline_rate_limit_remaining
 
 # 各限流器使用率
-jairouter_rate_limit_usage_ratio
+trunkline_rate_limit_usage_ratio
 ```
 
 ### 告警规则
@@ -610,10 +610,10 @@ jairouter_rate_limit_usage_ratio
 ```yaml
 # Prometheus 告警规则
 groups:
-  - name: jairouter_ratelimit
+  - name: trunkline_ratelimit
     rules:
       - alert: HighRateLimitRejection
-        expr: rate(jairouter_rate_limit_events_total{result="denied"}[5m]) / rate(jairouter_rate_limit_events_total[5m]) > 0.1
+        expr: rate(trunkline_rate_limit_events_total{result="denied"}[5m]) / rate(trunkline_rate_limit_events_total[5m]) > 0.1
         for: 2m
         labels:
           severity: warning

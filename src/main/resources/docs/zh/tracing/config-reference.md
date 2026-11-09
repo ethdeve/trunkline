@@ -41,10 +41,10 @@ spring:
 ### 启用追踪
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true                    # 是否启用追踪功能，默认: true
-    service-name: "jairouter"       # 服务名称，默认: "jairouter"
+    service-name: "trunkline"       # 服务名称，默认: "trunkline"
     service-version: "1.0.0"        # 服务版本，默认: "1.0.0"
 ```
 
@@ -53,7 +53,7 @@ jairouter:
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|---------|------|
 | `enabled` | boolean | `true` | 是否启用追踪功能 |
-| `service-name` | string | `"jairouter"` | 服务名称，用于标识追踪源 |
+| `service-name` | string | `"trunkline"` | 服务名称，用于标识追踪源 |
 | `service-version` | string | `"1.0.0"` | 服务版本号 |
 | `service-namespace` | string | `"production"` | 服务命名空间（**原先这张表写的 `environment` 字段不存在**，见 issue #231） |
 
@@ -62,7 +62,7 @@ jairouter:
 ### 比率采样
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       # 采样策略（issue #234 起真实存在）：ratio（默认）/ rule / adaptive
@@ -73,7 +73,7 @@ jairouter:
 ### 规则采样
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       # 用规则采样需要把策略切到 rule（issue #234）；一条规则只有两个字段 —— condition 与 ratio。
@@ -101,7 +101,7 @@ jairouter:
 ### 自适应采样
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       # 用自适应采样需要 strategy: adaptive 且 enabled: true（issue #234）
@@ -123,7 +123,7 @@ jairouter:
 ### 日志导出器
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     exporter:
       type: "logging"
@@ -137,7 +137,7 @@ jairouter:
 ### Jaeger 导出器
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     exporter:
       type: "jaeger"
@@ -152,7 +152,7 @@ jairouter:
 ### Zipkin 导出器
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     exporter:
       type: "zipkin"
@@ -165,7 +165,7 @@ jairouter:
 ### OTLP 导出器
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     exporter:
       type: "otlp"
@@ -182,7 +182,7 @@ jairouter:
 ### 批处理配置
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     # 核对（issue #231）：批处理器参数**在 performance 下**，不是 open-telemetry 下。
     # 这里原先写的 open-telemetry.sdk.trace.processors.batch.* 确实能绑定，
@@ -199,7 +199,7 @@ jairouter:
 ## 内存管理配置
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     performance:
       # 核对（issue #231）：真实路径是 performance.memory，且只有下面三个字段。
@@ -214,7 +214,7 @@ jairouter:
 ## 性能配置
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     performance:
       async-processing: true       # 异步处理，默认: true
@@ -246,7 +246,7 @@ jairouter:
 ### HTTP 配置
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     components:
       http:
@@ -264,7 +264,7 @@ jairouter:
 ### 限流器配置
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     components:
       rate-limiter:
@@ -278,7 +278,7 @@ jairouter:
 ### 熔断器配置
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     components:
       circuit-breaker:
@@ -291,7 +291,7 @@ jairouter:
 ### 负载均衡器配置
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     components:
       load-balancer:
@@ -304,7 +304,7 @@ jairouter:
 ## 安全配置
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     security:
       # 整段开关（无字段、靠 @ConditionalOnProperty，缺省即开启）
@@ -328,7 +328,7 @@ jairouter:
 ## 监控配置
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     monitoring:
       metrics:
@@ -370,7 +370,7 @@ jairouter:
 ### 开发环境 (application-dev.yml)
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
     sampling:
@@ -385,7 +385,7 @@ logging:
 ### 生产环境 (application-prod.yml)
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
     sampling:

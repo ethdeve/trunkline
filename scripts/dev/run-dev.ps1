@@ -31,7 +31,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "✅ 构建成功完成" -ForegroundColor Green
 
 # 查找构建好的 JAR 文件
-$jarFile = Get-ChildItem -Path "target" -Filter "model-router-*.jar" | Select-Object -First 1
+$jarFile = Get-ChildItem -Path "target" -Filter "trunkline-*.jar" | Select-Object -First 1
 
 if (-not $jarFile) {
     Write-Host "❌ 未找到构建好的 JAR 文件" -ForegroundColor Red

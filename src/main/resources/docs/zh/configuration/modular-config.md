@@ -47,10 +47,10 @@ config/
 │   └── tracing-base.yml
 ├── persistence/         # 持久化服务
 │   └── state-persistence-base.yml
-├── base/                # 基础配置（遗留）
-│   ├── server-base.yml
-│   ├── model-services-base.yml
-│   └── monitoring-base.yml
+├── base/                # 基础配置
+│   └── monitoring-base.yml   # 监控指标与管理端点
+│                            # （server-base / model-services-base 已删：全部键与
+│                            #   common/*、router/*、config-service/core.yml 同值重复）
 └── security/            # 安全配置（遗留）
     ├── security-base.yml
     ├── persistence-base.yml
@@ -89,15 +89,11 @@ spring:
       # config-service 模块
       - classpath:config/config-service/core.yml
 
-      # router 模块
-      - classpath:config/router/adapter.yml
-      - classpath:config/router/loadbalancer.yml
+      # router 模块（2026-11-09 精简：adapter/loadbalancer/circuitbreaker/pools/rules
+      # 的默认值内置于 Java 代码，仅保留有独占生效值的 3 个文件）
       - classpath:config/router/ratelimit.yml
-      - classpath:config/router/circuitbreaker.yml
       - classpath:config/router/fallback.yml
       - classpath:config/router/services.yml
-      - classpath:config/router/rules.yml
-      - classpath:config/router/pools.yml
 
       # auth 模块
       - classpath:config/auth/jwt.yml
@@ -113,9 +109,7 @@ spring:
       - classpath:config/tracing/tracing-base.yml
       - classpath:config/persistence/state-persistence-base.yml
 
-      # 向后兼容配置
-      - classpath:config/base/server-base.yml
-      - classpath:config/base/model-services-base.yml
+      # security 基础配置（原「向后兼容」组）
       - classpath:config/security/security-base.yml
       - classpath:config/security/persistence-base.yml
       - classpath:config/security/audit-base.yml
@@ -161,7 +155,7 @@ spring:
 #### WebClient 配置（`config/common/webclient.yml`）
 
 ```yaml
-jairouter:
+trunkline:
   webclient:
     connect-timeout-ms: 5000          # 连接超时（毫秒）
     response-timeout-seconds: 60      # 响应超时（秒）
@@ -170,7 +164,7 @@ jairouter:
     max-idle-time-seconds: 300        # 空闲连接回收时间（秒）
 ```
 
-> 早期文档中的顶层 `webclient.*` 键为历史遗留（无消费者），实际生效以上述 `jairouter.webclient.*` 为准。
+> 早期文档中的顶层 `webclient.*` 键为历史遗留（无消费者），实际生效以上述 `trunkline.webclient.*` 为准。
 
 #### 日志配置（`config/common/logging.yml`）
 
@@ -188,20 +182,24 @@ logging:
 
 ### Router 模块
 
-#### 适配器配置（`config/router/adapter.yml`）
+#### 适配器配置
+
+> 2026-11-09 起 `config/router/adapter.yml` 已删除，默认值内置于代码（`ModelRouterProperties`）；覆盖方式：`application-{profile}.yml` / 环境变量 / 外部挂载。
 
 ```yaml
 model:
-  adapter: "gpustack"                     # 默认适配器（实际默认值）
+  adapter: "normal"                       # 代码默认值
   # 支持: normal, gpustack, ollama, vllm, xinference, localai, claude, gemini
 ```
 
-#### 负载均衡配置（`config/router/loadbalancer.yml`）
+#### 负载均衡配置
+
+> `config/router/loadbalancer.yml` 已删除，默认值内置于代码（`ModelRouterProperties` / `RoutingMonitorConfig`）。
 
 ```yaml
 model:
   load-balance:
-    type: "random"                        # random / round-robin / least-connections / ip-hash / consistent-hash / latency
+    type: "random"                        # 代码默认值：random / round-robin / least-connections / ip-hash / consistent-hash / latency
 ```
 
 #### 限流配置（`config/router/ratelimit.yml`）
@@ -213,15 +211,17 @@ model:
     algorithm: "token-bucket"             # token-bucket / leaky-bucket / sliding-window / warm-up
 ```
 
-#### 熔断器配置（`config/router/circuitbreaker.yml`）
+#### 熔断器配置
+
+> `config/router/circuitbreaker.yml` 已删除，默认值内置于代码（`CircuitBreakerManager`）。
 
 ```yaml
 model:
   circuit-breaker:
     enabled: true
-    failureThreshold: 5                   # 触发熔断的失败次数
-    successThreshold: 2                   # 恢复所需成功次数
-    timeout: 60000                        # OPEN 状态持续时间（毫秒）
+    failureThreshold: 5                   # 触发熔断的失败次数（代码默认值）
+    successThreshold: 2                   # 恢复所需成功次数（代码默认值）
+    timeout: 60000                        # OPEN 状态持续时间（毫秒，代码默认值）
 ```
 
 ---
@@ -231,7 +231,7 @@ model:
 #### JWT 配置（`config/auth/jwt.yml`）
 
 ```yaml
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: true                     # 启用 JWT 认证
@@ -240,14 +240,14 @@ jairouter:
       algorithm: "HS256"                # 签名算法
       expiration-minutes: 60            # 访问令牌过期时间
       refresh-expiration-days: 7        # 刷新令牌过期时间
-      issuer: "jairouter"               # 令牌签发者
+      issuer: "trunkline"               # 令牌签发者
       blacklist-enabled: true           # 启用令牌黑名单
 ```
 
 #### API 密钥配置（`config/auth/api-key.yml`）
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       enabled: true                     # 启用 API 密钥认证
@@ -260,7 +260,7 @@ jairouter:
 #### 审计配置（`config/auth/audit.yml`）
 
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       enabled: true                     # 启用审计日志
@@ -275,7 +275,7 @@ jairouter:
 #### 数据脱敏配置（`config/auth/sanitization.yml`）
 
 ```yaml
-jairouter:
+trunkline:
   security:
     sanitization:
       enabled: true                     # 启用数据脱敏
@@ -294,7 +294,7 @@ jairouter:
 #### 慢查询告警（`config/monitor/slow-query-alerts.yml`）
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     slow-query-alert:
       enabled: true
@@ -306,7 +306,7 @@ jairouter:
 #### 错误追踪（`config/monitor/error-tracking.yml`）
 
 ```yaml
-jairouter:
+trunkline:
   monitoring:
     error-tracking:
       enabled: true                     # 默认开启
@@ -324,7 +324,7 @@ jairouter:
 #### 链路追踪配置（`config/tracing/tracing-base.yml`）
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
     sampling:
@@ -342,10 +342,10 @@ jairouter:
 
 #### 状态持久化（`config/persistence/state-persistence-base.yml`）
 
-三层退坡（Redis → H2 → 文件），前缀 `jairouter.persistence`：
+三层退坡（Redis → H2 → 文件），前缀 `trunkline.persistence`：
 
 ```yaml
-jairouter:
+trunkline:
   persistence:
     redis:
       enabled: false
@@ -355,7 +355,7 @@ jairouter:
     h2:
       enabled: true
       data-dir: ./data
-      database: jairouter_state
+      database: trunkline_state
     file:
       enabled: true
       path: ./data/state
@@ -369,7 +369,7 @@ jairouter:
       max-retries: 3
 ```
 
-> 早期文档中的 `jairouter.persistence.enabled/primary-storage/fallback-storage/cleanup.*` 块不存在；实际按 `redis/h2/file/recovery/fallback` 分层配置。
+> 早期文档中的 `trunkline.persistence.enabled/primary-storage/fallback-storage/cleanup.*` 块不存在；实际按 `redis/h2/file/recovery/fallback` 分层配置。
 
 ---
 
@@ -387,7 +387,7 @@ logging:
   level:
     root: DEBUG
 
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: false                    # 开发环境禁用 JWT
@@ -407,7 +407,7 @@ logging:
   level:
     root: INFO
 
-jairouter:
+trunkline:
   security:
     jwt:
       enabled: true
@@ -424,11 +424,11 @@ jairouter:
 
 ```bash
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -v /path/to/config:/app/config \
   -e JWT_SECRET="your-secret-key" \
-  sodlinken/jairouter:latest
+  trunkline/trunkline:latest
 ```
 
 ### 外部配置结构

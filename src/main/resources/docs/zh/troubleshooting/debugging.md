@@ -49,7 +49,7 @@ Run/Debug Configurations:
   "name": "Debug JAiRouter",
   "request": "launch",
   "mainClass": "org.unreal.modelrouter.ModelRouterApplication",
-  "projectName": "model-router",
+  "projectName": "trunkline",
   "args": "--debug",
   "vmArgs": "-Dspring.profiles.active=dev",
   "env": {
@@ -64,7 +64,7 @@ Run/Debug Configurations:
 ```bash
 # 启动应用时添加调试参数
 java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 #### Docker 远程调试
@@ -72,7 +72,7 @@ java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 \
 # docker-compose-debug.yml
 version: '3.8'
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:latest
     ports:
       - "8080:8080"
@@ -101,7 +101,7 @@ logging:
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
     
   file:
-    name: logs/jairouter-debug.log
+    name: logs/trunkline-debug.log
     max-size: 100MB
     max-history: 30
 ```
@@ -161,16 +161,16 @@ public class LoadBalancerService {
 #### 实时日志监控
 ```bash
 # 实时查看日志
-tail -f logs/jairouter-debug.log
+tail -f logs/trunkline-debug.log
 
 # 过滤特定内容
-tail -f logs/jairouter-debug.log | grep -i "error\|exception"
+tail -f logs/trunkline-debug.log | grep -i "error\|exception"
 
 # 统计错误数量
-grep -c "ERROR" logs/jairouter-debug.log
+grep -c "ERROR" logs/trunkline-debug.log
 
 # 查看最近的错误
-grep "ERROR" logs/jairouter-debug.log | tail -10
+grep "ERROR" logs/trunkline-debug.log | tail -10
 ```
 
 #### 日志分析脚本
@@ -178,7 +178,7 @@ grep "ERROR" logs/jairouter-debug.log | tail -10
 #!/bin/bash
 # log-analyzer.sh
 
-LOG_FILE="logs/jairouter-debug.log"
+LOG_FILE="logs/trunkline-debug.log"
 REPORT_FILE="log-analysis-report.txt"
 
 echo "=== JAiRouter 日志分析报告 ===" > $REPORT_FILE
@@ -278,10 +278,10 @@ sudo firewall-cmd --list-all
 #### 网络抓包分析
 ```bash
 # 使用 tcpdump 抓包
-sudo tcpdump -i any -w jairouter.pcap port 8080
+sudo tcpdump -i any -w trunkline.pcap port 8080
 
 # 使用 wireshark 分析
-wireshark jairouter.pcap
+wireshark trunkline.pcap
 
 # 分析 HTTP 流量
 sudo tcpdump -i any -A -s 0 port 8080
@@ -315,7 +315,7 @@ java -XX:+HeapDumpOnOutOfMemoryError \
      -XX:+PrintGCDetails \
      -XX:+PrintGCTimeStamps \
      -Xloggc:gc.log \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 
 # 分析 GC 日志
 # 使用 GCViewer 或在线工具分析 gc.log
@@ -372,7 +372,7 @@ public class ThreadMonitor {
 # 使用 Java Flight Recorder
 java -XX:+FlightRecorder \
      -XX:StartFlightRecording=duration=60s,filename=profile.jfr \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 
 # 分析 JFR 文件
 jfr print --events CPULoad profile.jfr
@@ -606,11 +606,11 @@ public class CustomMetrics {
     private final Timer requestTimer;
     
     public CustomMetrics(MeterRegistry meterRegistry) {
-        this.requestCounter = Counter.builder("jairouter.requests.custom")
+        this.requestCounter = Counter.builder("trunkline.requests.custom")
             .description("自定义请求计数器")
             .register(meterRegistry);
             
-        this.requestTimer = Timer.builder("jairouter.request.duration.custom")
+        this.requestTimer = Timer.builder("trunkline.request.duration.custom")
             .description("自定义请求耗时")
             .register(meterRegistry);
     }

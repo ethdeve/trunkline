@@ -16,7 +16,7 @@ HAProxy、云 SLB、Kubernetes Ingress 等）时，必须告诉 Trunkline **哪�
 
 | 项 | 值 |
 |----|----|
-| 键 | `jairouter.security.rate-limit.trusted-proxies` |
+| 键 | `trunkline.security.rate-limit.trusted-proxies` |
 | 类型 | 字符串，逗号分隔列表 |
 | 默认值 | 空字符串（`""`） |
 | 语义 | 只有当 TCP 直连对端地址在该列表中时，才采信 `X-Forwarded-For` / `X-Real-IP`；否则一律使用连接的 `remoteAddress` |
@@ -24,7 +24,7 @@ HAProxy、云 SLB、Kubernetes Ingress 等）时，必须告诉 Trunkline **哪�
 | 热更新 | 否，修改后需重启 |
 
 ```yaml
-jairouter:
+trunkline:
   security:
     rate-limit:
       # 逗号分隔；写你自己的反向代理地址
@@ -87,7 +87,7 @@ jairouter:
 
 ```yaml
 # ❌ 灾难配置 —— 相当于关闭防护
-jairouter:
+trunkline:
   security:
     rate-limit:
       # 攻击者可以发起连接的地址（他们的 VPS / 租用主机）
@@ -108,7 +108,7 @@ trusted-proxies: "0.0.0.0/0"   # 信任全网 —— 绝不要这么配
 
 ```yaml
 # ✅ 只信任自家反代
-jairouter:
+trunkline:
   security:
     rate-limit:
       trusted-proxies: "10.0.0.1"
@@ -135,7 +135,7 @@ jairouter:
 
    ```bash
    # 伪造 XFF 必须无效：日志中的 IP 应是 curl 客户端的地址
-   curl -H "X-Forwarded-For: 1.2.3.4" http://jairouter:8080/api/auth/api-keys
+   curl -H "X-Forwarded-For: 1.2.3.4" http://trunkline:8080/api/auth/api-keys
    ```
 
    若此时日志出现 `1.2.3.4`，说明有不该信任的头被采信了——立即复查配置。
@@ -178,11 +178,11 @@ IPv6 将支持精确匹配，IPv6 CIDR 暂不在首版范围。在 CIDR 发布�
 | 症状 | 原因 | 处理 |
 |------|------|------|
 | **429 Too Many Requests** | 管理接口限流。多半是 `trusted-proxies` 未配 → 共享限流桶 | 按本文档配置；按「验证」一节确认生效 |
-| **403 Forbidden** | RBAC 权限。未命中权限规则且非 ADMIN 时默认拒绝（fail-closed） | 查 JWT `roles` / `permissions`、`jairouter.security.rbac.unmatched-policy`（默认 `DENY_ALL`），**与 IP 无关** |
+| **403 Forbidden** | RBAC 权限。未命中权限规则且非 ADMIN 时默认拒绝（fail-closed） | 查 JWT `roles` / `permissions`、`trunkline.security.rbac.unmatched-policy`（默认 `DENY_ALL`），**与 IP 无关** |
 | 403 且"我明明有权限" | 令牌缺少所需权限码，或请求路径未登记到权限规则 | 参见 [权限管理](rbac-permissions.md) 与 RBAC 覆盖自检 |
 | 怀疑"IP 被封" | 系统**没有**按 IP 拒绝的逻辑；403 不是 IP 问题 | 先分清 403 / 429 |
 
-排障小技巧：可临时设置 `jairouter.security.rbac.unmatched-policy=AUTHENTICATED`
+排障小技巧：可临时设置 `trunkline.security.rbac.unmatched-policy=AUTHENTICATED`
 回退到旧的放行语义，以隔离 RBAC 变量，**排查完必须改回 `DENY_ALL`**。
 
 ## 相关文档

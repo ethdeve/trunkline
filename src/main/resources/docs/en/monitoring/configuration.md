@@ -23,7 +23,7 @@ monitoring:
   metrics:
     # Basic configuration
     enabled: true
-    prefix: "jairouter"
+    prefix: "trunkline"
     collection-interval: 10s
     
     # Metric categories
@@ -102,13 +102,13 @@ monitoring:
 ### monitoring.metrics.prefix
 
 **Type**: String  
-**Default Value**: `"jairouter"`  
+**Default Value**: `"trunkline"`  
 **Description**: Metric name prefix used to distinguish metrics from different applications
 
 ```yaml
 monitoring:
   metrics:
-    prefix: "jairouter"        # Default prefix
+    prefix: "trunkline"        # Default prefix
     # prefix: "my-app"         # Custom prefix
     # prefix: ""               # No prefix
 ```
@@ -451,7 +451,7 @@ monitoring:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `enabled` | Boolean | false | Enable HTTP reporting |
-| `url` | String | "" | Reporting endpoint URL, e.g., `http://localhost:9091/metrics/job/jairouter` |
+| `url` | String | "" | Reporting endpoint URL, e.g., `http://localhost:9091/metrics/job/trunkline` |
 | `timeout` | Integer | 5000 | HTTP request timeout (milliseconds) |
 | `format` | String | prometheus | Reporting format, supports `prometheus` (Prometheus text format) or `json` (generic JSON format) |
 
@@ -463,7 +463,7 @@ monitoring:
     export:
       http:
         enabled: true
-        url: "http://pushgateway:9091/metrics/job/jairouter/instance/${HOSTNAME}"
+        url: "http://pushgateway:9091/metrics/job/trunkline/instance/${HOSTNAME}"
         timeout: 5000
         format: prometheus
 ```
@@ -512,7 +512,7 @@ monitoring:
 {
   "metrics": [
     {
-      "name": "jairouter_requests_total",
+      "name": "trunkline_requests_total",
       "type": "counter",
       "value": 12345.0,
       "tags": {"service": "chat", "status": "200"},
@@ -520,7 +520,7 @@ monitoring:
     }
   ],
   "timestamp": "2026-06-23T10:30:00Z",
-  "source": "jairouter",
+  "source": "trunkline",
   "count": 1
 }
 ```
@@ -528,8 +528,8 @@ monitoring:
 **Prometheus Format Output Example**:
 
 ```text
-jairouter_requests_total{service="chat",status="200"} 12345.0 1719123456789
-jairouter_backend_latency_seconds{adapter="gpustack",operation="chat"} 0.256 1719123456789
+trunkline_requests_total{service="chat",status="200"} 12345.0 1719123456789
+trunkline_backend_latency_seconds{adapter="gpustack",operation="chat"} 0.256 1719123456789
 ```
 
 ### Batch Reporting Mechanism
@@ -562,14 +562,14 @@ metricsBatchReporter.setReportTarget(ReportTarget.LOG);
 monitoring:
   metrics:
     enabled: true
-    prefix: "jairouter"
+    prefix: "trunkline"
     
     # Batch reporting configuration
     export:
       # HTTP reporting (e.g., Prometheus Pushgateway)
       http:
         enabled: true
-        url: "http://pushgateway:9091/metrics/job/jairouter"
+        url: "http://pushgateway:9091/metrics/job/trunkline"
         timeout: 5000
         format: prometheus
       
@@ -618,7 +618,7 @@ management:
 monitoring:
   metrics:
     enabled: true
-    prefix: "test_jairouter"
+    prefix: "test_trunkline"
     sampling:
       request-metrics: 0.1  # Reduce sampling rate to minimize test interference
       backend-metrics: 0.5
@@ -846,7 +846,7 @@ monitoring:
 monitoring:
   metrics:
     enabled: true
-    prefix: "jairouter"
+    prefix: "trunkline"
     enabled-categories:
       - system
       - business

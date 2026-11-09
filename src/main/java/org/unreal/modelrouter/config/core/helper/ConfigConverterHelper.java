@@ -32,11 +32,14 @@ public class ConfigConverterHelper {
             return null;
         }
 
+        // 缺省值兜底：动态配置（DB/控制台）可能只写 enabled 未写 algorithm 等字段，
+        // 显式传 null 会覆盖 Builder 的默认值（algorithm="token-bucket" 等），
+        // 曾导致服务级限流器算法为 null，请求路由时 NPE（所有该服务请求 500）
         return RateLimitConfig.builder()
-                .algorithm(config.getAlgorithm())
-                .capacity(config.getCapacity())
-                .rate(config.getRate())
-                .scope(config.getScope())
+                .algorithm(config.getAlgorithm() != null ? config.getAlgorithm() : "token-bucket")
+                .capacity(config.getCapacity() != null ? config.getCapacity() : 100L)
+                .rate(config.getRate() != null ? config.getRate() : 10L)
+                .scope(config.getScope() != null ? config.getScope() : "service")
                 .key(config.getKey())
                 .build();
     }

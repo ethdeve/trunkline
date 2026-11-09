@@ -38,7 +38,7 @@ If you are new to Trunkline development, it is recommended to read the following
 ```bash
 # Clone the project
 git clone https://github.com/Lincoln-cn/JAiRouter.git
-cd jairouter
+cd trunkline
 
 # Build the project (recommended for China users)
 ./mvnw clean package -Pchina

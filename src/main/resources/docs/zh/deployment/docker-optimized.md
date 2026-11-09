@@ -51,7 +51,7 @@ FROM eclipse-temurin:17-jre
 ```dockerfile
 # 阶段 1: 构建阶段
 FROM eclipse-temurin:17-jre-alpine AS extract-layer
-COPY target/model-router-*.jar app.jar
+COPY target/trunkline-*.jar app.jar
 RUN java -Djarmode=layertools -jar app.jar extract --destination extracted
 
 # 阶段 2: 运行阶段
@@ -165,7 +165,7 @@ docker build -f Dockerfile.optimized \
 
 ```bash
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e JAIROUTER_SECURITY_ENABLED=true \
@@ -178,7 +178,7 @@ docker run -d \
 
 ```bash
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e JAIROUTER_SECURITY_ENABLED=true \
@@ -238,10 +238,10 @@ sodlinken/jairouter   latest            440MB
 优化版镜像使用非 root 用户运行：
 
 ```dockerfile
-RUN addgroup -g 10010 -S jairouter && \
-    adduser -u 10010 -S jairouter -G jairouter
+RUN addgroup -g 10010 -S trunkline && \
+    adduser -u 10010 -S trunkline -G trunkline
 
-USER jairouter
+USER trunkline
 ```
 
 ### 最小权限
@@ -272,9 +272,9 @@ trivy image sodlinken/jairouter:latest-optimized
 ```yaml
 # docker-compose.yml
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:latest-optimized
-    container_name: jairouter
+    container_name: trunkline
 ```
 
 ### 2. 镜像标签管理
@@ -311,7 +311,7 @@ dive sodlinken/jairouter:latest-optimized
 
 ```bash
 # 检查 JAR 文件是否存在
-ls -la target/model-router-*.jar
+ls -la target/trunkline-*.jar
 
 # 清理构建缓存
 docker builder prune -a
@@ -324,13 +324,13 @@ docker build --no-cache -f Dockerfile.optimized -t sodlinken/jairouter:latest-op
 
 ```bash
 # 查看容器日志
-docker logs jairouter
+docker logs trunkline
 
 # 进入容器调试
-docker exec -it jairouter sh
+docker exec -it trunkline sh
 
 # 检查 JVM 参数
-docker exec jairouter java -XX:+PrintFlagsFinal -version
+docker exec trunkline java -XX:+PrintFlagsFinal -version
 ```
 
 ### 镜像拉取慢

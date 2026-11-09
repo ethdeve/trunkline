@@ -1,6 +1,6 @@
 # Maven
 target/
-!target/model-router-*.jar
+!target/trunkline-*.jar
 pom.xml.tag
 pom.xml.releaseBackup
 pom.xml.versionsBackup

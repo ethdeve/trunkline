@@ -339,7 +339,7 @@ Expired blacklist entries are automatically cleaned up.
 ### Cleanup Configuration
 
 ```yaml
-jairouter:
+trunkline:
   security:
     blacklist:
       cleanup:
@@ -358,15 +358,15 @@ jairouter:
 
 ### Monitoring Metrics
 
-- `jairouter_security_blacklist_total`: Total blacklist entries
-- `jairouter_security_blacklist_active`: Active blacklist entries
-- `jairouter_security_blacklist_blocked_requests`: Blocked requests by blacklist
-- `jairouter_security_blacklist_by_type`: Entry count by type
+- `trunkline_security_blacklist_total`: Total blacklist entries
+- `trunkline_security_blacklist_active`: Active blacklist entries
+- `trunkline_security_blacklist_blocked_requests`: Blocked requests by blacklist
+- `trunkline_security_blacklist_by_type`: Entry count by type
 
 ### Alert Configuration
 
 ```yaml
-jairouter:
+trunkline:
   security:
     alerts:
       blacklist:

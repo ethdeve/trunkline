@@ -91,7 +91,7 @@ On save, `ApiKeyWhitelistValidator` checks that every group name in `allowedGrou
 Enable security features in `application.yml`:
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -102,7 +102,7 @@ jairouter:
 ### 2. Configure API Key
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
@@ -180,7 +180,7 @@ Trunkline supports comprehensive quota management for API Keys, including daily 
 #### Quota Configuration Example
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
@@ -285,7 +285,7 @@ set PROD_READONLY_KEY_EXPIRES=2027-12-31T23:59:59
 ```bash
 # Production Environment Docker Deployment
 docker run -d \
-  --name jairouter-prod \
+  --name trunkline-prod \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e PROD_ADMIN_API_KEY="your-production-admin-api-key-here" \
@@ -305,7 +305,7 @@ docker run -d \
 ### Redis Cache
 
 ```yaml
-jairouter:
+trunkline:
   security:
     performance:
       cache:
@@ -320,7 +320,7 @@ jairouter:
 ### Local Cache
 
 ```yaml
-jairouter:
+trunkline:
   security:
     performance:
       cache:
@@ -338,7 +338,7 @@ jairouter:
 Trunkline supports persistent storage of API Keys for enhanced management and monitoring:
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       # API Key persistence configuration
@@ -475,7 +475,7 @@ The system automatically records usage statistics for each API Key:
 When audit functionality is enabled, the system records all authentication-related events:
 
 ```yaml
-jairouter:
+trunkline:
   security:
     audit:
       enabled: true
@@ -494,28 +494,28 @@ Security metrics are registered by `monitor/monitoring/security/SecurityMetrics.
 
 | Metric (Micrometer / Prometheus) | Type | Description |
 |----------------------------------|------|-------------|
-| `jairouter.security.authentication.attempts(_total)` | Counter | Total auth attempts |
-| `jairouter.security.authentication.successes(_total)` | Counter | Total auth successes (tag: `auth_type`) |
-| `jairouter.security.authentication.failures(_total)` | Counter | Total auth failures (tags: `auth_type`, `failure_reason`) |
-| `jairouter.security.authentication.duration` | Timer | Auth processing time |
-| `jairouter.security.jwt.validations(_total)` | Counter | Total JWT validations (tag: `result`) |
-| `jairouter.security.jwt.refreshes(_total)` | Counter | Total JWT refreshes |
-| `jairouter.security.jwt.expired(_total)` | Counter | Total expired JWTs |
-| `jairouter.security.sanitization.operations(_total)` | Counter | Total sanitization operations |
-| `jairouter.security.sanitization.rule.matches(_total)` | Counter | Total sanitization rule matches |
-| `jairouter.security.violations(_total)` | Counter | Total security violations |
-| `jairouter.security.suspicious.activities(_total)` | Counter | Total suspicious activities |
-| `jairouter.security.active.users` | Gauge | Currently active authenticated users |
-| `jairouter.security.apikeys.active` | Gauge | API keys currently in use |
+| `trunkline.security.authentication.attempts(_total)` | Counter | Total auth attempts |
+| `trunkline.security.authentication.successes(_total)` | Counter | Total auth successes (tag: `auth_type`) |
+| `trunkline.security.authentication.failures(_total)` | Counter | Total auth failures (tags: `auth_type`, `failure_reason`) |
+| `trunkline.security.authentication.duration` | Timer | Auth processing time |
+| `trunkline.security.jwt.validations(_total)` | Counter | Total JWT validations (tag: `result`) |
+| `trunkline.security.jwt.refreshes(_total)` | Counter | Total JWT refreshes |
+| `trunkline.security.jwt.expired(_total)` | Counter | Total expired JWTs |
+| `trunkline.security.sanitization.operations(_total)` | Counter | Total sanitization operations |
+| `trunkline.security.sanitization.rule.matches(_total)` | Counter | Total sanitization rule matches |
+| `trunkline.security.violations(_total)` | Counter | Total security violations |
+| `trunkline.security.suspicious.activities(_total)` | Counter | Total suspicious activities |
+| `trunkline.security.active.users` | Gauge | Currently active authenticated users |
+| `trunkline.security.apikeys.active` | Gauge | API keys currently in use |
 
-> Note: earlier docs listed `jairouter_security_api_keys_created_total`, `_used_total`, `_revoked_total`, which are **not** registered in the current code. Query quota usage via the management API (`GET /api/auth/api-keys/{keyId}/quota`, `/quota/overview`).
+> Note: earlier docs listed `trunkline_security_api_keys_created_total`, `_used_total`, `_revoked_total`, which are **not** registered in the current code. Query quota usage via the management API (`GET /api/auth/api-keys/{keyId}/quota`, `/quota/overview`).
 
 ## Security Auditing and Monitoring
 
 ### Enhanced Audit Configuration
 
 ```yaml
-jairouter:
+trunkline:
   security:
     # Enhanced audit configuration
     audit:
@@ -813,7 +813,7 @@ Configure a rotation period to issue new key values periodically and improve sec
 #### Configure the Rotation Period
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
@@ -844,7 +844,7 @@ Restrict a key to specific source IP addresses.
 #### Configure the IP Whitelist
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
@@ -875,7 +875,7 @@ Cap the number of requests per day for each key to prevent abuse.
 #### Configure the Daily Limit
 
 ```yaml
-jairouter:
+trunkline:
   security:
     api-key:
       keys:
@@ -902,7 +902,7 @@ jairouter:
 
 ### Admin API Rate Limiting (v1.6.1+)
 
-To prevent abuse of the management API (`/api/auth/api-keys/**`), `AdminApiRateLimiter` limits by client IP (overridable via `jairouter.auth.admin-api-rate-limit.*`):
+To prevent abuse of the management API (`/api/auth/api-keys/**`), `AdminApiRateLimiter` limits by client IP (overridable via `trunkline.auth.admin-api-rate-limit.*`):
 
 | Operation | Per minute | Per hour |
 |-----------|-----------|----------|
@@ -917,7 +917,7 @@ On exceed it returns `429 Too Many Requests` (body `{"code":"RATE_LIMIT_EXCEEDED
 ### Development Environment
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:
@@ -933,7 +933,7 @@ jairouter:
 ### Production Environment
 
 ```yaml
-jairouter:
+trunkline:
   security:
     enabled: true
     api-key:

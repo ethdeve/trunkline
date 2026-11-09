@@ -32,7 +32,7 @@ docker pull sodlinken/jairouter:latest
 
 # Run with basic configuration
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -v ./config:/app/config \
   -v ./logs:/app/logs \
@@ -48,10 +48,10 @@ For simple deployments without Docker:
 # https://github.com/Lincoln-cn/JAiRouter/releases
 
 # Or use wget (replace VERSION with actual version number)
-wget https://github.com/Lincoln-cn/JAiRouter/releases/download/vVERSION/model-router-VERSION.jar
+wget https://github.com/Lincoln-cn/JAiRouter/releases/download/vVERSION/trunkline-VERSION.jar
 
 # Run the application
-java -jar model-router-VERSION.jar
+java -jar trunkline-VERSION.jar
 ```
 
 ## Configuration for Deployment
@@ -82,7 +82,7 @@ Mount configuration files for persistent settings:
 # docker-compose.yml
 version: '3.8'
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:latest
     ports:
       - "8080:8080"
@@ -112,7 +112,7 @@ apiVersion: v1
 kind: Pod
 spec:
   containers:
-  - name: jairouter
+  - name: trunkline
     image: sodlinken/jairouter:latest
     livenessProbe:
       httpGet:
@@ -137,9 +137,9 @@ Trunkline exposes metrics for Prometheus:
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 15s
 ```
@@ -158,7 +158,7 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
   file:
-    name: /app/logs/jairouter.log
+    name: /app/logs/trunkline.log
     max-size: 100MB
     max-history: 30
 ```
@@ -217,7 +217,7 @@ Trunkline supports flexible logging configuration, including:
 # Example nginx configuration for authentication
 server {
     listen 443 ssl;
-    server_name jairouter.example.com;
+    server_name trunkline.example.com;
     
     # SSL configuration
     ssl_certificate /path/to/cert.pem;
@@ -228,7 +228,7 @@ server {
     auth_basic_user_file /etc/nginx/.htpasswd;
     
     location / {
-        proxy_pass http://jairouter:8080;
+        proxy_pass http://trunkline:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -248,7 +248,7 @@ java -Xms512m -Xmx2g \
      -XX:MaxGCPauseMillis=200 \
      -XX:+HeapDumpOnOutOfMemoryError \
      -XX:HeapDumpPath=/app/logs/ \
-     -jar jairouter.jar
+     -jar trunkline.jar
 ```
 
 ### Connection Pooling
@@ -270,11 +270,11 @@ server:
 
 ```bash
 # Backup configuration
-tar -czf jairouter-config-$(date +%Y%m%d).tar.gz config/
+tar -czf trunkline-config-$(date +%Y%m%d).tar.gz config/
 
 # Automated backup script
 #!/bin/bash
-BACKUP_DIR="/backup/jairouter"
+BACKUP_DIR="/backup/trunkline"
 DATE=$(date +%Y%m%d_%H%M%S)
 mkdir -p $BACKUP_DIR
 tar -czf $BACKUP_DIR/config-$DATE.tar.gz config/
@@ -285,7 +285,7 @@ find $BACKUP_DIR -name "config-*.tar.gz" -mtime +30 -delete
 
 ```bash
 # Example for PostgreSQL
-pg_dump -h postgres-host -U username -d jairouter > jairouter-db-$(date +%Y%m%d).sql
+pg_dump -h postgres-host -U username -d trunkline > trunkline-db-$(date +%Y%m%d).sql
 ```
 
 ## Scaling Strategies
@@ -298,14 +298,14 @@ Deploy multiple Trunkline instances behind a load balancer:
 # docker-compose.yml for multiple instances
 version: '3.8'
 services:
-  jairouter-1:
+  trunkline-1:
     image: sodlinken/jairouter:latest
     ports:
       - "8081:8080"
     volumes:
       - ./config:/app/config:ro
   
-  jairouter-2:
+  trunkline-2:
     image: sodlinken/jairouter:latest
     ports:
       - "8082:8080"
@@ -319,8 +319,8 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - jairouter-1
-      - jairouter-2
+      - trunkline-1
+      - trunkline-2
 ```
 
 ### Vertical Scaling
@@ -330,7 +330,7 @@ Increase resources for single instance:
 ```yaml
 # docker-compose.yml with resource limits
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:latest
     deploy:
       resources:
@@ -364,7 +364,7 @@ chown -R 1000:1000 logs/
 **Memory Issues**:
 ```bash
 # Monitor memory usage
-docker stats jairouter
+docker stats trunkline
 # Increase memory limits
 docker run -m 2g sodlinken/jairouter:latest
 ```
@@ -373,13 +373,13 @@ docker run -m 2g sodlinken/jairouter:latest
 
 ```bash
 # View application logs
-docker logs jairouter
+docker logs trunkline
 
 # Follow logs in real-time
-docker logs -f jairouter
+docker logs -f trunkline
 
 # Search for errors
-docker logs jairouter 2>&1 | grep ERROR
+docker logs trunkline 2>&1 | grep ERROR
 ```
 
 ## Next Steps

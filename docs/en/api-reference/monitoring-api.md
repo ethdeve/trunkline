@@ -228,8 +228,8 @@ GET /actuator/info
   },
   "build": {
     "version": "3.3.1",
-    "artifact": "model-router",
-    "name": "model-router",
+    "artifact": "trunkline",
+    "name": "trunkline",
     "group": "org.unreal",
     "time": "2025-08-19T08:15:30.123Z"
   },
@@ -280,13 +280,13 @@ GET /actuator/env
     {
       "name": "applicationConfig: [classpath:/application.yml]",
       "properties": {
-        "model-router.load-balancer.default-strategy": {
+        "trunkline.load-balancer.default-strategy": {
           "value": "ROUND_ROBIN"
         },
-        "model-router.rate-limit.default-algorithm": {
+        "trunkline.rate-limit.default-algorithm": {
           "value": "TOKEN_BUCKET"
         },
-        "model-router.circuit-breaker.failure-threshold": {
+        "trunkline.circuit-breaker.failure-threshold": {
           "value": 5
         }
       }
@@ -296,7 +296,7 @@ GET /actuator/env
 ```
 
 > ⚠️ The output above is illustrative: every configuration key in this project lives under the
-> `trunkline.*` prefix — there are **no `model-router.*` keys** (no match anywhere under
+> `trunkline.*` prefix — there are **no `trunkline.*` keys** (no match anywhere under
 > `src/main/resources`).
 
 ## Custom Monitoring Endpoints

@@ -72,7 +72,7 @@ curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8080/v1/chat/complet
 ```bash
 # Enable request tracing
 java -Dlogging.level.org.unreal.modelrouter=DEBUG \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 
 # Analyze timestamps in logs
 grep "Processing request" logs/trunkline-debug.log | tail -10
@@ -228,7 +228,7 @@ jmap -dump:format=b,file=heap.hprof <pid>
 # Enable memory leak detection
 java -XX:+HeapDumpOnOutOfMemoryError \
      -XX:HeapDumpPath=/tmp/heapdump.hprof \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 #### Optimization Strategies
@@ -243,7 +243,7 @@ java -Xms2g -Xmx4g \
      -XX:G1NewSizePercent=20 \
      -XX:G1MaxNewSizePercent=30 \
      -XX:InitiatingHeapOccupancyPercent=45 \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 **Memory Management Optimization**
@@ -291,7 +291,7 @@ top -H -p <pid>
 # Generate CPU performance profile
 java -XX:+FlightRecorder \
      -XX:StartFlightRecording=duration=60s,filename=cpu-profile.jfr \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 
 # Analyze performance data
 jfr print --events CPULoad cpu-profile.jfr
@@ -314,7 +314,7 @@ grep <hex-thread-id> threads.dump  # Search in dump
 java -XX:+PrintCompilation \
      -XX:+UnlockDiagnosticVMOptions \
      -XX:+PrintInlining \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 #### Optimization Strategies
@@ -389,7 +389,7 @@ java -Xms4g -Xmx4g \                    # Fixed heap size to avoid dynamic adjus
      -XX:InitiatingHeapOccupancyPercent=45 \  # GC trigger threshold
      -XX:+UnlockExperimentalVMOptions \ # Enable experimental options
      -XX:+UseStringDeduplication \      # String deduplication
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 #### GC Log Configuration

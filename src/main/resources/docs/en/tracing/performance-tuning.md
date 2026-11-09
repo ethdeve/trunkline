@@ -14,7 +14,7 @@ This document provides performance tuning guides and best practices for the Trun
 ### Production Environment Recommended Configuration (v2.7.9+)
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       # Sampling strategy (real since issue #234): ratio (default, uses the ratio only) / rule
@@ -66,7 +66,7 @@ When enabled, adaptive sampling dynamically adjusts the sampling rate based on s
 ### Memory Configuration
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     performance:
       # Memory management configuration
@@ -103,7 +103,7 @@ The system automatically cleans up expired spans based on the configured memory 
 ### Thread Pool Configuration
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     performance:
       # Thread pool configuration
@@ -124,7 +124,7 @@ jairouter:
 ### Batch Processing Configuration
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     performance:
       # The batch processor parameters live here — OpenTelemetry's BatchSpanProcessor is driven by
@@ -148,7 +148,7 @@ jairouter:
 ### Exporter Configuration
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     exporter:
       type: "otlp"                     # jaeger, zipkin, otlp, logging
@@ -199,28 +199,28 @@ jairouter:
 
 ```bash
 # CPU usage
-jairouter_tracing_cpu_usage
+trunkline_tracing_cpu_usage
 
 # Memory usage
-jairouter_tracing_memory_used_bytes
+trunkline_tracing_memory_used_bytes
 
 # Span processing latency
-jairouter_tracing_span_processing_duration_seconds
+trunkline_tracing_span_processing_duration_seconds
 
 # Export success rate
-jairouter_tracing_export_success_rate
+trunkline_tracing_export_success_rate
 
 # Queue size
-jairouter_tracing_queue_size
+trunkline_tracing_queue_size
 
 # Active spans
-jairouter_tracing_active_spans
+trunkline_tracing_active_spans
 ```
 
 ### Monitoring Configuration
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     monitoring:
       metrics:
@@ -246,11 +246,11 @@ jairouter:
 ### Performance Issue Diagnosis
 
 1. **Check if sampling rate is too high**
-   - Verify `jairouter.tracing.sampling.ratio` is appropriate for your traffic
+   - Verify `trunkline.tracing.sampling.ratio` is appropriate for your traffic
    - v2.7.9+ default is 0.1 (10%), reduced from 1.0 (100%)
 
 2. **Monitor memory usage**
-   - Check `jairouter_tracing_memory_used_bytes`
+   - Check `trunkline_tracing_memory_used_bytes`
    - Adjust `performance.memory.max-spans-in-memory` if needed
 
 3. **Analyze GC frequency and duration**
@@ -258,11 +258,11 @@ jairouter:
    - Consider increasing heap size if GC is frequent
 
 4. **Check exporter response time**
-   - Monitor `jairouter_tracing_export_success_rate`
+   - Monitor `trunkline_tracing_export_success_rate`
    - Verify network connectivity to OTLP/Jaeger endpoint
 
 5. **Verify queue pressure**
-   - Check `jairouter_tracing_queue_size`
+   - Check `trunkline_tracing_queue_size`
    - Increase `performance.thread-pool.queue-capacity` if needed
 
 ### Optimization Suggestions
@@ -279,7 +279,7 @@ jairouter:
 ### HTTP Tracing
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     components:
       http:
@@ -302,7 +302,7 @@ jairouter:
 ### Rate Limiter & Circuit Breaker Tracing
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     components:
       rate-limiter:

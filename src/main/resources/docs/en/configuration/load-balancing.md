@@ -14,10 +14,10 @@ Trunkline provides six load balancing strategies, configurable at global, servic
 Since v2.8.x, Trunkline uses a modular configuration structure. Load balancing lives in its own files:
 
 - Main config: `application.yml`
-- Load balancing config: `config/router/loadbalancer.yml`
+- Load balancing config: the former `config/router/loadbalancer.yml` was removed on 2026-11-09; defaults live in code (`ModelRouterProperties` / `RoutingMonitorConfig`). Override via `application-{profile}.yml` or external mount.
 - Service instance config: `config/router/services.yml`
 
-Global load balancing settings (`model.load-balance.*`) and routing-monitor settings (`jairouter.loadbalancer.routing-monitor.*`) live in `config/router/loadbalancer.yml`; per-service instances and weights live in `config/router/services.yml`.
+Global load balancing settings use `model.load-balance.*` keys and routing-monitor settings use `trunkline.loadbalancer.routing-monitor.*`; per-service instances and weights live in `config/router/services.yml`.
 
 ## Load Balancing Overview
 
@@ -54,10 +54,10 @@ graph TB
 
 ### Basic Configuration
 
-Configure the global strategy in `config/router/loadbalancer.yml`:
+Global load balancing defaults live in code (the former `config/router/loadbalancer.yml` was removed); override via any higher-priority configuration source:
 
 ```yaml
-# config/router/loadbalancer.yml
+# application-{profile}.yml or external mount
 model:
   # Global
   load-balance:
@@ -404,29 +404,29 @@ curl -X PUT "http://localhost:8080/api/config/instance/chat/cpu-model@http://cpu
 
 ```bash
 # LB selection metric
-curl "http://localhost:8080/actuator/metrics/jairouter_loadbalancer_selections_total"
+curl "http://localhost:8080/actuator/metrics/trunkline_loadbalancer_selections_total"
 
 # Per-instance request distribution
-curl "http://localhost:8080/actuator/metrics/jairouter_requests_total"
+curl "http://localhost:8080/actuator/metrics/trunkline_requests_total"
 
 # Connection count (Least Connections only)
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_remaining"
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_remaining"
 ```
 
 ### Prometheus Metrics
 
 ```prometheus
 # Total LB requests
-jairouter_loadbalancer_selections_total{service="chat",strategy="round-robin"}
+trunkline_loadbalancer_selections_total{service="chat",strategy="round-robin"}
 
 # Per-instance request distribution
-jairouter_requests_total{service="chat",instance="model-1",status="success"}
+trunkline_requests_total{service="chat",instance="model-1",status="success"}
 
 # Active connections
-jairouter_rate_limit_remaining{service="chat",instance="model-1"}
+trunkline_rate_limit_remaining{service="chat",instance="model-1"}
 
 # Instance latency
-jairouter_request_duration_seconds{service="chat",instance="model-1"}
+trunkline_request_duration_seconds{service="chat",instance="model-1"}
 ```
 
 ### Dashboard Example
@@ -435,13 +435,13 @@ jairouter_request_duration_seconds{service="chat",instance="model-1"}
 # Grafana query examples
 queries:
   - name: "Request distribution"
-    query: 'rate(jairouter_requests_total[5m])'
+    query: 'rate(trunkline_requests_total[5m])'
     
   - name: "LB effect"
-    query: 'jairouter_requests_total / ignoring(instance) group_left sum(jairouter_requests_total) by (service)'
+    query: 'trunkline_requests_total / ignoring(instance) group_left sum(trunkline_requests_total) by (service)'
     
   - name: "Instance health"
-    query: 'jairouter_backend_health'
+    query: 'trunkline_backend_health'
 ```
 
 ## Performance Tuning
@@ -528,10 +528,10 @@ model:
 
 ### 3. Connection Pool Tuning
 
-The outbound WebClient connection pool lives in `config/common/webclient.yml`, prefix `jairouter.webclient`:
+The outbound WebClient connection pool lives in `config/common/webclient.yml`, prefix `trunkline.webclient`:
 
 ```yaml
-jairouter:
+trunkline:
   webclient:
     connect-timeout-ms: 5000       # connect timeout
     response-timeout-seconds: 60   # response timeout
@@ -540,7 +540,7 @@ jairouter:
     max-idle-time-seconds: 300     # idle connection recycle
 ```
 
-> The top-level `webclient.connection-pool.*` keys in earlier docs are deprecated; the pool moved to `jairouter.webclient.*`.
+> The top-level `webclient.connection-pool.*` keys in earlier docs are deprecated; the pool moved to `trunkline.webclient.*`.
 
 ## Troubleshooting
 

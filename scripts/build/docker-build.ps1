@@ -13,7 +13,7 @@ $Yellow = "Yellow"
 $Blue = "Blue"
 
 # Configuration
-$ProjectName = "model-router"
+$ProjectName = "trunkline"
 $ImageName = "trunkline/trunkline"
 
 # Function definitions

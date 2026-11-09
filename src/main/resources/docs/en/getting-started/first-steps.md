@@ -610,7 +610,7 @@ logging:
     org.unreal.modelrouter: INFO
     org.springframework: WARN
   file:
-    name: logs/jairouter.log
+    name: logs/trunkline.log
 ```
 
 ## Next Steps

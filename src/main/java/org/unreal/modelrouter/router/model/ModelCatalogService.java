@@ -74,7 +74,7 @@ public class ModelCatalogService {
                 modelInfo.put("id", modelName);
                 modelInfo.put("object", "model");
                 modelInfo.put("created", System.currentTimeMillis() / 1000);
-                modelInfo.put("owned_by", "model-router");
+                modelInfo.put("owned_by", "trunkline");
                 modelInfo.put("service_type", serviceType.name());
                 modelInfo.put("adapter", resolveAdapterName(serviceType));
                 allModels.add(modelInfo);
@@ -92,7 +92,7 @@ public class ModelCatalogService {
             poolInfo.put("id", pool.getPoolName());
             poolInfo.put("object", "model");
             poolInfo.put("created", System.currentTimeMillis() / 1000);
-            poolInfo.put("owned_by", "model-router");
+            poolInfo.put("owned_by", "trunkline");
             poolInfo.put("service_type", pool.getServiceType());
             poolInfo.put("adapter", resolveAdapterNameByString(pool.getServiceType()));
             allModels.add(poolInfo);
@@ -152,7 +152,7 @@ public class ModelCatalogService {
         modelInfo.put("id", modelName);
         modelInfo.put("object", "model");
         modelInfo.put("created", System.currentTimeMillis() / 1000);
-        modelInfo.put("owned_by", "model-router");
+        modelInfo.put("owned_by", "trunkline");
         modelInfo.put("service_type", serviceType);
         modelInfo.put("adapter", resolveAdapterNameByString(serviceType));
         return modelInfo;

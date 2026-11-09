@@ -49,7 +49,7 @@ Run/Debug Configurations:
   "name": "Debug Trunkline",
   "request": "launch",
   "mainClass": "org.unreal.modelrouter.ModelRouterApplication",
-  "projectName": "model-router",
+  "projectName": "trunkline",
   "args": "--debug",
   "vmArgs": "-Dspring.profiles.active=dev",
   "env": {
@@ -64,7 +64,7 @@ Run/Debug Configurations:
 ```bash
 # 启动应用时添加调试参数
 java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 ```
 
 #### Docker 远程调试
@@ -315,7 +315,7 @@ java -XX:+HeapDumpOnOutOfMemoryError \
      -XX:+PrintGCDetails \
      -XX:+PrintGCTimeStamps \
      -Xloggc:gc.log \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 
 # 分析 GC 日志
 # 使用 GCViewer 或在线工具分析 gc.log
@@ -372,7 +372,7 @@ public class ThreadMonitor {
 # 使用 Java Flight Recorder
 java -XX:+FlightRecorder \
      -XX:StartFlightRecording=duration=60s,filename=profile.jfr \
-     -jar target/model-router-*.jar
+     -jar target/trunkline-*.jar
 
 # 分析 JFR 文件
 jfr print --events CPULoad profile.jfr

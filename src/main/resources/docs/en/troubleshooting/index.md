@@ -26,7 +26,7 @@ When Trunkline encounters issues, it is recommended to follow this systematic ap
 - **Health Check Endpoint**: `/actuator/health`
 - **Monitoring Metrics Endpoint**: `/actuator/metrics`
 - **Configuration Information Endpoint**: `/actuator/configprops`
-- **Log Files**: `logs/jairouter-debug.log`
+- **Log Files**: `logs/trunkline-debug.log`
 
 ## Issue Classification
 
@@ -100,10 +100,10 @@ Provides detailed debugging techniques and tool usage methods:
 curl http://localhost:8080/actuator/health
 
 # Request statistics
-curl http://localhost:8080/actuator/metrics/jairouter_requests_total
+curl http://localhost:8080/actuator/metrics/trunkline_requests_total
 
 # Response time
-curl http://localhost:8080/actuator/metrics/jairouter_request_duration_seconds
+curl http://localhost:8080/actuator/metrics/trunkline_request_duration_seconds
 
 # JVM memory usage
 curl http://localhost:8080/actuator/metrics/jvm.memory.used

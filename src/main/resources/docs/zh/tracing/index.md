@@ -149,7 +149,7 @@ Web 过滤器组件，实现：
 
 ## 标签（Tag / Attribute）设计
 
-追踪标签与操作名常量统一定义在 `org.unreal.modelrouter.monitor.tracing.TracingConstants`，以下为代码中的真实命名（标签值里的服务名 `jairouter` 属技术标识，保留原样）。
+追踪标签与操作名常量统一定义在 `org.unreal.modelrouter.monitor.tracing.TracingConstants`，以下为代码中的真实命名（标签值里的服务名 `trunkline` 属技术标识，保留原样）。
 
 ### Span 操作名（Operations）
 

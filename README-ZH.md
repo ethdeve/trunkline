@@ -274,7 +274,7 @@ Trunkline 是一个 **生产级 AI 模型网关**，面向自建推理基础设�
 git clone https://github.com/Lincoln-cn/trunkline.git
 cd trunkline
 ./mvnw clean package -DskipTests
-java -jar target/model-router-*.jar
+java -jar target/trunkline-*.jar
 ```
 
 ## 获取支持

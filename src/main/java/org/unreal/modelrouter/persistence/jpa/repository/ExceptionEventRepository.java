@@ -122,18 +122,19 @@ public interface ExceptionEventRepository extends JpaRepository<ExceptionEventEn
     /**
      * 根据条件分页查询
      */
+    // ⚠️ 可空参数必须 cast 显式定型（PG 42P18，见 SecurityAuditEventRepository 同注）。
     @Query("SELECT e FROM ExceptionEventEntity e WHERE "
-           + "(:startTime IS NULL OR e.occurredAt >= :startTime) AND "
-           + "(:endTime IS NULL OR e.occurredAt <= :endTime) AND "
-           + "(:exceptionType IS NULL OR e.exceptionType LIKE %:exceptionType%) AND "
-           + "(:operation IS NULL OR e.operation LIKE %:operation%) AND "
-           + "(:errorCode IS NULL OR e.errorCode = :errorCode) AND "
-           + "(:errorCategory IS NULL OR e.errorCategory = :errorCategory) AND "
-           + "(:traceId IS NULL OR e.traceId = :traceId) AND "
-           + "(:clientIp IS NULL OR e.clientIp = :clientIp) AND "
-           + "(:isAggregated IS NULL OR e.isAggregated = :isAggregated) AND "
-           + "(:serviceType IS NULL OR e.serviceType = :serviceType) AND "
-           + "(:modelName IS NULL OR e.modelName LIKE %:modelName%) "
+           + "(cast(:startTime as timestamp) IS NULL OR e.occurredAt >= :startTime) AND "
+           + "(cast(:endTime as timestamp) IS NULL OR e.occurredAt <= :endTime) AND "
+           + "(cast(:exceptionType as string) IS NULL OR e.exceptionType LIKE %:exceptionType%) AND "
+           + "(cast(:operation as string) IS NULL OR e.operation LIKE %:operation%) AND "
+           + "(cast(:errorCode as string) IS NULL OR e.errorCode = :errorCode) AND "
+           + "(cast(:errorCategory as string) IS NULL OR e.errorCategory = :errorCategory) AND "
+           + "(cast(:traceId as string) IS NULL OR e.traceId = :traceId) AND "
+           + "(cast(:clientIp as string) IS NULL OR e.clientIp = :clientIp) AND "
+           + "(cast(:isAggregated as boolean) IS NULL OR e.isAggregated = :isAggregated) AND "
+           + "(cast(:serviceType as string) IS NULL OR e.serviceType = :serviceType) AND "
+           + "(cast(:modelName as string) IS NULL OR e.modelName LIKE %:modelName%) "
            + "ORDER BY e.occurredAt DESC")
     Page<ExceptionEventEntity> findByConditions(
             @Param("startTime") LocalDateTime startTime,
@@ -153,15 +154,15 @@ public interface ExceptionEventRepository extends JpaRepository<ExceptionEventEn
      * 统计符合条件的异常数量
      */
     @Query("SELECT COUNT(e) FROM ExceptionEventEntity e WHERE "
-           + "(:startTime IS NULL OR e.occurredAt >= :startTime) AND "
-           + "(:endTime IS NULL OR e.occurredAt <= :endTime) AND "
-           + "(:exceptionType IS NULL OR e.exceptionType LIKE %:exceptionType%) AND "
-           + "(:operation IS NULL OR e.operation LIKE %:operation%) AND "
-           + "(:errorCode IS NULL OR e.errorCode = :errorCode) AND "
-           + "(:errorCategory IS NULL OR e.errorCategory = :errorCategory) AND "
-           + "(:traceId IS NULL OR e.traceId = :traceId) AND "
-           + "(:clientIp IS NULL OR e.clientIp = :clientIp) AND "
-           + "(:isAggregated IS NULL OR e.isAggregated = :isAggregated)")
+           + "(cast(:startTime as timestamp) IS NULL OR e.occurredAt >= :startTime) AND "
+           + "(cast(:endTime as timestamp) IS NULL OR e.occurredAt <= :endTime) AND "
+           + "(cast(:exceptionType as string) IS NULL OR e.exceptionType LIKE %:exceptionType%) AND "
+           + "(cast(:operation as string) IS NULL OR e.operation LIKE %:operation%) AND "
+           + "(cast(:errorCode as string) IS NULL OR e.errorCode = :errorCode) AND "
+           + "(cast(:errorCategory as string) IS NULL OR e.errorCategory = :errorCategory) AND "
+           + "(cast(:traceId as string) IS NULL OR e.traceId = :traceId) AND "
+           + "(cast(:clientIp as string) IS NULL OR e.clientIp = :clientIp) AND "
+           + "(cast(:isAggregated as boolean) IS NULL OR e.isAggregated = :isAggregated)")
     long countByConditions(
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime,

@@ -14,9 +14,9 @@ Trunkline 内置熔断器机制，用于防止服务雪崩和级联故障。当�
 从 v2.8.x 版本开始，Trunkline 采用模块化配置结构，熔断器相关配置位于独立的配置文件中：
 
 - 主配置文件: `application.yml`
-- 熔断器配置: `config/router/circuitbreaker.yml`
+- 熔断器配置: 原独立文件 `config/router/circuitbreaker.yml` 已于 2026-11-09 删除，默认值内置于代码（`CircuitBreakerManager`）；如需覆盖，写入 `application-{profile}.yml` 或外部挂载
 
-您可以在 `config/router/circuitbreaker.yml` 文件中找到全局熔断器配置（`model.circuit-breaker.*`）；各服务类型的熔断配置写在 `config/router/services.yml` 的 `model.services.<serviceType>.circuit-breaker` 下，实例级熔断状态可通过 `/api/config/instance/{serviceType}/{instanceId}/circuit-breaker` 查看与调整。
+全局熔断器配置为 `model.circuit-breaker.*`；各服务类型的熔断配置写在 `config/router/services.yml` 的 `model.services.<serviceType>.circuit-breaker` 下，实例级熔断状态可通过 `/api/config/instance/{serviceType}/{instanceId}/circuit-breaker` 查看与调整。
 
 ## 熔断器概述
 
@@ -59,10 +59,10 @@ stateDiagram-v2
 
 ### 基础配置
 
-在 `config/router/circuitbreaker.yml` 文件中配置全局熔断器：
+全局熔断器默认值内置于代码（原 `config/router/circuitbreaker.yml` 已删除），如需覆盖可写入任意更高优先级配置源：
 
 ```yaml
-# config/base/model-services-base.yml
+# application-{profile}.yml 或外部挂载配置
 model:
   # 全局熔断配置
   circuit-breaker:
@@ -107,7 +107,7 @@ model:
 
 ### YAML 配置
 
-在 `config/base/model-services-base.yml` 文件中配置各服务类型的熔断器：
+在 `config/router/services.yml` 文件中配置各服务类型的熔断器：
 
 ```yaml
 model:
@@ -217,16 +217,16 @@ curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 
 ```prometheus
 # 熔断器状态（0=CLOSED, 1=OPEN, 2=HALF_OPEN）
-jairouter_circuitbreaker_state{service="chat",instance="model-1"}
+trunkline_circuitbreaker_state{service="chat",instance="model-1"}
 
 # 熔断器调用总数
-jairouter_circuitbreaker_calls_total{service="chat",instance="model-1",result="success"}
+trunkline_circuitbreaker_calls_total{service="chat",instance="model-1",result="success"}
 
 # 熔断器失败率
-rate(jairouter_circuitbreaker_calls_total{result="failure"}[5m]) / rate(jairouter_circuitbreaker_calls_total[5m])
+rate(trunkline_circuitbreaker_calls_total{result="failure"}[5m]) / rate(trunkline_circuitbreaker_calls_total[5m])
 
 # 熔断器开启次数
-jairouter_circuitbreaker_opened_total{service="chat",instance="model-1"}
+trunkline_circuitbreaker_opened_total{service="chat",instance="model-1"}
 ```
 
 ### 监控仪表板
@@ -238,19 +238,19 @@ dashboard:
     - title: "熔断器状态"
       type: "stat"
       targets:
-        - expr: 'jairouter_circuitbreaker_state'
+        - expr: 'trunkline_circuitbreaker_state'
           legendFormat: '{{service}}-{{instance}}'
     
     - title: "熔断器失败率"
       type: "graph"
       targets:
-        - expr: 'rate(jairouter_circuitbreaker_calls_total{result="failure"}[5m]) / rate(jairouter_circuitbreaker_calls_total[5m])'
+        - expr: 'rate(trunkline_circuitbreaker_calls_total{result="failure"}[5m]) / rate(trunkline_circuitbreaker_calls_total[5m])'
           legendFormat: '{{service}}-{{instance}}'
     
     - title: "熔断器开启次数"
       type: "graph"
       targets:
-        - expr: 'increase(jairouter_circuitbreaker_opened_total[1h])'
+        - expr: 'increase(trunkline_circuitbreaker_opened_total[1h])'
           legendFormat: '{{service}}-{{instance}}'
 ```
 
@@ -260,10 +260,10 @@ dashboard:
 
 ```yaml
 groups:
-  - name: jairouter_circuitbreaker
+  - name: trunkline_circuitbreaker
     rules:
       - alert: CircuitBreakerOpen
-        expr: jairouter_circuitbreaker_state == 1
+        expr: trunkline_circuitbreaker_state == 1
         for: 1m
         labels:
           severity: critical
@@ -272,7 +272,7 @@ groups:
           description: "服务 {{ $labels.service }} 实例 {{ $labels.instance }} 的熔断器已开启"
       
       - alert: HighFailureRate
-        expr: rate(jairouter_circuitbreaker_calls_total{result="failure"}[5m]) / rate(jairouter_circuitbreaker_calls_total[5m]) > 0.5
+        expr: rate(trunkline_circuitbreaker_calls_total{result="failure"}[5m]) / rate(trunkline_circuitbreaker_calls_total[5m]) > 0.5
         for: 2m
         labels:
           severity: warning
@@ -281,7 +281,7 @@ groups:
           description: "服务 {{ $labels.service }} 实例 {{ $labels.instance }} 的失败率超过 50%"
       
       - alert: FrequentCircuitBreakerOpening
-        expr: increase(jairouter_circuitbreaker_opened_total[1h]) > 5
+        expr: increase(trunkline_circuitbreaker_opened_total[1h]) > 5
         for: 0m
         labels:
           severity: warning

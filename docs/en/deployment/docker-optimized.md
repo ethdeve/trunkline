@@ -52,7 +52,7 @@ Uses two build stages to separate build and runtime environments:
 ```dockerfile
 # Stage 1: Build stage
 FROM eclipse-temurin:17-jre-alpine AS extract-layer
-COPY target/model-router-*.jar app.jar
+COPY target/trunkline-*.jar app.jar
 RUN java -Djarmode=layertools -jar app.jar extract --destination extracted
 
 # Stage 2: Runtime stage
@@ -312,7 +312,7 @@ dive trunkline/trunkline:latest-optimized
 
 ```bash
 # Check if JAR file exists
-ls -la target/model-router-*.jar
+ls -la target/trunkline-*.jar
 
 # Clean build cache
 docker builder prune -a

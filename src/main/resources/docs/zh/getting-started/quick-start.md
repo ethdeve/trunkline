@@ -83,18 +83,18 @@ export INITIAL_ADMIN_PASSWORD="your-own-strong-password"
 ```bash
 # 使用 dev 方式启动（零配置，内置开发密钥）
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=dev \
   sodlinken/jairouter:latest
 
 # 检查运行状态
-docker ps --filter "name=jairouter"
+docker ps --filter "name=trunkline"
 ```
 
 > ⚠️ **生产环境提醒**: 镜像默认以 prod 方式启动，**必须**自行提供 JWT 密钥，否则服务无法启动。示例：
 > ```bash
-> docker run -d --name jairouter -p 8080:8080 \
+> docker run -d --name trunkline -p 8080:8080 \
 >   -e JWT_SECRET="<至少32字符的密钥>" \
 >   sodlinken/jairouter:latest
 > ```
@@ -109,10 +109,10 @@ abc123def456   sodlinken/jairouter:latest   "java -jar /app/mode…"   2 seconds
 
 ```bash
 # 如果已下载 JAR 文件
-java -jar model-router.jar
+java -jar trunkline.jar
 
 # 或指定配置文件
-java -jar model-router.jar --spring.config.location=classpath:/application.yml
+java -jar trunkline.jar --spring.config.location=classpath:/application.yml
 ```
 
 **预期输出**：
@@ -280,10 +280,10 @@ EOF
 
 ```bash
 # Docker 重启（挂载配置目录，dev 方式启动）
-docker stop jairouter
-docker rm jairouter
+docker stop trunkline
+docker rm trunkline
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=dev \
   -v $(pwd)/config:/app/config:ro \
@@ -291,7 +291,7 @@ docker run -d \
 
 # JAR 重启
 # 停止当前进程（Ctrl+C），然后重新运行
-java -jar model-router.jar
+java -jar trunkline.jar
 ```
 
 ### 常见服务配置示例
@@ -521,7 +521,7 @@ done
 
 ```bash
 # Docker 查看日志
-docker logs jairouter
+docker logs trunkline
 
 # JAR 运行时日志会输出到控制台
 ```

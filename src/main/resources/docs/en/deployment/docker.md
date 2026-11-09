@@ -70,7 +70,7 @@ docker images | grep sodlinken/jairouter
 ```
 # Simplest way to run (JWT authentication enabled by default)
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -e SPRING_PROFILES_ACTIVE=dev \
   -e JWT_SECRET="your-very-strong-jwt-secret-key-at-least-32-characters-long" \
   -p 8080:8080 \
@@ -78,7 +78,7 @@ docker run -d \
   
 # Simplest way to run (JWT authentication disabled)
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -e SPRING_PROFILES_ACTIVE=dev \
   -e JAIROUTER_SECURITY_JWT_ENABLED=false \
   -p 8080:8080 \
@@ -93,7 +93,7 @@ curl http://localhost:8080/actuator/health
 ```
 # Run with the configuration file mounted
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -e SPRING_PROFILES_ACTIVE=dev \
   -e JWT_SECRET="your-very-strong-jwt-secret-key-at-least-32-characters-long" \
   -p 8080:8080 \
@@ -170,7 +170,7 @@ docker build -f Dockerfile.china -t sodlinken/jairouter:china .
 
 ```
 docker run -d \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e PROD_ADMIN_API_KEY=adminkey \
@@ -195,7 +195,7 @@ docker run -d \
 
 ```
 docker run  \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e PROD_ADMIN_API_KEY=adminkey \
@@ -219,7 +219,7 @@ docker run  \
 
 ```
 docker run -d \
-  --name jairouter-dev \
+  --name trunkline-dev \
   -p 8080:8080 \
   -p 5005:5005 \
   -e SPRING_PROFILES_ACTIVE=dev \
@@ -254,9 +254,9 @@ Create `docker-compose.yml`:
 version: '3.8'
 
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:latest
-    container_name: jairouter
+    container_name: trunkline
     ports:
       - "8080:8080"
     environment:
@@ -281,10 +281,10 @@ services:
       retries: 3
       start_period: 60s
     networks:
-      - jairouter-network
+      - trunkline-network
 
 networks:
-  jairouter-network:
+  trunkline-network:
     driver: bridge
 ```
 
@@ -296,9 +296,9 @@ Create `docker-compose.monitoring.yml`:
 version: '3.8'
 
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:latest
-    container_name: jairouter
+    container_name: trunkline
     ports:
       - "8080:8080"
     environment:
@@ -367,11 +367,11 @@ Create `docker-compose.dev.yml`:
 version: '3.8'
 
 services:
-  jairouter-dev:
+  trunkline-dev:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    container_name: jairouter-dev
+    container_name: trunkline-dev
     ports:
       - "8080:8080"
       - "5005:5005"  # Debug port
@@ -407,7 +407,7 @@ docker-compose -f docker-compose.dev.yml up -d
 docker-compose ps
 
 # View logs
-docker-compose logs -f jairouter
+docker-compose logs -f trunkline
 
 # Stop services
 docker-compose down
@@ -471,7 +471,7 @@ docker-compose down
 ```
 # Bridge network (default)
 networks:
-  - jairouter-network
+  - trunkline-network
 
 # Host network
 network_mode: host
@@ -518,7 +518,7 @@ healthcheck:
 docker ps --format "table {{.Names}}\t{{.Status}}"
 
 # View health check logs
-docker inspect jairouter --format='{{json .State.Health}}'
+docker inspect trunkline --format='{{json .State.Health}}'
 
 # Manual health check
 curl http://localhost:8080/actuator/health
@@ -535,16 +535,16 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 10s
 ```
 
 ### 2. Grafana Dashboard
 
-Create `monitoring/grafana/dashboards/jairouter.json`:
+Create `monitoring/grafana/dashboards/trunkline.json`:
 
 ```
 {
@@ -616,7 +616,7 @@ logging:
   
   # File log configuration
   file:
-    name: /app/logs/jairouter.log
+    name: /app/logs/trunkline.log
     max-size: 100MB
     max-history: 30
     total-size-cap: 10GB
@@ -633,26 +633,26 @@ logging:
 
 ```
 # View real-time logs
-docker logs -f jairouter
+docker logs -f trunkline
 
 # View the most recent logs
-docker logs --tail 100 jairouter
+docker logs --tail 100 trunkline
 
 # View logs from a specific time
-docker logs --since "2024-01-15T10:00:00" jairouter
+docker logs --since "2024-01-15T10:00:00" trunkline
 
 # Export logs
-docker logs jairouter > jairouter.log 2>&1
+docker logs trunkline > trunkline.log 2>&1
 
 # View the log file inside the container
-docker exec jairouter cat /app/logs/jairouter.log
+docker exec trunkline cat /app/logs/trunkline.log
 ```
 
 ### 3. Log Rotation
 
 ```
 # Configure logrotate
-cat > /etc/logrotate.d/docker-jairouter << EOF
+cat > /etc/logrotate.d/docker-trunkline << EOF
 /var/lib/docker/containers/*/*-json.log {
     daily
     rotate 7
@@ -668,7 +668,7 @@ EOF
 version: '3.8'
 
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:latest
     logging:
       driver: "json-file"
@@ -691,7 +691,7 @@ logging:
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
   
   file:
-    name: /app/logs/jairouter.log
+    name: /app/logs/trunkline.log
   
   # JSON format log configuration
   structured:
@@ -723,7 +723,7 @@ logging:
 
 ```
 services:
-  jairouter:
+  trunkline:
     deploy:
       resources:
         limits:
@@ -748,10 +748,10 @@ services:
 ```
 # Use a custom network
 networks:
-  jairouter-network:
+  trunkline-network:
     driver: bridge
     driver_opts:
-      com.docker.network.bridge.name: jairouter0
+      com.docker.network.bridge.name: trunkline0
       com.docker.network.driver.mtu: 1500
 ```
 
@@ -763,10 +763,10 @@ networks:
 
 ```
 # View container status
-docker ps -a --filter "name=jairouter"
+docker ps -a --filter "name=trunkline"
 
 # View startup logs
-docker logs jairouter
+docker logs trunkline
 
 # Check port usage
 netstat -tulpn | grep 8080
@@ -782,49 +782,49 @@ docker images | grep sodlinken/jairouter
 curl -v http://localhost:8080/actuator/health
 
 # Inspect inside the container
-docker exec -it jairouter sh
+docker exec -it trunkline sh
 
 # View application logs
-docker exec jairouter cat /app/logs/jairouter.log
+docker exec trunkline cat /app/logs/trunkline.log
 ```
 
 #### Configuration File Issues
 
 ```
 # Check the configuration file mount
-docker exec jairouter ls -la /app/config
+docker exec trunkline ls -la /app/config
 
 # View the configuration file contents
-docker exec jairouter cat /app/config/application.yml
+docker exec trunkline cat /app/config/application.yml
 
 # Validate the configuration file format
-docker exec jairouter java -jar app.jar --spring.config.location=/app/config/application.yml --dry-run
+docker exec trunkline java -jar app.jar --spring.config.location=/app/config/application.yml --dry-run
 ```
 
 ### 2. Debugging Tools
 
 ```
 # Enter the container for debugging
-docker exec -it jairouter sh
+docker exec -it trunkline sh
 
 # View process status
-docker exec jairouter ps aux
+docker exec trunkline ps aux
 
 # View network connections
-docker exec jairouter netstat -tulpn
+docker exec trunkline netstat -tulpn
 
 # View system resources
-docker stats jairouter
+docker stats trunkline
 ```
 
 ### 3. Performance Analysis
 
 ```
 # View container resource usage
-docker stats --no-stream jairouter
+docker stats --no-stream trunkline
 
 # View detailed container information
-docker inspect jairouter
+docker inspect trunkline
 
 # View image layer information
 docker history sodlinken/jairouter:latest
@@ -838,7 +838,7 @@ docker history sodlinken/jairouter:latest
 # Run the container with a non-root user
 docker run -d \
   --user 10010:10010 \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   sodlinken/jairouter:latest
 
@@ -847,7 +847,7 @@ docker run -d \
   --read-only \
   --tmpfs /tmp \
   --tmpfs /app/logs \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   sodlinken/jairouter:latest
 
@@ -855,7 +855,7 @@ docker run -d \
 docker run -d \
   --cap-drop ALL \
   --cap-add NET_BIND_SERVICE \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   sodlinken/jairouter:latest
 
@@ -863,7 +863,7 @@ docker run -d \
 docker run -d \
   --security-opt no-new-privileges:true \
   --security-opt seccomp=profile.json \
-  --name jairouter \
+  --name trunkline \
   -p 8080:8080 \
   sodlinken/jairouter:latest
 ```
@@ -875,21 +875,21 @@ docker run -d \
 version: '3.8'
 
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:latest
-    container_name: jairouter
+    container_name: trunkline
     ports:
       - "8080:8080"
     # Limit container network access
     networks:
-      - jairouter-network
+      - trunkline-network
     # Set as an internal network with no external access
     networks:
-      jairouter-network:
+      trunkline-network:
         internal: true
 
 networks:
-  jairouter-network:
+  trunkline-network:
     driver: bridge
 ```
 
@@ -897,12 +897,12 @@ networks:
 
 ```
 # Use Docker secrets to manage sensitive information
-echo "your-api-key" | docker secret create jairouter-api-key -
+echo "your-api-key" | docker secret create trunkline-api-key -
 
 # Use secrets in swarm mode
 docker service create \
-  --name jairouter \
-  --secret jairouter-api-key \
+  --name trunkline \
+  --secret trunkline-api-key \
   -p 8080:8080 \
   sodlinken/jairouter:latest
 
@@ -910,15 +910,15 @@ docker service create \
 version: '3.8'
 
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:latest
     secrets:
-      - jairouter-api-key
+      - trunkline-api-key
     environment:
-      - API_KEY_FILE=/run/secrets/jairouter-api-key
+      - API_KEY_FILE=/run/secrets/trunkline-api-key
 
 secrets:
-  jairouter-api-key:
+  trunkline-api-key:
     file: ./secrets/api-key.txt
 ```
 
@@ -943,7 +943,7 @@ security:
     secret: your-jwt-secret-key
     algorithm: HS256
     expiration-minutes: 60
-    issuer: jairouter
+    issuer: trunkline
     # Initial accounts: created only when the account table is empty (first start);
     # changing this has no effect once accounts exist
     accounts:
@@ -971,7 +971,7 @@ server:
     key-store: classpath:keystore.p12
     key-store-password: password
     key-store-type: PKCS12
-    key-alias: jairouter
+    key-alias: trunkline
 ```
 
 ## Best Practices

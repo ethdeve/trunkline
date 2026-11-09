@@ -109,7 +109,7 @@ We welcome community contributions to improve reference materials:
 If you have any suggestions or find issues while using the reference materials:
 - **GitHub Issues**: Report document problems or suggest improvements
 - **GitHub Discussions**: Participate in document-related discussions
-- **Email Contact**: jairouter@example.com
+- **Email Contact**: trunkline@example.com
 - **Community Groups**: Join user交流 groups
 
 ### Update Frequency

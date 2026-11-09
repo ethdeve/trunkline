@@ -156,7 +156,7 @@ model:
 <project xmlns="http://maven.apache.org/POM/4.0.0">
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.unreal</groupId>
-    <artifactId>model-router</artifactId>
+    <artifactId>trunkline</artifactId>
     <version>1.0-SNAPSHOT</version>
     
     <dependencies>

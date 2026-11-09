@@ -26,7 +26,7 @@
 - **健康检查端点**: `/actuator/health`
 - **监控指标端点**: `/actuator/metrics`
 - **配置信息端点**: `/actuator/configprops`
-- **日志文件**: `logs/jairouter-debug.log`
+- **日志文件**: `logs/trunkline-debug.log`
 
 ## 问题分类
 
@@ -100,10 +100,10 @@
 curl http://localhost:8080/actuator/health
 
 # 请求统计
-curl http://localhost:8080/actuator/metrics/jairouter.requests.total
+curl http://localhost:8080/actuator/metrics/trunkline.requests.total
 
 # 响应时间
-curl http://localhost:8080/actuator/metrics/jairouter.request.duration
+curl http://localhost:8080/actuator/metrics/trunkline.request.duration
 
 # JVM 内存使用
 curl http://localhost:8080/actuator/metrics/jvm.memory.used

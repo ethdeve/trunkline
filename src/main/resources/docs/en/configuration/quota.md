@@ -23,14 +23,14 @@ Trunkline ships a **quota ledger**: it tracks request counts and token usage acr
 - Limit mapping: DAY window → daily request/token caps; MINUTE window → rate limit; `0` means unlimited.
 - With the ledger off, API Key auth still enforces the same limits via in-memory counters + token bucket.
 
-- **Off by default (opt-in)**: `jairouter.quota.enabled` defaults to `false` — zero behavior change. No accumulation, no database access, no Redis access; behavior is identical to v3.0.x
+- **Off by default (opt-in)**: `trunkline.quota.enabled` defaults to `false` — zero behavior change. No accumulation, no database access, no Redis access; behavior is identical to v3.0.x
 - **Pluggable counter backend**: defaults to in-process `LocalCounterBackend` (`LongAdder`); only when `distributed.enabled=true` is `RedisCounterBackend` assembled as the cross-instance authoritative counter
 - **Purely additive capability**: when the ledger is disabled, all endpoints return immediately without touching the database or Redis
 
 ## Quick Start
 
 ```yaml
-jairouter:
+trunkline:
   quota:
     enabled: true                  # enable the quota ledger (default false)
     fail-open: true                # allow requests when the ledger fails (default true)
@@ -47,14 +47,14 @@ jairouter:
       month: 13mo
     distributed:
       enabled: false               # enable Redis distributed counting (default false)
-      key-prefix: "jairouter:quota"  # Redis key prefix (default jairouter:quota)
+      key-prefix: "trunkline:quota"  # Redis key prefix (default trunkline:quota)
       timeout: 50ms                # per-command Redis timeout (default 50ms, clamped to 1ms~5s)
       degrade-to-local: true       # fall back to local counting when Redis is unavailable (default true)
 ```
 
 ## Configuration Reference
 
-All properties live under the `jairouter.quota` prefix. Key naming follows Spring relaxed binding (kebab-case in YAML, camelCase in Java).
+All properties live under the `trunkline.quota` prefix. Key naming follows Spring relaxed binding (kebab-case in YAML, camelCase in Java).
 
 | Property | Default | Description |
 |----------|---------|-------------|
@@ -67,7 +67,7 @@ All properties live under the `jairouter.quota` prefix. Key naming follows Sprin
 | `retention.day` | `35d` | Day window retention period |
 | `retention.month` | `13mo` | Month window retention period |
 | `distributed.enabled` | `false` | Enable Redis distributed counting; when `false`, counting stays entirely in-process |
-| `distributed.key-prefix` | `jairouter:quota` | Distributed counting Redis key prefix |
+| `distributed.key-prefix` | `trunkline:quota` | Distributed counting Redis key prefix |
 | `distributed.timeout` | `50ms` | Per-command Redis timeout (clamped to 1ms~5s) |
 | `distributed.degrade-to-local` | `true` | Fall back to local counting when Redis is unavailable |
 
@@ -125,8 +125,8 @@ On success the response `data` has the same shape as the GET response. Requires 
 
 ### Known Limitations
 
-- Runtime changes are **in-memory overrides** and **reset to the yaml values on restart or configuration refresh** (same policy as response cache). For persistent changes, edit the `jairouter.quota` yaml.
-- **`flushIntervalSeconds` is not hot-editable**: this field is classified as restart-required, and PUT requests carrying a non-`null` value are rejected. The reason: the backend uses `@Scheduled(fixedDelayString = "${jairouter.quota.flush-interval-seconds:60}")`, which is resolved once when Spring registers the scheduled task; mutating the `QuotaProperties` bean field has no effect on the already-registered schedule. To change the flush interval, update the yaml and restart.
+- Runtime changes are **in-memory overrides** and **reset to the yaml values on restart or configuration refresh** (same policy as response cache). For persistent changes, edit the `trunkline.quota` yaml.
+- **`flushIntervalSeconds` is not hot-editable**: this field is classified as restart-required, and PUT requests carrying a non-`null` value are rejected. The reason: the backend uses `@Scheduled(fixedDelayString = "${trunkline.quota.flush-interval-seconds:60}")`, which is resolved once when Spring registers the scheduled task; mutating the `QuotaProperties` bean field has no effect on the already-registered schedule. To change the flush interval, update the yaml and restart.
 - Setting `enabled` to `true` via hot-edit causes the ledger to start accumulating for new requests immediately; setting it to `false` stops accumulation, but any in-memory data will still be flushed on the next `flush` cycle.
 
 ## Observability
@@ -215,7 +215,7 @@ The ledger dimension key is the combination `(tenantId, apiKeyId, userId, servic
   - Usage query: `GET /api/config/pools/{poolName}/quota/usage`
   - Manual reset: `POST /api/config/pools/{poolName}/quota/reset`
 
-> Pool shared quotas live in the runtime quota system. When the multi-dimensional ledger is enabled (`jairouter.quota.enabled`, default off), the pool dimension is one of its aggregation views. **The ledger is off by default**; when off, the existing API-key authentication path remains.
+> Pool shared quotas live in the runtime quota system. When the multi-dimensional ledger is enabled (`trunkline.quota.enabled`, default off), the pool dimension is one of its aggregation views. **The ledger is off by default**; when off, the existing API-key authentication path remains.
 
 ## Related Documents
 

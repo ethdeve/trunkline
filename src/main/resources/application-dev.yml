@@ -30,6 +30,23 @@ spring:
       settings:
         web-allow-others: false
 
+  # ===== 本地切换 PostgreSQL（默认关闭，仍走 H2 ./data/trunkline）=====
+  # 方式一（推荐，不改文件）：启动前设置环境变量即可一键切库。
+  #   config/config-service/core.yml 的 ${DATABASE_URL:...} 会被环境变量覆盖，
+  #   FlywayDialectEnvironmentPostProcessor 自动切到 db/migration/postgres，
+  #   并把 ddl-auto 覆盖为 validate（建表交给 Flyway）。
+  #   需先建库：CREATE DATABASE trunkline;
+  #     DATABASE_URL=jdbc:postgresql://localhost:5432/trunkline
+  #     DATABASE_USERNAME=trunkline
+  #     DATABASE_PASSWORD=<password>
+  # 方式二（改文件）：取消下面 datasource 注释。注意 profile 配置优先级高于
+  #   classpath import，取消后 core.yml 的 ${DATABASE_URL:...}（含环境变量）不再生效。
+  # datasource:
+  #   url: jdbc:postgresql://localhost:5432/trunkline
+  #   username: trunkline
+  #   password: trunkline
+  #   driver-class-name: org.postgresql.Driver
+
 # 日志配置（开发环境详细日志）
 logging:
   level:
@@ -69,11 +86,9 @@ trunkline:
           password: "{noop}${INITIAL_ADMIN_PASSWORD:ChangeMeOnFirstStartup123456}"
           roles: ["ADMIN", "USER"]
           enabled: true
-        - username: "user"
-          password: "{noop}${DEV_USER_PASSWORD:user123}"
-          roles: ["USER"]
-          enabled: true
-    
+        # 不在此硬编码 user 账户：本地账号请通过「账号管理」API/控制台创建，
+        # 否则同名 YAML 静态账户会遮蔽库内账号，导致「已创建却无法登录」（见生产 jwt.yml 同样处理）。
+
     api-key:
       enabled: true
       

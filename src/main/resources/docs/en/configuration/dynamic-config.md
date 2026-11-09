@@ -343,7 +343,7 @@ curl -v "http://localhost:8080/api/config/instance/chat" \
   -d '{"name": "test", "weight": 1}'
 
 # Check service logs
-docker logs jairouter
+docker logs trunkline
 
 # List config versions
 curl -X GET "http://localhost:8080/api/config/version"

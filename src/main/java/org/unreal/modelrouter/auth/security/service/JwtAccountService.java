@@ -76,6 +76,7 @@ public class JwtAccountService {
                     .password(passwordEncoder.encode(request.getPassword()))
                     .roles(objectMapper.writeValueAsString(request.getRoles()))
                     .department(normalizeDepartment(request.getDepartment()))
+                    .name(normalizeName(request.getName()))
                     .enabled(request.getEnabled() != null ? request.getEnabled() : true)
                     .build();
 
@@ -108,6 +109,10 @@ public class JwtAccountService {
         // 部门：null = 不修改（保持原值）；空串 = 清空
         if (request.getDepartment() != null) {
             entity.setDepartment(normalizeDepartment(request.getDepartment()));
+        }
+        // 姓名：null = 不修改；空串 = 清空
+        if (request.getName() != null) {
+            entity.setName(normalizeName(request.getName()));
         }
 
         JwtAccountEntity saved = jwtAccountRepository.save(entity);
@@ -174,6 +179,17 @@ public class JwtAccountService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
+    /**
+     * 归一化姓名：去空白，空串归 null（表示「未填写」）。
+     */
+    private static String normalizeName(final String name) {
+        if (name == null) {
+            return null;
+        }
+        final String trimmed = name.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     private JwtAccountDTO convertToDTO(final JwtAccountEntity entity) {
         List<String> roles = List.of();
         try {
@@ -189,6 +205,7 @@ public class JwtAccountService {
                 .username(entity.getUsername())
                 .roles(roles)
                 .department(entity.getDepartment())
+                .name(entity.getName())
                 .enabled(entity.getEnabled() != null ? entity.getEnabled() : true)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

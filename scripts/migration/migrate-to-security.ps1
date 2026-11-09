@@ -168,7 +168,7 @@ function Test-MigrationReadiness {
     }
     
     # 检查是否有运行中的JAiRouter实例
-    $javaProcesses = Get-Process -Name "java" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*model-router*" }
+    $javaProcesses = Get-Process -Name "java" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*trunkline*" }
     if ($javaProcesses) {
         Log-Warning "检测到运行中的JAiRouter实例，建议停止后再迁移"
     } else {

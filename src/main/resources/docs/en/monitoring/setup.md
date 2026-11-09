@@ -90,7 +90,7 @@ monitoring:
     enabled: true
     
     # Metric prefix
-    prefix: "jairouter"
+    prefix: "trunkline"
     
     # Metric collection interval
     collection-interval: 10s
@@ -142,9 +142,9 @@ rule_files:
   - "rules/*.yml"
 
 scrape_configs:
-  - job_name: 'jairouter'
+  - job_name: 'trunkline'
     static_configs:
-      - targets: ['jairouter:8080']
+      - targets: ['trunkline:8080']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 10s
     scrape_timeout: 5s
@@ -175,13 +175,13 @@ datasources:
 ```
 
 #### Dashboard Auto Import
-Create `monitoring/grafana/provisioning/dashboards/jairouter-dashboards.yml`:
+Create `monitoring/grafana/provisioning/dashboards/trunkline-dashboards.yml`:
 
 ```yaml
 apiVersion: 1
 
 providers:
-  - name: 'jairouter'
+  - name: 'trunkline'
     orgId: 1
     folder: 'JAiRouter'
     type: file
@@ -202,7 +202,7 @@ Create `docker-compose-monitoring.yml`:
 version: '3.8'
 
 services:
-  jairouter:
+  trunkline:
     image: sodlinken/jairouter:latest
     ports:
       - "8080:8080"
@@ -236,14 +236,14 @@ services:
     networks:
       - monitoring
     depends_on:
-      - jairouter
+      - trunkline
 
   grafana:
     image: grafana/grafana:latest
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=jairouter2024
+      - GF_SECURITY_ADMIN_PASSWORD=trunkline2024
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
     volumes:
@@ -301,13 +301,13 @@ curl http://localhost:9090/api/v1/targets
 curl http://localhost:8080/actuator/prometheus
 
 # Check specific metrics
-curl http://localhost:8080/actuator/metrics/jairouter.requests.total
+curl http://localhost:8080/actuator/metrics/trunkline.requests.total
 ```
 
 ### 3. Verify Grafana Dashboard
 
 1. Visit http://localhost:3000
-2. Log in with admin/jairouter2024
+2. Log in with admin/trunkline2024
 3. Check data source connection status
 4. Verify dashboard displays data correctly
 
@@ -494,7 +494,7 @@ monitoring:
 
 ```bash
 # Check JAiRouter logs
-docker logs jairouter
+docker logs trunkline
 
 # Check Prometheus logs
 docker logs prometheus

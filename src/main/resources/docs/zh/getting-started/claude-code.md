@@ -80,7 +80,7 @@ Claude Code 会把 `ANTHROPIC_API_KEY` 放进 **`x-api-key`** 请求头。HTTP �
 3. **认证优先级**：`Jairouter_Token`（JWT） > `X-API-Key`（API Key）。`Authorization` 与网关认证**无关**，它只影响下游。
 
 > **原生面认证说明**：`/v1/**` 同时接受 `X-API-Key`（API Key）与 `Jairouter_Token`（JWT），
-> 两者同存时 **JWT 优先**。JWT 需已启用（`jairouter.security.jwt.enabled`）且 token 未过期、未被拉黑。
+> 两者同存时 **JWT 优先**。JWT 需已启用（`trunkline.security.jwt.enabled`）且 token 未过期、未被拉黑。
 > Claude Code 场景下使用 `ANTHROPIC_API_KEY`（即 `x-api-key`）最简单；如需使用 JWT，
 > 请确保上述前提满足。控制台面 `/api/**` 不受此限制。
 
@@ -447,7 +447,7 @@ curl -H "x-api-key: <Trunkline API Key>" "http://localhost:8080/v1/models"
 | **流式 `message_start.id` / `model` 由网关给出** | `id` 为网关生成的 `msg_*`（该事件先于首个下游块发出，下游 id 尚不可知）；`model` 为**请求侧**模型名 | 需要下游真实 id 时使用非流式（透传下游 `id`） |
 | **流式产出文本块 + `tool_use` 块** | 文本块恒为 `index: 0`，工具块按出现顺序递增；不产出 `thinking` / `redacted_thinking` 块（请求中的 `thinking` 字段仅接收不消费） | 需要 thinking 时直连 Anthropic |
 | **`tool_choice:"none"` 不传 `tools`** | 按协议该取值表示禁用工具，网关整体不向下游传 `tools` / `tool_choice`（而非传 `"none"`） | 需要「不给工具」时直接用该取值 |
-| **响应缓存命中（非流式）** | 开启 `jairouter.response-cache.enabled=true` 且命中时，原生面（`/v1/**`）返回**原生 JSON**（v3.1 起修复，不再返回控制台面包裹体）；缓存键已包含 `tools` / `tool_choice` / 工具会话消息（PR-5），不同工具轮次不会互相命中 | 流式请求默认不参与缓存（`skip-streaming: true`）；置 `false` 时缓存命中按逐块回放重放为事件序列 |
+| **响应缓存命中（非流式）** | 开启 `trunkline.response-cache.enabled=true` 且命中时，原生面（`/v1/**`）返回**原生 JSON**（v3.1 起修复，不再返回控制台面包裹体）；缓存键已包含 `tools` / `tool_choice` / 工具会话消息（PR-5），不同工具轮次不会互相命中 | 流式请求默认不参与缓存（`skip-streaming: true`）；置 `false` 时缓存命中按逐块回放重放为事件序列 |
 | **`count_tokens` 为估算** | 不含 `tools` JSON Schema、`tool_use` / `tool_result` 块正文、图片块与下游真实分词差异 | 视作上界参考 |
 
 ## 故障排查

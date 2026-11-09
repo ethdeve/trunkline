@@ -11,7 +11,7 @@
 
 Starting with **v2.9.9**, Trunkline ships a **response cache**: it caches the complete downstream LLM response under a cache key and, when an identical request arrives again, serves the cached result directly while **skipping the downstream call** — cutting latency and cost. **v2.9.10** extends it with three capabilities: streaming SSE caching, an invalidation API (by service / model / bulk), and a three-part cache key with optimized rate-limiting short-circuit semantics.
 
-- **Off by default (opt-in)**: `jairouter.response-cache` is disabled unless enabled; enabling it does not affect the behavior of non-hit requests
+- **Off by default (opt-in)**: `trunkline.response-cache` is disabled unless enabled; enabling it does not affect the behavior of non-hit requests
 - **Stacks with the v2.9.0 prefix cache (prefix cache / KV cache)**: the two solve different problems —
   - Prefix cache: still calls downstream but reuses its prefill computation, reducing first-token latency (TTFT) and prefill cost
   - Response cache: **skips the downstream entirely** for byte-identical requests, serving cached content directly
@@ -20,7 +20,7 @@ Starting with **v2.9.9**, Trunkline ships a **response cache**: it caches the co
 ## Quick Start
 
 ```yaml
-jairouter:
+trunkline:
   response-cache:
     enabled: true        # enable the response cache (default false, opt-in)
     ttl: 1h              # cache TTL (default 1h, aligned with liteLLM)
@@ -88,16 +88,16 @@ cache key = SHA-256(tenantKey | [user?] | serviceType | model | canonicalJson(re
 ## Cache Hit Semantics
 
 - **Consistent response shape**: on the console surface (`/api/**`) a cache hit returns a `RouterResponse` isomorphic to a normal non-streaming success response (`data` holds the cached downstream data) — transparent to callers. On the native surface (`/v1/**`, the OpenAI / Anthropic compatible entry points) a hit returns the downstream **raw JSON** instead, with no `RouterResponse` wrapper
-- **Hits do not produce call-history records**: cache-hit requests short-circuit before the adapter executes (call history is recorded on the downstream execution path), so they are **not written to call history** — only the hit counter is incremented; use `jairouter_response_cache_hits_total` when auditing hit requests
+- **Hits do not produce call-history records**: cache-hit requests short-circuit before the adapter executes (call history is recorded on the downstream execution path), so they are **not written to call history** — only the hit counter is incremented; use `trunkline_response_cache_hits_total` when auditing hit requests
 - **No downstream token quota consumed**: hits skip the downstream call entirely and generate no new downstream usage
 - **Rate limiting semantics** (updated in v2.9.10): the cache read is now moved ahead of instance selection (`selectInstance`) — before the cache lookup, **service-level rate limiting is explicitly executed** (one deduction); a hit short-circuits immediately, skipping instance selection; a 429 from rate limiting **takes priority over the cache** (hard boundary); a miss proceeds through the full `selectInstance` (internal rate limiting is skipped to avoid double deduction)
 - **Metrics** (tags: `service`, `model`):
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `jairouter_response_cache_hits_total` | Counter | Cumulative cache hits |
-| `jairouter_response_cache_misses_total` | Counter | Cumulative cache misses |
-| `jairouter_response_cache_hit_ratio` | Gauge | Hit ratio 0.0~1.0 (cumulative hit/(hit+miss)) |
+| `trunkline_response_cache_hits_total` | Counter | Cumulative cache hits |
+| `trunkline_response_cache_misses_total` | Counter | Cumulative cache misses |
+| `trunkline_response_cache_hit_ratio` | Gauge | Hit ratio 0.0~1.0 (cumulative hit/(hit+miss)) |
 
 ## Streaming Cache
 
@@ -170,7 +170,7 @@ PUT  /api/config/cache/response/config # runtime partial update
 
 - **GET status snapshot**: returns `enabled` / `ttlSeconds` / `maxSize` / `size` / `skipStreaming` / `onlyDeterministic` plus cumulative `hits` / `misses` / `hitRatio` (`null` when there is no data yet); requires the `config:cache:read` permission
 - **PUT runtime config**: partial update — send only the fields to change: `enabled` / `skipStreaming` / `onlyDeterministic` / `ttlSeconds` (range 1~604800; invalid values return 400 `INVALID_REQUEST`); `maxSize` stays read-only (fixed at Caffeine construction)
-- Runtime changes **reset to the yaml config on restart** (not persisted); for persistent changes edit `jairouter.response-cache` (see "Quick Start")
+- Runtime changes **reset to the yaml config on restart** (not persisted); for persistent changes edit `trunkline.response-cache` (see "Quick Start")
 
 ## Limitations and Roadmap
 

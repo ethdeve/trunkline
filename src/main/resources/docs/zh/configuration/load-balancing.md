@@ -14,10 +14,10 @@ Trunkline 提供六种负载均衡策略，支持全局、服务级别和实例�
 从 v2.8.x 版本开始，Trunkline 采用模块化配置结构，负载均衡相关配置位于独立的配置文件中：
 
 - 主配置文件: `application.yml`
-- 负载均衡配置: `config/router/loadbalancer.yml`
+- 负载均衡配置: 原独立文件 `config/router/loadbalancer.yml` 已于 2026-11-09 删除，默认值内置于代码（`ModelRouterProperties` / `RoutingMonitorConfig`）；如需覆盖，写入 `application-{profile}.yml` 或外部挂载
 - 服务实例配置: `config/router/services.yml`
 
-您可以在 `config/router/loadbalancer.yml` 文件中找到全局负载均衡配置（`model.load-balance.*`）与路由监控配置（`jairouter.loadbalancer.routing-monitor.*`）；各服务类型的实例与权重写在 `config/router/services.yml` 中。
+全局负载均衡配置为 `model.load-balance.*`，路由监控配置为 `trunkline.loadbalancer.routing-monitor.*`；各服务类型的实例与权重写在 `config/router/services.yml` 中。
 
 ## 负载均衡概述
 
@@ -54,10 +54,10 @@ graph TB
 
 ### 基础配置
 
-在 `config/router/loadbalancer.yml` 文件中配置全局负载均衡策略：
+全局负载均衡默认值内置于代码（原 `config/router/loadbalancer.yml` 已删除），如需覆盖可写入任意更高优先级配置源：
 
 ```yaml
-# config/router/loadbalancer.yml
+# application-{profile}.yml 或外部挂载配置
 model:
   # 全局配置
   load-balance:
@@ -407,29 +407,29 @@ Trunkline 提供以下负载均衡相关指标：
 
 ```bash
 # 查看负载均衡指标
-curl "http://localhost:8080/actuator/metrics/jairouter_loadbalancer_selections_total"
+curl "http://localhost:8080/actuator/metrics/trunkline_loadbalancer_selections_total"
 
 # 查看实例请求分布
-curl "http://localhost:8080/actuator/metrics/jairouter_requests_total"
+curl "http://localhost:8080/actuator/metrics/trunkline_requests_total"
 
 # 查看连接数统计（仅 Least Connections 策略）
-curl "http://localhost:8080/actuator/metrics/jairouter_rate_limit_remaining"
+curl "http://localhost:8080/actuator/metrics/trunkline_rate_limit_remaining"
 ```
 
 ### Prometheus 指标
 
 ```prometheus
 # 负载均衡请求总数
-jairouter_loadbalancer_selections_total{service="chat",strategy="round-robin"}
+trunkline_loadbalancer_selections_total{service="chat",strategy="round-robin"}
 
 # 实例请求分布
-jairouter_requests_total{service="chat",instance="model-1",status="success"}
+trunkline_requests_total{service="chat",instance="model-1",status="success"}
 
 # 活跃连接数
-jairouter_rate_limit_remaining{service="chat",instance="model-1"}
+trunkline_rate_limit_remaining{service="chat",instance="model-1"}
 
 # 实例响应时间
-jairouter_request_duration_seconds{service="chat",instance="model-1"}
+trunkline_request_duration_seconds{service="chat",instance="model-1"}
 ```
 
 ### 监控仪表板配置
@@ -438,13 +438,13 @@ jairouter_request_duration_seconds{service="chat",instance="model-1"}
 # Grafana 仪表板查询示例
 queries:
   - name: "请求分布"
-    query: 'rate(jairouter_requests_total[5m])'
+    query: 'rate(trunkline_requests_total[5m])'
     
   - name: "负载均衡效果"
-    query: 'jairouter_requests_total / ignoring(instance) group_left sum(jairouter_requests_total) by (service)'
+    query: 'trunkline_requests_total / ignoring(instance) group_left sum(trunkline_requests_total) by (service)'
     
   - name: "实例健康状态"
-    query: 'jairouter_backend_health'
+    query: 'trunkline_backend_health'
 ```
 
 ## 性能调优
@@ -533,10 +533,10 @@ model:
 
 ### 3. 连接池优化
 
-出站 WebClient 连接池配置位于 `config/common/webclient.yml`，前缀 `jairouter.webclient`：
+出站 WebClient 连接池配置位于 `config/common/webclient.yml`，前缀 `trunkline.webclient`：
 
 ```yaml
-jairouter:
+trunkline:
   webclient:
     connect-timeout-ms: 5000       # 连接超时
     response-timeout-seconds: 60   # 响应超时
@@ -545,7 +545,7 @@ jairouter:
     max-idle-time-seconds: 300     # 空闲连接回收时间
 ```
 
-> 早期文档中的顶层 `webclient.connection-pool.*` 键已废弃（连接池配置迁移到 `jairouter.webclient.*`）。
+> 早期文档中的顶层 `webclient.connection-pool.*` 键已废弃（连接池配置迁移到 `trunkline.webclient.*`）。
 
 ## 故障处理
 

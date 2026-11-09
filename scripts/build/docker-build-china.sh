@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-PROJECT_NAME="model-router"
+PROJECT_NAME="trunkline"
 IMAGE_NAME="trunkline/trunkline"
 
 # Get version from pom.xml

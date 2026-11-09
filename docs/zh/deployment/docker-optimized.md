@@ -51,7 +51,7 @@ FROM eclipse-temurin:17-jre
 ```dockerfile
 # 阶段 1: 构建阶段
 FROM eclipse-temurin:17-jre-alpine AS extract-layer
-COPY target/model-router-*.jar app.jar
+COPY target/trunkline-*.jar app.jar
 RUN java -Djarmode=layertools -jar app.jar extract --destination extracted
 
 # 阶段 2: 运行阶段
@@ -311,7 +311,7 @@ dive trunkline/trunkline:latest-optimized
 
 ```bash
 # 检查 JAR 文件是否存在
-ls -la target/model-router-*.jar
+ls -la target/trunkline-*.jar
 
 # 清理构建缓存
 docker builder prune -a

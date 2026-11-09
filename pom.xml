@@ -10,11 +10,11 @@
     </parent>
 
     <groupId>org.unreal</groupId>
-    <artifactId>model-router</artifactId>
+    <artifactId>trunkline</artifactId>
     <version>0.1.0</version>
     <packaging>jar</packaging>
 
-    <name>model-router</name>
+    <name>trunkline</name>
     <url>http://maven.apache.org</url>
 
     <properties>
@@ -575,7 +575,7 @@
                 <artifactId>dockerfile-maven-plugin</artifactId>
                 <version>1.4.13</version>
                 <configuration>
-                    <repository>jairouter/${project.artifactId}</repository>
+                    <repository>trunkline/${project.artifactId}</repository>
                     <tag>${project.version}</tag>
                     <buildArgs>
                         <JAR_FILE>target/${project.build.finalName}.jar</JAR_FILE>
@@ -673,7 +673,7 @@
                         <image>eclipse-temurin:17-jre</image>
                     </from>
                     <to>
-                        <image>jairouter/${project.artifactId}:${project.version}</image>
+                        <image>trunkline/${project.artifactId}:${project.version}</image>
                         <tags>
                             <tag>latest</tag>
                         </tags>

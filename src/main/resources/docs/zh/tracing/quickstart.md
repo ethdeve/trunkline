@@ -22,20 +22,20 @@
 在 `application.yml` 中添加追踪配置：
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
-    service-name: "jairouter"
+    service-name: "trunkline"
     service-version: "1.0.0"
 ```
 
 ### 2. 配置采样策略
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
-    service-name: "jairouter"
+    service-name: "trunkline"
     sampling:
       strategy: "ratio"  # 可选值：ratio（默认）, rule, adaptive —— 见 config-reference（issue #234）
       ratio: 1.0         # 100% 采样（开发环境推荐）
@@ -46,10 +46,10 @@ jairouter:
 #### 控制台日志导出（推荐用于开发）
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
-    service-name: "jairouter"
+    service-name: "trunkline"
     exporter:
       type: "logging"
 ```
@@ -57,10 +57,10 @@ jairouter:
 #### Jaeger 导出（推荐用于生产）
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
-    service-name: "jairouter"
+    service-name: "trunkline"
     exporter:
       type: "jaeger"
       jaeger:
@@ -70,10 +70,10 @@ jairouter:
 #### OTLP 导出（标准协议）
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     enabled: true
-    service-name: "jairouter"
+    service-name: "trunkline"
     exporter:
       type: "otlp"
       otlp:
@@ -102,7 +102,7 @@ docker-compose up
 {
   "timestamp": "2024-01-15T10:30:15.123Z",
   "level": "INFO",
-  "service": "jairouter",
+  "service": "trunkline",
   "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
   "spanId": "00f067aa0ba902b7",
   "message": "Request processed successfully",
@@ -137,7 +137,7 @@ tail -f logs/application.log | grep traceId
 ```
 
 #### Jaeger UI
-打开浏览器访问 `http://localhost:16686`，搜索服务名称 "jairouter"。
+打开浏览器访问 `http://localhost:16686`，搜索服务名称 "trunkline"。
 
 #### OTLP 收集器
 检查您的 OTEL 收集器配置和后端存储。
@@ -147,7 +147,7 @@ tail -f logs/application.log | grep traceId
 ### 比率采样（开发环境）
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       # 采样策略（issue #234 起真实存在）：ratio 只按采样率，rule 按 rules 匹配，adaptive 需开启对应子配置。
@@ -158,7 +158,7 @@ jairouter:
 ### 规则采样（生产环境）
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       # 规则采样要点：strategy 必须是 rule（issue #234）；规则的字段是 condition + ratio
@@ -175,7 +175,7 @@ jairouter:
 ### 自适应采样（推荐）
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       # 自适应采样要点（issue #234）：strategy 设为 adaptive 且 adaptive.enabled=true 才生效；
@@ -194,7 +194,7 @@ jairouter:
 ### 1. 异步导出配置
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     # 核对（issue #224）：批处理器参数**不在** open-telemetry 段下（那里原有一套
     # sdk.trace.processors.batch.* 键，没有任何消费方，已删除），而在 performance 下。
@@ -209,7 +209,7 @@ jairouter:
 ### 2. 内存管理
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     # 核对（issue #159）：真实路径是 performance.memory，且没有 cleanup-interval /
     # span-ttl 这两个旋钮（字段是 max-spans-in-memory / memory-limit-mb / gc-interval）。
@@ -225,7 +225,7 @@ jairouter:
 生产环境建议从低采样率开始：
 
 ```yaml
-jairouter:
+trunkline:
   tracing:
     sampling:
       adaptive:
@@ -257,17 +257,17 @@ management:
 
 ### 2. 关键指标
 
-- `jairouter_tracing_spans_created_total` - 创建的 Span 总数
-- `jairouter_tracing_spans_exported_total` - 导出的 Span 总数
-- `jairouter_tracing_sampling_rate` - 当前采样率
-- `jairouter_tracing_export_duration` - 导出耗时
+- `trunkline_tracing_spans_created_total` - 创建的 Span 总数
+- `trunkline_tracing_spans_exported_total` - 导出的 Span 总数
+- `trunkline_tracing_sampling_rate` - 当前采样率
+- `trunkline_tracing_export_duration` - 导出耗时
 
 ## 常见问题
 
 ### Q: 追踪数据没有导出
 
 **检查项目：**
-1. 确认 `jairouter.tracing.enabled=true`
+1. 确认 `trunkline.tracing.enabled=true`
 2. 检查导出器配置是否正确
 3. 验证网络连接（Jaeger/OTLP 端点）
 4. 查看应用日志中的错误信息

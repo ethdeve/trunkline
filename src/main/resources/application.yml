@@ -26,14 +26,14 @@ spring:
       - classpath:config/config-service/core.yml
 
       # ====== router 模块配置 ======
-      - classpath:config/router/adapter.yml
-      - classpath:config/router/loadbalancer.yml
+      # 注：adapter/loadbalancer/circuitbreaker/pools/rules.yml 已于 2026-11-09 删除——
+      # 五者的全部键与 Java 代码默认值完全一致（ModelRouterProperties /
+      # CircuitBreakerManager / RoutingMonitorConfig / PoolDefinitionProperties /
+      # RuleDefinitionProperties），无独占生效值；对应键仍可通过
+      # application-{profile}.yml、环境变量或外部挂载覆盖。
       - classpath:config/router/ratelimit.yml
-      - classpath:config/router/circuitbreaker.yml
       - classpath:config/router/fallback.yml
       - classpath:config/router/services.yml
-      - classpath:config/router/rules.yml
-      - classpath:config/router/pools.yml
 
       # ====== auth 模块配置 ======
       - classpath:config/auth/jwt.yml
@@ -53,9 +53,9 @@ spring:
       # ====== persistence 模块配置 ======
       - classpath:config/persistence/state-persistence-base.yml
 
-      # ====== 向后兼容配置（保留原有路径） ======
-      - classpath:config/base/server-base.yml
-      - classpath:config/base/model-services-base.yml
+      # ====== security 基础配置（原「向后兼容」组） ======
+      # 注：base/server-base.yml 与 base/model-services-base.yml 已于 2026-11-09 删除——
+      # 二者的全部键与 common/*、router/*、config-service/core.yml 同值重复，无独占内容。
       - classpath:config/security/security-base.yml
       - classpath:config/security/persistence-base.yml
       - classpath:config/security/audit-base.yml
@@ -85,12 +85,12 @@ spring:
 # - config/config-service/core.yml # ConfigurationService 配置
 #
 # router 模块（路由服务）:
-# - config/router/adapter.yml      # 适配器配置
-# - config/router/loadbalancer.yml # 负载均衡配置
-# - config/router/ratelimit.yml    # 限流配置
-# - config/router/circuitbreaker.yml # 熔断器配置
+# - config/router/ratelimit.yml    # 限流配置（含分布式限流开关）
 # - config/router/fallback.yml     # 降级配置
 # - config/router/services.yml     # 服务实例配置
+# 注：adapter/loadbalancer/circuitbreaker/pools/rules 配置的默认值
+#     内置于 Java 代码（ModelRouterProperties、CircuitBreakerManager、
+#     RoutingMonitorConfig 等），如需覆盖通过环境配置或外部挂载即可。
 #
 # auth 模块（认证服务）:
 # - config/auth/jwt.yml            # JWT 认证配置
@@ -108,10 +108,21 @@ spring:
 # persistence 模块（持久化服务）:
 # - config/persistence/state-persistence-base.yml
 #
-# 向后兼容：
-# - config/base/server-base.yml    # 保留原有配置
-# - config/base/model-services-base.yml
-# - config/security/*.yml
+# security 基础配置（原「向后兼容」组，保留——各有独占键）:
+# - config/security/security-base.yml    # 安全默认值（api-key 开关、脱敏兜底、审计、监控告警、缓存开关）
+# - config/security/persistence-base.yml # JWT 持久化 + spring.data.redis 连接
+# - config/security/audit-base.yml       # JWT/API Key 审计明细
+#
+# 已删除（2026-11-09 配置梳理：全部键与新模块文件同值重复，无独占内容）：
+# - config/base/server-base.yml          # → common/server.yml、common/webclient.yml、common/logging.yml、config-service/core.yml
+# - config/base/model-services-base.yml  # → router/*.yml
+#
+# 已删除（2026-11-09 二次梳理：全部键与 Java 代码默认值同值重复，无独占生效内容）：
+# - config/router/adapter.yml            # → ModelRouterProperties（adapter 默认 normal）
+# - config/router/loadbalancer.yml       # → ModelRouterProperties（random/md5）+ RoutingMonitorConfig
+# - config/router/circuitbreaker.yml     # → CircuitBreakerManager（5 次/60s/2 次）
+# - config/router/pools.yml              # → PoolDefinitionProperties（默认空列表）
+# - config/router/rules.yml              # → RuleDefinitionProperties（默认空列表）
 
 # ========================================
 # 配置加载优先级说明
@@ -138,3 +149,6 @@ spring:
 # 启动示例：
 # 开发环境：java -jar app.jar --spring.profiles.active=dev
 # 生产环境：java -jar app.jar --spring.profiles.active=prod -DJWT_SECRET=your-secret
+# 数据库迁移：java -jar app.jar --spring.profiles.active=migrate
+# 注：staging profile 已于 2026-11-09 移除（无部署入口使用）；如需预发布差异配置，
+#     请用外部挂载配置文件或环境变量覆盖，勿再新增 application-staging.yml

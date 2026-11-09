@@ -14,9 +14,9 @@ Trunkline has a built-in circuit breaker mechanism to prevent service avalanches
 Starting from v1.0.0, Trunkline adopts a modular configuration structure with circuit breaker related configurations moved to separate configuration files:
 
 - Main configuration file: `application.yml`
-- Model services base configuration: `config/router/circuitbreaker.yml`
+- Circuit breaker configuration: the former `config/router/circuitbreaker.yml` was removed on 2026-11-09; defaults live in code (`CircuitBreakerManager`). Override via `application-{profile}.yml` or external mount.
 
-You can find all circuit breaker related configurations in the `config/router/circuitbreaker.yml` file, including global configurations, service type configurations, and instance configurations.
+All circuit breaker related configurations use `model.circuit-breaker.*` keys, including global configurations, service type configurations (in `config/router/services.yml` under `model.services.<serviceType>.circuit-breaker`), and instance configurations.
 
 ## Circuit Breaker Overview
 
@@ -59,10 +59,10 @@ stateDiagram-v2
 
 ### Basic Configuration
 
-Configure global circuit breaker in the `config/router/circuitbreaker.yml` file:
+Global circuit breaker defaults live in code (the former `config/router/circuitbreaker.yml` was removed); override via any higher-priority configuration source:
 
 ```yaml
-# config/router/circuitbreaker.yml
+# application-{profile}.yml or external mount
 model:
   # Global circuit breaker configuration
   circuit-breaker:
@@ -124,7 +124,7 @@ model:
 
 ### YAML Configuration
 
-Configure circuit breaker for each service type in the `config/router/circuitbreaker.yml` file:
+Configure circuit breaker for each service type in the `config/router/services.yml` file:
 
 ```yaml
 model:
@@ -237,16 +237,16 @@ curl "http://localhost:8080/api/config/instance/circuit-breaker/states"
 
 ```prometheus
 # Circuit breaker state (0=CLOSED, 1=OPEN, 2=HALF_OPEN)
-jairouter_circuitbreaker_state{service="chat",instance="model-1"}
+trunkline_circuitbreaker_state{service="chat",instance="model-1"}
 
 # Total circuit breaker calls
-jairouter_circuitbreaker_calls_total{service="chat",instance="model-1",result="success"}
+trunkline_circuitbreaker_calls_total{service="chat",instance="model-1",result="success"}
 
 # Circuit breaker failure rate
-rate(jairouter_circuitbreaker_calls_total{result="failure"}[5m]) / rate(jairouter_circuitbreaker_calls_total[5m])
+rate(trunkline_circuitbreaker_calls_total{result="failure"}[5m]) / rate(trunkline_circuitbreaker_calls_total[5m])
 
 # Circuit breaker opening count
-jairouter_circuitbreaker_opened_total{service="chat",instance="model-1"}
+trunkline_circuitbreaker_opened_total{service="chat",instance="model-1"}
 ```
 
 ### Monitoring Dashboard
@@ -258,19 +258,19 @@ dashboard:
     - title: "Circuit Breaker State"
       type: "stat"
       targets:
-        - expr: 'jairouter_circuitbreaker_state'
+        - expr: 'trunkline_circuitbreaker_state'
           legendFormat: '{{service}}-{{instance}}'
     
     - title: "Circuit Breaker Failure Rate"
       type: "graph"
       targets:
-        - expr: 'rate(jairouter_circuitbreaker_calls_total{result="failure"}[5m]) / rate(jairouter_circuitbreaker_calls_total[5m])'
+        - expr: 'rate(trunkline_circuitbreaker_calls_total{result="failure"}[5m]) / rate(trunkline_circuitbreaker_calls_total[5m])'
           legendFormat: '{{service}}-{{instance}}'
     
     - title: "Circuit Breaker Opening Count"
       type: "graph"
       targets:
-        - expr: 'increase(jairouter_circuitbreaker_opened_total[1h])'
+        - expr: 'increase(trunkline_circuitbreaker_opened_total[1h])'
           legendFormat: '{{service}}-{{instance}}'
 ```
 
@@ -280,10 +280,10 @@ dashboard:
 
 ```yaml
 groups:
-  - name: jairouter_circuitbreaker
+  - name: trunkline_circuitbreaker
     rules:
       - alert: CircuitBreakerOpen
-        expr: jairouter_circuitbreaker_state == 1
+        expr: trunkline_circuitbreaker_state == 1
         for: 1m
         labels:
           severity: critical
@@ -292,7 +292,7 @@ groups:
           description: "The circuit breaker for service {{ $labels.service }} instance {{ $labels.instance }} is open"
       
       - alert: HighFailureRate
-        expr: rate(jairouter_circuitbreaker_calls_total{result="failure"}[5m]) / rate(jairouter_circuitbreaker_calls_total[5m]) > 0.5
+        expr: rate(trunkline_circuitbreaker_calls_total{result="failure"}[5m]) / rate(trunkline_circuitbreaker_calls_total[5m]) > 0.5
         for: 2m
         labels:
           severity: warning
@@ -301,7 +301,7 @@ groups:
           description: "The failure rate for service {{ $labels.service }} instance {{ $labels.instance }} exceeds 50%"
       
       - alert: FrequentCircuitBreakerOpening
-        expr: increase(jairouter_circuitbreaker_opened_total[1h]) > 5
+        expr: increase(trunkline_circuitbreaker_opened_total[1h]) > 5
         for: 0m
         labels:
           severity: warning

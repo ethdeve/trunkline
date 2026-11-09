@@ -47,7 +47,7 @@ http://localhost:8080
 
 ## 认证
 
-**认证默认是开启的**：`jairouter.security.enabled` 默认 `true`（`config/auth/jwt.yml`），因此 `/v1/**` 需要凭据、`/api/**` 走权限校验，只有豁免清单允许匿名访问（`/actuator/health`、`/actuator/info`、`/actuator/prometheus`、登录接口、Swagger 文档、`/admin/**` 与 `/favicon.ico` 静态资源 —— 见 `SecurityConfiguration.java` 与 `AnonymousEndpointPaths.java`）。
+**认证默认是开启的**：`trunkline.security.enabled` 默认 `true`（`config/auth/jwt.yml`），因此 `/v1/**` 需要凭据、`/api/**` 走权限校验，只有豁免清单允许匿名访问（`/actuator/health`、`/actuator/info`、`/actuator/prometheus`、登录接口、Swagger 文档、`/admin/**` 与 `/favicon.ico` 静态资源 —— 见 `SecurityConfiguration.java` 与 `AnonymousEndpointPaths.java`）。
 
 网关自身的凭据有两种：
 
@@ -56,7 +56,7 @@ http://localhost:8080
 
 `Authorization` 头**不参与网关认证**，它被透传给下游 AI 服务（实例级 `headers` 优先）。
 
-确实要关闭认证时，请显式设置 `jairouter.security.enabled: false`（不建议用于生产），不要依赖「默认不需要认证」。
+确实要关闭认证时，请显式设置 `trunkline.security.enabled: false`（不建议用于生产），不要依赖「默认不需要认证」。
 
 ## 限流
 

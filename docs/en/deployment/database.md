@@ -93,7 +93,7 @@ When adding `@Index` to a new entity, keep the name **globally unique** and pref
 
 `tags` / `headers` on `service_instance` use JSON mapping (`@JdbcTypeCode(SqlTypes.JSON)`) and the entity **no longer hard-codes `columnDefinition`**: the physical type is left to the dialect — PostgreSQL creates **`jsonb`** (measured: `information_schema.columns.udt_name = jsonb`), H2 / MySQL use their own `json` type, and read/write works.
 
-Physical-type consistency for those columns is now guaranteed by a **versioned migration**: on PostgreSQL, `db/migration/postgres/V2__legacy_convergence.sql` **converges** columns that earlier migrations had added as `TEXT` / `CLOB` into `jsonb`, so both database origins end up on one physical type (the original divergence is issue #190). H2 never had that divergence — a legacy H2 database already stores `tags` / `headers` as `json`, matching the entity — so there is nothing to converge there.
+Physical-type consistency for those columns is now guaranteed by the **versioned baseline**: the merged `V1__baseline.sql` builds them as **`jsonb`** on PostgreSQL and as the dialect's own `json` on H2 / MySQL directly — the earlier `TEXT` / `CLOB` divergence (issue #190) was already converged and frozen into the V1 baseline, so both database origins land on one physical type. No separate convergence step is needed for new databases.
 
 > Check a database's actual types:
 > `SELECT udt_name FROM information_schema.columns WHERE table_name = 'service_instance' AND column_name IN ('tags', 'headers');`
@@ -115,34 +115,32 @@ Each dialect has its own script set because the physical types differ (H2 uses `
 
 Each dialect's `V1__baseline.sql` is the **complete schema of the current entity model**, produced by Hibernate's schema export (not hand-written DDL), so it matches the entity mappings by construction — which is the precondition for `validate` to pass on PostgreSQL.
 
+> **V1 is a "merged baseline".** On 2026-11-09 the schema was re-baselined: the fully evolved schema (V1 plus the V2…V18 increments applied on top) was **consolidated back into a single V1**. It already contains the results of the former `V2__legacy_convergence`, the new `model_provider` / `model_price` tables, `jwt_accounts.department/name/tenant_id`, the pre-provisioned `tenant_id` on 7 tables, the `virtual_model` dimension, the `quota_ledger` unique constraint, the `security_audit.event_type` addition `DATA_SANITIZATION`, and the removal of `role_permissions`. The original `V2`…`V18` scripts were **archived** under `db-migration-archive/{h2,postgres}/` at the repository root (kept in git, no longer scanned by Flyway, not packaged into the jar) for audit only. A published V1 baseline **must never be edited** (Flyway checks checksums); future schema changes go into new **V2 / V3 …** scripts on both sides.
+
 - **Empty database**: Flyway runs `V1`, creating a schema identical to the entity model (history row: `version = 1`, `type = SQL`).
 - **Existing database** (tables present, no `flyway_schema_history`): `baseline-on-migrate=true` records it **as baseline 1 without executing** `V1` (history row: `type = BASELINE`); the database contents are left untouched.
 
-> The historical `V2` / `V3` scripts were deleted as part of #191. The reason is checkable: nothing referenced them, and `V2` was going to add five columns to `service_instance` that **no longer exist in the current model** (the rate-limit and circuit-breaker fields are now separate `instance_rate_limit` / `instance_circuit_breaker` tables).
+### Re-baselining a running instance
 
-### Legacy convergence (`V2__legacy_convergence.sql`, both dialects)
+After the merge, if a running instance's `flyway_schema_history` is still on the old version chain (V1, or V1+V2…V18) while the jar now contains only V1, starting it directly fails on a version mismatch. The recommended re-baseline procedure (exactly what this repo did for the 8080 instance on 2026-11-09):
 
-Before this change, compatibility patching for existing databases was done by two **start-up** Java components (adding missing columns, converging the JSON columns, and making `security_blacklist.expires_at` nullable). Both ran **after** Hibernate built the `EntityManagerFactory` — and that is exactly where `validate` runs — so a database with missing columns used to fail at start-up before the patches ever got a chance. **Those two components were deleted in #192**; their semantics moved into the versioned scripts, which run *before* Hibernate — strictly safer.
+1. **Stop the running instance** (make sure no connection holds the database file — critical for H2).
+2. **Drop the Flyway metadata table** so the database looks "non-empty but without a history table", which triggers `baseline-on-migrate`:
+   - H2: via the H2 Shell or `DROP TABLE IF EXISTS flyway_schema_history;` — note this is a **whole-table DROP**, not `DELETE FROM flyway_schema_history`; deleting only rows leaves the table present and Flyway will think "never migrated" and re-run V1, failing on "table already exists".
+   - PostgreSQL: `DROP TABLE IF EXISTS flyway_schema_history;`
+3. **Restart with a clean jar** (`mvnw clean package` so target/classes does not retain the removed old `V2`…`V18`) — Flyway creates the table and records baseline 1 (log: `Successfully baselined schema with version: 1`); existing tables are untouched, no `V2`…`V18` is executed, then `validate` passes and the app starts normally.
 
-- **Empty database**: `V1` has already created everything, so every step of `V2` is a no-op.
-- **Existing database** (missing columns, or on PostgreSQL `tags` / `headers` still the `text` columns added earlier): `V1` is skipped (recorded as baseline 1), `V2` adds the missing columns and converges the JSON columns to `jsonb` on PostgreSQL; `validate` then passes — **no manual preparation step is required**.
-- Every statement in both scripts is idempotent, so re-running is safe.
-
-> Version-number note: this `V2__legacy_convergence.sql` only shares a number with the deleted historical script `V2__add_rate_limit_circuit_breaker_fields.sql`; the contents are unrelated.
->
-> Verify a converged legacy database (PostgreSQL):
-> `SELECT column_name, udt_name FROM information_schema.columns WHERE table_name = 'service_instance' AND column_name IN ('tags', 'headers');`
-> Both columns should now be `jsonb`.
+> ⚠️ Key trap: `mvnw package` **incrementally overwrites** resources and does not delete old migration files that were removed from target/classes, so the jar can still contain the old `V2`…`V18` and start-up reports errors like `Duplicate column`. After renaming/moving migration scripts, **always** `mvnw clean package`.
 
 ### Why H2 still uses `update` (not `validate`)
 
 Measured on H2 2.3.232 + Hibernate 6.6: the application's default URL carries `DATABASE_TO_UPPER=FALSE`, so objects are created in **lower case** (`PUBLIC.api_call_history`), while Hibernate's schema validation looks the schema name up in the JDBC metadata with the other casing and therefore always reports `Schema-validation: missing table …`. A JDBC-metadata probe confirms it: `getTables(cat, 'PUBLIC', …)` hits, `'public'` misses, and neither `default_schema=PUBLIC` nor `jdbc_metadata_extraction_strategy=grouped` fixes it. The same scripts do work under H2's **default** case mode (measured: migration + validation + start-up, exit code 0), but switching to it would invalidate every existing lower-case H2 database and force a rebuild — a breaking change this step does not take. H2 therefore runs "Flyway versioning + Hibernate `update`": **Flyway owns table creation and legacy repair, while `update` merely keeps a drifted dev database able to start**.
 
-> ⚠️ Known limitation (unchanged from before): if a pre-v2.9.7 H2 database had its `tags` column added as `CLOB`, H2 cannot convert it to `json` in place and `V2` will not repair it (the former Java component only logged a WARN on H2 as well). Delete the H2 database file and let it be recreated.
+> ⚠️ Known limitation (unchanged from before): if a pre-v2.9.7 H2 database had its `tags` column added as `CLOB`, H2 cannot convert it to `json` in place (the V1 baseline only builds the correct `json` type for an **empty** database and will not alter pre-existing legacy columns). Delete the H2 database file and let it be recreated.
 
 ### Writing a new migration
 
-- Published scripts must **never be edited** (Flyway verifies checksums); add `V3__…` on **both** sides for schema changes (`V2` is taken by the legacy convergence).
+- Published scripts must **never be edited** (Flyway verifies checksums); add `V2__…` on **both** sides for schema changes (`V1` is the merged baseline and is published, so `V2` onwards are the new feature migrations).
 - Scripts target their own dialect (PostgreSQL uses `jsonb` / `generated by default as identity`; H2 uses `json` / `TEXT` / `enum`).
 - Concurrency: Flyway takes its own lock on `flyway_schema_history`, so when several instances start at once only one performs the migration and the others wait — already safer than every pod running DDL. Even so, having a **Kubernetes Job run the migration first** and letting application pods only `validate` is preferable (see `kubernetes.md`).
 
@@ -186,7 +184,7 @@ Measured on H2 2.3.232 + Hibernate 6.6: the application's default URL carries `D
    WHERE table_schema = 'public' ORDER BY table_name;
    ```
 
-   You should see 20 application tables (plus Flyway's own `flyway_schema_history`).
+   You should see 21 application tables (plus Flyway's own `flyway_schema_history`).
 3. **Confirm the migration ran and recorded no failure**:
 
    ```sql

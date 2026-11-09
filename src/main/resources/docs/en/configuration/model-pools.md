@@ -10,14 +10,14 @@
 
 A model pool packages a group of instances of the **same service type** into a named collection. When the client sets the request `model` field to the **pool name**, the gateway automatically distributes requests across healthy members inside the pool — the client never references concrete backends.
 
-- Config file: `config/router/pools.yml`, bound to prefix `model.pools` (default empty list `[]`; without pools the routing behavior is unchanged)
+- Config prefix: `model.pools` (default empty list `[]`; without pools the routing behavior is unchanged). The former default file `config/router/pools.yml` was removed on 2026-11-09; to define pools in YAML, use `application-{profile}.yml` or an external mount.
 - Persistence: pools created/edited in the admin UI are persisted to StoreManager (key=`pool_definitions`) and merged over YAML (same `pool-name`: persisted wins)
 - Special pool name `auto-model`: when no such pool is configured, `model=auto-model` falls back to **all healthy instances** of that service type; once a pool of that name exists, the pool definition applies
 
 ## Configuration Structure
 
 ```yaml
-# config/router/pools.yml
+# application-{profile}.yml or external mount
 model:
   pools:
     - pool-name: auto-model        # pool name (the virtual model name clients put in `model`)
@@ -131,7 +131,7 @@ A pool can carry a **shared budget** (all API keys share one budget), across min
 - Usage query: `GET /api/config/pools/{poolName}/quota/usage`
 - Manual reset: `POST /api/config/pools/{poolName}/quota/reset`
 
-> Pool quotas live in the runtime quota ledger. When the multi-dimensional ledger is enabled (`jairouter.quota.enabled`), the pool dimension is one aggregation view. See [Quota Ledger](quota.md).
+> Pool quotas live in the runtime quota ledger. When the multi-dimensional ledger is enabled (`trunkline.quota.enabled`), the pool dimension is one aggregation view. See [Quota Ledger](quota.md).
 
 ## Known Boundaries
 

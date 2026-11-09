@@ -14,10 +14,10 @@ Trunkline provides six load balancing strategies, configurable at global, servic
 Since v2.8.x, Trunkline uses a modular configuration structure. Load balancing lives in its own files:
 
 - Main config: `application.yml`
-- Load balancing config: `config/router/loadbalancer.yml`
+- Load balancing config: the former `config/router/loadbalancer.yml` was removed on 2026-11-09; defaults live in code (`ModelRouterProperties` / `RoutingMonitorConfig`). Override via `application-{profile}.yml` or external mount.
 - Service instance config: `config/router/services.yml`
 
-Global load balancing settings (`model.load-balance.*`) and routing-monitor settings (`trunkline.loadbalancer.routing-monitor.*`) live in `config/router/loadbalancer.yml`; per-service instances and weights live in `config/router/services.yml`.
+Global load balancing settings use `model.load-balance.*` keys and routing-monitor settings use `trunkline.loadbalancer.routing-monitor.*`; per-service instances and weights live in `config/router/services.yml`.
 
 ## Load Balancing Overview
 
@@ -54,10 +54,10 @@ graph TB
 
 ### Basic Configuration
 
-Configure the global strategy in `config/router/loadbalancer.yml`:
+Global load balancing defaults live in code (the former `config/router/loadbalancer.yml` was removed); override via any higher-priority configuration source:
 
 ```yaml
-# config/router/loadbalancer.yml
+# application-{profile}.yml or external mount
 model:
   # Global
   load-balance:

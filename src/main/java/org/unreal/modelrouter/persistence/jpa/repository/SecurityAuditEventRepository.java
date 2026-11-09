@@ -73,16 +73,22 @@ public interface SecurityAuditEventRepository extends JpaRepository<SecurityAudi
 
     // ========== 多条件组合查询 ==========
 
+    // ⚠️ 可空参数必须 cast 显式定型（issue：PG 42P18）。
+    // `(:x IS NULL OR ...)` 在 PostgreSQL 上会因无类型参数报
+    // 「无法确定参数 $1 的数据类型」（H2/MySQL 容忍，PG 不行）；
+    // cast 后 Hibernate 以目标类型绑定（含 null 的 setNull），两种库都可用。
+    // :eventTypes 为集合参数无法 cast——IS NULL 子句已删除，调用方须传
+    // 非空列表（null/空 = 不过滤，传 AuditEventType.values() 全集）。
     @Query("SELECT e FROM SecurityAuditEventEntity e WHERE "
-           + "(:startTime IS NULL OR e.timestamp >= :startTime) AND "
-           + "(:endTime IS NULL OR e.timestamp <= :endTime) AND "
-           + "(:eventTypes IS NULL OR e.eventType IN :eventTypes) AND "
-           + "(:userId IS NULL OR e.userId = :userId) AND "
-           + "(:resourceId IS NULL OR e.resourceId = :resourceId) AND "
-           + "(:clientIp IS NULL OR e.clientIp = :clientIp) AND "
-           + "(:success IS NULL OR e.success = :success) AND "
-           + "(:eventCategory IS NULL OR e.eventCategory = :eventCategory) AND "
-           + "(:riskLevel IS NULL OR e.riskLevel = :riskLevel) "
+           + "(cast(:startTime as timestamp) IS NULL OR e.timestamp >= :startTime) AND "
+           + "(cast(:endTime as timestamp) IS NULL OR e.timestamp <= :endTime) AND "
+           + "e.eventType IN :eventTypes AND "
+           + "(cast(:userId as string) IS NULL OR e.userId = :userId) AND "
+           + "(cast(:resourceId as string) IS NULL OR e.resourceId = :resourceId) AND "
+           + "(cast(:clientIp as string) IS NULL OR e.clientIp = :clientIp) AND "
+           + "(cast(:success as boolean) IS NULL OR e.success = :success) AND "
+           + "(cast(:eventCategory as string) IS NULL OR e.eventCategory = :eventCategory) AND "
+           + "(cast(:riskLevel as string) IS NULL OR e.riskLevel = :riskLevel) "
            + "ORDER BY e.timestamp DESC")
     Page<SecurityAuditEventEntity> findByConditions(
             @Param("startTime") LocalDateTime startTime,
@@ -97,15 +103,15 @@ public interface SecurityAuditEventRepository extends JpaRepository<SecurityAudi
             Pageable pageable);
 
     @Query("SELECT COUNT(e) FROM SecurityAuditEventEntity e WHERE "
-           + "(:startTime IS NULL OR e.timestamp >= :startTime) AND "
-           + "(:endTime IS NULL OR e.timestamp <= :endTime) AND "
-           + "(:eventTypes IS NULL OR e.eventType IN :eventTypes) AND "
-           + "(:userId IS NULL OR e.userId = :userId) AND "
-           + "(:resourceId IS NULL OR e.resourceId = :resourceId) AND "
-           + "(:clientIp IS NULL OR e.clientIp = :clientIp) AND "
-           + "(:success IS NULL OR e.success = :success) AND "
-           + "(:eventCategory IS NULL OR e.eventCategory = :eventCategory) AND "
-           + "(:riskLevel IS NULL OR e.riskLevel = :riskLevel)")
+           + "(cast(:startTime as timestamp) IS NULL OR e.timestamp >= :startTime) AND "
+           + "(cast(:endTime as timestamp) IS NULL OR e.timestamp <= :endTime) AND "
+           + "e.eventType IN :eventTypes AND "
+           + "(cast(:userId as string) IS NULL OR e.userId = :userId) AND "
+           + "(cast(:resourceId as string) IS NULL OR e.resourceId = :resourceId) AND "
+           + "(cast(:clientIp as string) IS NULL OR e.clientIp = :clientIp) AND "
+           + "(cast(:success as boolean) IS NULL OR e.success = :success) AND "
+           + "(cast(:eventCategory as string) IS NULL OR e.eventCategory = :eventCategory) AND "
+           + "(cast(:riskLevel as string) IS NULL OR e.riskLevel = :riskLevel)")
     long countByConditions(
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime,
@@ -167,10 +173,10 @@ public interface SecurityAuditEventRepository extends JpaRepository<SecurityAudi
 
     @Query("SELECT e FROM SecurityAuditEventEntity e WHERE "
            + "e.eventType IN :jwtEventTypes "
-           + "AND (:startTime IS NULL OR e.timestamp >= :startTime) AND "
-           + "(:endTime IS NULL OR e.timestamp <= :endTime) AND "
-           + "(:userId IS NULL OR e.userId = :userId) AND "
-           + "(:resourceId IS NULL OR e.resourceId = :resourceId) "
+           + "AND (cast(:startTime as timestamp) IS NULL OR e.timestamp >= :startTime) AND "
+           + "(cast(:endTime as timestamp) IS NULL OR e.timestamp <= :endTime) AND "
+           + "(cast(:userId as string) IS NULL OR e.userId = :userId) AND "
+           + "(cast(:resourceId as string) IS NULL OR e.resourceId = :resourceId) "
            + "ORDER BY e.timestamp DESC")
     Page<SecurityAuditEventEntity> findJwtTokenEvents(
             @Param("jwtEventTypes") List<AuditEventType> jwtEventTypes,
@@ -184,10 +190,10 @@ public interface SecurityAuditEventRepository extends JpaRepository<SecurityAudi
 
     @Query("SELECT e FROM SecurityAuditEventEntity e WHERE "
            + "e.eventType IN :apiKeyEventTypes "
-           + "AND (:startTime IS NULL OR e.timestamp >= :startTime) AND "
-           + "(:endTime IS NULL OR e.timestamp <= :endTime) AND "
-           + "(:userId IS NULL OR e.userId = :userId) AND "
-           + "(:resourceId IS NULL OR e.resourceId = :resourceId) "
+           + "AND (cast(:startTime as timestamp) IS NULL OR e.timestamp >= :startTime) AND "
+           + "(cast(:endTime as timestamp) IS NULL OR e.timestamp <= :endTime) AND "
+           + "(cast(:userId as string) IS NULL OR e.userId = :userId) AND "
+           + "(cast(:resourceId as string) IS NULL OR e.resourceId = :resourceId) "
            + "ORDER BY e.timestamp DESC")
     Page<SecurityAuditEventEntity> findApiKeyEvents(
             @Param("apiKeyEventTypes") List<AuditEventType> apiKeyEventTypes,
@@ -201,10 +207,10 @@ public interface SecurityAuditEventRepository extends JpaRepository<SecurityAudi
 
     @Query("SELECT e FROM SecurityAuditEventEntity e WHERE "
            + "e.eventType IN :securityEventTypes "
-           + "AND (:startTime IS NULL OR e.timestamp >= :startTime) AND "
-           + "(:endTime IS NULL OR e.timestamp <= :endTime) AND "
-           + "(:userId IS NULL OR e.userId = :userId) AND "
-           + "(:clientIp IS NULL OR e.clientIp = :clientIp) "
+           + "AND (cast(:startTime as timestamp) IS NULL OR e.timestamp >= :startTime) AND "
+           + "(cast(:endTime as timestamp) IS NULL OR e.timestamp <= :endTime) AND "
+           + "(cast(:userId as string) IS NULL OR e.userId = :userId) AND "
+           + "(cast(:clientIp as string) IS NULL OR e.clientIp = :clientIp) "
            + "ORDER BY e.timestamp DESC")
     Page<SecurityAuditEventEntity> findSecurityEvents(
             @Param("securityEventTypes") List<AuditEventType> securityEventTypes,
