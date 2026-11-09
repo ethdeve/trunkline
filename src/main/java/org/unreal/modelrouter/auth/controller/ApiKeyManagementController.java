@@ -50,6 +50,16 @@ import org.unreal.modelrouter.common.exception.ApiExceptions;
  * 3. 仅在创建时返回原始 keyValue
  * 4. 支持 IP 白名单和每日请求限制
  * 5. 支持密钥轮换机制和创建者信息记录
+ *
+ * <p><b>授权分层（2026-11-09 一致性修正）</b>：URL 层由
+ * {@code FixedRoleAccessPolicy} 把 {@code /api/auth/api-keys/**} 定为 OPS
+ * （「全部密钥」菜单对运维可见）。此前本类所有全局端点的方法级注解仍是
+ * {@code hasRole('ADMIN')}，导致 OPERATOR 在 URL 层放行后又被方法层拦下 403，
+ * 菜单承诺与真实权限不一致。现统一为 {@code hasAnyRole('OPERATOR','ADMIN')}，
+ * 与 URL 矩阵、前端菜单、权限码 {@code security:apikeys:manage} → ops 对齐。</p>
+ *
+ * <p>自助端点 {@code /mine}、{@code /mine/{keyId}/reveal} 仍为 SELF
+ * （三角色皆可用），归属由服务端从 principal 强制解析，且必须登记在 OPS 通配规则之前。</p>
  */
 @Slf4j
 @RestController
@@ -67,7 +77,7 @@ public class ApiKeyManagementController {
      */
     @GetMapping
     @Operation(summary = "获取所有API密钥", description = "获取系统中所有API密钥的信息（不包含实际密钥值）")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<ApiKeyListVO>> getAllApiKeys() {
         return apiKeyService.getAllApiKeysVO()
                 .map(list -> RouterResponse.success(list, "获取API密钥列表成功"))
@@ -133,7 +143,7 @@ public class ApiKeyManagementController {
      */
     @GetMapping("/{keyId}")
     @Operation(summary = "获取指定API密钥信息", description = "根据API密钥ID获取详细信息（不包含实际的密钥值）")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<ApiKeyVO>> getApiKeyById(
             @Parameter(description = "API密钥ID") @PathVariable("keyId") final String keyId) {
         return apiKeyService.getApiKeyByIdVO(keyId)
@@ -151,7 +161,7 @@ public class ApiKeyManagementController {
     @PostMapping
     @Operation(summary = "创建新的API密钥",
                description = "创建一个新的API密钥，返回的密钥值仅此一次显示，请妥善保存")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<ApiKeyCreationVO>> createApiKey(
             @Parameter(description = "API密钥创建请求")
             @Valid @RequestBody final ApiKeyCreateRequest request,
@@ -185,7 +195,7 @@ public class ApiKeyManagementController {
     @PutMapping("/{keyId}")
     @Operation(summary = "更新API密钥",
                description = "更新指定API密钥的信息（不包含密钥值，密钥值不可更新）")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<ApiKeyVO>> updateApiKey(
             @Parameter(description = "API密钥ID") @PathVariable("keyId") final String keyId,
             @Parameter(description = "API密钥更新请求")
@@ -218,7 +228,7 @@ public class ApiKeyManagementController {
      */
     @DeleteMapping("/{keyId}")
     @Operation(summary = "删除API密钥", description = "删除指定的API密钥")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<Void>> deleteApiKey(
             @Parameter(description = "API密钥ID") @PathVariable("keyId") final String keyId) {
         return apiKeyService.deleteApiKey(keyId)
@@ -238,7 +248,7 @@ public class ApiKeyManagementController {
      */
     @PatchMapping("/{keyId}/disable")
     @Operation(summary = "禁用API密钥", description = "禁用指定的API密钥")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<ApiKeyVO>> disableApiKey(
             @Parameter(description = "API密钥ID") @PathVariable("keyId") final String keyId) {
         return apiKeyService.disableApiKey(keyId)
@@ -254,7 +264,7 @@ public class ApiKeyManagementController {
      */
     @PatchMapping("/{keyId}/enable")
     @Operation(summary = "启用API密钥", description = "启用指定的API密钥")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<ApiKeyVO>> enableApiKey(
             @Parameter(description = "API密钥ID") @PathVariable("keyId") final String keyId) {
         return apiKeyService.enableApiKey(keyId)
@@ -272,7 +282,7 @@ public class ApiKeyManagementController {
     @PostMapping("/{keyId}/reset")
     @Operation(summary = "重置API密钥",
                description = "重置API密钥值，旧的密钥值将失效，新的密钥值仅此一次显示")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<ApiKeyCreationVO>> resetApiKey(
             @Parameter(description = "API密钥ID") @PathVariable("keyId") final String keyId,
             final Authentication authentication) {
@@ -323,10 +333,13 @@ public class ApiKeyManagementController {
     @PostMapping("/{keyId}/rotate")
     @Operation(summary = "强制轮换API密钥",
                description = "强制轮换API密钥值，旧的密钥值将失效，新的密钥值仅此一次显示")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<ApiKeyCreationVO>> forceRotateApiKey(
-            @Parameter(description = "API密钥ID") @PathVariable("keyId") final String keyId) {
-        return apiKeyService.forceRotateKey(keyId, "admin")
+            @Parameter(description = "API密钥ID") @PathVariable("keyId") final String keyId,
+            final Authentication authentication) {
+        // 运维/管理员都可轮换，审计里的操作人必须取真实登录主体，不能硬编码 "admin"
+        final String by = authentication != null ? authentication.getName() : "system";
+        return apiKeyService.forceRotateKey(keyId, by)
                 .map(vo -> RouterResponse.success(vo,
                         "密钥轮换成功，持有人可在「我的密钥」中查看并复制新的密钥值"))
                 .onErrorResume(e -> {
@@ -343,7 +356,7 @@ public class ApiKeyManagementController {
     @GetMapping("/export")
     @Operation(summary = "批量导出API密钥",
                description = "导出所有API密钥的配置信息（不包含密钥值），可用于备份或迁移")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<ApiKeyBatchExportVO>> exportApiKeys() {
         return apiKeyService.exportApiKeys()
                 .map(vo -> RouterResponse.success(vo, "导出API密钥配置成功"))
@@ -362,11 +375,14 @@ public class ApiKeyManagementController {
     @PostMapping("/import")
     @Operation(summary = "批量导入API密钥",
                description = "批量导入API密钥配置，导入时会为每个密钥生成新的密钥值")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<ApiKeyBatchImportResult>> importApiKeys(
             @Parameter(description = "API密钥批量导入请求")
-            @Valid @RequestBody final ApiKeyBatchImportRequest request) {
-        return apiKeyService.importApiKeys(request, "admin", null)
+            @Valid @RequestBody final ApiKeyBatchImportRequest request,
+            final Authentication authentication) {
+        // 同上：审计操作人取真实登录主体
+        final String by = authentication != null ? authentication.getName() : "system";
+        return apiKeyService.importApiKeys(request, by, null)
                 .map(result -> {
                     String message = String.format("批量导入完成：成功 %d，失败 %d",
                             result.getSuccessCount(), result.getFailureCount());
@@ -386,7 +402,7 @@ public class ApiKeyManagementController {
     @GetMapping("/{keyId}/quota")
     @Operation(summary = "获取API密钥配额详情",
                description = "获取指定API密钥的配额使用情况，包括请求/Token使用量和速率")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<ApiKeyQuotaService.QuotaUsageDetail>> getApiKeyQuota(
             @Parameter(description = "API密钥ID") @PathVariable("keyId") final String keyId) {
         return Mono.fromCallable(() -> apiKeyQuotaService.getQuotaUsage(keyId))
@@ -404,7 +420,7 @@ public class ApiKeyManagementController {
     @PostMapping("/{keyId}/quota/reset")
     @Operation(summary = "重置API密钥每日配额",
                description = "重置指定API密钥的每日请求和Token使用计数器")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<Void>> resetApiKeyQuota(
             @Parameter(description = "API密钥ID") @PathVariable("keyId") final String keyId) {
         // 配额服务内部会 block()（管理面同步语义），必须把执行切到 boundedElastic：
@@ -425,7 +441,7 @@ public class ApiKeyManagementController {
     @PutMapping("/{keyId}/quota")
     @Operation(summary = "更新API密钥配额",
                description = "仅更新每日请求/Token上限、每分钟速率与告警阈值；0 表示不限制")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<ApiKeyQuotaService.QuotaUsageDetail>> updateApiKeyQuota(
             @Parameter(description = "API密钥ID") @PathVariable("keyId") final String keyId,
             @RequestBody final org.unreal.modelrouter.auth.security.dto.ApiKeyUpdateRequest request) {
@@ -447,7 +463,7 @@ public class ApiKeyManagementController {
     @PostMapping("/quota/batch-reset")
     @Operation(summary = "批量重置API密钥配额",
                description = "按 keyIds 批量重置每日配额与速率计数；不存在的 Key 会被跳过")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<Map<String, Object>>> batchResetQuota(
             @RequestBody final Map<String, List<String>> body) {
         final List<String> keyIds = body == null ? null : body.get("keyIds");
@@ -470,7 +486,7 @@ public class ApiKeyManagementController {
     @PostMapping("/quota/reset-all")
     @Operation(summary = "重置全部API密钥配额",
                description = "重置所有 API Key 的每日请求/Token 计数与速率限制")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<Void>> resetAllQuota() {
         // 同上：resetAllDailyQuotas 内部逐 key block()，必须离开订阅线程
         return Mono.fromRunnable(() -> apiKeyQuotaService.resetAllDailyQuotas())
@@ -488,7 +504,7 @@ public class ApiKeyManagementController {
     @GetMapping("/quota/alerts")
     @Operation(summary = "获取配额告警列表",
                description = "获取所有触发了配额告警阈值的API密钥")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<List<ApiKeyQuotaService.QuotaAlertInfo>>> getQuotaAlerts() {
         return Mono.fromCallable(apiKeyQuotaService::getAlerts)
                 .map(alerts -> RouterResponse.success(alerts, "获取配额告警列表成功"))
@@ -504,7 +520,7 @@ public class ApiKeyManagementController {
     @GetMapping("/quota/overview")
     @Operation(summary = "获取配额使用概览",
                description = "获取所有API密钥的配额使用情况概览")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public Mono<RouterResponse<List<ApiKeyQuotaService.QuotaUsageDetail>>> getQuotaOverview() {
         return Mono.fromCallable(apiKeyQuotaService::getAllQuotaUsage)
                 .map(overview -> RouterResponse.success(overview, "获取配额概览成功"))

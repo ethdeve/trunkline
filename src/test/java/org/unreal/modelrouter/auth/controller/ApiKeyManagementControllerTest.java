@@ -275,7 +275,7 @@ class ApiKeyManagementControllerTest {
             when(apiKeyService.forceRotateKey(anyString(), anyString())).thenReturn(Mono.just(testCreationVO));
 
             // When
-            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.forceRotateApiKey("key-001");
+            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.forceRotateApiKey("key-001", null);
 
             // Then
             StepVerifier.create(result)
@@ -332,7 +332,7 @@ class ApiKeyManagementControllerTest {
             when(apiKeyService.importApiKeys(any(), anyString(), any())).thenReturn(Mono.just(resultVO));
 
             // When
-            Mono<RouterResponse<ApiKeyBatchImportResult>> result = controller.importApiKeys(request);
+            Mono<RouterResponse<ApiKeyBatchImportResult>> result = controller.importApiKeys(request, null);
 
             // Then
             StepVerifier.create(result)

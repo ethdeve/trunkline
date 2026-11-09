@@ -345,7 +345,7 @@ public class JwtTokenController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "权限不足")
     })
-    @PreAuthorize("hasRole('ADMIN') or (hasRole('USER') and #userId == authentication.name)")
+    @PreAuthorize("hasRole('ADMIN') or (hasAnyRole('USER','OPERATOR') and #userId == authentication.name)")
     public Mono<RouterResponse<PagedResult<JwtTokenInfo>>> getTokens(
             @Parameter(description = "页码，从0开始")
             @RequestParam(defaultValue = "0") final int page,

@@ -3,7 +3,9 @@ package org.unreal.modelrouter.monitor.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -14,6 +16,7 @@ import org.unreal.modelrouter.auth.security.quota.QuotaLedgerService;
 import org.unreal.modelrouter.auth.security.quota.QuotaProperties;
 import org.unreal.modelrouter.auth.security.quota.QuotaUsage;
 import org.unreal.modelrouter.auth.security.quota.QuotaWindow;
+import org.unreal.modelrouter.auth.security.service.ApiKeyService;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -54,6 +57,7 @@ public class QuotaMonitoringController {
     private final QuotaLedgerService ledgerService;
     private final QuotaProperties quotaProperties;
     private final QuotaCounterMetrics metrics;
+    private final ApiKeyService apiKeyService;
 
     /**
      * 构造配额监控控制器.
@@ -61,13 +65,16 @@ public class QuotaMonitoringController {
      * @param ledgerService   配额账本服务
      * @param quotaProperties 配额配置
      * @param metrics         配额计数指标
+     * @param apiKeyService   API Key 归属查询（仅「我的密钥」自助端点使用）
      */
     public QuotaMonitoringController(final QuotaLedgerService ledgerService,
                                      final QuotaProperties quotaProperties,
-                                     final QuotaCounterMetrics metrics) {
+                                     final QuotaCounterMetrics metrics,
+                                     final ApiKeyService apiKeyService) {
         this.ledgerService = ledgerService;
         this.quotaProperties = quotaProperties;
         this.metrics = metrics;
+        this.apiKeyService = apiKeyService;
     }
 
     /**
@@ -167,6 +174,51 @@ public class QuotaMonitoringController {
         return Mono.fromCallable(() ->
                         doGetUsage(tenantId, apiKeyId, userId, serviceType, model, groupId, window))
                 .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * 「我的密钥」自助用量查询（员工侧「本月已用」）。
+     *
+     * <p>通用 {@code /usage} 端点支持任意维度组合、不做属主校验，属于运维/管理员的
+     * 观测面（权限矩阵 OPS）；员工页面若直接调用会 403。本端点只接受
+     * {@code apiKeyId + window}，并在服务端校验该密钥的有效持有人
+     * （{@code holder || createdBy}）必须等于当前登录用户名，其余维度一律置空串哨兵，
+     * 无法借它查询跨员工聚合、分组或他人用量。</p>
+     *
+     * <p>查询逻辑复用 {@link #doGetUsage}，响应契约与全局端点完全一致（只读）。</p>
+     *
+     * @param apiKeyId       本人名下 API Key ID（必填）
+     * @param window         窗口类型（可选，如 MONTH；缺省返回所有已启用窗口）
+     * @param authentication 当前登录主体（由 Spring Security 注入，不信任前端传参）
+     * @return 用量列表；非本人密钥返回 403
+     */
+    @GetMapping("/mine/usage")
+    @Operation(summary = "查询我的密钥用量",
+            description = "仅可查询当前登录用户名下的 API Key 用量（只读），按属主强制校验；"
+                    + "响应契约与 /usage 一致")
+    public Mono<ResponseEntity<RouterResponse<List<Map<String, Object>>>>> getMyUsage(
+            @RequestParam final String apiKeyId,
+            @RequestParam(required = false) final String window,
+            final Authentication authentication) {
+        return Mono.fromCallable(() -> doGetMyUsage(apiKeyId, window, authentication))
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * 自助用量查询的实际实现：先做属主校验，再复用精确维度查数。
+     */
+    private ResponseEntity<RouterResponse<List<Map<String, Object>>>> doGetMyUsage(
+            final String apiKeyId,
+            final String window,
+            final Authentication authentication) {
+        final String owner = authentication != null ? authentication.getName() : null;
+        if (owner == null || owner.isBlank()
+                || apiKeyService == null || !apiKeyService.isOwnedBy(owner, apiKeyId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(RouterResponse.error("无权查询该密钥的用量", "FORBIDDEN"));
+        }
+        // 只放行 apiKeyId 一个维度：其余维度置空，避免自助端点退化成跨员工观测面
+        return doGetUsage(null, apiKeyId, null, null, null, null, window);
     }
 
     /**

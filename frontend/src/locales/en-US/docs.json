@@ -2,6 +2,7 @@
   "docs": {
     "title": "Help Center",
     "notFound": "This help page was not found — pick a topic from the sidebar",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "langHint": "Language follows the site-wide setting; switching updates every page"
   }
 }

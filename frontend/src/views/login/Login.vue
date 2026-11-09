@@ -5,11 +5,11 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { useI18n } from 'vue-i18n'
+import { useLocale } from '@/composables/useLocale'
 
 const router = useRouter()
 const userStore = useUserStore()
-const { locale } = useI18n()
+const { locale, setLocale } = useLocale()
 
 const form = reactive({ username: '', password: '' })
 const loading = ref(false)
@@ -57,8 +57,7 @@ async function onSubmit() {
 
 function switchLocale() {
   const next = locale.value === 'zh-CN' ? 'en-US' : 'zh-CN'
-  locale.value = next
-  localStorage.setItem('ja-locale', next)
+  setLocale(next)
 }
 </script>
 

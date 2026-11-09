@@ -3,14 +3,16 @@
  * ConsoleLayout：双栏导航 + 顶栏 + 内容区 + 命令面板（一期骨架）
  * - 菜单数据驱动渲染（config/menu.ts 方案 A 12 项），按权限过滤
  * - 浅色双栏随主题，替代旧 sidebar 深色渐变硬编码
- * - 顶栏：折叠钮 / 命令面板触发 / 主题切换 / 帮助文档 / 用户菜单
+ * - 顶栏：折叠钮 / 命令面板触发 / 主题切换 / 语言切换 / 帮助文档 / 用户菜单
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { menuGroups } from '@/config/menu'
+import type { LogicalRole } from '@/config/menu'
 import { usePermission } from '@/composables/usePermission'
 import { useTheme } from '@/composables/useTheme'
+import { useLocale } from '@/composables/useLocale'
 import { useUserStore } from '@/stores/user'
 import { useDeploymentStore } from '@/stores/deployment'
 import { getApiKeys, getQuotaAlerts } from '@/api/apiKey'
@@ -25,6 +27,18 @@ const userStore = useUserStore()
 const deployment = useDeploymentStore()
 const { hasPermission, filterMenuByPermission } = usePermission()
 const { isDark, toggleTheme } = useTheme()
+const { locale: appLocale, setLocale } = useLocale()
+
+/**
+ * 顶栏语言切换：全局唯一语言源就是 vue-i18n 的 locale（持久化在 localStorage）。
+ * 帮助文档不再自己维护 lang，而是从这里派生；因此在控制台任意页面切换语言，
+ * 帮助中心（含正在打开的帮助页）会立即跟着变，不需要再进帮助页单独切一次。
+ */
+const isZh = computed(() => appLocale.value === 'zh-CN')
+const langShortLabel = computed(() => (isZh.value ? t('topbar.langShortZh') : t('topbar.langShortEn')))
+function toggleLocale() {
+  setLocale(isZh.value ? 'en-US' : 'zh-CN')
+}
 
 /**
  * 顶栏部署标识（S4）：仅运维/管理员可见，单机部署下为空字符串。
@@ -56,10 +70,26 @@ const activeGroup = computed(() => filteredGroups.value.find(g => g.children.som
 const username = computed(() => userStore.userInfo?.username || '')
 
 /* ---------- 菜单徽标（U1-2）：密钥即将过期数量 + 观测告警红点 ---------- */
+/**
+ * 两个数据源都是「全局视图」：GET /api/auth/api-keys（全员密钥）与
+ * GET /api/auth/api-keys/quota/alerts（全员配额告警，含他人 keyId / 描述 / 用量）。
+ * 后端固定矩阵把 /api/auth/api-keys/** 定为 OPS，控制器方法级注解自 2026-11-09 起
+ * 同为 OPERATOR+ADMIN（此前仅 ADMIN，导致运维 403，见权限一致性修正）；
+ * 徽标也只挂在 /all-keys 与 /observability —— 员工菜单里没有这两项。
+ *
+ * 因此员工调用只会拿到 403、结果也无处展示。这里按角色直接跳过，避免每 60 秒
+ * 产生两次无谓的 403 请求；员工自助视图走 /mine 系列端点（服务端强制按属主过滤）。
+ */
 const expiringKeysCount = ref(0)
 const quotaAlertCount = ref(0)
 let badgeTimer: ReturnType<typeof setInterval> | null = null
 async function loadNavBadges() {
+  const canReadGlobalKeys = userStore.hasLogicalRoleOneOf(['ops', 'admin'] as LogicalRole[])
+  if (!canReadGlobalKeys) {
+    expiringKeysCount.value = 0
+    quotaAlertCount.value = 0
+    return
+  }
   try {
     const [keys, alerts] = await Promise.all([
       getApiKeys().catch(() => null),
@@ -183,14 +213,11 @@ async function onLogout() {
 
         <!-- 租户切换器占位（S2 任务 42）：社区版只显示「默认租户」且禁用；
              商业版多租户解锁后由 enterprise 配置驱动出现真实切换器 -->
-        <el-tooltip
-          content="当前部署为社区版（单租户）。多租户管理是商业版能力，解锁后可在此切换租户"
-          placement="bottom"
-        >
+        <el-tooltip :content="t('topbar.tenantTip')" placement="bottom">
           <div class="topbar-tenant topbar-tenant--locked">
             <el-icon :size="14"><OfficeBuilding /></el-icon>
-            <span>默认租户</span>
-            <el-tag size="small" type="info" effect="plain">商业版</el-tag>
+            <span>{{ t('topbar.tenant') }}</span>
+            <el-tag size="small" type="info" effect="plain">{{ t('topbar.enterprise') }}</el-tag>
           </div>
         </el-tooltip>
 
@@ -198,8 +225,8 @@ async function onLogout() {
         <el-tooltip
           v-if="showClusterBadge"
           :content="deployment.hasSharedStateGap
-            ? '多副本部署，但有跨副本共享态未开启，副本间数据可能不一致。到「状态监控」查看详情'
-            : '多副本部署：页面上的实时计数通常只含当前副本'"
+            ? t('topbar.clusterTipGap')
+            : t('topbar.clusterTipOk')"
           placement="bottom"
         >
           <el-tag
@@ -216,23 +243,48 @@ async function onLogout() {
 
         <div class="palette-trigger" @click="paletteVisible = true">
           <el-icon><Search /></el-icon>
-          <span>搜索</span>
+          <span>{{ t('topbar.search') }}</span>
           <el-tag size="small" type="info" effect="plain">Ctrl K</el-tag>
         </div>
 
-        <el-tooltip content="接入指南">
+        <el-tooltip :content="t('topbar.guide')">
           <el-button text @click="router.push('/guide')">
             <el-icon :size="16"><QuestionFilled /></el-icon>
           </el-button>
         </el-tooltip>
 
-        <el-tooltip :content="isDark ? '切亮色' : '切暗色'">
+        <el-tooltip :content="isDark ? t('topbar.themeToLight') : t('topbar.themeToDark')">
           <el-button text @click="toggleTheme">
             <el-icon :size="16"><Moon v-if="!isDark" /><Sunny v-else /></el-icon>
           </el-button>
         </el-tooltip>
 
-        <el-tooltip content="帮助中心">
+        <!-- 中英文切换：位置紧跟主题切换图标，切换的是全局 locale（帮助文档同步跟随） -->
+        <el-tooltip :content="isZh ? t('topbar.switchToEn') : t('topbar.switchToZh')">
+          <el-button text class="topbar-lang" @click="toggleLocale">
+            <el-icon :size="16">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m5 8 6 6" />
+                <path d="m4 14 6-6 2-3" />
+                <path d="M2 5h12" />
+                <path d="M7 2h1" />
+                <path d="m22 22-5-10-5 10" />
+                <path d="M14 18h6" />
+              </svg>
+            </el-icon>
+            <span class="topbar-lang__label">{{ langShortLabel }}</span>
+          </el-button>
+        </el-tooltip>
+
+        <el-tooltip :content="t('topbar.help')">
           <el-button text @click="router.push('/docs')">
             <el-icon :size="16"><Reading /></el-icon>
           </el-button>
@@ -246,7 +298,7 @@ async function onLogout() {
             <el-dropdown-menu>
               <el-dropdown-item disabled>{{ username }}</el-dropdown-item>
               <el-dropdown-item divided @click="onLogout">
-                <el-icon><SwitchButton /></el-icon>退出登录
+                <el-icon><SwitchButton /></el-icon>{{ t('topbar.logout') }}
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -391,5 +443,21 @@ async function onLogout() {
   display: flex;
   align-items: center;
   cursor: pointer;
+}
+
+/* 语言切换：图标 + 当前语言短标（中 / EN），宽度与相邻图标按钮接近 */
+.topbar-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.topbar-lang__label {
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
 }
 </style>

@@ -1,0 +1,19 @@
+{
+  "topbar": {
+    "search": "搜索",
+    "guide": "接入指南",
+    "help": "帮助中心",
+    "themeToDark": "切换到暗色",
+    "themeToLight": "切换到亮色",
+    "switchToEn": "切换到 English",
+    "switchToZh": "切换到中文",
+    "langShortZh": "中",
+    "langShortEn": "EN",
+    "logout": "退出登录",
+    "tenant": "默认租户",
+    "enterprise": "商业版",
+    "tenantTip": "当前部署为社区版（单租户）。多租户管理是商业版能力，解锁后可在此切换租户",
+    "clusterTipOk": "多副本部署：页面上的实时计数通常只含当前副本",
+    "clusterTipGap": "多副本部署，但有跨副本共享态未开启，副本间数据可能不一致。到「状态监控」查看详情"
+  }
+}

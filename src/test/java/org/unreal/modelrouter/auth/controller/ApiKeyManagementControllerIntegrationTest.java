@@ -459,14 +459,16 @@ class ApiKeyManagementControllerIntegrationTest {
                     .thenReturn(Mono.just(rotatedVO));
 
             // When
-            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.forceRotateApiKey(TEST_KEY_ID);
+            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.forceRotateApiKey(TEST_KEY_ID, null);
 
             // Then
             StepVerifier.create(result)
                     .assertNext(response -> {
                         assertTrue(response.isSuccess());
                         assertEquals("sk-new-rotated-key", response.getData().getKeyValue());
-                        assertTrue(response.getMessage().contains("请妥善保存新的密钥值"));
+                        // 控制器实际文案（2026-11 产品化）：持有人到「我的密钥」自行取回明文，
+                        // 旧断言写的是创建密钥时的「请妥善保存新的密钥值」，与实现不符导致存量红测
+                        assertTrue(response.getMessage().contains("持有人可在「我的密钥」中查看并复制新的密钥值"));
                     })
                     .verifyComplete();
         }
@@ -479,7 +481,7 @@ class ApiKeyManagementControllerIntegrationTest {
                     .thenReturn(Mono.error(new RuntimeException("API Key not found")));
 
             // When
-            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.forceRotateApiKey("nonexistent");
+            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.forceRotateApiKey("nonexistent", null);
 
             // Then
             // issue #94: INTERNAL_ERROR -> 500，链路以 ApiException 结束。
@@ -561,7 +563,7 @@ class ApiKeyManagementControllerIntegrationTest {
                     .thenReturn(Mono.just(resultVO));
 
             // When
-            Mono<RouterResponse<ApiKeyBatchImportResult>> result = controller.importApiKeys(request);
+            Mono<RouterResponse<ApiKeyBatchImportResult>> result = controller.importApiKeys(request, null);
 
             // Then
             StepVerifier.create(result)

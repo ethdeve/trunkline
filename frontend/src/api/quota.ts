@@ -177,3 +177,25 @@ export const getQuotaUsage = async (query: QuotaUsageQuery): Promise<QuotaUsageI
     return []
   }
 }
+
+/**
+ * 查询「我的密钥」的用量（员工自助端点）
+ * GET /api/monitoring/quota/mine/usage?apiKeyId=&window=MONTH
+ *
+ * <p>与 getQuotaUsage 的区别：全局 /usage 是运维观测面（OPS，可传任意维度、
+ * 不做属主校验），普通用户调用会 403；本端点权限为 SELF，服务端按登录用户
+ * 校验 keyId 的有效持有人，只返回本人密钥的用量，其余维度一律不可指定。</p>
+ *
+ * <p>故意不吞异常：调用方（MyKeysView）需要把失败的密钥标记为「—」，
+ * 而不是像旧实现那样把 403 静默当成「用量 0」。</p>
+ */
+export const getMyQuotaUsage = async (
+  apiKeyId: string,
+  window = 'MONTH'
+): Promise<QuotaUsageItem[]> => {
+  const response = await request.get<RouterResponse<QuotaUsageItem[]>>(
+    '/monitoring/quota/mine/usage',
+    { params: { apiKeyId, window } }
+  )
+  return response.data.data ?? []
+}

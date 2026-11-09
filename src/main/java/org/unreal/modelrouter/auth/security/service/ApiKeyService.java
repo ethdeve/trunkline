@@ -932,6 +932,27 @@ public class ApiKeyService {
     public Map<String, String> getKeyIdIndex() { return keyIdIndex; }
 
     /**
+     * 判断指定 {@code keyId} 是否归属该用户（自助端点共用的属主校验）。
+     *
+     * <p>归属口径与「我的密钥」列表完全一致（{@link #belongsTo} → 有效持有人
+     * {@code holder || createdBy}），不信任调用方传入的用户名以外的任何身份参数。
+     * 供「我的密钥」「本月已用」等只读自助端点在放行数之前校验，避免员工借
+     * 通用监控端点查到别人密钥的用量。</p>
+     *
+     * @param owner  当前登录用户名（应取自 {@code Authentication#getName()}）
+     * @param keyId  待查询的 API Key ID
+     * @return 属于该用户返回 true；keyId 未知 / 空白 / owner 为空一律 false
+     */
+    public boolean isOwnedBy(final String owner, final String keyId) {
+        if (owner == null || owner.isBlank() || keyId == null || keyId.isBlank()) {
+            return false;
+        }
+        final String keyHash = keyIdIndex.get(keyId);
+        final ApiKey ak = keyHash != null ? apiKeyCache.get(keyHash) : null;
+        return belongsTo(ak, owner);
+    }
+
+    /**
      * 验证权限列表是否有效.
      *
      * <p>权限值必须是 ServiceTypeConstants 中定义的服务类型（如 chat, embedding 等）。

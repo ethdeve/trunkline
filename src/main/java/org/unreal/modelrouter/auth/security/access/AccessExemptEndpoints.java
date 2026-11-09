@@ -102,8 +102,8 @@ public final class AccessExemptEndpoints {
                 Exemption.post("/api/auth/jwt/revoke",
                         "自助撤销本人令牌；方法级 @PreAuthorize(hasRole('ADMIN') or authentication.name == #request.userId) 已约束属主"),
                 Exemption.get("/api/auth/jwt/tokens",
-                        "自助令牌列表；方法级 @PreAuthorize(hasRole('ADMIN') or (hasRole('USER') and #userId == authentication.name)) 已约束属主，"
-                                + "登记级别规则会破坏普通用户管理本人令牌"),
+                        "自助令牌列表；方法级 @PreAuthorize(hasRole('ADMIN') or (hasAnyRole('USER','OPERATOR') and #userId == authentication.name)) "
+                                + "已约束属主（非管理员只能查自己），登记级别规则会破坏普通用户管理本人令牌"),
 
                 // ===== 控制台/客户端公共读取 =====
                 Exemption.get("/api/models",

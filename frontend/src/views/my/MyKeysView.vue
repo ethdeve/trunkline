@@ -5,7 +5,9 @@
  * <p>数据源：GET /api/auth/api-keys/mine（服务端按当前登录用户解析归属，
  * 普通员工只能拿到自己名下的密钥），不再使用 mock 数据。</p>
  *
- * <p>「本月已用」取配额账本的 KEY 桶（自然月），金额为按可用虚拟模型的加权均价折算的<b>估算值</b>
+ * <p>「本月已用」取配额账本的 KEY 桶（自然月），走员工自助端点
+ * {@code GET /api/monitoring/quota/mine/usage}（SELF，服务端按属主校验 keyId），
+ * 金额为按可用虚拟模型的加权均价折算的<b>估算值</b>
  * ——与「全部密钥」页同一口径（金额只是估算视图，最终配额以 token 计）。</p>
  *
  * <p>原型的理念：员工不需要知道背后是哪个厂商模型，「可用虚拟模型」列展示的是
@@ -24,7 +26,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { getMyApiKeys, revealMyApiKeyValue } from '@/api/apiKey'
-import { getQuotaUsage } from '@/api/quota'
+import { getMyQuotaUsage } from '@/api/quota'
 import type { ApiKeyVO } from '@/types'
 import { employeeTerm } from '@/constants/employeeTerms'
 import { friendlyError } from '@/utils/friendlyError'
@@ -64,7 +66,7 @@ const loadMonthlyUsage = async () => {
   const unknown = new Set<string>()
   for (const key of keys.value) {
     try {
-      const rows = await getQuotaUsage({ apiKeyId: key.keyId, window: 'MONTH' })
+      const rows = await getMyQuotaUsage(key.keyId, 'MONTH')
       usage[key.keyId] = rows.reduce((sum, r) => sum + (r.tokenCount || 0), 0)
     } catch {
       unknown.add(key.keyId)

@@ -20,11 +20,39 @@ const circuitStates = ref<Record<string, string>>({})
 let circuitFetchPromise: Promise<void> | null = null
 
 /**
+ * 熔断运行态（/api/config/instance/circuit-breaker/states）属于运维观测面，
+ * 后端固定矩阵为 OPS。员工测试场复用了同一个模型选择器，若照样请求必然 403，
+ * 而拿不到熔断状态本来就是「静默降级」（只少一种原因标注，不影响选模型）。
+ * 因此按角色直接跳过，避免员工侧每开一次测试场就产生一次 403 + 控制台报错。
+ *
+ * 角色口径与 stores/user.ts 一致：逻辑角色由本地 JWT 的 roles 唯一决定
+ * （ADMIN/OPERATOR → 可运维视图；USER/VIEWER → 员工）。这里不引入 Pinia，
+ * 以保持本 composable 在任意调用上下文都可用。
+ */
+const canReadCircuitStates = (): boolean => {
+  try {
+    const token = localStorage.getItem('admin_token')
+    if (!token) return false
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    const roles: string[] = payload.roles || payload.authorities || []
+    return roles.includes('ADMIN') || roles.includes('OPERATOR')
+  } catch {
+    return false
+  }
+}
+
+/**
  * 拉取熔断器运行态。
  * 全模块共享一份（多个测试场 Tab 共用），失败静默降级——熔断状态拿不到时
  * 只影响「熔断中」这一种原因标注，不影响模型能否选择。
+ * 员工角色直接跳过（等价于失败降级），运维/管理员正常拉取。
  */
 export const fetchCircuitStates = async (): Promise<void> => {
+  if (!canReadCircuitStates()) {
+    // 同一浏览器切换账号时，避免把上一位运维看到的熔断状态残留给员工
+    circuitStates.value = {}
+    return
+  }
   if (circuitFetchPromise) return circuitFetchPromise
   circuitFetchPromise = (async () => {
     try {

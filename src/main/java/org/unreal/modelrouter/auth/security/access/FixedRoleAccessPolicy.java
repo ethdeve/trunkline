@@ -25,12 +25,15 @@ import java.util.Optional;
  * <p><b>未登记端点</b>维持 fail-closed（仅 ADMIN 直通），豁免清单见
  * {@link AccessExemptEndpoints}——与替换前的 DENY_ALL 姿态一致，本次改造不放宽任何默认边界。</p>
  *
- * <p><b>顺手修正的两个存量不一致</b>（旧权限码矩阵下运维实际 403，但菜单承诺可见）：</p>
+ * <p><b>已修正的存量不一致</b>（运维实际 403，但菜单承诺可见）：</p>
  * <ul>
  *   <li>「调用观测」（{@code GET /api/call-history/**}）：旧码 {@code callhistory:view}
- *       不在运维模板（不以 :read/:write 结尾），运维打开必 403 → 现登记为 OPS；</li>
+ *       不在运维模板（不以 :read/:write 结尾）→ 现登记为 OPS；</li>
  *   <li>「全部密钥」（{@code /api/auth/api-keys/**}）：旧码 {@code security:apikeys:manage}
- *       被运维模板排除（security:*:manage）→ 现登记为 OPS。</li>
+ *       被运维模板排除 → 现登记为 OPS；2026-11-09 又发现控制器方法级
+ *       {@code @PreAuthorize} 仍要求 ADMIN，已同步改为 OPERATOR+ADMIN；</li>
+ *   <li>「团队用量」（{@code GET /api/billing/team}、{@code /departments}）：方法级注解已
+ *       允许 OPERATOR，URL 规则却漏登记而落入 fail-closed → 现登记为 OPS。</li>
  * </ul>
  *
  * @author JAiRouter Team
@@ -148,6 +151,11 @@ public class FixedRoleAccessPolicy {
                 // 员工自助：账单/额度（我的额度 / 我的账单）
                 AccessRule.get("/api/billing/my/recent", AccessLevel.SELF),
                 AccessRule.get("/api/billing/my", AccessLevel.SELF),
+                // 团队用量 / 部门下拉：菜单「团队用量」对 ops 可见、BillingController 方法级
+                // 也允许 OPERATOR+ADMIN，但此前漏登记 URL 规则 → 未登记端点 fail-closed 仅 ADMIN，
+                // 运维打开页面必 403。此处补齐 OPS，与方法级注解、菜单三方对齐（2026-11-09）。
+                AccessRule.get("/api/billing/team", AccessLevel.OPS),
+                AccessRule.get("/api/billing/departments", AccessLevel.OPS),
 
                 // 安全审计扩展（后端维持与旧矩阵一致的 OPS 有效权限；菜单仅管理员可见）
                 AccessRule.get("/api/security/audit/extended/**", AccessLevel.OPS),
@@ -177,6 +185,9 @@ public class FixedRoleAccessPolicy {
                 // 配额配置 / 配额监控
                 AccessRule.get("/api/config/quota/**", AccessLevel.OPS),
                 AccessRule.write("/api/config/quota/**", AccessLevel.OPS),
+                // 员工自助：我的密钥「本月已用」（服务端强制校验 keyId 属主），
+                // 必须先于 quota/** 的 OPS 通配规则命中（首条命中优先）
+                AccessRule.get("/api/monitoring/quota/mine/usage", AccessLevel.SELF),
                 AccessRule.get("/api/monitoring/quota/**", AccessLevel.OPS),
 
                 // 监控配置/运维端点：必须登记在 metrics/slow-queries/quota 的具体 GET 之后（首条命中优先）

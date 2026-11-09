@@ -1,10 +1,14 @@
 package org.unreal.modelrouter.monitor.controller;
 
+import org.mockito.Mockito;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.unreal.modelrouter.auth.security.quota.FakeReactiveRedisTemplate;
 import org.unreal.modelrouter.auth.security.quota.InMemoryQuotaLedgerRepository;
 import org.unreal.modelrouter.auth.security.quota.QuotaCounterMetrics;
@@ -14,6 +18,7 @@ import org.unreal.modelrouter.auth.security.quota.QuotaProperties;
 import org.unreal.modelrouter.auth.security.quota.QuotaRequest;
 import org.unreal.modelrouter.auth.security.quota.QuotaWindow;
 import org.unreal.modelrouter.auth.security.quota.RedisCounterBackend;
+import org.unreal.modelrouter.auth.security.service.ApiKeyService;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.persistence.jpa.entity.QuotaLedgerEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.QuotaLedgerRepository;
@@ -74,7 +79,46 @@ class QuotaMonitoringControllerTest {
                 repo.proxy(), quotaProperties,
                 Clock.fixed(NOW.atZone(ZONE).toInstant(), ZONE));
         controller = new QuotaMonitoringController(ledgerService, quotaProperties,
-                QuotaCounterMetrics.noop());
+                QuotaCounterMetrics.noop(), null);
+    }
+
+    // ==================== 我的密钥自助用量端点 ====================
+
+    @Test
+    @DisplayName("GET /mine/usage - 非本人 keyId 返回 403，本人 keyId 返回 200")
+    void myUsageEnforcesOwnership() {
+        final ApiKeyService apiKeyService = Mockito.mock(ApiKeyService.class);
+        final QuotaMonitoringController mineController = new QuotaMonitoringController(
+                ledgerService, quotaProperties, QuotaCounterMetrics.noop(), apiKeyService);
+        final Authentication alice = new UsernamePasswordAuthenticationToken(
+                "alice", "token", List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        Mockito.when(apiKeyService.isOwnedBy("alice", "key-other")).thenReturn(false);
+        Mockito.when(apiKeyService.isOwnedBy("alice", "key-mine")).thenReturn(true);
+
+        final ResponseEntity<RouterResponse<List<Map<String, Object>>>> denied =
+                mineController.getMyUsage("key-other", "MONTH", alice).block();
+        assertNotNull(denied);
+        assertEquals(HttpStatus.FORBIDDEN, denied.getStatusCode());
+
+        final ResponseEntity<RouterResponse<List<Map<String, Object>>>> allowed =
+                mineController.getMyUsage("key-mine", "MONTH", alice).block();
+        assertNotNull(allowed);
+        assertEquals(HttpStatus.OK, allowed.getStatusCode());
+        assertNotNull(allowed.getBody());
+        assertTrue(allowed.getBody().isSuccess());
+    }
+
+    @Test
+    @DisplayName("GET /mine/usage - 未登录主体返回 403")
+    void myUsageRejectsAnonymous() {
+        final ApiKeyService apiKeyService = Mockito.mock(ApiKeyService.class);
+        final QuotaMonitoringController mineController = new QuotaMonitoringController(
+                ledgerService, quotaProperties, QuotaCounterMetrics.noop(), apiKeyService);
+
+        final ResponseEntity<RouterResponse<List<Map<String, Object>>>> denied =
+                mineController.getMyUsage("key-mine", "MONTH", null).block();
+        assertNotNull(denied);
+        assertEquals(HttpStatus.FORBIDDEN, denied.getStatusCode());
     }
 
     // ==================== status 端点 ====================
@@ -307,7 +351,7 @@ class QuotaMonitoringControllerTest {
         distributedLedger.reserve(QuotaRequest.of(QuotaDimension.ofApiKey("redis-key"), 100));
         final QuotaMonitoringController distributedController =
                 new QuotaMonitoringController(distributedLedger, distributedProperties,
-                        QuotaCounterMetrics.noop());
+                        QuotaCounterMetrics.noop(), null);
 
         final AtomicReference<Mono<ResponseEntity<RouterResponse<List<Map<String, Object>>>>>> pending =
                 new AtomicReference<>();

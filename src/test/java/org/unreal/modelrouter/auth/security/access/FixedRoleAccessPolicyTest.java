@@ -46,6 +46,8 @@ class FixedRoleAccessPolicyTest {
             assertEquals(AccessLevel.SELF, levelOf(HttpMethod.GET, "/api/auth/api-keys/mine"));
             assertEquals(AccessLevel.SELF, levelOf(HttpMethod.GET, "/api/instance/mine"));
             assertEquals(AccessLevel.SELF, levelOf(HttpMethod.GET, "/api/gateway/info"));
+            // 我的密钥「本月已用」自助端点：必须先于 /api/monitoring/quota/** 的 OPS 规则命中
+            assertEquals(AccessLevel.SELF, levelOf(HttpMethod.GET, "/api/monitoring/quota/mine/usage"));
         }
     }
 
@@ -68,6 +70,15 @@ class FixedRoleAccessPolicyTest {
         }
 
         @Test
+        @DisplayName("团队用量/部门下拉为 OPS——修正方法级允许运维但 URL 未登记的 403")
+        void billingTeamEndpointsAreOps() {
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/billing/team"));
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/billing/departments"));
+            // 员工自助账单仍是 SELF，不能被上面的 OPS 规则覆盖
+            assertEquals(AccessLevel.SELF, levelOf(HttpMethod.GET, "/api/billing/my"));
+        }
+
+        @Test
         @DisplayName("dashboard/接入/监控/追踪查询为 OPS")
         void teamEndpointsAreOps() {
             assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/dashboard/summary"));
@@ -75,6 +86,8 @@ class FixedRoleAccessPolicyTest {
             assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/config/instance/pool-1"));
             assertEquals(AccessLevel.OPS, levelOf(HttpMethod.PUT, "/api/config/instance/pool-1"));
             assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/monitoring/metrics/x"));
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/monitoring/quota/usage"));
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/monitoring/quota/status"));
             assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/tracing/query/trace-1"));
         }
 
@@ -106,9 +119,9 @@ class FixedRoleAccessPolicyTest {
     class UnmatchedEndpoints {
 
         @Test
-        @DisplayName("未登记路径返回 empty")
+        @DisplayName("未登记路径返回 empty（/api/billing/team 已登记为 OPS，不再属于未登记）")
         void unmatchedReturnsEmpty() {
-            assertTrue(policy.findRule(HttpMethod.GET, "/api/billing/team").isEmpty());
+            assertTrue(policy.findRule(HttpMethod.GET, "/api/billing/unknown-view").isEmpty());
             assertTrue(policy.findRule(HttpMethod.GET, "/api/unknown/resource").isEmpty());
         }
 

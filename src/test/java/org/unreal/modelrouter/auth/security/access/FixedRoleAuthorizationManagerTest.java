@@ -8,13 +8,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.unreal.modelrouter.auth.controller.ApiKeyManagementController;
+import org.unreal.modelrouter.auth.controller.JwtTokenController;
 import org.unreal.modelrouter.auth.security.model.ApiKeyAuthentication;
 import org.unreal.modelrouter.auth.security.model.JwtAuthentication;
 import reactor.core.publisher.Mono;
 
+import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -66,6 +72,17 @@ class FixedRoleAuthorizationManagerTest {
         void userCanReadMyBilling() {
             assertTrue(decide(jwt("USER"), "GET", "/api/billing/my").isGranted());
         }
+
+        @Test
+        @DisplayName("我的密钥用量自助端点 → 所有登录角色放行；全局用量端点仍仅 OPS")
+        void myQuotaUsageIsSelf() {
+            for (final String role : List.of("USER", "OPERATOR", "ADMIN")) {
+                assertTrue(decide(jwt(role), "GET", "/api/monitoring/quota/mine/usage").isGranted(),
+                        role + " 应能读我的密钥用量");
+            }
+            // 通用多维用量端点无属主校验，绝不能对员工放行
+            assertFalse(decide(jwt("USER"), "GET", "/api/monitoring/quota/usage").isGranted());
+        }
     }
 
     @Nested
@@ -89,6 +106,32 @@ class FixedRoleAuthorizationManagerTest {
         void dashboardLevel() {
             assertTrue(decide(jwt("OPERATOR"), "GET", "/api/dashboard/summary").isGranted());
             assertFalse(decide(jwt("USER"), "GET", "/api/dashboard/summary").isGranted());
+        }
+
+        @Test
+        @DisplayName("团队用量/部门下拉 → USER 拒绝，OPERATOR 与 ADMIN 放行（回归：URL 未登记时运维 403）")
+        void billingTeamEndpointsAreOps() {
+            for (final String path : List.of("/api/billing/team", "/api/billing/departments")) {
+                assertFalse(decide(jwt("USER"), "GET", path).isGranted(), path);
+                assertTrue(decide(jwt("OPERATOR"), "GET", path).isGranted(), path);
+                assertTrue(decide(jwt("ADMIN"), "GET", path).isGranted(), path);
+            }
+        }
+
+        @Test
+        @DisplayName("全局密钥视图（全部密钥 / 配额告警 / 配额概览）→ USER 拒绝，OPERATOR 与 ADMIN 放行")
+        void globalApiKeyViewsStayOpsOnly() {
+            // 这三个接口返回全员密钥与用量（含他人 keyId、描述、用量百分比），
+            // 属于「团队」分组；员工自助只能走 /mine 系列（服务端强制按属主过滤）。
+            // 故意不豁免给 USER：顶栏徽标也只挂在 ops/admin 可见的菜单项上。
+            for (final String path : List.of(
+                    "/api/auth/api-keys",
+                    "/api/auth/api-keys/quota/alerts",
+                    "/api/auth/api-keys/quota/overview")) {
+                assertFalse(decide(jwt("USER"), "GET", path).isGranted(), path);
+                assertTrue(decide(jwt("OPERATOR"), "GET", path).isGranted(), path);
+                assertTrue(decide(jwt("ADMIN"), "GET", path).isGranted(), path);
+            }
         }
     }
 
@@ -174,6 +217,54 @@ class FixedRoleAuthorizationManagerTest {
         void unauthenticatedJwtDenied() {
             final JwtAuthentication auth = new JwtAuthentication("raw-token");
             assertFalse(decide(auth, "GET", "/api/call-history/mine").isGranted());
+        }
+    }
+
+    /**
+     * URL 矩阵放行不等于请求能成功：项目启用了方法级安全，控制器上的
+     * {@code @PreAuthorize} 是第二道闸门。2026-11-09 的故障正是两道闸门口径不一致
+     * （URL=OPS、方法=ADMIN）导致 OPERATOR 403。此处用反射把口径锁死。
+     */
+    @Nested
+    @DisplayName("方法级 @PreAuthorize 与 URL 矩阵一致性")
+    class MethodSecurityConsistency {
+
+        @Test
+        @DisplayName("全部密钥控制器：全局端点 OPERATOR+ADMIN、自助端点三角色，不得残留仅 ADMIN")
+        void apiKeyControllerAnnotationsMatchMatrix() {
+            int globalEndpoints = 0;
+            int selfEndpoints = 0;
+            for (final Method method : ApiKeyManagementController.class.getDeclaredMethods()) {
+                final PreAuthorize annotation = method.getAnnotation(PreAuthorize.class);
+                if (annotation == null) {
+                    continue;
+                }
+                final boolean self = method.getName().equals("getMyApiKeys")
+                        || method.getName().equals("revealMyApiKeyValue");
+                if (self) {
+                    assertEquals("hasAnyRole('USER','OPERATOR','ADMIN')", annotation.value(),
+                            method.getName() + " 应维持 SELF");
+                    selfEndpoints++;
+                } else {
+                    assertEquals("hasAnyRole('OPERATOR','ADMIN')", annotation.value(),
+                            method.getName() + " 必须与 /api/auth/api-keys/** 的 OPS 级别一致，"
+                                    + "否则运维在方法层仍会 403");
+                    globalEndpoints++;
+                }
+            }
+            assertEquals(2, selfEndpoints, "两个自助端点必须保留三角色放行");
+            assertTrue(globalEndpoints >= 15, "全局密钥端点应全部有方法级注解，实际=" + globalEndpoints);
+        }
+
+        @Test
+        @DisplayName("自助令牌列表的方法级注解不得把 OPERATOR 排除（豁免清单按已认证放行）")
+        void tokenListAnnotationCoversOperator() {
+            final Method getTokens = Arrays.stream(JwtTokenController.class.getDeclaredMethods())
+                    .filter(m -> m.getName().equals("getTokens"))
+                    .findFirst()
+                    .orElseThrow();
+            final String expr = getTokens.getAnnotation(PreAuthorize.class).value();
+            assertTrue(expr.contains("OPERATOR"), "注解=" + expr);
         }
     }
 }

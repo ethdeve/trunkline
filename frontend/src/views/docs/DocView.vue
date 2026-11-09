@@ -5,10 +5,13 @@
       <el-aside width="272px" class="docs-side">
         <div class="docs-side-header">
           <span class="docs-side-title">{{ t('docs.title') }}</span>
-          <el-radio-group v-model="lang" size="small">
-            <el-radio-button value="zh">中</el-radio-button>
-            <el-radio-button value="en">EN</el-radio-button>
-          </el-radio-group>
+          <!-- 这里的切换与顶栏语言按钮共用同一个全局状态：切一处，全站同步 -->
+          <el-tooltip :content="t('docs.langHint')" placement="bottom">
+            <el-radio-group v-model="lang" size="small">
+              <el-radio-button value="zh">中</el-radio-button>
+              <el-radio-button value="en">EN</el-radio-button>
+            </el-radio-group>
+          </el-tooltip>
         </div>
         <el-scrollbar class="docs-side-scroll">
           <el-menu
@@ -81,13 +84,34 @@ import { useI18n } from 'vue-i18n'
 import MarkdownRenderer from '@/views/playground/components/common/MarkdownRenderer.vue'
 import { getDocContent } from '@/api/docs'
 import { getDocsNav, getDocHome, type DocPage } from '@/config/docsNav'
+import { useLocale } from '@/composables/useLocale'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const { locale: appLocale, setLocale } = useLocale()
 
-/** 当前语言（zh/en）与文档路径（相对 docs/{lang}，不含 .md） */
-const lang = ref<string>(route.query.lang === 'en' ? 'en' : 'zh')
+/** 后端资源目录名（src/main/resources/docs/{zh,en}） */
+type DocLang = 'zh' | 'en'
+
+/**
+ * 帮助文档语言 = 全局 locale 的投影，不再由 URL query 单独决定。
+ *
+ * 在此之前，文档页自己维护一个 lang（来自 ?lang=），顶栏/登录页切换语言后
+ * 帮助中心仍停在原语言，两处互不相通。现在全局语言是唯一数据源：
+ * - getter：zh-CN → zh、en-US → en，顶栏一切换这里立即跟着变；
+ * - setter：左侧「中 / EN」单选器写回全局（setLocale 持久化 + 同步 <html lang>），
+ *   等价于顶栏那颗按钮，因此任意入口切换都不会出现两处语言打架。
+ *
+ * URL 上的 lang 参数降级为「展示同步」：与全局不一致时静默改写，
+ * 不再覆盖全局语言，旧链接（?lang=zh-CN、?path=guide/xxx）仍按白名单回落首页。
+ */
+const lang = computed<DocLang>({
+  get: () => (appLocale.value === 'en-US' ? 'en' : 'zh'),
+  set: next => setLocale(next === 'en' ? 'en-US' : 'zh-CN')
+})
+
+/** 文档路径（相对 docs/{lang}，不含 .md）；zh/en 目录对称，切语言可直接平移 */
 const path = ref<string>(
   typeof route.query.path === 'string' && route.query.path ? route.query.path : 'index'
 )
@@ -142,20 +166,21 @@ const failureReason = ref<'not-found' | 'unauthorized' | 'error'>('not-found')
 /**
  * 规范化 URL 上的语言与文档路径。
  *
- * 帮助文档改版后，浏览器里可能残留旧版链接（如 ?path=guide/xxx）、
- * 或者参数被写坏（lang=zh-CN、path 为中文分组名）。这类参数直接请求后端
- * 只会得到 400/404，页面显示「没找到这页帮助」，用户无从下手。
- * 这里统一按导航白名单过滤，非法值一律回落到首页。
+ * 语言以全局为准：urlLang 只用于判断「URL 是否要同步成当前全局语言」，
+ * 永远不会反过来改写全局语言。path 则按当前语言的导航白名单过滤，
+ * 旧版链接（?path=guide/xxx）、非法分组名一律回落首页。
  */
-function normalizeDocRoute(qLang: string, qPath: string) {
-  const nextLang = qLang === 'en' ? 'en' : 'zh'
+function normalizeDocRoute(urlLang: string, qPath: string, globalLang: DocLang) {
   const known =
     qPath === 'index' ||
-    getDocsNav(nextLang).some((s) => s.pages.some((p) => p.path === qPath))
+    getDocsNav(globalLang).some((s) => s.pages.some((p) => p.path === qPath))
   return {
-    lang: nextLang,
     path: known ? qPath : 'index',
-    corrected: nextLang !== qLang || !known
+    /** 路径非法：需要提示用户「链接已失效」 */
+    pathCorrected: !known,
+    /** URL 语言与全局不一致（含未带 lang 参数）：静默同步，不算链接失效 */
+    langMismatch: !!urlLang && urlLang !== globalLang,
+    langMissing: !urlLang
   }
 }
 
@@ -277,18 +302,21 @@ async function loadContent() {
   }
 }
 
-/** 语言切换：由 watch(lang) 统一处理（不依赖 el-radio-group 的 @change，
- *  实测 @change 在部分场景不可靠导致 URL/内容不同步）。v-model 更新 lang 后，
- *  这里重载内容并同步 URL query（双语目录结构对称，path 一般可平移）。 */
+/** 语言变化 → 重载内容并同步 URL。
+ *  触发来源有两个：左侧「中 / EN」单选器（写回全局）、顶栏语言按钮（改全局）。
+ *  两者都落到这个 watch，因此不存在「一处切了另一处没跟」的情况。
+ *  不依赖 el-radio-group 的 @change（实测部分场景不可靠），统一由 watch 兜底。
+ *  双语目录结构对称，path 一般可直接平移；万一目标语言没有该页则回落首页。 */
 watch(lang, (newLang, oldLang) => {
   if (newLang === oldLang) return
   const navExists =
     path.value === 'index' ||
     getDocsNav(newLang).some((s) => s.pages.some((p) => p.path === path.value))
-  const targetPath = navExists ? path.value : 'index'
-  if (targetPath !== path.value) path.value = targetPath
+  if (!navExists) path.value = 'index'
+  notice.value = ''
   void loadContent()
-  void router.push({ path: '/docs', query: { lang: newLang, path: targetPath } })
+  // replace 而非 push：语言切换不该在浏览器历史里留下一条「回退到上一种语言」的记录
+  void router.replace({ path: '/docs', query: { lang: newLang, path: path.value } })
 })
 
 /** 左侧菜单选择：push 更新 URL query（watch(route.query) 负责同步状态并加载） */
@@ -330,34 +358,37 @@ function onContentClick(e: MouseEvent) {
   }
 }
 
-// 路由 query 变化 → 规范化后同步状态并加载。
-// 注意：进入 /docs（无 query）时 query 默认值与初始状态完全相同，若仅按
+// 路由 query 变化 → 规范化后同步 path 并加载。
+// lang 不再从这里取值（全局优先），URL 上的 lang 只是链接的展示形态：
+// 缺参数或与全局不一致时静默改写，保证刷新/分享出去的链接与页面实际语言一致。
+// 注意：进入 /docs（无 query）时默认值与初始状态完全相同，若仅按
 // "有变化才加载" 判断，首次挂载会永不触发 loadContent → 内容区空白。
-// 因此用 firstLoad 标记：首次挂载无条件加载，之后仅 query 变化才加载。
+// 因此用 firstLoad 标记：首次挂载无条件加载，之后仅 path 变化才加载。
 let firstLoad = true
 watch(
   () => [route.query.lang, route.query.path],
   () => {
     const rawLang = route.query.lang
     const rawPath = route.query.path
-    const qLang = typeof rawLang === 'string' && rawLang ? rawLang : 'zh'
+    const urlLang = typeof rawLang === 'string' && rawLang ? rawLang : ''
     const qPath = typeof rawPath === 'string' && rawPath ? rawPath : 'index'
-    // 改版前的旧链接（?path=guide/xxx）、lang=zh-CN、中文分组名等一律回落首页，
-    // 否则请求只会得到 400/404，用户看到「没找到这页帮助」却无从下手。
-    const normalized = normalizeDocRoute(qLang, qPath)
-    const changed = normalized.lang !== lang.value || normalized.path !== path.value
+    const globalLang = lang.value
+    const normalized = normalizeDocRoute(urlLang, qPath, globalLang)
+    const changed = normalized.path !== path.value
     if (changed || firstLoad) notice.value = ''
-    if (normalized.corrected) {
-      void router.replace({ path: '/docs', query: { lang: normalized.lang, path: normalized.path } })
-      // 首次挂载（直接用旧链接打开页面）静默回落；应用内点到失效链接才提示，
-      // 避免用户一进帮助中心就看到一条与自己无关的提示。
-      if (!firstLoad) {
-        notice.value = normalized.lang === 'en'
+
+    const needUrlFix =
+      normalized.langMissing || normalized.langMismatch || normalized.pathCorrected
+    if (needUrlFix) {
+      void router.replace({ path: '/docs', query: { lang: globalLang, path: normalized.path } })
+      // 只有 path 非法才提示；语言参数不一致属于正常的全局同步，不打扰用户。
+      // 首次挂载（直接拿旧链接打开）静默回落，应用内点到失效链接才提示。
+      if (normalized.pathCorrected && !firstLoad) {
+        notice.value = globalLang === 'en'
           ? 'That help link is no longer valid. You have been taken to the help home page.'
           : '这个帮助链接已失效，已为你回到帮助首页。'
       }
     }
-    lang.value = normalized.lang
     path.value = normalized.path
     if (changed || firstLoad) void loadContent()
     firstLoad = false
