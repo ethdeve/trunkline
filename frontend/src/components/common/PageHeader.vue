@@ -28,7 +28,7 @@ function openHelp() {
       <p v-if="subtitle" class="page-header__subtitle">{{ subtitle }}</p>
     </div>
     <div class="page-header__actions">
-      <el-tooltip v-if="helpLink" content="查看接入指南" placement="bottom">
+      <el-tooltip v-if="helpLink" content="查看这一页的帮助" placement="bottom">
         <el-button text class="page-header__help" @click="openHelp">
           <el-icon :size="16"><QuestionFilled /></el-icon>
         </el-button>

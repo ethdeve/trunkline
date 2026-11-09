@@ -3,7 +3,7 @@
     <PageHeader
       title="全局配置"
       :subtitle="menuSubtitle('/settings/global')"
-      help-link="/guide"
+      help-link="/docs?path=system/global"
     />
 
     <el-card shadow="never">

@@ -174,7 +174,7 @@ public final class MultiReplicaSharedStateGate {
             consequenceOf(key).ifPresent(consequence -> sb.append(" → ").append(consequence));
         }
         sb.append(System.lineSeparator())
-                .append("单副本部署可忽略；多副本请开启上述开关（详见 docs/zh/deployment/multi-replica.md），")
+                .append("单副本部署可忽略；多副本请开启上述开关（详见控制台「帮助中心 → 团队 → 状态监控」），")
                 .append("或将 trunkline.cluster.shared-state-check.mode 设为 OFF 显式接受该风险。");
         return sb.toString();
     }

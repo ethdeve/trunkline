@@ -34,8 +34,39 @@
       <!-- 右侧内容 -->
       <el-main class="docs-main">
         <div v-loading="loading" class="docs-content" ref="contentRef" @click="onContentClick">
+          <!-- 旧链接 / 单篇读取失败时自动回落到首页，并说明原因，不让用户卡在空页面 -->
+          <el-alert
+            v-if="notice"
+            class="docs-notice"
+            type="info"
+            show-icon
+            :closable="false"
+            :title="notice"
+          />
+          <!-- 首页：按角色直达，非技术人员不用先读完整目录 -->
+          <div v-if="!loading && found && isHome" class="home-shortcuts">
+            <div class="home-shortcuts__title">
+              {{ lang === 'en' ? 'Jump to what you need' : '按你的身份快速进入' }}
+            </div>
+            <div class="home-shortcuts__grid">
+              <button
+                v-for="card in homeShortcuts"
+                :key="card.path"
+                type="button"
+                class="home-shortcut"
+                @click="onSelectPage(card.path)"
+              >
+                <span class="home-shortcut__label">{{ card.label }}</span>
+                <span class="home-shortcut__hint">{{ card.hint }}</span>
+              </button>
+            </div>
+          </div>
           <MarkdownRenderer v-if="contentHtml && !loading" :content="contentHtml" />
-          <el-empty v-else-if="!loading && !found" :description="t('docs.notFound')" />
+          <el-empty v-else-if="!loading && !found" :description="emptyDescription">
+            <el-button type="primary" size="small" @click="onEmptyAction">
+              {{ emptyActionLabel }}
+            </el-button>
+          </el-empty>
         </div>
       </el-main>
     </el-container>
@@ -56,12 +87,34 @@ const route = useRoute()
 const router = useRouter()
 
 /** 当前语言（zh/en）与文档路径（相对 docs/{lang}，不含 .md） */
-const lang = ref<string>((route.query.lang as string) || 'zh')
-const path = ref<string>((route.query.path as string) || 'index')
+const lang = ref<string>(route.query.lang === 'en' ? 'en' : 'zh')
+const path = ref<string>(
+  typeof route.query.path === 'string' && route.query.path ? route.query.path : 'index'
+)
 
 /** 当前语言的导航与首页 */
 const nav = computed(() => getDocsNav(lang.value))
 const homePage = computed<DocPage>(() => getDocHome(lang.value))
+
+/** 是否为帮助首页（仅首页显示角色直达卡片） */
+const isHome = computed(() => path.value === 'index')
+
+/** 角色直达入口：path 必须与 docsNav.ts / resources/docs 中的文件一致 */
+const homeShortcuts = computed(() =>
+  lang.value === 'en'
+    ? [
+        { label: 'I am an employee', hint: 'Start with Quick Start', path: 'my/quickstart' },
+        { label: 'I manage the service', hint: 'Start with Providers', path: 'team/providers' },
+        { label: 'I am an administrator', hint: 'Start with Accounts', path: 'system/accounts' },
+        { label: 'Something is broken', hint: 'FAQ and error messages', path: 'faq' }
+      ]
+    : [
+        { label: '我是员工', hint: '从「快速上手」开始', path: 'my/quickstart' },
+        { label: '我是运维', hint: '从「接入管理」开始', path: 'team/providers' },
+        { label: '我是管理员', hint: '从「账号管理」开始', path: 'system/accounts' },
+        { label: '遇到问题了', hint: '常见问题与报错排查', path: 'faq' }
+      ]
+)
 
 /** 菜单激活项：首页显示 index，其余按 path */
 const activeKey = computed(() => path.value)
@@ -80,6 +133,60 @@ const contentHtml = ref('')
 const loading = ref(false)
 const found = ref(true)
 const contentRef = ref<HTMLElement | null>(null)
+
+/** 自动回落提示：旧链接失效或单篇读取失败时，告诉用户「已经帮你打开首页」 */
+const notice = ref('')
+/** 首页也读取失败时的原因，用于给出可操作的提示 */
+const failureReason = ref<'not-found' | 'unauthorized' | 'error'>('not-found')
+
+/**
+ * 规范化 URL 上的语言与文档路径。
+ *
+ * 帮助文档改版后，浏览器里可能残留旧版链接（如 ?path=guide/xxx）、
+ * 或者参数被写坏（lang=zh-CN、path 为中文分组名）。这类参数直接请求后端
+ * 只会得到 400/404，页面显示「没找到这页帮助」，用户无从下手。
+ * 这里统一按导航白名单过滤，非法值一律回落到首页。
+ */
+function normalizeDocRoute(qLang: string, qPath: string) {
+  const nextLang = qLang === 'en' ? 'en' : 'zh'
+  const known =
+    qPath === 'index' ||
+    getDocsNav(nextLang).some((s) => s.pages.some((p) => p.path === qPath))
+  return {
+    lang: nextLang,
+    path: known ? qPath : 'index',
+    corrected: nextLang !== qLang || !known
+  }
+}
+
+/** 空状态文案：区分登录过期、服务异常、文档确实不存在 */
+const emptyDescription = computed(() => {
+  if (failureReason.value === 'unauthorized') {
+    return lang.value === 'en'
+      ? 'Access denied (401/403). Sign in again, or ask your administrator for help access.'
+      : '登录状态异常或没有访问权限，请重新登录后再试，或联系管理员开放帮助文档权限。'
+  }
+  if (failureReason.value === 'error') {
+    return lang.value === 'en'
+      ? 'The help service is temporarily unavailable. Please retry.'
+      : '帮助内容暂时读取失败，请稍后重试。'
+  }
+  return t('docs.notFound')
+})
+
+const emptyActionLabel = computed(() =>
+  failureReason.value === 'unauthorized'
+    ? (lang.value === 'en' ? 'Sign in' : '去登录')
+    : (lang.value === 'en' ? 'Retry' : '重试')
+)
+
+function onEmptyAction() {
+  if (failureReason.value === 'unauthorized') {
+    void router.push('/login')
+    return
+  }
+  void loadContent()
+}
 
 /** 当前文档所在目录（用于解析相对链接/图片） */
 function currentDir(): string {
@@ -143,10 +250,24 @@ function slugify(text: string): string {
     .replace(/-+/g, '-')
 }
 
-/** 加载文档内容 */
+/** 加载文档内容：单篇失败自动回落首页，首页也失败才显示可操作的空状态 */
 async function loadContent() {
   loading.value = true
-  const result = await getDocContent(lang.value, path.value)
+  let result = await getDocContent(lang.value, path.value)
+  if (!result.found && path.value !== 'index' && result.reason !== 'unauthorized') {
+    const home = await getDocContent(lang.value, 'index')
+    if (home.found) {
+      result = home
+      path.value = 'index'
+      notice.value = lang.value === 'en'
+        ? 'That help page could not be opened. You have been taken to the help home page.'
+        : '这页帮助暂时打不开，已为你回到帮助首页。'
+      void router.replace({ path: '/docs', query: { lang: lang.value, path: 'index' } })
+    }
+  }
+  failureReason.value = result.reason === 'unauthorized'
+    ? 'unauthorized'
+    : (result.reason === 'error' ? 'error' : 'not-found')
   contentHtml.value = result.content
   found.value = result.found
   loading.value = false
@@ -209,7 +330,7 @@ function onContentClick(e: MouseEvent) {
   }
 }
 
-// 路由 query 变化 → 同步状态并加载。
+// 路由 query 变化 → 规范化后同步状态并加载。
 // 注意：进入 /docs（无 query）时 query 默认值与初始状态完全相同，若仅按
 // "有变化才加载" 判断，首次挂载会永不触发 loadContent → 内容区空白。
 // 因此用 firstLoad 标记：首次挂载无条件加载，之后仅 query 变化才加载。
@@ -217,14 +338,28 @@ let firstLoad = true
 watch(
   () => [route.query.lang, route.query.path],
   () => {
-    const qLang = (route.query.lang as string) || 'zh'
-    const qPath = (route.query.path as string) || 'index'
-    const changed = qLang !== lang.value || qPath !== path.value
-    if (changed || firstLoad) {
-      lang.value = qLang
-      path.value = qPath
-      void loadContent()
+    const rawLang = route.query.lang
+    const rawPath = route.query.path
+    const qLang = typeof rawLang === 'string' && rawLang ? rawLang : 'zh'
+    const qPath = typeof rawPath === 'string' && rawPath ? rawPath : 'index'
+    // 改版前的旧链接（?path=guide/xxx）、lang=zh-CN、中文分组名等一律回落首页，
+    // 否则请求只会得到 400/404，用户看到「没找到这页帮助」却无从下手。
+    const normalized = normalizeDocRoute(qLang, qPath)
+    const changed = normalized.lang !== lang.value || normalized.path !== path.value
+    if (changed || firstLoad) notice.value = ''
+    if (normalized.corrected) {
+      void router.replace({ path: '/docs', query: { lang: normalized.lang, path: normalized.path } })
+      // 首次挂载（直接用旧链接打开页面）静默回落；应用内点到失效链接才提示，
+      // 避免用户一进帮助中心就看到一条与自己无关的提示。
+      if (!firstLoad) {
+        notice.value = normalized.lang === 'en'
+          ? 'That help link is no longer valid. You have been taken to the help home page.'
+          : '这个帮助链接已失效，已为你回到帮助首页。'
+      }
     }
+    lang.value = normalized.lang
+    path.value = normalized.path
+    if (changed || firstLoad) void loadContent()
     firstLoad = false
   },
   { immediate: true }
@@ -294,6 +429,10 @@ watch(
   min-height: 300px;
 }
 
+.docs-notice {
+  margin-bottom: 18px;
+}
+
 .docs-content :deep(.markdown-renderer) {
   font-size: 14.5px;
 }
@@ -308,6 +447,59 @@ watch(
 
 .docs-content :deep(.markdown-renderer pre) {
   max-width: 100%;
+}
+
+/* 首页角色直达卡片 */
+.home-shortcuts {
+  margin-bottom: 26px;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 10px;
+  background-color: var(--el-bg-color);
+}
+
+.home-shortcuts__title {
+  margin-bottom: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.home-shortcuts__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.home-shortcut {
+  padding: 14px 16px;
+  text-align: left;
+  font: inherit;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background-color: var(--el-fill-color-blank);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.home-shortcut:hover {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 2px 10px var(--el-border-color-light);
+}
+
+.home-shortcut__label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.home-shortcut__hint {
+  display: block;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary);
 }
 
 /* 窄屏：侧栏折叠为顶栏横向选择（简单降级） */

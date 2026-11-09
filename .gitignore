@@ -202,7 +202,6 @@ $RECYCLE.BIN/
 *.7z
 
 # Scripts temp directory (legacy, should not exist)
-scripts/docs copy/
 
 # Qwen Code working directory (keep QWEN.md and PROJECT_SUMMARY.md)
 .qwen/settings.json
@@ -232,7 +231,6 @@ jdeps/
 # Keep scripts (organized by function)
 !scripts/build/
 !scripts/dev/
-!scripts/docs/
 !scripts/migration/
 !scripts/monitoring/
 !scripts/test/

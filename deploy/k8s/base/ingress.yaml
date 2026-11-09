@@ -16,7 +16,7 @@ metadata:
     #      不是 Ingress annotation）；
     #   2. 应用侧：同步设置 trunkline.security.trusted-proxies.*，否则不会采信
     #      X-Forwarded-For。
-    # 详见 docs/zh/deployment/multi-replica.md 与客户端 IP 信任策略的设计文档。
+    # 详见 部署文档（多副本章节） 与客户端 IP 信任策略的设计文档。
     #
     # 若确认无法还原真实客户端 IP，请把限流维度改为 api-key / tenant：
     #   model.rate-limit.key-dimension

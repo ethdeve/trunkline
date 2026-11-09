@@ -1,122 +1,45 @@
-# Trunkline
+# Help Center
 
-<!-- 版本信息 -->
-> **Doc Version**: 1.0.0
-> **Last Updated**: 2026-08-15
-> **Git Commit**: b1088a7e
-> **Author**: Lincoln
-<!-- /版本信息 -->
+> Not sure where to click? Start with the role that sounds like you.
 
-> **Trunkline** is an independently branded, enhanced distribution of [JAiRouter](https://github.com/Lincoln-cn/JAiRouter), released under the Apache License 2.0. Original copyright and attribution to the JAiRouter project are retained.
+## I just want to get my AI tool working
 
-<p align="center">
-  <strong>AI Model Service Unified Gateway</strong><br>
-  <em>Connect to all models with a single line of code</em>
-</p>
+1. [Quick Start](my/quickstart.md) — three steps to connect your AI tool
+2. [My Keys](my/keys.md) — get your personal access key
+3. [Playground](my/playground.md) — try one message before configuring anything
+4. [My Quota](my/quota.md) — see what you used this month and what is left
+5. [My Bills](my/bills.md) — see what you spent, day by day
 
-<p align="center">
-  <a href="getting-started/quick-start.md">
-    <img src="https://img.shields.io/badge/Quick_Start-🚀-blue?style=for-the-badge" alt="Quick Start">
-  </a>
-  <a href="configuration/index.md">
-    <img src="https://img.shields.io/badge/Configuration-📖-green?style=for-the-badge" alt="Configuration">
-  </a>
-  <a href="https://github.com/Lincoln-cn/JAiRouter">
-    <img src="https://img.shields.io/badge/GitHub-🐙-black?style=for-the-badge" alt="GitHub">
-  </a>
-</p>
+## I manage the company AI service (operations)
 
----
+| What I want to do | Go to |
+| --- | --- |
+| Add a provider, set model prices | [Providers](team/providers.md) |
+| Create a model name employees can use | [Virtual Models](team/model-pools.md) |
+| Issue keys, adjust quotas, debug access | [All Keys](team/all-keys.md) |
+| See company spend and who is using it | [Team Usage](team/usage.md) |
+| Find out why a request failed | [Call History](team/observability.md) |
+| Send requests to different models by condition | [Routing Rules](team/routing-rules.md) |
+| Check where state is stored and synced | [State & Storage](team/status.md) |
 
-## 🎯 Core Value
+## I manage accounts and system settings (administrator)
 
-| Feature | Description |
-|---------|-------------|
-| **🔌 Unified API** | OpenAI-compatible interface, seamlessly connect to Ollama, vLLM, GPUStack, etc. |
-| **⚖️ Smart Load Balancing** | 5 strategies for automatic request distribution, health checks to remove failed nodes |
-| **🛡️ Traffic Control** | Rate limiting, circuit breaking, degradation for service stability |
-| **🔐 Dual Authentication** | JWT + API Key with audit logs and blacklist support |
-| **📊 Full-chain Tracing** | OpenTelemetry integration, performance bottlenecks at a glance |
-| **💾 State Persistence** | Redis / file storage, supports high-availability cluster deployment |
-| **🎫 Token Quota & Multi-dimensional Limiting** | Ledger across dimensions (tenant / API Key / user / service / model) × four windows (minute / hour / day / month), with Redis distributed counting and failover; **disabled by default** |
-| **🔗 Multi-protocol Entry** | OpenAI-native `/v1` and Anthropic `/v1/messages` served directly, so Claude Code can connect as-is (including tool calls) |
-| **⚡ Response Cache** | Exact-key and streaming SSE caching; cache hits do not consume downstream quota and can be invalidated on demand |
+| What I want to do | Go to |
+| --- | --- |
+| Create accounts, change roles, fill departments | [Accounts](system/accounts.md) |
+| Provider presets, model categories, adapters | [Model Configuration](system/model-config.md) |
+| Change gateway-wide defaults | [Global Settings](system/global.md) |
+| See who changed what, roll back a config | [Audit & Versions](system/audit-versions.md) |
 
-![Management Console](getting-started/images/dashboard-en-US.png)
+## Two more pages worth bookmarking
+
+- [FAQ](faq.md) — find answers by symptom
+- [Plain-English Glossary](glossary.md) — every bit of jargon in one sentence
 
 ---
 
-## 🏗️ Architecture Overview
+## What this system does, in three sentences
 
-```
-┌─────────────────┐     ┌─────────────────────┐     ┌─────────────────┐
-│   OpenAI SDK    │────▶│     Trunkline      │────▶│    Ollama       │
-│   Langchain     │     │  • Load Balancing   │     │    vLLM         │
-│   HTTP Client   │     │  • Rate Limiting    │     │    GPUStack     │
-└─────────────────┘     │  • Authentication   │     │    Xinference   │
-                        └─────────────────────┘     └─────────────────┘
-```
+The company connects all AI models behind one address. In your AI tool you enter **the company address**, **your own key**, and a **virtual model name** given to you by the company. Spend, usage and failed calls can all be reviewed in this console.
 
----
-
-## ⚡ 1-Minute Quick Start
-
-```bash
-# Start the service (dev mode, zero config)
-docker run -d --name jairouter -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev sodlinken/jairouter:latest
-
-# For production, provide a JWT secret: -e JWT_SECRET=<at-least-32-characters>
-
-# Access the console
-open http://localhost:8080
-```
-
----
-
-## 📚 Quick Navigation
-
-| I want to... | Recommended Docs |
-|--------------|------------------|
-| Get started quickly | [Quick Start Guide](getting-started/quick-start.md) |
-| Deploy in production | [Deployment Guide](deployment/index.md) |
-| Configure services | [Configuration Guide](configuration/index.md) |
-| Integrate via API | [API Reference](api-reference/index.md) |
-| Set up monitoring | [Monitoring Guide](monitoring/index.md) |
-| Troubleshoot issues | [Troubleshooting](troubleshooting/index.md) |
-
----
-
-## 📈 Project Status
-
-[![GitHub stars](https://img.shields.io/github/stars/Lincoln-cn/JAiRouter?style=social)](https://github.com/Lincoln-cn/JAiRouter/stargazers)
-[![Docker Pulls](https://img.shields.io/docker/pulls/sodlinken/jairouter)](https://hub.docker.com/r/sodlinken/jairouter)
-[![License](https://img.shields.io/github/license/Lincoln-cn/JAiRouter)](https://github.com/Lincoln-cn/JAiRouter/blob/master/LICENSE)
-
-> **Current Release**: v3.3.1 (2026-10-14)
-
----
-
-## 🔧 Supported Backends
-
-| Backend | Description |
-|---------|-------------|
-| **GPUStack** | GPUStack private model service |
-| **Ollama** | Local LLM runtime |
-| **vLLM** | High-performance LLM inference engine |
-| **Xinference** | Distributed model inference framework |
-| **LocalAI** | OpenAI-compatible local inference |
-| **OpenAI** | Official OpenAI API |
-
----
-
-## 🤝 Community Support
-
-- [GitHub Issues](https://github.com/Lincoln-cn/JAiRouter/issues) - Bug reports
-- [GitHub Discussions](https://github.com/Lincoln-cn/JAiRouter/discussions) - Discussions
-- [Contributing Guide](development/contributing.md) - Join development
-
----
-
-<p align="center">
-If JAiRouter helps you, please give it a ⭐️ <a href="https://github.com/Lincoln-cn/JAiRouter">Star</a>!
-</p>
+> The menu you see depends on your role. Missing entries are normal, not a broken page.

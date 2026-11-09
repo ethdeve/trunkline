@@ -108,6 +108,10 @@ public final class AccessExemptEndpoints {
                 // ===== 控制台/客户端公共读取 =====
                 Exemption.get("/api/models",
                         "模型目录（ModelInfoController），UI 与客户端公共读取，无敏感操作面"),
+                Exemption.get("/api/docs/content",
+                        "内置帮助文档正文（DocsController）：按控制台菜单组织，面向所有已登录角色"
+                                + "（员工也要读「我的」分组的帮助）；内容随 jar 打包、纯只读且不含敏感数据。"
+                                + "未登记端点 fail-closed 仅 ADMIN，会让非管理员 403、帮助中心显示「没找到这页帮助」"),
 
                 // ===== Token 用量上报（外部摄取面） =====
                 // 内部代理的用量落库走进程内 TokenUsageRecorder → TokenUsageService，

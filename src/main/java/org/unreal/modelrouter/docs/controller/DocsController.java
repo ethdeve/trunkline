@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
  * 内置帮助文档接口。
  *
  * <p>文档 markdown 随应用打包在 {@code classpath:/docs/{lang}/**} 下
- * （zh / en 双语，由 {@code docs/zh}、{@code docs/en} 同步而来），
+ * （zh / en 双语，内容直接维护在 {@code src/main/resources/docs/{zh,en}/} 下，按控制台菜单组织），
  * 本控制器仅负责按路径读取单篇文档原文，目录结构与展示顺序由前端
  * 静态导航配置（docsNav）管理，接口保持最小面。</p>
  *

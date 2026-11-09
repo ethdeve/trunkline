@@ -120,6 +120,14 @@ class FixedRoleAuthorizationManagerTest {
         void exemptEndpointsAuthenticatedOnly() {
             assertTrue(decide(jwt("USER"), "POST", "/api/token-usage/record").isGranted());
         }
+
+        @Test
+        @DisplayName("内置帮助文档正文 → 所有已登录角色放行（回归：未登记时非 ADMIN 403）")
+        void docsContentExemptForAllRoles() {
+            assertTrue(decide(jwt("USER"), "GET", "/api/docs/content").isGranted());
+            assertTrue(decide(jwt("OPERATOR"), "GET", "/api/docs/content").isGranted());
+            assertTrue(decide(jwt("ADMIN"), "GET", "/api/docs/content").isGranted());
+        }
     }
 
     @Nested

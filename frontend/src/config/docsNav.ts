@@ -1,14 +1,14 @@
 /**
  * 内置帮助文档导航配置（zh/en 双语）
  *
- * 来源：项目根 mkdocs.yml 的 nav（权威目录结构），2026-10-28 同步。
- * 结构与 resources/docs/{zh,en}/** 一一对应；path 不含 .md 后缀、
- * 相对 docs/{lang} 目录。
+ * 2026-11-09 重写：导航按控制台菜单（我的 / 团队 / 系统）组织，
+ * 内容面向非技术人员，不再镜像开源项目的开发者文档目录。
  *
  * 约定：
- * - 每个 section 的首页固定为 <section>/index
+ * - 结构与 src/main/resources/docs/{zh,en}/** 一一对应；path 不含 .md 后缀
+ * - 分组名与 config/menu.ts 的三大菜单组保持一致，方便「菜单里点到的页面 → 帮助里找到同名页」
  * - 顶部固定「首页 / Home」入口（path = index）
- * - en 标题取自 mkdocs.yml nav_translations，缺译项取英文文件名语义（KV Cache / Database）
+ * - zh / en 的 path 完全一致，语言切换时可直接平移
  */
 
 export interface DocPage {
@@ -30,282 +30,86 @@ export const DOC_HOME: { zh: DocPage; en: DocPage } = {
   en: { title: 'Home', path: 'index' }
 }
 
-/** 中文导航（与 mkdocs.yml nav 一致） */
+/** 中文导航：我的 / 团队 / 系统 + 通用帮助 */
 export const docsNavZh: DocSection[] = [
   {
-    title: '入门',
+    title: '我的',
     pages: [
-      { title: '入门', path: 'getting-started/index' },
-      { title: '安装指南', path: 'getting-started/installation' },
-      { title: '快速开始', path: 'getting-started/quick-start' },
-      { title: 'Web 控制台', path: 'getting-started/web-console' },
-      { title: '第一步', path: 'getting-started/first-steps' },
-      { title: 'Claude Code 接入', path: 'getting-started/claude-code' }
+      { title: '我的额度', path: 'my/quota' },
+      { title: '我的密钥', path: 'my/keys' },
+      { title: '快速上手', path: 'my/quickstart' },
+      { title: '测试场', path: 'my/playground' },
+      { title: '我的账单', path: 'my/bills' }
     ]
   },
   {
-    title: '配置指南',
+    title: '团队',
     pages: [
-      { title: '配置指南', path: 'configuration/index' },
-      { title: '应用配置', path: 'configuration/application-config' },
-      { title: '模块化配置', path: 'configuration/modular-config' },
-      { title: '动态配置', path: 'configuration/dynamic-config' },
-      { title: '常用服务配置示例', path: 'configuration/instance-examples' },
-      { title: '负载均衡', path: 'configuration/load-balancing' },
-      { title: '限流配置', path: 'configuration/rate-limiting' },
-      { title: '熔断器', path: 'configuration/circuit-breaker' },
-      { title: '存储配置', path: 'configuration/store-config' },
-      { title: 'JWT持久化', path: 'configuration/jwt-persistence' },
-      { title: '数据存储', path: 'configuration/state-persistence' },
-      { title: '版本管理', path: 'configuration/version-management' },
-      { title: '验证规则', path: 'configuration/validation-rules' },
-      { title: 'Adapter配置', path: 'configuration/adapter-config' },
-      { title: '路由规则', path: 'configuration/routing-rules' },
-      { title: '模型分组', path: 'configuration/model-pools' },
-      { title: 'KV缓存', path: 'configuration/kv-cache' },
-      { title: '响应缓存', path: 'configuration/response-cache' },
-      { title: '配额配置', path: 'configuration/quota' }
+      { title: '团队用量', path: 'team/usage' },
+      { title: '接入管理', path: 'team/providers' },
+      { title: '虚拟模型', path: 'team/model-pools' },
+      { title: '路由规则', path: 'team/routing-rules' },
+      { title: '全部密钥', path: 'team/all-keys' },
+      { title: '调用观测', path: 'team/observability' },
+      { title: '状态监控', path: 'team/status' }
     ]
   },
   {
-    title: '安全功能',
+    title: '系统',
     pages: [
-      { title: '安全功能', path: 'security/index' },
-      { title: 'API Key管理', path: 'security/api-key-management' },
-      { title: 'JWT认证', path: 'security/jwt-authentication' },
-      { title: '安全黑名单', path: 'security/blacklist-management' },
-      { title: '审计日志管理', path: 'security/audit-log-management' },
-      { title: '数据脱敏', path: 'security/data-sanitization' },
-      { title: '可信代理', path: 'security/trusted-proxies' },
-      { title: '故障排除', path: 'security/troubleshooting' }
+      { title: '账号管理', path: 'system/accounts' },
+      { title: '模型配置', path: 'system/model-config' },
+      { title: '审计与版本', path: 'system/audit-versions' },
+      { title: '全局配置', path: 'system/global' }
     ]
   },
   {
-    title: 'API参考',
+    title: '通用帮助',
     pages: [
-      { title: 'API参考', path: 'api-reference/index' },
-      { title: '统一API', path: 'api-reference/universal-api' },
-      { title: '管理API', path: 'api-reference/management-api' },
-      { title: '监控API', path: 'api-reference/monitoring-api' },
-      { title: 'OpenAPI规范', path: 'api-reference/openapi-spec' },
-      { title: '错误码对照表', path: 'api-reference/error-codes' }
-    ]
-  },
-  {
-    title: '部署指南',
-    pages: [
-      { title: '部署指南', path: 'deployment/index' },
-      { title: 'Docker部署', path: 'deployment/docker' },
-      { title: 'Docker优化', path: 'deployment/docker-optimized' },
-      { title: 'Kubernetes部署', path: 'deployment/kubernetes' },
-      { title: '生产环境', path: 'deployment/production' },
-      { title: '数据库部署', path: 'deployment/database' },
-      { title: '中国优化', path: 'deployment/china-optimization' },
-      { title: 'GitHub Pages', path: 'deployment/github-pages' },
-      { title: 'JWT持久化检查清单', path: 'deployment/jwt-persistence-deployment-checklist' },
-      { title: '多副本部署', path: 'deployment/multi-replica' }
-    ]
-  },
-  {
-    title: '监控指南',
-    pages: [
-      { title: '监控指南', path: 'monitoring/index' },
-      { title: '监控设置', path: 'monitoring/setup' },
-      { title: '监控配置', path: 'monitoring/configuration' },
-      { title: '仪表板', path: 'monitoring/dashboards' },
-      { title: '告警配置', path: 'monitoring/alerts' },
-      { title: '告警规则指南', path: 'monitoring/alert_rules_guide' },
-      { title: '慢查询配置', path: 'monitoring/slow-query-alerts' },
-      { title: '监控指标', path: 'monitoring/metrics' },
-      { title: '性能监控', path: 'monitoring/performance' },
-      { title: '错误追踪', path: 'monitoring/error-tracking' },
-      { title: '监控测试', path: 'monitoring/testing' },
-      { title: '故障排除', path: 'monitoring/troubleshooting' }
-    ]
-  },
-  {
-    title: '分布式追踪',
-    pages: [
-      { title: '分布式追踪', path: 'tracing/index' },
-      { title: '快速入门', path: 'tracing/quickstart' },
-      { title: '配置参考', path: 'tracing/config-reference' },
-      { title: '使用指南', path: 'tracing/usage-guide' },
-      { title: '性能调优', path: 'tracing/performance-tuning' },
-      { title: '故障排除', path: 'tracing/troubleshooting' },
-      { title: '运维指南', path: 'tracing/operations-guide' }
-    ]
-  },
-  {
-    title: '开发指南',
-    pages: [
-      { title: '开发指南', path: 'development/index' },
-      { title: '架构说明', path: 'development/architecture' },
-      { title: '贡献指南', path: 'development/contributing' },
-      { title: '测试指南', path: 'development/testing' },
-      { title: '代码质量', path: 'development/code-quality' },
-      { title: '文档维护', path: 'development/doc-maintenance' },
-      { title: '知识库治理', path: 'development/knowledge-base-governance' }
-    ]
-  },
-  {
-    title: '故障排除',
-    pages: [
-      { title: '故障排除', path: 'troubleshooting/index' },
-      { title: '常见问题', path: 'troubleshooting/common-issues' },
-      { title: '关键问题修复', path: 'troubleshooting/issue-fixes' },
-      { title: '性能问题', path: 'troubleshooting/performance' },
-      { title: '调试指南', path: 'troubleshooting/debugging' }
-    ]
-  },
-  {
-    title: '参考资料',
-    pages: [
-      { title: '参考资料', path: 'reference/index' },
-      { title: '更新日志', path: 'reference/changelog' },
-      { title: '发展路线图', path: 'reference/roadmap' },
-      { title: 'FAQ', path: 'reference/faq' },
-      { title: '术语表', path: 'reference/glossary' },
-      { title: '适配器更新', path: 'reference/adapter-updates' }
+      { title: '常见问题', path: 'faq' },
+      { title: '名词大白话', path: 'glossary' }
     ]
   }
 ]
 
-/** 英文导航（标题取自 mkdocs.yml nav_translations） */
+/** 英文导航：My / Team / System + More help（path 与中文完全一致） */
 export const docsNavEn: DocSection[] = [
   {
-    title: 'Getting Started',
+    title: 'My',
     pages: [
-      { title: 'Getting Started', path: 'getting-started/index' },
-      { title: 'Installation Guide', path: 'getting-started/installation' },
-      { title: 'Quick Start', path: 'getting-started/quick-start' },
-      { title: 'Web Console', path: 'getting-started/web-console' },
-      { title: 'First Steps', path: 'getting-started/first-steps' },
-      { title: 'Claude Code Integration', path: 'getting-started/claude-code' }
+      { title: 'My Quota', path: 'my/quota' },
+      { title: 'My Keys', path: 'my/keys' },
+      { title: 'Quick Start', path: 'my/quickstart' },
+      { title: 'Playground', path: 'my/playground' },
+      { title: 'My Bills', path: 'my/bills' }
     ]
   },
   {
-    title: 'Configuration',
+    title: 'Team',
     pages: [
-      { title: 'Configuration', path: 'configuration/index' },
-      { title: 'Application Config', path: 'configuration/application-config' },
-      { title: 'Modular Config', path: 'configuration/modular-config' },
-      { title: 'Dynamic Config', path: 'configuration/dynamic-config' },
-      { title: 'Instance Configuration Examples', path: 'configuration/instance-examples' },
-      { title: 'Load Balancing', path: 'configuration/load-balancing' },
-      { title: 'Rate Limiting', path: 'configuration/rate-limiting' },
-      { title: 'Circuit Breaker', path: 'configuration/circuit-breaker' },
-      { title: 'Store Configuration', path: 'configuration/store-config' },
-      { title: 'JWT Persistence', path: 'configuration/jwt-persistence' },
-      { title: 'State Persistence', path: 'configuration/state-persistence' },
-      { title: 'Version Management', path: 'configuration/version-management' },
-      { title: 'Validation Rules', path: 'configuration/validation-rules' },
-      { title: 'Adapter Configuration', path: 'configuration/adapter-config' },
-      { title: 'Routing Rules', path: 'configuration/routing-rules' },
-      { title: 'Model Pools', path: 'configuration/model-pools' },
-      { title: 'KV Cache', path: 'configuration/kv-cache' },
-      { title: 'Response Cache', path: 'configuration/response-cache' },
-      { title: 'Quota Ledger', path: 'configuration/quota' }
+      { title: 'Team Usage', path: 'team/usage' },
+      { title: 'Providers', path: 'team/providers' },
+      { title: 'Virtual Models', path: 'team/model-pools' },
+      { title: 'Routing Rules', path: 'team/routing-rules' },
+      { title: 'All Keys', path: 'team/all-keys' },
+      { title: 'Call History', path: 'team/observability' },
+      { title: 'State & Storage', path: 'team/status' }
     ]
   },
   {
-    title: 'Security Features',
+    title: 'System',
     pages: [
-      { title: 'Security Features', path: 'security/index' },
-      { title: 'API Key Management', path: 'security/api-key-management' },
-      { title: 'JWT Authentication', path: 'security/jwt-authentication' },
-      { title: 'Security Blacklist', path: 'security/blacklist-management' },
-      { title: 'Audit Log Management', path: 'security/audit-log-management' },
-      { title: 'Data Sanitization', path: 'security/data-sanitization' },
-      { title: 'Trusted Proxies', path: 'security/trusted-proxies' },
-      { title: 'Troubleshooting', path: 'security/troubleshooting' }
+      { title: 'Accounts', path: 'system/accounts' },
+      { title: 'Model Configuration', path: 'system/model-config' },
+      { title: 'Audit & Versions', path: 'system/audit-versions' },
+      { title: 'Global Settings', path: 'system/global' }
     ]
   },
   {
-    title: 'API Reference',
+    title: 'More help',
     pages: [
-      { title: 'API Reference', path: 'api-reference/index' },
-      { title: 'Universal API', path: 'api-reference/universal-api' },
-      { title: 'Management API', path: 'api-reference/management-api' },
-      { title: 'Monitoring API', path: 'api-reference/monitoring-api' },
-      { title: 'OpenAPI Specification', path: 'api-reference/openapi-spec' },
-      { title: 'Error Codes', path: 'api-reference/error-codes' }
-    ]
-  },
-  {
-    title: 'Deployment',
-    pages: [
-      { title: 'Deployment', path: 'deployment/index' },
-      { title: 'Docker Deployment', path: 'deployment/docker' },
-      { title: 'Docker Optimization', path: 'deployment/docker-optimized' },
-      { title: 'Kubernetes Deployment', path: 'deployment/kubernetes' },
-      { title: 'Production', path: 'deployment/production' },
-      { title: 'Database', path: 'deployment/database' },
-      { title: 'China Optimization', path: 'deployment/china-optimization' },
-      { title: 'GitHub Pages', path: 'deployment/github-pages' },
-      { title: 'JWT Persistence Checklist', path: 'deployment/jwt-persistence-deployment-checklist' },
-      { title: 'Multi-Replica Deployment', path: 'deployment/multi-replica' }
-    ]
-  },
-  {
-    title: 'Monitoring',
-    pages: [
-      { title: 'Monitoring', path: 'monitoring/index' },
-      { title: 'Setup', path: 'monitoring/setup' },
-      { title: 'Monitoring Configuration', path: 'monitoring/configuration' },
-      { title: 'Dashboards', path: 'monitoring/dashboards' },
-      { title: 'Alerts', path: 'monitoring/alerts' },
-      { title: 'Alert Rules Guide', path: 'monitoring/alert_rules_guide' },
-      { title: 'Slow Query Alerts', path: 'monitoring/slow-query-alerts' },
-      { title: 'Metrics', path: 'monitoring/metrics' },
-      { title: 'Performance Monitoring', path: 'monitoring/performance' },
-      { title: 'Error Tracking', path: 'monitoring/error-tracking' },
-      { title: 'Monitoring Testing', path: 'monitoring/testing' },
-      { title: 'Troubleshooting', path: 'monitoring/troubleshooting' }
-    ]
-  },
-  {
-    title: 'Distributed Tracing',
-    pages: [
-      { title: 'Distributed Tracing', path: 'tracing/index' },
-      { title: 'Quick Start', path: 'tracing/quickstart' },
-      { title: 'Configuration Reference', path: 'tracing/config-reference' },
-      { title: 'Usage Guide', path: 'tracing/usage-guide' },
-      { title: 'Performance Tuning', path: 'tracing/performance-tuning' },
-      { title: 'Troubleshooting', path: 'tracing/troubleshooting' },
-      { title: 'Operations Guide', path: 'tracing/operations-guide' }
-    ]
-  },
-  {
-    title: 'Development',
-    pages: [
-      { title: 'Development', path: 'development/index' },
-      { title: 'Architecture', path: 'development/architecture' },
-      { title: 'Contributing', path: 'development/contributing' },
-      { title: 'Testing', path: 'development/testing' },
-      { title: 'Code Quality', path: 'development/code-quality' },
-      { title: 'Doc Maintenance', path: 'development/doc-maintenance' },
-      { title: 'Knowledge Base Governance', path: 'development/knowledge-base-governance' }
-    ]
-  },
-  {
-    title: 'Troubleshooting',
-    pages: [
-      { title: 'Troubleshooting', path: 'troubleshooting/index' },
-      { title: 'Common Issues', path: 'troubleshooting/common-issues' },
-      { title: 'Key Issue Fixes', path: 'troubleshooting/issue-fixes' },
-      { title: 'Performance Issues', path: 'troubleshooting/performance' },
-      { title: 'Debugging Guide', path: 'troubleshooting/debugging' }
-    ]
-  },
-  {
-    title: 'Reference',
-    pages: [
-      { title: 'Reference', path: 'reference/index' },
-      { title: 'Changelog', path: 'reference/changelog' },
-      { title: 'Roadmap', path: 'reference/roadmap' },
-      { title: 'FAQ', path: 'reference/faq' },
-      { title: 'Glossary', path: 'reference/glossary' },
-      { title: 'Adapter Updates', path: 'reference/adapter-updates' }
+      { title: 'FAQ', path: 'faq' },
+      { title: 'Plain-English Glossary', path: 'glossary' }
     ]
   }
 ]

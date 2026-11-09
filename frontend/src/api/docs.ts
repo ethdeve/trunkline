@@ -29,15 +29,19 @@ docsRequest.interceptors.request.use(
 export interface DocContentResult {
   /** 文档 markdown 原文 */
   content: string
-  /** 是否命中（false = 文档不存在） */
+  /** 是否命中（false = 文档不存在或读取失败） */
   found: boolean
+  /** 失败原因：页面据此给出可操作的提示，而不是笼统显示「没找到这页帮助」 */
+  reason?: 'ok' | 'not-found' | 'unauthorized' | 'error'
+  /** HTTP 状态码（便于排查） */
+  status?: number
 }
 
 /**
  * 读取单篇文档原文。
  *
  * @param lang 语言：zh / en
- * @param path 相对 docs/{lang} 的路径（不含 .md），如 configuration/rate-limiting
+ * @param path 相对 docs/{lang} 的路径（不含 .md），按控制台菜单组织，如 team/providers
  */
 export async function getDocContent(lang: string, path: string): Promise<DocContentResult> {
   try {
@@ -46,12 +50,14 @@ export async function getDocContent(lang: string, path: string): Promise<DocCont
     })
     const body = resp.data
     if (body && body.success && typeof body.data === 'string') {
-      return { content: body.data, found: true }
+      return { content: body.data, found: true, reason: 'ok', status: resp.status }
     }
-    return { content: '', found: false }
+    return { content: '', found: false, reason: 'not-found', status: resp.status }
   } catch (err) {
-    console.error(`[docs] 读取文档失败: lang=${lang} path=${path}`, err)
-    return { content: '', found: false }
+    const status = axios.isAxiosError(err) ? err.response?.status : undefined
+    const reason = status === 401 || status === 403 ? 'unauthorized' : 'error'
+    console.error(`[docs] 读取文档失败: lang=${lang} path=${path} status=${status}`, err)
+    return { content: '', found: false, reason, status }
   }
 }
 

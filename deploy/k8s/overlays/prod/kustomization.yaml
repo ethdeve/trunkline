@@ -6,7 +6,7 @@ kind: Kustomization
 # 多副本的前置条件（务必先满足，否则各副本会退化为互不知情的单机实例）：
 #   1. 共享数据库已落地（base 的 ConfigMap 已开启共享态开关，但连接信息需由
 #      Secret / 环境变量提供）；
-#   2. 已阅读 docs/zh/deployment/multi-replica.md。
+#   2. 已阅读 部署文档（多副本章节）。
 #
 # 本 overlay 不修改镜像 tag——生产请用 kustomize edit set image 或在此显式覆盖，
 # 不要沿用 latest。

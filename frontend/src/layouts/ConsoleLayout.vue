@@ -232,7 +232,7 @@ async function onLogout() {
           </el-button>
         </el-tooltip>
 
-        <el-tooltip content="帮助文档">
+        <el-tooltip content="帮助中心">
           <el-button text @click="router.push('/docs')">
             <el-icon :size="16"><Reading /></el-icon>
           </el-button>

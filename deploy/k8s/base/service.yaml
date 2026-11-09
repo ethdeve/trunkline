@@ -11,7 +11,7 @@ spec:
   # 客户端 IP 注意：ClusterIP + kube-proxy 下，Pod 内看到的 remoteAddress 不保证是
   # 真实客户端 IP（可能是客户端 Pod IP、节点 IP 或网关 IP）。这直接影响
   # 「按 IP 维度限流」与安全审计的语义——部署前请阅读
-  # docs/zh/deployment/multi-replica.md 的「限流键维度」一节，
+  # 部署文档（多副本章节） 的「限流键维度」一节，
   # 必要时把 key-dimension 改为 api-key 或 tenant。
   type: ClusterIP
   selector:

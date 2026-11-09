@@ -193,7 +193,7 @@ class MultiReplicaSharedStateGateTest {
                 MultiReplicaSharedStateGate.assess(true, null));
         assertTrue(message.contains("trunkline.security.jwt.blacklist.redis.enabled"));
         assertTrue(message.contains("在副本 A 吊销的令牌在副本 B 仍被放行"));
-        assertTrue(message.contains("multi-replica.md"));
+        assertTrue(message.contains("帮助中心 → 团队 → 状态监控"));
         assertTrue(message.contains("OFF"));
     }
 }

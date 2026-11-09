@@ -1,122 +1,45 @@
-# Trunkline
+# 帮助中心
 
-<!-- 版本信息 -->
-> **文档版本**: 1.0.0
-> **最后更新**: 2026-08-15
-> **Git 提交**: b1088a7e
-> **作者**: Lincoln
-<!-- /版本信息 -->
+> 不知道该点哪里？从下面挑一个和你一样的身份开始。
 
-> **Trunkline** 是基于 [JAiRouter](https://github.com/Lincoln-cn/JAiRouter) 二次开发的企业治理网关，遵循 Apache License 2.0 发布，保留上游版权声明与署名。
+## 我第一次用，只想赶紧让 AI 工具能用起来
 
-<p align="center">
-  <strong>AI 模型服务统一网关</strong><br>
-  <em>一行代码接入所有模型</em>
-</p>
+1. [快速上手](my/quickstart.md) —— 三步把公司 AI 接进你常用的工具
+2. [我的密钥](my/keys.md) —— 拿到自己的「门卡」
+3. [测试场](my/playground.md) —— 先试一句，确认通了再去工具里配
+4. [我的额度](my/quota.md) —— 看这个月花了多少、还剩多少
+5. [我的账单](my/bills.md) —— 按天看钱花在哪
 
-<p align="center">
-  <a href="getting-started/quick-start.md">
-    <img src="https://img.shields.io/badge/快速开始-🚀-blue?style=for-the-badge" alt="快速开始">
-  </a>
-  <a href="configuration/index.md">
-    <img src="https://img.shields.io/badge/配置指南-📖-green?style=for-the-badge" alt="配置指南">
-  </a>
-  <a href="https://github.com/Lincoln-cn/JAiRouter">
-    <img src="https://img.shields.io/badge/GitHub-🐙-black?style=for-the-badge" alt="GitHub">
-  </a>
-</p>
+## 我管公司里的 AI 服务（运维）
 
----
+| 我想做的事 | 去看这一页 |
+| --- | --- |
+| 接一家新厂商、给模型配价格 | [接入管理](team/providers.md) |
+| 给员工建一个能用的模型名 | [虚拟模型](team/model-pools.md) |
+| 给员工发密钥、调额度、排查「用不了」 | [全部密钥](team/all-keys.md) |
+| 看全公司花了多少、谁在用 | [团队用量](team/usage.md) |
+| 查某次调用为什么失败 | [调用观测](team/observability.md) |
+| 按条件把请求分给不同模型 | [路由规则](team/routing-rules.md) |
+| 检查数据存在哪、同步是否正常 | [状态监控](team/status.md) |
 
-## 🎯 核心价值
+## 我负责系统和账号（管理员）
 
-| 特性 | 描述 |
-|------|------|
-| **🔌 统一 API** | OpenAI 兼容接口，无缝对接 Ollama、vLLM、GPUStack 等 |
-| **⚖️ 智能负载均衡** | 5 种策略自动分发请求，健康检查自动剔除故障节点 |
-| **🛡️ 流量控制** | 限流、熔断、降级，保障服务稳定性 |
-| **🔐 双认证体系** | JWT + API Key，支持审计日志和黑名单 |
-| **📊 全链路追踪** | OpenTelemetry 集成，性能瓶颈一目了然 |
-| **💾 状态持久化** | Redis / 文件存储，支持集群高可用部署 |
-| **🎫 Token 配额与多维限流** | 多维（租户 / API Key / 用户 / 服务 / 模型）× 四窗口（分 / 时 / 日 / 月）配额账本，Redis 分布式计数与断连降级；**默认关闭** |
-| **🔗 多协议入口** | OpenAI 原生 `/v1` 与 Anthropic `/v1/messages` 双协议直连，Claude Code 可直接接入（含工具调用） |
-| **⚡ 响应缓存** | 精确键与流式 SSE 缓存，命中不消耗下游配额，支持按需失效 |
+| 我想做的事 | 去看这一页 |
+| --- | --- |
+| 开账号、改角色、填部门 | [账号管理](system/accounts.md) |
+| 厂商预设、模型分类、接入协议 | [模型配置](system/model-config.md) |
+| 改全网关的默认设置 | [全局配置](system/global.md) |
+| 查谁改过什么、把配置退回去 | [审计与版本](system/audit-versions.md) |
 
-![管理控制台](getting-started/images/dashboard-zh-CN.png)
+## 还有两页随时可查
+
+- [常见问题](faq.md) —— 报错、密钥、金额、权限，按症状找答案
+- [名词大白话](glossary.md) —— 看不懂的词，一句话解释
 
 ---
 
-## 🏗️ 架构概览
+## 三句话说清这个系统是干什么的
 
-```
-┌─────────────────┐     ┌─────────────────────┐     ┌─────────────────┐
-│   OpenAI SDK    │────▶│     Trunkline      │────▶│    Ollama       │
-│   Langchain     │     │  • 负载均衡          │     │    vLLM         │
-│   HTTP Client   │     │  • 限流熔断          │     │    GPUStack     │
-└─────────────────┘     │  • 认证鉴权          │     │    Xinference   │
-                        └─────────────────────┘     └─────────────────┘
-```
+公司把各种 AI 模型统一接到一个入口上。你在自己的 AI 工具里填**公司的接入地址**和**自己的密钥**，模型名填成公司给的**虚拟模型名**，就能用了。花了多少、谁在用、哪次调用失败，管理员都能在控制台里查到。
 
----
-
-## ⚡ 1分钟快速体验
-
-```bash
-# 启动服务（开发模式，零配置）
-docker run -d --name jairouter -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev sodlinken/jairouter:latest
-
-# 生产环境请提供 JWT 密钥：-e JWT_SECRET=<至少32字符>
-
-# 访问控制台
-open http://localhost:8080
-```
-
----
-
-## 📚 快速导航
-
-| 我想要... | 推荐文档 |
-|-----------|----------|
-| 快速体验 | [快速开始指南](getting-started/quick-start.md) |
-| 生产部署 | [部署指南](deployment/index.md) |
-| 配置服务 | [配置指南](configuration/index.md) |
-| API 集成 | [API 参考](api-reference/index.md) |
-| 监控告警 | [监控指南](monitoring/index.md) |
-| 故障排查 | [常见问题](troubleshooting/index.md) |
-
----
-
-## 📈 项目状态
-
-[![GitHub stars](https://img.shields.io/github/stars/Lincoln-cn/JAiRouter?style=social)](https://github.com/Lincoln-cn/JAiRouter)
-[![Docker Pulls](https://img.shields.io/docker/pulls/sodlinken/jairouter)](https://hub.docker.com/r/sodlinken/jairouter)
-[![License](https://img.shields.io/github/license/Lincoln-cn/JAiRouter)](https://github.com/Lincoln-cn/JAiRouter/blob/master/LICENSE)
-
-> **当前版本**: v3.3.1 (2026-10-14)
-
----
-
-## 🔧 支持的后端服务
-
-| 后端 | 说明 |
-|------|------|
-| **GPUStack** | GPUStack 私有模型服务 |
-| **Ollama** | 本地大模型运行工具 |
-| **vLLM** | 高性能 LLM 推理引擎 |
-| **Xinference** | 分布式模型推理框架 |
-| **LocalAI** | OpenAI 兼容本地推理 |
-| **OpenAI** | OpenAI 官方 API |
-
----
-
-## 🤝 社区支持
-
-- [GitHub Issues](https://github.com/Lincoln-cn/JAiRouter/issues) - 问题反馈
-- [GitHub Discussions](https://github.com/Lincoln-cn/JAiRouter/discussions) - 讨论交流
-- [贡献指南](development/contributing.md) - 参与开发
-
----
-
-<p align="center">
-如果 JAiRouter 对您有帮助，请给个 ⭐️ <a href="https://github.com/Lincoln-cn/JAiRouter">Star</a> 支持一下！
-</p>
+> 页面上看到的菜单，取决于你的角色。有些入口你看不到，是正常的，不是系统坏了。

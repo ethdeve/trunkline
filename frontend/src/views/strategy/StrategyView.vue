@@ -50,7 +50,7 @@ watch(
 
 <template>
   <div>
-    <PageHeader :title="t('shell.strategy.title')" :subtitle="menuSubtitle('/strategy')" help-link="/guide" />
+    <PageHeader :title="t('shell.strategy.title')" :subtitle="menuSubtitle('/strategy')" help-link="/docs?path=team/routing-rules" />
 
     <!-- 原型式 tab 按钮组 -->
     <div class="pol-tabs">

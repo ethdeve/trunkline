@@ -1,5 +1,5 @@
 <template>
-  <PageSkeleton :title="t('apiKeys.title')" help-link="/guide">
+  <PageSkeleton :title="t('apiKeys.title')" help-link="/docs?path=team/all-keys">
     <!-- 操作区：嵌入模式下 PageSkeleton 页头整体隐藏，#actions 插槽不会渲染，
          故「创建密钥」按钮改为内容顶部自渲染 -->
     <div class="page-actions-row">
