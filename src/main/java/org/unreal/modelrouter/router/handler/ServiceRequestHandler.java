@@ -105,7 +105,7 @@ public class ServiceRequestHandler {
      * （{@code TokenUsageExtractor} / {@code StreamingRequestProcessor}）当作 API Key ID
      * 读取，而 JWT 用户名在 API Key 存储中不存在，会产生无意义的 WARN 与错误归属。</p>
      */
-    public static final String CALLER_ID_ATTRIBUTE = "JAIR_CALLER_ID";
+    public static final String CALLER_ID_ATTRIBUTE = "TRUNKLINE_CALLER_ID";
 
     /**
      * issue #77: JWT 调用主体标识前缀（与 API Key ID 的键空间隔离）。
@@ -124,13 +124,13 @@ public class ServiceRequestHandler {
      * v2.9.9: ServerWebExchange attribute key for storing the original request DTO.
      * Controller 在调用 handleRequest 前放入，handler 认证后读取以构建缓存键。
      */
-    public static final String REQUEST_DTO_ATTRIBUTE = "JAIR_REQUEST_DTO";
+    public static final String REQUEST_DTO_ATTRIBUTE = "TRUNKLINE_REQUEST_DTO";
 
     /**
      * v2.9.9: ServerHttpRequest attribute key for storing the response cache key.
      * handler 认证后生成并放入，processor 写缓存前读取（仿 API_KEY_ID_ATTRIBUTE 传递先例）。
      */
-    public static final String CACHE_KEY_ATTRIBUTE = "JAIR_RESPONSE_CACHE_KEY";
+    public static final String CACHE_KEY_ATTRIBUTE = "TRUNKLINE_RESPONSE_CACHE_KEY";
 
     /**
      * v3.5 Trunkline: ServerHttpRequest attribute key for storing the resolved
@@ -149,7 +149,7 @@ public class ServiceRequestHandler {
      * <p>Absent when the request did not hit any group (internal rule-pinned
      * instance paths); consumers must treat {@code null} as "未归类".</p>
      */
-    public static final String VIRTUAL_MODEL_ATTRIBUTE = "JAIR_VIRTUAL_MODEL";
+    public static final String VIRTUAL_MODEL_ATTRIBUTE = "TRUNKLINE_VIRTUAL_MODEL";
 
     /**
      * v3.1: OpenAI 原生响应标记（{@code /v1} 原生面）.
@@ -159,7 +159,7 @@ public class ServiceRequestHandler {
      * 作为 OpenAI SDK / LangChain / LlamaIndex 的 {@code base_url}；{@code /api/v1/**}（控制台面）
      * 不受影响。</p>
      */
-    public static final String NATIVE_RESPONSE_ATTRIBUTE = "JAIR_NATIVE_RESPONSE";
+    public static final String NATIVE_RESPONSE_ATTRIBUTE = "TRUNKLINE_NATIVE_RESPONSE";
 
     /**
      * v3.1 PR-2: 429 响应头 — 本次命中的限额值（{@code ApiKey} 限额配置值）。

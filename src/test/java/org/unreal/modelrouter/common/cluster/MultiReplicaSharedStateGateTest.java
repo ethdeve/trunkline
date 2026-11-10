@@ -84,14 +84,14 @@ class MultiReplicaSharedStateGateTest {
         assertTrue(MultiReplicaSharedStateGate.detectMultiReplica(3, env()));
         // 显式声明单副本时，即便存在 K8s 环境变量也判定为单副本
         assertFalse(MultiReplicaSharedStateGate.detectMultiReplica(
-                1, env("KUBERNETES_SERVICE_HOST", "10.0.0.1", "POD_NAME", "jairouter-0")));
+                1, env("KUBERNETES_SERVICE_HOST", "10.0.0.1", "POD_NAME", "trunkline-0")));
     }
 
     @Test
     @DisplayName("未显式声明副本数时按 K8s 环境变量探测")
     void detectsKubernetesEnvironment() {
         assertTrue(MultiReplicaSharedStateGate.detectMultiReplica(0, env("KUBERNETES_SERVICE_HOST", "10.0.0.1")));
-        assertTrue(MultiReplicaSharedStateGate.detectMultiReplica(0, env("POD_NAME", "jairouter-7d9f-x2k")));
+        assertTrue(MultiReplicaSharedStateGate.detectMultiReplica(0, env("POD_NAME", "trunkline-7d9f-x2k")));
     }
 
     @Test

@@ -35,7 +35,7 @@ public class TestMonitoringConfiguration {
         
         // Apply common tags manually
         List<Tag> tags = new ArrayList<>();
-        tags.add(Tag.of("application", "jairouter"));
+        tags.add(Tag.of("application", "trunkline"));
         
         Map<String, String> customTags = monitoringProperties.getCustomTags();
         if (customTags != null && !customTags.isEmpty()) {
@@ -51,7 +51,7 @@ public class TestMonitoringConfiguration {
     public MonitoringProperties testMonitoringProperties() {
         MonitoringProperties properties = new MonitoringProperties();
         properties.setEnabled(true);
-        properties.setPrefix("jairouter");
+        properties.setPrefix("trunkline");
         // Custom tags will be set by @TestPropertySource
         return properties;
     }

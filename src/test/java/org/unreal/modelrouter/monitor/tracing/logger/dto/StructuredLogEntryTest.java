@@ -42,7 +42,7 @@ class StructuredLogEntryTest {
         StructuredLogEntry entry = StructuredLogEntry.builder()
                 .timestamp(now)
                 .type(LogType.SECURITY)
-                .serviceName("jairouter")
+                .serviceName("trunkline")
                 .serviceVersion("2.16.4")
                 .environment("production")
                 .traceId("trace-123")
@@ -54,7 +54,7 @@ class StructuredLogEntryTest {
 
         assertEquals(now, entry.getTimestamp());
         assertEquals(LogType.SECURITY, entry.getType());
-        assertEquals("jairouter", entry.getServiceName());
+        assertEquals("trunkline", entry.getServiceName());
         assertEquals("2.16.4", entry.getServiceVersion());
         assertEquals("production", entry.getEnvironment());
         assertEquals("trace-123", entry.getTraceId());

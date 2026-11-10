@@ -77,7 +77,7 @@ class SecurityConfigurationValidatorTest {
         @DisplayName("VAL-109: JWT配置验证 - 有效配置成功")
         void testValidateJwtConfigValid() {
             SecurityProperties properties = createSecurityPropertiesWithJwt(
-                "this-is-a-valid-jwt-secret-key-32-chars", "HS256", 60L, 7L, "jairouter");
+                "this-is-a-valid-jwt-secret-key-32-chars", "HS256", 60L, 7L, "trunkline");
 
             ValidationResult result = validator.validateConfiguration(properties);
 
@@ -88,7 +88,7 @@ class SecurityConfigurationValidatorTest {
         @DisplayName("VAL-110: JWT配置验证 - 无效算法抛异常")
         void testValidateJwtConfigInvalidAlgorithm() {
             SecurityProperties properties = createSecurityPropertiesWithJwt(
-                "this-is-a-valid-jwt-secret-key-32-chars", "INVALID", 60L, 7L, "jairouter");
+                "this-is-a-valid-jwt-secret-key-32-chars", "INVALID", 60L, 7L, "trunkline");
 
             ValidationResult result = validator.validateConfiguration(properties);
 
@@ -100,7 +100,7 @@ class SecurityConfigurationValidatorTest {
         @DisplayName("VAL-111: JWT配置验证 - 过期时间为0抛异常")
         void testValidateJwtConfigZeroExpiration() {
             SecurityProperties properties = createSecurityPropertiesWithJwt(
-                "this-is-a-valid-jwt-secret-key-32-chars", "HS256", 0L, 7L, "jairouter");
+                "this-is-a-valid-jwt-secret-key-32-chars", "HS256", 0L, 7L, "trunkline");
 
             ValidationResult result = validator.validateConfiguration(properties);
 
@@ -112,7 +112,7 @@ class SecurityConfigurationValidatorTest {
         @DisplayName("VAL-112: JWT配置验证 - 过期时间过长产生警告")
         void testValidateJwtConfigLongExpiration() {
             SecurityProperties properties = createSecurityPropertiesWithJwt(
-                "this-is-a-valid-jwt-secret-key-32-chars", "HS256", 1500L, 7L, "jairouter");
+                "this-is-a-valid-jwt-secret-key-32-chars", "HS256", 1500L, 7L, "trunkline");
 
             ValidationResult result = validator.validateConfiguration(properties);
 

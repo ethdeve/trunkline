@@ -59,7 +59,7 @@ class StartupSecurityGateTest {
     }
 
     @Test
-    @DisplayName("生产环境未设置管理员密码 → 检查失败")
+    @DisplayName("遗留管理员密码判定（不再参与启动检查，仅用于识别弱口令）")
     void production_missingAdminPassword_fails() {
         assertFalse(StartupSecurityGate.adminPasswordOk(true, null));
         assertFalse(StartupSecurityGate.adminPasswordOk(true, ""));

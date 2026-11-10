@@ -1,6 +1,6 @@
 package org.unreal.modelrouter.config.sync.repository;
 
-import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
+import org.unreal.modelrouter.persistence.store.ConfigKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -24,7 +24,7 @@ import java.util.Optional;
 public class StoreConfigRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(StoreConfigRepository.class);
-    private static final String CONFIG_KEY = ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY;
+    private static final String CONFIG_KEY = ConfigKeys.CURRENT_CONFIG_KEY;
 
     private final StoreManager storeManager;
 

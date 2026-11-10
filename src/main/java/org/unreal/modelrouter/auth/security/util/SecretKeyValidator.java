@@ -60,7 +60,7 @@ public class SecretKeyValidator {
      *
      * <p>需捕获的弱样例中最低占比为 62.5%（{@code admin123} 的 {@code admin}）；
      * 唯一例外是 {@code ChangeMeOnFirstStartup123456}（{@code 123456} 占 21.4%），
-     * 由 {@link #isCommonWeakPassword} 里的显式 equals 判定兜底。</p>
+     * 由 {@link #findWeakPasswordFragment} 里的显式 equals 判定兜底。</p>
      */
     private static final int PASSWORD_DOMINANCE_NUMERATOR = 1;
     private static final int PASSWORD_DOMINANCE_DENOMINATOR = 2;
@@ -204,10 +204,11 @@ public class SecretKeyValidator {
             return ValidationResult.failure(StrengthLevel.VERY_WEAK, "密码不能为空");
         }
 
-        // 检查常见弱密码
-        if (isCommonWeakPassword(password)) {
-            return ValidationResult.failure(StrengthLevel.VERY_WEAK, 
-                "检测到常见弱密码，请使用更复杂的密码");
+        // 检查常见弱密码，直接指出命中的片段，避免笼统的"常见弱密码"话术
+        final String weakFragment = findWeakPasswordFragment(password);
+        if (weakFragment != null) {
+            return ValidationResult.failure(StrengthLevel.VERY_WEAK,
+                "密码包含容易被猜到的片段「" + weakFragment + "」，请更换为无规律的随机组合");
         }
 
         int length = password.length();
@@ -344,11 +345,13 @@ public class SecretKeyValidator {
     }
 
     /**
-     * 检查是否为常见弱密码
+     * 查找密码中命中的常见弱口令片段。
+     *
+     * @return 命中的弱片段（用于给出精确提示），未命中返回 {@code null}
      */
-    private static boolean isCommonWeakPassword(final String password) {
+    private static String findWeakPasswordFragment(final String password) {
         String lower = password.toLowerCase();
-        
+
         String[] weakPasswords = {
             "password", "admin", "123456", "12345678", "qwerty",
             "abc123", "password123", "admin123",
@@ -368,16 +371,16 @@ public class SecretKeyValidator {
             if (!highEntropy
                     || weak.length() * PASSWORD_DOMINANCE_DENOMINATOR
                         >= passwordLength * PASSWORD_DOMINANCE_NUMERATOR) {
-                return true;
+                return weak;
             }
         }
 
         // 检查默认密码
         if ("ChangeMeOnFirstStartup123456".equals(password)) {
-            return true;
+            return "ChangeMeOnFirstStartup123456";
         }
 
-        return false;
+        return null;
     }
 
     /**

@@ -60,7 +60,7 @@ public final class QuotaTokenEstimator {
     /**
      * 估算一次请求的 prompt 侧 token 数。
      *
-     * @param requestDto 原始请求 DTO（Controller 放入 exchange 的 {@code JAIR_REQUEST_DTO} 属性），
+     * @param requestDto 原始请求 DTO（Controller 放入 exchange 的 {@code TRUNKLINE_REQUEST_DTO} 属性），
      *                   可为 {@code null} 或不认识的类型
      * @return 估算 token 数，无法估算时返回 0（非负）
      */

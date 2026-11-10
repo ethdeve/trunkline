@@ -54,7 +54,7 @@ scripts/
 | 脚本 | 说明 |
 |------|------|
 | `mock-model-server.mjs` | OpenAI 兼容的 mock 模型服务，供本地联调与路由/负载均衡测试使用（见下） |
-| `test-backward-compatibility.ps1` | 安全配置向后兼容验证：确认旧的 `JAIROUTER_SECURITY_*` 环境变量名仍被识别（历史兼容校验，勿删） |
+| `test-backward-compatibility.ps1` | 安全配置校验：确认 `TRUNKLINE_SECURITY_*` 环境变量与配置结构完整（旧前缀已不再映射） |
 
 > 说明：早期一批硬编码了已废弃凭据（`dev-admin-12345` API Key、过期 JWT、旧管理员弱密码）或内网测试机地址（`172.16.30.6`）的 E2E / 版本管理 / headers / 审计 / 追踪数据生成脚本已清理。这些脚本依赖的 `X-API-Key` 认证与旧配置文件 `config-dev/security.api-keys.json` 均已从项目移除；现行追踪接口 `/api/tracing/**` 改由 JWT + 角色矩阵（OPS/ADMIN）鉴权，如需验证请通过控制台登录态调用。
 
@@ -128,11 +128,11 @@ node scripts/test/mock-model-server.mjs --fail-rate 0.5
 `/v1/embeddings`、`/v1/rerank`、`/v1/audio/speech`、`/v1/audio/transcriptions`、
 `/v1/images/generations`、`/v1/images/edits`。其余路径一律返回 200，保证健康检查通过。
 
-在 Trunkline 里把它挂成实例（`Jairouter_Token` 为控制台登录后的 JWT）：
+在 Trunkline 里把它挂成实例（`Trunkline_Token` 为控制台登录后的 JWT）：
 
 ```bash
 curl -X POST http://127.0.0.1:8080/api/config/instance/chat \
-  -H "Jairouter_Token: <admin-jwt>" -H 'Content-Type: application/json' \
+  -H "Trunkline_Token: <admin-jwt>" -H 'Content-Type: application/json' \
   -d '{"name":"qwen3.8-flash","baseUrl":"http://127.0.0.1:9099",
        "path":"/v1/chat/completions","weight":1,"status":"active","adapter":"gpustack"}'
 ```
@@ -141,7 +141,7 @@ curl -X POST http://127.0.0.1:8080/api/config/instance/chat \
 
 ```bash
 curl -X POST http://127.0.0.1:8080/v1/chat/completions \
-  -H "Jairouter_Token: <admin-jwt>" -H 'Content-Type: application/json' \
+  -H "Trunkline_Token: <admin-jwt>" -H 'Content-Type: application/json' \
   -d '{"model":"qwen3.8-flash","messages":[{"role":"user","content":"hi"}],"stream":false}'
 ```
 
@@ -149,7 +149,7 @@ curl -X POST http://127.0.0.1:8080/v1/chat/completions \
 
 ```bash
 curl -X DELETE http://127.0.0.1:8080/api/config/instance/chat/<instanceDbId> \
-  -H "Jairouter_Token: <admin-jwt>"
+  -H "Trunkline_Token: <admin-jwt>"
 ```
 
 ### 监控部署

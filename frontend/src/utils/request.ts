@@ -32,10 +32,11 @@ request.interceptors.request.use(
     // Add JWT token using the correct header name for Trunkline
     const token = localStorage.getItem('admin_token')
 
-    // 检查是否是JWT token获取接口，如果不是则添加token头部
+    // 检查是否是JWT token获取接口或初始化接口，它们不应携带管理端 token
     const isTokenEndpoint = config.url && (
       config.url.includes('/auth/jwt/login') ||
-      config.url.includes('/auth/jwt/refresh')
+      config.url.includes('/auth/jwt/refresh') ||
+      config.url.includes('/setup/')
     )
 
     if (token && config.headers && !isTokenEndpoint) {
@@ -55,6 +56,11 @@ request.interceptors.response.use(
   },
   error => {
     if (error.response?.status === 401) {
+      // 初始化接口在管理员创建前匿名可达；若返回 401 也不要跳登录页，
+      // 否则路由器会再次把用户送回 /init，形成死循环。
+      if (error.config?.url?.includes('/setup/')) {
+        return Promise.reject(error)
+      }
       // 检查请求是否来自API测试场
       // 通过检查请求URL中是否包含v1 API端点来判断
       const isPlaygroundApiRequest = error.config?.url && (

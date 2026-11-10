@@ -51,8 +51,8 @@ public class StartupSecretKeyChecker implements CommandLineRunner {
         // 检查 JWT 密钥
         allPassed &= checkJwtSecrets();
 
-        // 检查管理员密码
-        allPassed &= checkAdminPassword();
+        // 【2026-11-10】管理员密码改由 /init 向导在创建账户时校验，
+        // 不再要求启动前设置 INITIAL_ADMIN_PASSWORD，否则「未初始化先启动进向导」会自相矛盾。
 
         if (!allPassed) {
             log.error("\n"
@@ -61,7 +61,7 @@ public class StartupSecretKeyChecker implements CommandLineRunner {
                 + "║                                                                              ║\n"
                 + "║  在生产环境使用之前，请务必：                                                ║\n"
                 + "║  1. 设置强密钥：export JWT_SECRET=\"<随机生成的 32+ 字节密钥>\"                    ║\n"
-                + "║  2. 设置强密码：export INITIAL_ADMIN_PASSWORD=\"<复杂密码>\"                     ║\n"
+                + "║  2. 首次部署访问 /init 完成初始化，在向导中设置强管理员密码                  ║\n"
                 + "║  3. 启用 JWT 认证：trunkline.security.jwt.enabled=true                       ║\n"
                 + "║  4. 使用密钥生成工具：java -jar trunkline.jar --generate-key                 ║\n"
                 + "║                                                                              ║\n"
@@ -186,46 +186,4 @@ public class StartupSecretKeyChecker implements CommandLineRunner {
         }
     }
 
-    /**
-     * 检查管理员密码
-     */
-    private boolean checkAdminPassword() {
-        log.info("正在检查管理员密码配置...");
-
-        String adminPassword = System.getenv("INITIAL_ADMIN_PASSWORD");
-        if (adminPassword == null || adminPassword.isEmpty()) {
-            adminPassword = System.getenv("ADMIN_PASSWORD");
-        }
-
-        if (adminPassword == null || adminPassword.isEmpty()) {
-            log.warn("⚠️  未设置 INITIAL_ADMIN_PASSWORD 环境变量");
-            // R4-P1：生产必须配置管理员密码
-            return StartupSecurityGate.adminPasswordOk(isProductionEnvironment(), null);
-        }
-
-        // R4-P1：默认出厂密码在生产视为失败
-        if (StartupSecurityGate.isDefaultAdminPassword(adminPassword)
-                && isProductionEnvironment()) {
-            log.error("❌ 管理员密码仍为出厂默认值，生产环境禁止使用");
-            return false;
-        }
-
-        ValidationResult result = SecretKeyValidator.validatePassword(adminPassword);
-
-        switch (result.getStrengthLevel()) {
-            case VERY_WEAK:
-            case WEAK:
-                log.error("❌ 管理员密码强度：{} - {}", result.getStrengthLevel().getDisplayName(), result.getMessage());
-                return false;
-            case MEDIUM:
-                log.warn("⚠️  管理员密码强度：{} - {}", result.getStrengthLevel().getDisplayName(), result.getMessage());
-                return true;
-            case STRONG:
-            case VERY_STRONG:
-                log.info("✓ 管理员密码强度：{} - 通过检查", result.getStrengthLevel().getDisplayName());
-                return true;
-            default:
-                return true;
-        }
-    }
 }

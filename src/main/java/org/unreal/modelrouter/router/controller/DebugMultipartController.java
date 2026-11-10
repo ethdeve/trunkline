@@ -83,7 +83,7 @@ public class DebugMultipartController {
         debugInfo.put("allHeaders", safeHeaders);
 
         debugInfo.put("xApiKey", redactSecret(headers.getFirst("X-API-Key")));
-        debugInfo.put("jairouterToken", redactSecret(headers.getFirst("Jairouter_token")));
+        debugInfo.put("trunklineToken", redactSecret(headers.getFirst("Trunkline_Token")));
         debugInfo.put("authorization", redactSecret(headers.getFirst("Authorization")));
 
         // 请求信息

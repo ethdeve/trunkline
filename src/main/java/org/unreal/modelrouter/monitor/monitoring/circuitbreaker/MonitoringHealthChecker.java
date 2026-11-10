@@ -275,7 +275,7 @@ public class MonitoringHealthChecker {
             boolean hasBasicMetrics = meterRegistry.getMeters().stream()
                 .anyMatch(meter -> meter.getId().getName().startsWith("trunkline"));
             
-            details.put("hasJaiRouterMetrics", hasBasicMetrics);
+            details.put("hasTrunklineMetrics", hasBasicMetrics);
             
             boolean isHealthy = meterCount > 0 && hasBasicMetrics;
             details.put("status", isHealthy ? "UP" : "DOWN");

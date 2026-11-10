@@ -66,7 +66,7 @@ class RedisSlidingWindowRateLimiterRedisIntegrationTest {
         factory = new LettuceConnectionFactory(host, port);
         factory.afterPropertiesSet();
         template = new ReactiveRedisTemplate<>(factory, RedisSerializationContext.string());
-        key = "jairouter:ratelimit:test:" + UUID.randomUUID();
+        key = "trunkline:ratelimit:test:" + UUID.randomUUID();
         warmUp();
     }
 

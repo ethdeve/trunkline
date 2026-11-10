@@ -146,7 +146,7 @@ function Test-MigrationReadiness {
             
             # 检查是否已经包含安全配置
             $content = Get-Content $configFile -Raw
-            if ($content -match "jairouter\.security") {
+            if ($content -match "trunkline\.security") {
                 Log-Warning "配置文件已包含安全配置，可能已经迁移过"
             }
             break
@@ -251,7 +251,7 @@ function New-SecurityConfig {
 # 此文件包含启用安全功能所需的基本配置
 # 请根据实际需求修改相关参数
 
-jairouter:
+trunkline:
   security:
     # 安全功能总开关
     enabled: true
@@ -360,7 +360,7 @@ function Update-ApplicationConfig {
     
     # 检查是否已经包含安全配置
     $content = Get-Content $mainConfig -Raw
-    if ($content -match "jairouter\.security") {
+    if ($content -match "trunkline\.security") {
         Log-Warning "配置文件已包含安全配置，跳过更新"
         return $true
     }

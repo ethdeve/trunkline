@@ -135,9 +135,9 @@ spring:
 #
 # 敏感配置项必须使用环境变量：
 # - JWT_SECRET: JWT 密钥（长度 >= 32 字符）
-# - INITIAL_ADMIN_PASSWORD: 管理员密码
 # - GPUSTACK_API_TOKEN: GPUStack API Token
 # - REDIS_PASSWORD: Redis 密码（如启用 Redis）
+# 管理员密码不再作为启动期环境变量：首次部署访问 /init 向导创建（其余账号在「账户管理」中配置）。
 
 # ========================================
 # 使用说明

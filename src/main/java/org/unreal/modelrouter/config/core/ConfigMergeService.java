@@ -1,6 +1,6 @@
 package org.unreal.modelrouter.config.core;
 
-import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
+import org.unreal.modelrouter.persistence.store.ConfigKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +22,7 @@ import java.util.Map;
 public class ConfigMergeService {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigMergeService.class);
-    private static final String CONFIG_KEY = ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY;
+    private static final String CONFIG_KEY = ConfigKeys.CURRENT_CONFIG_KEY;
 
     private final StoreManager storeManager;
     private final ModelRouterProperties modelRouterProperties;

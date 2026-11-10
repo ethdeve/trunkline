@@ -62,7 +62,7 @@ class DefaultJwtTokenValidatorTest {
         testKey = Keys.hmacShaKeyFor(TEST_SECRET.getBytes(StandardCharsets.UTF_8));
         when(securityProperties.getJwt()).thenReturn(jwtProperties);
         when(jwtProperties.getSecret()).thenReturn(TEST_SECRET);
-        when(jwtProperties.getIssuer()).thenReturn("jairouter-test");
+        when(jwtProperties.getIssuer()).thenReturn("trunkline-test");
         when(jwtProperties.getExpirationMinutes()).thenReturn(30L);
         when(jwtProperties.getRefreshExpirationDays()).thenReturn(7L);
         when(jwtProperties.isBlacklistEnabled()).thenReturn(false); // 禁用黑名单简化测试
@@ -211,7 +211,7 @@ class DefaultJwtTokenValidatorTest {
 
         return Jwts.builder()
             .subject(subject)
-            .issuer("jairouter-test")
+            .issuer("trunkline-test")
             .issuedAt(now)
             .expiration(expiration)
             .id(UUID.randomUUID().toString())

@@ -75,17 +75,14 @@ class DefaultAuthenticationConverterWsTokenTest {
     }
 
     @Test
-    @DisplayName("JWT：配置头未命中时回落读取旧品牌头（品牌切换双读过渡，S2 任务 26a①）")
-    void jwt_fallbackToLegacyHeader() {
+    @DisplayName("JWT：旧品牌头不再被接受")
+    void jwt_legacyHeaderRejected() {
         MockServerHttpRequest request = MockServerHttpRequest.get("/ws/routing-monitor")
                 .header("Jairouter_Token", "legacy-tok")
                 .build();
         MockServerWebExchange exchange = MockServerWebExchange.from(request);
 
-        Authentication auth = converter.convert(exchange).block();
-
-        assertInstanceOf(JwtAuthentication.class, auth);
-        assertEquals("legacy-tok", auth.getCredentials());
+        assertTrue(converter.convert(exchange).blockOptional().isEmpty());
     }
 
     @Test

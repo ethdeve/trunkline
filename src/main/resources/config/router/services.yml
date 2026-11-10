@@ -12,7 +12,7 @@
 #         gpu_type: a100
 #         region: cn-north
 #         tier: premium
-#   请求级圈选: header X-JAiRouter-Tags: "gpu_type=a100,region=cn-north"
+#   请求级圈选: header X-Trunkline-Tags: "gpu_type=a100,region=cn-north"
 
 model:
   services:

@@ -149,7 +149,7 @@ public class SpanManager {
             
             // 设置基础属性
             span.setAttribute("span.kind", kind.name());
-            span.setAttribute("service.name", "jairouter");
+            span.setAttribute("service.name", "trunkline");
             span.setAttribute("created.timestamp", Instant.now().toString());
             
             log.debug("创建Span: {} (kind: {}, spanId: {})", 

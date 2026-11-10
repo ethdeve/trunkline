@@ -24,7 +24,7 @@ class SecurityConfigurationValidatorDefaultSecretTest {
         jwt.setAlgorithm("HS256");
         jwt.setExpirationMinutes(60);
         jwt.setRefreshExpirationDays(7);
-        jwt.setIssuer("jairouter");
+        jwt.setIssuer("trunkline");
         return properties;
     }
 

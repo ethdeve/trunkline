@@ -45,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   bash:        REDIS_TEST=true ./mvnw test -Dtest=QuotaDistributedRedisIntegrationTest
  * </pre>
  *
- * <p>测试统一使用 {@code db=15} 与带随机后缀的 key 前缀（{@code jairouter:quota-it:&lt;uuid&gt;}），
+ * <p>测试统一使用 {@code db=15} 与带随机后缀的 key 前缀（{@code trunkline:quota-it:&lt;uuid&gt;}），
  * 每次运行前后清理自己的 key，不与其它数据互相干扰。</p>
  *
  * <p>验证目标：Lua 脚本在真实 Redis 上的<b>原子性</b>（并发累加不丢计数）、TTL 实际生效且不被重复
@@ -83,7 +83,7 @@ class QuotaDistributedRedisIntegrationTest {
         properties = new QuotaProperties();
         properties.setEnabled(true);
         properties.getDistributed().setEnabled(true);
-        prefix = "jairouter:quota-it:" + UUID.randomUUID().toString().replace("-", "");
+        prefix = "trunkline:quota-it:" + UUID.randomUUID().toString().replace("-", "");
         properties.getDistributed().setKeyPrefix(prefix);
         backend = new RedisCounterBackend(template, properties);
         deleteAll();

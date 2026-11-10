@@ -463,7 +463,7 @@ class MetricsBatchReporterTest {
         try {
             ReflectionTestUtils.setField(reporter, "httpEnabled", true);
             ReflectionTestUtils.setField(reporter, "httpEndpointUrl",
-                    "http://127.0.0.1:" + server.port() + "/metrics/job/jairouter");
+                    "http://127.0.0.1:" + server.port() + "/metrics/job/trunkline");
             ReflectionTestUtils.setField(reporter, "httpFormat", "prometheus");
             ReflectionTestUtils.setField(reporter, "httpTimeoutMs", 5000);
             reporter.setReportTarget(MetricsBatchReporter.ReportTarget.HTTP);
@@ -473,7 +473,7 @@ class MetricsBatchReporterTest {
                     Map.of("service", "chat"), System.currentTimeMillis())));
 
             assertTrue(result);
-            assertEquals("/metrics/job/jairouter", receivedUri.get());
+            assertEquals("/metrics/job/trunkline", receivedUri.get());
         } finally {
             server.disposeNow();
         }
@@ -487,7 +487,7 @@ class MetricsBatchReporterTest {
                 new MetricsBatchReporter(new SimpleMeterRegistry(), new ObjectMapper(), pool);
         ReflectionTestUtils.setField(pooledReporter, "httpEnabled", true);
         ReflectionTestUtils.setField(pooledReporter, "httpEndpointUrl",
-                "http://pushgateway.internal:9091/metrics/job/jairouter");
+                "http://pushgateway.internal:9091/metrics/job/trunkline");
         ReflectionTestUtils.setField(pooledReporter, "httpTimeoutMs", 500);
 
         invokeReportToHttp(pooledReporter, List.of());

@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class QuotaReservation {
 
     /** 请求属性键：本次请求的配额预留凭据 */
-    public static final String ATTRIBUTE = "JAIR_QUOTA_RESERVATION";
+    public static final String ATTRIBUTE = "TRUNKLINE_QUOTA_RESERVATION";
 
     private final QuotaLedgerService ledgerService;
     private final List<QuotaDimension> dimensions;

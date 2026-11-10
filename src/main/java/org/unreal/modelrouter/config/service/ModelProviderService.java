@@ -4,7 +4,7 @@
 
 package org.unreal.modelrouter.config.service;
 
-import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
+import org.unreal.modelrouter.persistence.store.ConfigKeys;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -416,7 +416,7 @@ public class ModelProviderService {
                 .orElseGet(() -> {
                     final ServiceConfigEntity saved = serviceConfigRepository.save(
                             ServiceConfigEntity.builder()
-                                    .configKey(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY)
+                                    .configKey(ConfigKeys.CURRENT_CONFIG_KEY)
                                     .serviceType(type)
                                     .version(1)
                                     .isLatest(true)

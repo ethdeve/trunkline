@@ -54,9 +54,9 @@ public class ConfigValidationController {
         sensitiveRules.put("description", "敏感配置必须使用环境变量");
         sensitiveRules.put("envVars", new String[]{
             "JWT_SECRET",
-            "INITIAL_ADMIN_PASSWORD",
             "GPUSTACK_API_TOKEN"
         });
+        sensitiveRules.put("adminPassword", "首次部署由 /init 向导创建，不作为启动期环境变量");
         rules.put("sensitiveConfig", sensitiveRules);
 
         // 服务器端口规则
@@ -128,12 +128,6 @@ public class ConfigValidationController {
             "required", true,
             "minLength", 32,
             "example", "openssl rand -base64 32"
-        ));
-        required.put("INITIAL_ADMIN_PASSWORD", Map.of(
-            "description", "管理员密码",
-            "required", true,
-            "minLength", 8,
-            "note", "首次启动后建议修改"
         ));
         envVars.put("required", required);
 

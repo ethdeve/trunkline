@@ -61,7 +61,7 @@ class JwtRefreshSecurityTest {
         void standardClaimsAreNotCopied() {
             final Map<String, Object> old = Map.of(
                     "sub", "user",
-                    "iss", "jairouter",
+                    "iss", "trunkline",
                     "exp", 123L,
                     "iat", 100L,
                     "nbf", 100L);

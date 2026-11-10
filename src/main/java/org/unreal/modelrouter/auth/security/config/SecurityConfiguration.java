@@ -152,6 +152,9 @@ public class SecurityConfiguration {
                 .pathMatchers(org.springframework.http.HttpMethod.POST, "/api/auth/jwt/login").permitAll()
                 // JWT验证端点允许匿名访问（用于验证令牌有效性）
                 .pathMatchers(org.springframework.http.HttpMethod.POST, "/api/auth/jwt/validate").permitAll()
+                // 首次部署初始化向导：未创建管理员前必须匿名可达，否则无法登录也无法初始化。
+                // 必须放在 /api/** 固定角色矩阵之前；完成初始化后由 SetupService 返回 409 关闸。
+                .pathMatchers("/api/setup/**").permitAll()
                 // v2.9.8-fix: ModelCallStatsController.hasAdminPermission() stub 恒 true，
                 // /api/model-stats/** 全量改为 URL 规则 hasRole('ADMIN')（DELETE /clear 为管理员操作）
                 .pathMatchers("/api/model-stats/**").hasRole("ADMIN")

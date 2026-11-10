@@ -12,7 +12,7 @@ export interface ChatSession {
   updatedAt: string
 }
 
-const STORAGE_KEY = 'jairouter_chat_sessions'
+const STORAGE_KEY = 'trunkline_chat_sessions'
 
 export function useChatSession() {
   const sessions = ref<ChatSession[]>([])

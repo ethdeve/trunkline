@@ -61,7 +61,7 @@ public class ModelServiceRegistry {
     private static final Logger LOGGER = LoggerFactory.getLogger(ModelServiceRegistry.class);
 
     /** v2.9.7: 请求级标签路由 header,值格式 key=value,key2=value2(逗号分隔,容忍空格,空项跳过) */
-    private static final String TAGS_HEADER = "X-JAiRouter-Tags";
+    private static final String TAGS_HEADER = "X-Trunkline-Tags";
 
     /**
      * N-4：池不可用（503）时给客户端的退避提示秒数。
@@ -325,7 +325,7 @@ public class ModelServiceRegistry {
             effectiveModelName = candidates.get(0).getName();
         }
 
-        // v2.9.7: 标签过滤 — 规则 TARGET_TAGS 优先,否则解析请求 header X-JAiRouter-Tags;
+        // v2.9.7: 标签过滤 — 规则 TARGET_TAGS 优先,否则解析请求 header X-Trunkline-Tags;
         // 过滤后空候选与 TARGET_INSTANCE 一致抛 404
         Map<String, String> requiredTags = ruleDecision != null ? ruleDecision.getTargetTags() : null;
         if (requiredTags == null) {
@@ -349,7 +349,7 @@ public class ModelServiceRegistry {
         //     规则引擎把模型名重写为某个实例名(TARGET_MODEL)或锁定实例(TARGET_INSTANCE)。
         //   v3.6 治理收口：auto-model 系统分组已移除——没有显式创建的分组就没有可调用的虚拟模型。
         // N-1: 池候选 = 池成员 ∩ candidates(candidates 已按请求标签过滤),
-        // 池路由同样受 X-JAiRouter-Tags 约束(此前用全量实例解析导致标签被忽略)
+        // 池路由同样受 X-Trunkline-Tags 约束(此前用全量实例解析导致标签被忽略)
         List<ModelRouterProperties.ModelInstance> availableInstances;
         LoadBalancer loadBalancer;
         PoolDefinition matchedPool = poolSelector != null
@@ -829,7 +829,7 @@ public class ModelServiceRegistry {
     }
 
     /**
-     * v2.9.7: 解析请求级标签 header X-JAiRouter-Tags
+     * v2.9.7: 解析请求级标签 header X-Trunkline-Tags
      * 格式: key=value,key2=value2;逗号分隔、容忍空格、键值等号分隔、空项/空值跳过
      *
      * @return 解析后的标签 Map;无 header 或解析为空返回 null

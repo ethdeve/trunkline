@@ -40,7 +40,7 @@ public final class StartupSecurityGate {
         if (shouldFailFast(production, checksPassed, skipAuthWarning)) {
             throw new IllegalStateException(
                     "Production security startup checks failed. "
-                            + "Set JWT_SECRET and INITIAL_ADMIN_PASSWORD to strong values, "
+                            + "Set JWT_SECRET to a strong value, complete /init to create the admin password, "
                             + "or set " + SKIP_ENV + "=true only for trusted isolated networks.");
         }
     }

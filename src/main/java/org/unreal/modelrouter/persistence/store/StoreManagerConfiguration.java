@@ -34,8 +34,7 @@ public class StoreManagerConfiguration {
     @Primary
     public StoreManager storeManager(final JpaStoreManager jpaStoreManager) {
         log.info("Initializing StoreManager with JPA (v1.5.1)");
-        // 主配置 key 兼容装饰器：trunkline-config 读回落 model-router-config（品牌清理）
-        return new ConfigKeyCompatStoreManager(jpaStoreManager);
+        return jpaStoreManager;
     }
 
     // Getters and Setters

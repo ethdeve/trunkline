@@ -38,7 +38,7 @@ class MonitoringConfigurationValidatorTest {
         @DisplayName("VAL-143: 基础配置 - 有效配置成功")
         void testValidateBasicConfigurationValid() {
             // Setup valid configuration
-            when(monitoringProperties.getPrefix()).thenReturn("jairouter");
+            when(monitoringProperties.getPrefix()).thenReturn("trunkline");
             when(monitoringProperties.getCollectionInterval()).thenReturn(Duration.ofSeconds(10));
             when(monitoringProperties.getEnabledCategories()).thenReturn(Set.of("system", "business"));
             when(monitoringProperties.getSampling()).thenReturn(null);
@@ -78,7 +78,7 @@ class MonitoringConfigurationValidatorTest {
         @Test
         @DisplayName("VAL-146: 基础配置 - 收集间隔过短产生警告")
         void testValidateShortCollectionInterval() {
-            when(monitoringProperties.getPrefix()).thenReturn("jairouter");
+            when(monitoringProperties.getPrefix()).thenReturn("trunkline");
             when(monitoringProperties.getCollectionInterval()).thenReturn(Duration.ofMillis(500));
             when(monitoringProperties.getEnabledCategories()).thenReturn(Set.of("system"));
             when(monitoringProperties.getSampling()).thenReturn(null);
@@ -91,7 +91,7 @@ class MonitoringConfigurationValidatorTest {
         @Test
         @DisplayName("VAL-147: 基础配置 - 未知类别产生警告")
         void testValidateUnknownCategory() {
-            when(monitoringProperties.getPrefix()).thenReturn("jairouter");
+            when(monitoringProperties.getPrefix()).thenReturn("trunkline");
             when(monitoringProperties.getCollectionInterval()).thenReturn(Duration.ofSeconds(10));
             when(monitoringProperties.getEnabledCategories()).thenReturn(Set.of("unknown"));
             when(monitoringProperties.getSampling()).thenReturn(null);
@@ -115,7 +115,7 @@ class MonitoringConfigurationValidatorTest {
             when(sampling.getInfrastructureMetrics()).thenReturn(1.0);
             when(sampling.getTraceMetrics()).thenReturn(0.3);
 
-            when(monitoringProperties.getPrefix()).thenReturn("jairouter");
+            when(monitoringProperties.getPrefix()).thenReturn("trunkline");
             when(monitoringProperties.getCollectionInterval()).thenReturn(Duration.ofSeconds(10));
             when(monitoringProperties.getEnabledCategories()).thenReturn(Set.of("system"));
             when(monitoringProperties.getSampling()).thenReturn(sampling);
@@ -134,7 +134,7 @@ class MonitoringConfigurationValidatorTest {
             when(sampling.getInfrastructureMetrics()).thenReturn(1.0);
             when(sampling.getTraceMetrics()).thenReturn(0.3);
 
-            when(monitoringProperties.getPrefix()).thenReturn("jairouter");
+            when(monitoringProperties.getPrefix()).thenReturn("trunkline");
             when(monitoringProperties.getCollectionInterval()).thenReturn(Duration.ofSeconds(10));
             when(monitoringProperties.getEnabledCategories()).thenReturn(Set.of("system"));
             when(monitoringProperties.getSampling()).thenReturn(sampling);
@@ -153,7 +153,7 @@ class MonitoringConfigurationValidatorTest {
             when(sampling.getInfrastructureMetrics()).thenReturn(1.0);
             when(sampling.getTraceMetrics()).thenReturn(0.3);
 
-            when(monitoringProperties.getPrefix()).thenReturn("jairouter");
+            when(monitoringProperties.getPrefix()).thenReturn("trunkline");
             when(monitoringProperties.getCollectionInterval()).thenReturn(Duration.ofSeconds(10));
             when(monitoringProperties.getEnabledCategories()).thenReturn(Set.of("system"));
             when(monitoringProperties.getSampling()).thenReturn(sampling);
@@ -175,7 +175,7 @@ class MonitoringConfigurationValidatorTest {
             when(performance.getBatchSize()).thenReturn(100);
             when(performance.getBufferSize()).thenReturn(1000);
 
-            when(monitoringProperties.getPrefix()).thenReturn("jairouter");
+            when(monitoringProperties.getPrefix()).thenReturn("trunkline");
             when(monitoringProperties.getCollectionInterval()).thenReturn(Duration.ofSeconds(10));
             when(monitoringProperties.getEnabledCategories()).thenReturn(Set.of("system"));
             when(monitoringProperties.getSampling()).thenReturn(null);
@@ -192,7 +192,7 @@ class MonitoringConfigurationValidatorTest {
             when(performance.getBatchSize()).thenReturn(0); // Invalid
             when(performance.getBufferSize()).thenReturn(1000);
 
-            when(monitoringProperties.getPrefix()).thenReturn("jairouter");
+            when(monitoringProperties.getPrefix()).thenReturn("trunkline");
             when(monitoringProperties.getCollectionInterval()).thenReturn(Duration.ofSeconds(10));
             when(monitoringProperties.getEnabledCategories()).thenReturn(Set.of("system"));
             when(monitoringProperties.getSampling()).thenReturn(null);
@@ -209,7 +209,7 @@ class MonitoringConfigurationValidatorTest {
             when(performance.getBatchSize()).thenReturn(2000); // Too large
             when(performance.getBufferSize()).thenReturn(3000);
 
-            when(monitoringProperties.getPrefix()).thenReturn("jairouter");
+            when(monitoringProperties.getPrefix()).thenReturn("trunkline");
             when(monitoringProperties.getCollectionInterval()).thenReturn(Duration.ofSeconds(10));
             when(monitoringProperties.getEnabledCategories()).thenReturn(Set.of("system"));
             when(monitoringProperties.getSampling()).thenReturn(null);
@@ -226,7 +226,7 @@ class MonitoringConfigurationValidatorTest {
             when(performance.getBatchSize()).thenReturn(1000);
             when(performance.getBufferSize()).thenReturn(500); // Smaller
 
-            when(monitoringProperties.getPrefix()).thenReturn("jairouter");
+            when(monitoringProperties.getPrefix()).thenReturn("trunkline");
             when(monitoringProperties.getCollectionInterval()).thenReturn(Duration.ofSeconds(10));
             when(monitoringProperties.getEnabledCategories()).thenReturn(Set.of("system"));
             when(monitoringProperties.getSampling()).thenReturn(null);
@@ -248,7 +248,7 @@ class MonitoringConfigurationValidatorTest {
             customTags.put("env", "production");
             customTags.put("region", "us-west");
 
-            when(monitoringProperties.getPrefix()).thenReturn("jairouter");
+            when(monitoringProperties.getPrefix()).thenReturn("trunkline");
             when(monitoringProperties.getCollectionInterval()).thenReturn(Duration.ofSeconds(10));
             when(monitoringProperties.getEnabledCategories()).thenReturn(Set.of("system"));
             when(monitoringProperties.getSampling()).thenReturn(null);
@@ -264,7 +264,7 @@ class MonitoringConfigurationValidatorTest {
             Map<String, String> customTags = new HashMap<>();
             customTags.put("123_invalid", "value");
 
-            when(monitoringProperties.getPrefix()).thenReturn("jairouter");
+            when(monitoringProperties.getPrefix()).thenReturn("trunkline");
             when(monitoringProperties.getCollectionInterval()).thenReturn(Duration.ofSeconds(10));
             when(monitoringProperties.getEnabledCategories()).thenReturn(Set.of("system"));
             when(monitoringProperties.getSampling()).thenReturn(null);

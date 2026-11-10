@@ -81,7 +81,7 @@ class MonitoringControllerTest {
     @BeforeEach
     void setUp() {
         when(monitoringProperties.isEnabled()).thenReturn(true);
-        when(monitoringProperties.getPrefix()).thenReturn("jairouter");
+        when(monitoringProperties.getPrefix()).thenReturn("trunkline");
         when(monitoringProperties.getCollectionInterval()).thenReturn(Duration.ofSeconds(10));
         when(monitoringProperties.getEnabledCategories()).thenReturn(Set.of("router", "adapter"));
         when(monitoringProperties.getCustomTags()).thenReturn(new HashMap<>());

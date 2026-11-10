@@ -15,7 +15,7 @@ trunkline:
     enabled: true
     
     # 服务信息
-    service-name: "jairouter"
+    service-name: "trunkline"
     service-version: "1.0.0"
     service-namespace: "production"
     

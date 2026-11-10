@@ -38,9 +38,6 @@ public class QuotaProperties {
     /** 默认分布式计数 key 前缀 */
     public static final String DEFAULT_DISTRIBUTED_KEY_PREFIX = "trunkline:quota";
 
-    /** 旧版本（JAiRouter 3.x）分布式计数 key 前缀，启动期由迁移器一次性并入新前缀 */
-    public static final String LEGACY_DISTRIBUTED_KEY_PREFIX = "jairouter:quota";
-
     /** 默认 Redis 命令超时（热路径同步等待，取值保守） */
     public static final Duration DEFAULT_DISTRIBUTED_TIMEOUT = Duration.ofMillis(50L);
 
@@ -110,20 +107,6 @@ public class QuotaProperties {
     }
 
     /**
-     * 旧版本 Redis key 前缀（用于启动期迁移），为空或与新前缀相同时表示无需迁移。
-     *
-     * @return 配置值；未配置时返回 {@link #LEGACY_DISTRIBUTED_KEY_PREFIX}
-     */
-    public String distributedLegacyKeyPrefix() {
-        final String prefix = distributed == null ? null : distributed.getLegacyKeyPrefix();
-        if (prefix == null || prefix.isEmpty()) {
-            return null;
-        }
-        final String current = distributedKeyPrefix();
-        return prefix.equals(current) ? null : prefix;
-    }
-
-    /**
      * Redis 命令超时（钳制在 1ms ~ 5s，热路径同步等待）。
      *
      * @return 超时时间；未配置时返回 {@link #DEFAULT_DISTRIBUTED_TIMEOUT}
@@ -167,12 +150,6 @@ public class QuotaProperties {
 
         /** Redis key 前缀（默认 {@code trunkline:quota}） */
         private String keyPrefix = DEFAULT_DISTRIBUTED_KEY_PREFIX;
-
-        /**
-         * 旧版本 Redis key 前缀（默认 {@code jairouter:quota}）；启动期由迁移器把该前缀下的
-         * 存量计数并入 {@link #keyPrefix}。置空可关闭迁移（例如确认无旧版数据时）。
-         */
-        private String legacyKeyPrefix = LEGACY_DISTRIBUTED_KEY_PREFIX;
 
         /** 单条 Redis 命令超时（默认 50ms） */
         private Duration timeout = DEFAULT_DISTRIBUTED_TIMEOUT;

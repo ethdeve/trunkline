@@ -66,7 +66,10 @@ public class ExcludedPathsConfig {
         // /api/docs/content 的 OPS 鉴权读取帮助文档。帮助文档正文统一走鉴权接口。
         AUTH_EXCLUDED_PATTERNS = List.of(
             "/actuator/**",
-            "/admin/**"
+            "/admin/**",
+            // 首次部署尚未创建管理员，初始化接口必须匿名可达；服务层在完成初始化后
+            // 会对 /api/setup/datasource 与 /api/setup/admin 返回 409 拒绝再次调用。
+            "/api/setup/**"
         );
         
         // 数据脱敏排除路径（ResponseSanitizationFilter 网关响应过滤器）

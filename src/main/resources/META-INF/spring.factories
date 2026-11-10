@@ -1,6 +1,3 @@
 org.springframework.boot.env.EnvironmentPostProcessor=\
-org.unreal.modelrouter.persistence.migration.FlywayDialectEnvironmentPostProcessor,\
-org.unreal.modelrouter.common.config.JairouterLegacyPropertyMapper
-
-org.springframework.context.ApplicationListener=\
-org.unreal.modelrouter.common.config.JairouterLegacyPropertyMapper
+org.unreal.modelrouter.setup.SetupEnvironmentPostProcessor,\
+org.unreal.modelrouter.persistence.migration.FlywayDialectEnvironmentPostProcessor

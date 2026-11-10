@@ -137,7 +137,8 @@ class ConfigValidationControllerTest {
             @SuppressWarnings("unchecked")
             Map<String, Object> required = (Map<String, Object>) result.get("required");
             assertTrue(required.containsKey("JWT_SECRET"));
-            assertTrue(required.containsKey("INITIAL_ADMIN_PASSWORD"));
+            assertFalse(required.containsKey("INITIAL_ADMIN_PASSWORD"),
+                    "管理员密码已改由 /init 向导创建，不应再列为启动期环境变量");
         }
 
         @Test

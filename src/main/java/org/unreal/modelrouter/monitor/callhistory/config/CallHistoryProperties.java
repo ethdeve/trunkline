@@ -84,7 +84,7 @@ public final class CallHistoryProperties {
     /**
      * 加密密钥来源
      * "auto": 自动生成密钥并持久化到数据目录
-     * "env": 读取 JAIR_CALL_HISTORY_KEY 环境变量（Base64 编码的 256-bit 密钥）
+     * "env": 读取 TRUNKLINE_CALL_HISTORY_KEY 环境变量（Base64 编码的 256-bit 密钥）
      */
     private String encryptionKeySource = "auto";
 }

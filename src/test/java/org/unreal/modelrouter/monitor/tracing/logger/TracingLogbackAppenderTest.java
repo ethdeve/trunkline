@@ -48,12 +48,12 @@ class TracingLogbackAppenderTest {
     @Test
     @DisplayName("配置了副本标识时 JSON 应带上 instanceId")
     void includesInstanceIdWhenConfigured() {
-        appender.setInstanceId("jairouter-probe-1");
+        appender.setInstanceId("trunkline-probe-1");
 
         appender.append(eventOf("hello"));
 
         final String out = captured.toString(StandardCharsets.UTF_8);
-        assertTrue(out.contains("\"instanceId\":\"jairouter-probe-1\""),
+        assertTrue(out.contains("\"instanceId\":\"trunkline-probe-1\""),
                 "多副本下需要按副本检索日志，缺 instanceId 就做不到：" + out);
         assertTrue(out.contains("\"message\":\"hello\""), "消息本体应保留：" + out);
     }

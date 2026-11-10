@@ -1,6 +1,6 @@
 package org.unreal.modelrouter.config.core.manager;
 
-import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
+import org.unreal.modelrouter.persistence.store.ConfigKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -31,7 +31,7 @@ public class ConfigVersionManager {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigVersionManager.class);
 
-    private static final String CURRENT_KEY = ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY;
+    private static final String CURRENT_KEY = ConfigKeys.CURRENT_CONFIG_KEY;
 
     private final StoreManager storeManager;
     private final ConfigMergeService configMergeService;

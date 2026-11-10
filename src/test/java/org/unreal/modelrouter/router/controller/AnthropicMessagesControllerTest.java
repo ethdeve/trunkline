@@ -101,7 +101,7 @@ class AnthropicMessagesControllerTest {
     private MockServerWebExchange exchange() {
         return MockServerWebExchange.from(MockServerHttpRequest.post("/v1/messages")
                 .header("anthropic-version", "2023-06-01")
-                .header("x-api-key", "jairouter-key")
+                .header("x-api-key", "trunkline-key")
                 .build());
     }
 
@@ -366,7 +366,7 @@ class AnthropicMessagesControllerTest {
                 MockServerHttpRequest.post("/v1/messages")
                         .header("anthropic-version", "9999-01-01")
                         .header("anthropic-beta", "some-beta-feature")
-                        .header("x-api-key", "jairouter-key")
+                        .header("x-api-key", "trunkline-key")
                         .build());
         stubHandler(ResponseEntity.ok(DOWNSTREAM_JSON));
         AnthropicMessagesRequest request = request("""

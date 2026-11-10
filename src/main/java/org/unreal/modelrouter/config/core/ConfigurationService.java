@@ -1,6 +1,6 @@
 package org.unreal.modelrouter.config.core;
 
-import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
+import org.unreal.modelrouter.persistence.store.ConfigKeys;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -250,7 +250,7 @@ public class ConfigurationService {
                     serviceConfigUpdateService.buildServiceConfigUpdate(existingServiceConfig, request);
 
             services.put(serviceType, newConfig);
-            storeManager.saveConfig(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY, currentConfig);
+            storeManager.saveConfig(ConfigKeys.CURRENT_CONFIG_KEY, currentConfig);
             configVersionManager.saveAsNewVersion(
                     currentConfig, "更新服务配置: " + serviceType, SecurityUtils.getCurrentUserId());
             instanceConfigService.refreshRuntimeConfig();

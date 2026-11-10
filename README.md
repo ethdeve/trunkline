@@ -74,15 +74,15 @@ print(response.choices[0].message.content)
 Add your own backends — Ollama, vLLM, GPUStack, or any cloud provider — in the console's instance management. Hot-reload applies instantly, no restart.
 
 <details>
-<summary><b>Upgrading from JAiRouter?</b></summary>
+<summary><b>Upgrading from an older version?</b></summary>
 
-Trunkline ships a transparent compatibility layer — existing setups migrate automatically:
+Trunkline no longer ships the legacy runtime compatibility layer. Migrate manually before upgrading:
 
-- Config prefix `jairouter.*` → `trunkline.*`: legacy keys keep working with a deprecation warning in logs;
-- Redis quota keys `jairouter:quota:*` → `trunkline:quota:*`: one-time migration at startup, usage counters are preserved;
-- Config store key `model-router-config` → `trunkline-config`: reads fall back to the legacy key; writes go to the new key.
-
-The default auth header `Jairouter_Token` and the `~/.jairouter` key directory remain unchanged (API contract compatibility).
+- Use the `trunkline.*` configuration prefix; legacy environment variable names are no longer mapped.
+- Move quota counters to `trunkline:quota:*`; legacy counters are not merged automatically.
+- Use `trunkline-config` as the config store key; legacy keys are no longer read as a fallback.
+- Send the `Trunkline_Token` authentication header.
+- Place the call-history encryption key at `~/.trunkline/call-history.key`, or set `TRUNKLINE_CALL_HISTORY_KEY`; the legacy key directory is no longer copied automatically.
 
 </details>
 
@@ -210,7 +210,7 @@ Trunkline is a **production-grade AI model gateway** for teams running their own
 
 **Current version: 0.1.0** (version number frozen — will bump once the community edition matures; see the [iteration plan](docs/product/Trunkline-产品迭代计划.md))
 
-0.1.0 inherits all capabilities of upstream JAiRouter and adds the Trunkline brand system with a smooth compatibility layer (legacy config prefixes / Redis keys / config store keys migrate automatically).
+0.1.0 inherits all capabilities of upstream JAiRouter and adds the Trunkline brand system. The legacy runtime compatibility layer has been removed; see "Upgrading from an older version?" for the manual migration checklist.
 
 **Community edition stages** (stage names, not release versions):
 

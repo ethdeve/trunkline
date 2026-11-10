@@ -178,6 +178,18 @@ class SecretKeyValidatorTest {
     }
 
     @Test
+    @DisplayName("验证密码 - 弱模式提示指出具体命中的片段")
+    void testValidatePassword_WeakMessageNamesFragment() {
+        ValidationResult result = SecretKeyValidator.validatePassword("aaa@123456$123");
+        assertFalse(result.isPassed());
+        assertEquals(StrengthLevel.VERY_WEAK, result.getStrengthLevel());
+        assertTrue(result.getMessage().contains("123456"),
+                "提示应指出命中的弱片段，实际: " + result.getMessage());
+        assertFalse(result.getMessage().contains("常见弱密码"),
+                "不应再用笼统的『常见弱密码』话术");
+    }
+
+    @Test
     @DisplayName("验证密码 - 过于简单")
     void testValidatePassword_TooSimple() {
         String simplePassword = "abc";  // 太短且无多样性

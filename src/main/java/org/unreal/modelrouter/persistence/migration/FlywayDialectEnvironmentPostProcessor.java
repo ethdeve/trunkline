@@ -59,10 +59,10 @@ public class FlywayDialectEnvironmentPostProcessor implements EnvironmentPostPro
     private static final String H2_URL_PREFIX = "jdbc:h2:";
 
     /** 本类注入的兜底属性来源名（{@code addLast}） */
-    static final String SOURCE_NAME = "jairouterSchemaDialect";
+    static final String SOURCE_NAME = "trunklineSchemaDialect";
 
     /** 强制覆盖的 {@code ddl-auto} 属性来源名（{@code addFirst}） */
-    static final String FORCED_SOURCE_NAME = "jairouterSchemaDialectForced";
+    static final String FORCED_SOURCE_NAME = "trunklineSchemaDialectForced";
 
     static final String DATASOURCE_URL = "spring.datasource.url";
     static final String FLYWAY_ENABLED = "spring.flyway.enabled";

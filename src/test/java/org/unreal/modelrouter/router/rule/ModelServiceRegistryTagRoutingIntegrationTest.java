@@ -41,7 +41,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * ModelServiceRegistry 标签路由集成测试(v2.9.7)
- * 验证:规则 TARGET_TAGS 圈选 / 请求 header X-JAiRouter-Tags 圈选 /
+ * 验证:规则 TARGET_TAGS 圈选 / 请求 header X-Trunkline-Tags 圈选 /
  * 无 tags 走原逻辑 / 过滤后空候选 404 / TARGET_INSTANCE 与 TARGET_TAGS 单一动作互斥
  */
 @DisplayName("ModelServiceRegistry 标签路由集成测试")
@@ -220,13 +220,13 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
     // ==================== 请求 header 圈选 ====================
 
     @Nested
-    @DisplayName("请求 header X-JAiRouter-Tags 圈选")
+    @DisplayName("请求 header X-Trunkline-Tags 圈选")
     class HeaderTagsTests {
 
         @Test
         @DisplayName("TAG-INTEG-004: header 单键圈选实例")
         void testHeaderTags_filtersInstances() {
-            Map<String, String> headers = Map.of("X-JAiRouter-Tags", "gpu_type=a100");
+            Map<String, String> headers = Map.of("X-Trunkline-Tags", "gpu_type=a100");
 
             ModelRouterProperties.ModelInstance selected =
                     registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1", headers);
@@ -238,7 +238,7 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
         @Test
         @DisplayName("TAG-INTEG-005: header 多标签、容忍空格与空项")
         void testHeaderTags_multipleWithSpaces() {
-            Map<String, String> headers = Map.of("X-JAiRouter-Tags", "gpu_type=a100, region=cn-north ,,");
+            Map<String, String> headers = Map.of("X-Trunkline-Tags", "gpu_type=a100, region=cn-north ,,");
 
             ModelRouterProperties.ModelInstance selected =
                     registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1", headers);
@@ -250,7 +250,7 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
         @Test
         @DisplayName("TAG-INTEG-006: header 标签无匹配实例抛 404")
         void testHeaderTags_noMatch_throws404() {
-            Map<String, String> headers = Map.of("X-JAiRouter-Tags", "region=eu-central");
+            Map<String, String> headers = Map.of("X-Trunkline-Tags", "region=eu-central");
 
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                     () -> registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1", headers));
@@ -261,7 +261,7 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
         @Test
         @DisplayName("TAG-INTEG-007: header 为空白时不过滤")
         void testHeaderTags_blank_originalBehavior() {
-            Map<String, String> headers = Map.of("X-JAiRouter-Tags", "   ");
+            Map<String, String> headers = Map.of("X-Trunkline-Tags", "   ");
 
             ModelRouterProperties.ModelInstance selected =
                     registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1", headers);
@@ -330,7 +330,7 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
         @Test
         @DisplayName("N-1-001: 池路由 + header 标签圈选到带标签成员（修复前轮转全部成员）")
         void poolRouting_withMatchingTags_selectsTaggedMember() {
-            Map<String, String> headers = Map.of("X-JAiRouter-Tags", "gpu_type=a100");
+            Map<String, String> headers = Map.of("X-Trunkline-Tags", "gpu_type=a100");
 
             ModelRouterProperties.ModelInstance selected =
                     registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "pool-gpt", "1.1.1.1", headers);
@@ -343,7 +343,7 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
         @Test
         @DisplayName("N-1-002: 池路由 + header 标签无匹配成员抛 404（与非池路径语义一致）")
         void poolRouting_withoutMatchingTags_throws404() {
-            Map<String, String> headers = Map.of("X-JAiRouter-Tags", "region=eu-central");
+            Map<String, String> headers = Map.of("X-Trunkline-Tags", "region=eu-central");
 
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                     () -> registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "pool-gpt", "1.1.1.1", headers));
@@ -381,7 +381,7 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
             ruleEngine.reloadRules(List.of(r));
 
             // header 指向 inst-claude(region=us-west),但规则要求 region=cn-north → 应选 inst-gpt
-            Map<String, String> headers = Map.of("X-JAiRouter-Tags", "region=us-west");
+            Map<String, String> headers = Map.of("X-Trunkline-Tags", "region=us-west");
 
             ModelRouterProperties.ModelInstance selected =
                     registry.selectInstance(ModelServiceRegistry.ServiceType.chat, "chat-pool", "1.1.1.1", headers);

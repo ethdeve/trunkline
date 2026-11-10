@@ -52,7 +52,7 @@ import static org.mockito.Mockito.when;
 class DefaultJwtTokenValidatorBlacklistDegradationTest {
 
     private static final String TEST_SECRET = "test-secret-key-for-jwt-validation-min-32-chars";
-    private static final String TEST_ISSUER = "jairouter-test";
+    private static final String TEST_ISSUER = "trunkline-test";
 
     private JwtConfig jwtProperties;
     private ReactiveStringRedisTemplate redisTemplate;

@@ -49,8 +49,6 @@ trunkline:
       enabled: false
       # Redis key 前缀（默认 trunkline:quota）
       key-prefix: "trunkline:quota"
-      # 旧版本（JAiRouter 3.x）key 前缀：启动期一次性把存量计数并入新前缀；置空关闭迁移
-      legacy-key-prefix: "jairouter:quota"
       # 单条 Redis 命令超时（热路径同步等待，默认 50ms，有效区间 1ms ~ 5s）
       timeout: "50ms"
       # Redis 不可用 / 超时 / 脚本错误时是否降级回本地计数视图（默认 true）

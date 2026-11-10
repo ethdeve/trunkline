@@ -63,7 +63,7 @@ class DebugMultipartControllerTest {
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
         headers.setContentLength(1024L);
         headers.set("X-API-Key", "test-api-key");
-        headers.set("Jairouter_token", "test-token");
+        headers.set("Trunkline_Token", "test-token");
         headers.set("Authorization", "Bearer auth-token");
 
         lenient().when(httpRequest.getHeaders()).thenReturn(headers);
@@ -99,7 +99,7 @@ class DebugMultipartControllerTest {
                         assertEquals(DebugMultipartController.redactSecret("test-api-key"),
                                 response.getBody().get("xApiKey"));
                         assertEquals(DebugMultipartController.redactSecret("test-token"),
-                                response.getBody().get("jairouterToken"));
+                                response.getBody().get("trunklineToken"));
                         assertEquals(DebugMultipartController.redactSecret("Bearer auth-token"),
                                 response.getBody().get("authorization"));
                         assertFalse(String.valueOf(response.getBody().get("authorization"))

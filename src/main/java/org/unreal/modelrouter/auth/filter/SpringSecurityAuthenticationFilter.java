@@ -136,7 +136,7 @@ public class SpringSecurityAuthenticationFilter implements WebFilter {
         // switchIfEmpty 的实参被提前求值，认证成功的请求也会被打出"缺少认证信息"告警。
         return authenticationConverter.convert(exchange)
                 .switchIfEmpty(writeMissingCredentialsError(exchange,
-                        "请求缺少认证信息，请提供X-API-Key或Jairouter_token"))
+                        "请求缺少认证信息，请提供X-API-Key或Trunkline_Token"))
                 .flatMap(authentication -> authenticationManager.authenticate(authentication)
                         .flatMap(authenticated -> continueWithSecurityContext(authenticated, exchange, chain))
                         // 只捕获认证相关异常，其它异常放行

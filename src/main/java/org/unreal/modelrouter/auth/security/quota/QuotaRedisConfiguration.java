@@ -48,41 +48,4 @@ public class QuotaRedisConfiguration {
             properties.distributedKeyPrefix());
         return new RedisCounterBackend(template, properties);
     }
-
-    /**
-     * 装配旧前缀配额 key 迁移器（品牌清理：jairouter:quota → trunkline:quota）。
-     *
-     * @param connectionFactory Redis 连接工厂
-     * @param properties        账本配置
-     * @return 迁移器
-     */
-    @Bean
-    public QuotaRedisKeyMigrator quotaRedisKeyMigrator(final ReactiveRedisConnectionFactory connectionFactory,
-                                                       final QuotaProperties properties) {
-        final ReactiveRedisTemplate<String, String> template =
-            new ReactiveRedisTemplate<>(connectionFactory, RedisSerializationContext.string());
-        return new QuotaRedisKeyMigrator(template, properties);
-    }
-
-    /**
-     * 应用就绪前执行一次旧前缀迁移；Redis 不可用或迁移失败仅告警，不阻断启动（下次启动重试）。
-     *
-     * @param migrator 迁移器
-     * @return ApplicationRunner
-     */
-    @Bean
-    public org.springframework.boot.ApplicationRunner quotaLegacyKeyMigrationRunner(
-        final QuotaRedisKeyMigrator migrator) {
-        return args -> {
-            try {
-                final Long migrated = migrator.migrate().block(java.time.Duration.ofMinutes(2L));
-                if (migrated != null && migrated > 0) {
-                    log.info("配额旧前缀 key 迁移执行完毕，处理 {} 个 key", migrated);
-                }
-            } catch (RuntimeException e) {
-                log.warn("配额旧前缀 key 迁移未完成（Redis 不可用或超时），将在下次启动重试: {}",
-                    e.getMessage());
-            }
-        };
-    }
 }

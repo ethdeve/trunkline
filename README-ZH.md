@@ -74,15 +74,15 @@ print(response.choices[0].message.content)
 在控制台「实例管理」中添加您自己的后端——Ollama、vLLM、GPUStack 或任意云端提供商。配置热更新即时生效，无需重启。
 
 <details>
-<summary><b>从旧版 JAiRouter 升级？</b></summary>
+<summary><b>从旧版本升级？</b></summary>
 
-Trunkline 提供自动兼容层，存量配置**无需手工迁移**：
+Trunkline 已移除旧版本运行时兼容层。升级前请手工完成以下迁移：
 
-- 配置前缀 `jairouter.*` → `trunkline.*`：旧前缀配置自动映射生效（日志中会有弃用提示）；
-- Redis 配额计数 key `jairouter:quota:*` → `trunkline:quota:*`：启动期一次性迁移，已用额度不清零；
-- 主配置存储 key `model-router-config` → `trunkline-config`：旧 key 读回落，写入自然迁移。
-
-认证请求头默认值 `Jairouter_Token` 暂保持不变（API 契约兼容）；`~/.jairouter` 密钥目录亦未变更。
+- 配置前缀统一为 `trunkline.*`，旧环境变量名不再映射；
+- Redis 配额计数 key 统一为 `trunkline:quota:*`，旧计数不会自动并入；
+- 主配置存储 key 统一为 `trunkline-config`，旧 key 不再回落读取；
+- 认证请求头统一为 `Trunkline_Token`；
+- 调用记录加密密钥放置到 `~/.trunkline/call-history.key`，或设置 `TRUNKLINE_CALL_HISTORY_KEY`；旧密钥目录不再自动复制。
 
 </details>
 
@@ -254,7 +254,7 @@ Trunkline 是一个 **生产级 AI 模型网关**，面向自建推理基础设�
 
 **当前版本：0.1.0**（版本号冻结中——社区版完善后一次性升版，见[迭代计划](docs/product/Trunkline-产品迭代计划.md)）
 
-0.1.0 继承了上游 JAiRouter 的全部能力，并新增 Trunkline 品牌体系与平滑兼容层（旧配置前缀 / Redis key / 配置存储 key 自动迁移）。
+0.1.0 继承了上游 JAiRouter 的全部能力，并新增 Trunkline 品牌体系。当前版本已移除旧版本运行时兼容层，升级需按「从旧版本升级」章节手工迁移。
 
 **社区版阶段计划**（阶段名不代表发布版本号）：
 

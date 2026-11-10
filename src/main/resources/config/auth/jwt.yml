@@ -39,18 +39,10 @@ trunkline:
         max-size: 10000
       
       # 用户账户配置
-      accounts:
-        - username: "admin"
-          # 密码必须使用环境变量（首次启动时设置）
-          # R2-P0-02：生产必须替换 INITIAL_ADMIN_PASSWORD，禁止沿用文档默认值
-          password: "{noop}${INITIAL_ADMIN_PASSWORD:ChangeMeOnFirstStartup123456}"
-          roles: ["ADMIN", "USER"]
-          enabled: true
-        # R2-P0-02：移除硬编码 user 账户口令；如需本地账号请通过管理 API 创建
-        # - username: "user"
-        #   password: "{noop}${INITIAL_USER_PASSWORD:user123456}"
-        #   roles: ["USER"]
-        #   enabled: false
+      # 【2026-11-10】不再提供默认管理员账号密码。首次部署后由 /init 初始化向导
+      # 采集并创建首个管理员（只写库，不落 YAML）；高级部署仍可显式配置静态账户，
+      # 但那属于自担风险的自定义配置，不再是开箱默认行为。
+      accounts: []
 
       # JWT 持久化配置
       persistence:

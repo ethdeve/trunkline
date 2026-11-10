@@ -154,7 +154,7 @@ function Test-LegacyModeConfiguration {
             }
             
             # 检查配置结构完整性
-            $requiredSections = @("jairouter.security", "api-key", "jwt", "sanitization", "audit")
+            $requiredSections = @("trunkline.security", "api-key", "jwt", "sanitization", "audit")
             $missingsections = @()
             
             foreach ($section in $requiredSections) {
@@ -183,7 +183,7 @@ function Test-LegacyModeConfiguration {
             $mainContent = Get-Content $mainConfigFile -Raw
             
             # 检查安全功能是否默认关闭
-            if ($mainContent -match "jairouter:\s*\n\s*security:\s*\n\s*enabled:\s*false") {
+            if ($mainContent -match "trunkline:\s*\n\s*security:\s*\n\s*enabled:\s*false") {
                 Add-TestResult -TestName "主配置安全功能默认关闭" -Status "PASS" -Message "主配置文件中安全功能默认关闭"
             } else {
                 Add-TestResult -TestName "主配置安全功能默认关闭" -Status "PASS" -Message "主配置文件中安全功能配置正确"
@@ -294,12 +294,12 @@ function Test-GradualEnabling {
     
     # 测试1: 检查环境变量支持
     $envVariables = @(
-        "JAIROUTER_SECURITY_ENABLED",
-        "JAIROUTER_SECURITY_API_KEY_ENABLED",
-        "JAIROUTER_SECURITY_JWT_ENABLED",
-        "JAIROUTER_SECURITY_SANITIZATION_REQUEST_ENABLED",
-        "JAIROUTER_SECURITY_SANITIZATION_RESPONSE_ENABLED",
-        "JAIROUTER_SECURITY_AUDIT_ENABLED"
+        "TRUNKLINE_SECURITY_ENABLED",
+        "TRUNKLINE_SECURITY_API_KEY_ENABLED",
+        "TRUNKLINE_SECURITY_JWT_ENABLED",
+        "TRUNKLINE_SECURITY_SANITIZATION_REQUEST_ENABLED",
+        "TRUNKLINE_SECURITY_SANITIZATION_RESPONSE_ENABLED",
+        "TRUNKLINE_SECURITY_AUDIT_ENABLED"
     )
     
     $configFile = Join-Path $ProjectRoot "src\main\resources\application.yml"
@@ -367,7 +367,7 @@ function Test-DockerCompatibility {
             
             # 检查是否包含安全相关环境变量
             $content = Get-Content $dockerFile -Raw
-            if ($content -match "JAIROUTER_SECURITY" -or $content -match "ADMIN_API_KEY" -or $content -match "REDIS") {
+            if ($content -match "TRUNKLINE_SECURITY" -or $content -match "ADMIN_API_KEY" -or $content -match "REDIS") {
                 Add-TestResult -TestName "Docker安全配置 ($fileName)" -Status "PASS" -Message "包含安全相关配置"
             } else {
                 Add-TestResult -TestName "Docker安全配置 ($fileName)" -Status "WARNING" -Message "未包含安全相关配置"

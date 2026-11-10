@@ -1,6 +1,6 @@
 package org.unreal.modelrouter.config.core;
 
-import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
+import org.unreal.modelrouter.persistence.store.ConfigKeys;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -96,7 +96,7 @@ public class ServiceConfigManager {
 
         // 4. 保存到数据库
         ServiceConfigEntity entity = ServiceConfigEntity.builder()
-                .configKey(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY)
+                .configKey(ConfigKeys.CURRENT_CONFIG_KEY)
                 .serviceType(serviceType)
                 .adapter(request.getAdapter())
                 .loadBalanceType(request.getLoadBalanceType())
@@ -298,7 +298,7 @@ public class ServiceConfigManager {
         ServiceConfigEntity entity = jpaRepository
                 .findFirstByServiceTypeAndIsLatestTrue(serviceType)
                 .orElseGet(() -> ServiceConfigEntity.builder()
-                        .configKey(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY)
+                        .configKey(ConfigKeys.CURRENT_CONFIG_KEY)
                         .serviceType(serviceType)
                         .version(1)
                         .isLatest(true)

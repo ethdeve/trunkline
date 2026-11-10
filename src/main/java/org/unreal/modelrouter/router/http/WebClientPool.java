@@ -103,7 +103,7 @@ public class WebClientPool {
         this.connectTimeoutMs = connectTimeoutMs;
         this.responseTimeoutSeconds = responseTimeoutSeconds;
         this.dnsResolverGroup = dnsResolverGroup;
-        this.connectionProvider = ConnectionProvider.builder("jairouter-outbound")
+        this.connectionProvider = ConnectionProvider.builder("trunkline-outbound")
                 .maxConnections(maxConnections)
                 .pendingAcquireTimeout(Duration.ofMillis(pendingAcquireTimeoutMs))
                 .maxIdleTime(Duration.ofSeconds(maxIdleTimeSeconds))

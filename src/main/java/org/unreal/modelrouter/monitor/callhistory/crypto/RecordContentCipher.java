@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -23,7 +22,7 @@ import java.util.Base64;
  *
  * <p>密钥来源：
  * <ul>
- *   <li>encryptionKeySource=env 时：读取环境变量 JAIR_CALL_HISTORY_KEY（Base64 编码的 256-bit 密钥）</li>
+ *   <li>encryptionKeySource=env 时：读取环境变量 TRUNKLINE_CALL_HISTORY_KEY（Base64 编码的 256-bit 密钥）</li>
  *   <li>encryptionKeySource=auto 时：自动生成密钥并持久化到文件</li>
  * </ul>
  *
@@ -76,7 +75,7 @@ public class RecordContentCipher {
         this.effectiveKeySource = loadedFromEnv ? "env" : "auto";
         if ("env".equalsIgnoreCase(this.requestedKeySource) && !loadedFromEnv) {
             log.warn("加密密钥源请求为 env 但实际回退到 auto（requested != effective），"
-                    + "涉及环境变量 JAIR_CALL_HISTORY_KEY 的部署请检查该变量是否已设置");
+                    + "涉及环境变量 TRUNKLINE_CALL_HISTORY_KEY 的部署请检查该变量是否已设置");
         }
     }
 
@@ -98,10 +97,10 @@ public class RecordContentCipher {
     }
 
     /**
-     * @return 环境变量 JAIR_CALL_HISTORY_KEY 当前是否可用（只读观测）
+     * @return 环境变量 TRUNKLINE_CALL_HISTORY_KEY 当前是否可用（只读观测）
      */
     public boolean environmentKeyPresent() {
-        final String envKey = System.getenv("JAIR_CALL_HISTORY_KEY");
+        final String envKey = System.getenv("TRUNKLINE_CALL_HISTORY_KEY");
         return envKey != null && !envKey.isEmpty();
     }
 
@@ -186,19 +185,19 @@ public class RecordContentCipher {
      */
     private SecretKey loadOrCreateKey(String source, Path dataDir) {
         if ("env".equalsIgnoreCase(source)) {
-            String envKey = System.getenv("JAIR_CALL_HISTORY_KEY");
+            String envKey = System.getenv("TRUNKLINE_CALL_HISTORY_KEY");
             if (envKey != null && !envKey.isEmpty()) {
                 byte[] keyBytes = Base64.getDecoder().decode(envKey);
                 if (keyBytes.length != KEY_LENGTH_BYTES) {
                     throw new IllegalArgumentException(
-                            "环境变量 JAIR_CALL_HISTORY_KEY 解码后长度应为 32 字节，实际: " + keyBytes.length);
+                            "环境变量 TRUNKLINE_CALL_HISTORY_KEY 解码后长度应为 32 字节，实际: " + keyBytes.length);
                 }
                 log.info("已从环境变量加载调用记录加密密钥");
                 loadedFromEnv = true;
                 return new SecretKeySpec(keyBytes, "AES");
             }
             // env 模式但环境变量未设置，回退到 auto
-            log.warn("环境变量 JAIR_CALL_HISTORY_KEY 未设置，回退到自动生成密钥");
+            log.warn("环境变量 TRUNKLINE_CALL_HISTORY_KEY 未设置，回退到自动生成密钥");
         }
 
         // auto 模式：尝试从文件加载，不存在则生成并持久化
@@ -230,33 +229,15 @@ public class RecordContentCipher {
     }
 
     /**
-     * 解析密钥文件路径
+     * 解析密钥文件路径。
      *
-     * <p>品牌切换（S2 任务 26a③）：默认目录从 {@code ~/.jairouter/} 改为
-     * {@code ~/.trunkline/}。新目录无密钥且旧目录存在时，把旧密钥<b>复制</b>过来
-     * （旧文件保留不删，旧版本回滚仍可用）——加密密钥丢了就解不开历史调用记录，
-     * 所以是复制不是移动。
+     * <p>默认目录为 {@code ~/.trunkline/}；旧版本密钥目录不再读取或复制。
+     * 如需保留历史调用记录的可解密能力，请运维在升级前手动将旧密钥文件复制到新目录。</p>
      */
     private Path resolveKeyFile(Path dataDir) {
         if (dataDir != null) {
             return dataDir.resolve("call-history.key");
         }
-        String userHome = System.getProperty("user.home");
-        Path newKeyFile = Path.of(userHome, ".trunkline", "call-history.key");
-        if (Files.notExists(newKeyFile)) {
-            Path legacyKeyFile = Path.of(userHome, ".jairouter", "call-history.key");
-            if (Files.exists(legacyKeyFile)) {
-                try {
-                    Files.createDirectories(newKeyFile.getParent());
-                    Files.copy(legacyKeyFile, newKeyFile,
-                            StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
-                    log.info("已从旧目录复制调用记录加密密钥: {} -> {}（旧文件保留，供回滚）",
-                            legacyKeyFile, newKeyFile);
-                } catch (IOException e) {
-                    log.warn("旧密钥复制失败（将生成新密钥，历史调用记录将无法解密）: {}", e.getMessage());
-                }
-            }
-        }
-        return newKeyFile;
+        return Path.of(System.getProperty("user.home"), ".trunkline", "call-history.key");
     }
 }

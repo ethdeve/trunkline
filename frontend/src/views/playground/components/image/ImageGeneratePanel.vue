@@ -265,7 +265,7 @@ const handleGenerate = async () => {
 
     const token = localStorage.getItem('admin_token')
     const headers: Record<string, string> = {}
-    if (token) headers['Jairouter_Token'] = token
+    if (token) headers['Trunkline_Token'] = token
 
     const response = await sendServiceRequest('imageGenerate', requestConfig, headers)
     images.value = response.data?.data || []

@@ -62,11 +62,11 @@ class DebugMultipartControllerSecurityTest {
                     assertNotNull(body);
                     String auth = String.valueOf(body.get("authorization"));
                     String apiKey = String.valueOf(body.get("xApiKey"));
-                    String jtoken = String.valueOf(body.get("jairouterToken"));
+                    String jtoken = String.valueOf(body.get("trunklineToken"));
                     String allHeaders = String.valueOf(body.get("allHeaders"));
                     assertFalse(auth.contains("super-secret-jwt-value-abcdef"), "authorization 不得明文: " + auth);
                     assertFalse(apiKey.contains("sk-live-should-not-appear-here-xxxx"), "xApiKey 不得明文");
-                    assertFalse(jtoken.contains("jwt-token-should-not-appear-here"), "jairouterToken 不得明文");
+                    assertFalse(jtoken.contains("jwt-token-should-not-appear-here"), "trunklineToken 不得明文");
                     assertFalse(allHeaders.contains("super-secret-jwt-value-abcdef"), "allHeaders 不得含明文凭据");
                     assertEquals(redactExpect("Bearer super-secret-jwt-value-abcdef"), auth);
                 })

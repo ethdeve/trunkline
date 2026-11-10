@@ -20,9 +20,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 @DisplayName("schema 方言判定（issue #191 / #192）")
 class FlywayDialectEnvironmentPostProcessorTest {
 
-    private static final String POSTGRES_URL = "jdbc:postgresql://db:5432/jairouter";
+    private static final String POSTGRES_URL = "jdbc:postgresql://db:5432/trunkline";
     private static final String H2_URL =
-            "jdbc:h2:file:./data/jairouter;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE";
+            "jdbc:h2:file:./data/trunkline;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE";
 
     private final FlywayDialectEnvironmentPostProcessor processor =
             new FlywayDialectEnvironmentPostProcessor();
@@ -86,7 +86,7 @@ class FlywayDialectEnvironmentPostProcessorTest {
     @Test
     @DisplayName("认不出的方言（MySQL）：关闭 Flyway，不碰 ddl-auto")
     void treatsUnknownDialectAsUnsupported() {
-        MockEnvironment environment = environmentWithDefaults("jdbc:mysql://db:3306/jairouter");
+        MockEnvironment environment = environmentWithDefaults("jdbc:mysql://db:3306/trunkline");
 
         processor.postProcessEnvironment(environment, null);
 
@@ -97,7 +97,7 @@ class FlywayDialectEnvironmentPostProcessorTest {
     @Test
     @DisplayName("认不出的方言上，显式 Flyway 开关优先于兜底值")
     void explicitFlywaySwitchWinsOverFallback() {
-        MockEnvironment environment = environmentWithDefaults("jdbc:mysql://db:3306/jairouter");
+        MockEnvironment environment = environmentWithDefaults("jdbc:mysql://db:3306/trunkline");
         environment.getPropertySources().addFirst(new MapPropertySource("explicit", Map.of(
                 FlywayDialectEnvironmentPostProcessor.FLYWAY_ENABLED, "true")));
 

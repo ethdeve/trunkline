@@ -77,7 +77,7 @@ class MetricsManagementControllerTest {
         void testGetMonitoringStatus_success() {
             // Given
             when(monitoringProperties.isEnabled()).thenReturn(true);
-            when(monitoringProperties.getPrefix()).thenReturn("jairouter");
+            when(monitoringProperties.getPrefix()).thenReturn("trunkline");
             
             AsyncMetricsCollector.PerformanceStats perfStats = mock(AsyncMetricsCollector.PerformanceStats.class);
             when(perfStats.isAsyncProcessingEnabled()).thenReturn(true);

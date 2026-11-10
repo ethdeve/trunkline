@@ -81,13 +81,8 @@ trunkline:
       enabled: true
       secret: "${JWT_SECRET:${DEV_JWT_SECRET:dev-secret-key-for-testing-only-32-characters-minimum}}"
 
-      accounts:
-        - username: "admin"
-          password: "{noop}${INITIAL_ADMIN_PASSWORD:ChangeMeOnFirstStartup123456}"
-          roles: ["ADMIN", "USER"]
-          enabled: true
-        # 不在此硬编码 user 账户：本地账号请通过「账号管理」API/控制台创建，
-        # 否则同名 YAML 静态账户会遮蔽库内账号，导致「已创建却无法登录」（见生产 jwt.yml 同样处理）。
+      # 开发环境同样不提供默认管理员；首次启动访问 /init 完成初始化。
+      accounts: []
 
     api-key:
       enabled: true

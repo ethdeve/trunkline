@@ -190,7 +190,7 @@ class RecordContentCipherTest {
             // 当环境变量未设置时应回退到 auto 模式（使用 temp dir）
             assertDoesNotThrow(() -> {
                 RecordContentCipher envCipher = new RecordContentCipher("env", null);
-                // 如果 JAIR_CALL_HISTORY_KEY 环境变量不存在，回退到 auto
+                // 如果 TRUNKLINE_CALL_HISTORY_KEY 环境变量不存在，回退到 auto
                 // 这里只验证不抛异常
             });
         }

@@ -13,6 +13,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { menuGroups, flattenMenuItems, type LogicalRole } from '@/config/menu'
 import { i18n } from '@/i18n'
+import { probeSetupGate } from '@/api/setup'
 import ConsoleLayout from '@/layouts/ConsoleLayout.vue'
 import BlankLayout from '@/layouts/BlankLayout.vue'
 
@@ -33,6 +34,20 @@ function isTokenExpired(token: string): boolean {
  * 路由表（导出供 P0-K 权限一致性巡检使用，见 utils/auditPermissionConsistency.ts）。
  */
 export const routes: RouteRecordRaw[] = [
+  {
+    // 【2026-11-10 首启初始化】部署后若尚未创建管理员，守卫会把任意路由引导到这里。
+    // 与 /login 同级、同样走 BlankLayout（全屏向导，不套控制台侧边栏）。
+    path: '/init',
+    component: BlankLayout,
+    children: [
+      {
+        path: '',
+        name: 'setup',
+        component: () => import('@/views/setup/SetupWizard.vue'),
+        meta: { public: true, title: 'setup.title' }
+      }
+    ]
+  },
   {
     path: '/login',
     component: BlankLayout,
@@ -336,8 +351,29 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const userStore = useUserStore()
+
+  // 【2026-11-10 首启初始化闸门】必须放在所有分支之前：
+  // 未创建首个管理员时，除 /init 向导外一律引导过去；已初始化却访问 /init 则回登录页。
+  // 探测失败（后端抖动 / 网络异常）时「放行」而非锁死，避免把用户困在 /init 死循环；
+  // 真正的安全边界在后端——一旦有管理员，/api/setup/datasource 与 /admin 都会返回 409。
+  let setupInitialized = true
+  try {
+    setupInitialized = (await probeSetupGate()).initialized
+  } catch (e) {
+    console.warn('[setup] 初始化状态探测失败，按已初始化放行', e)
+  }
+  if (!setupInitialized) {
+    // 库中没有任何管理员，浏览器里残留的 token 必然已失效（如开发库重置后未清缓存）。
+    // 在此清掉，避免向导创建完管理员后被陈旧 token 误判为「已登录」跳过登录页。
+    if (userStore.isAuthenticated()) userStore.clearToken()
+    return to.name === 'setup' ? true : { name: 'setup' }
+  }
+  if (to.name === 'setup') {
+    // 已初始化：向导不再需要。已登录直达控制台，否则回登录页。
+    return userStore.isAuthenticated() ? { name: 'my-quota' } : { name: 'login' }
+  }
 
   if (to.meta.public) {
     // 已登录访问登录页 → 直达总览

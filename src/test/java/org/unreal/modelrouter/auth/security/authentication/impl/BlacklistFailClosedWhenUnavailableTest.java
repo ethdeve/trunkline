@@ -53,7 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class BlacklistFailClosedWhenUnavailableTest {
 
     private static final String TEST_SECRET = "test-secret-key-for-jwt-validation-min-32-chars";
-    private static final String TEST_ISSUER = "jairouter-test";
+    private static final String TEST_ISSUER = "trunkline-test";
 
     private JwtConfig jwtConfig;
     private SecurityProperties securityProperties;

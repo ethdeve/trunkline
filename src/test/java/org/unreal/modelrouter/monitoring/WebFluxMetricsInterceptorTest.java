@@ -44,7 +44,7 @@ class WebFluxMetricsInterceptorTest {
     void setUp() {
         monitoringProperties = new MonitoringProperties();
         monitoringProperties.setEnabled(true);
-        monitoringProperties.setPrefix("jairouter");
+        monitoringProperties.setPrefix("trunkline");
         monitoringProperties.setEnabledCategories(Set.of("system", "business", "infrastructure"));
         
         interceptor = new WebFluxMetricsInterceptor(metricsCollector, monitoringProperties,slowQueryDetector);

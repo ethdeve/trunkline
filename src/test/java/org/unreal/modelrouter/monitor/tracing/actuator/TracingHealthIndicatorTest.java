@@ -56,7 +56,7 @@ class TracingHealthIndicatorTest {
         memoryManager = mock(TracingMemoryManager.class);
 
         when(tracingConfiguration.isEnabled()).thenReturn(true);
-        when(tracingConfiguration.getServiceName()).thenReturn("jairouter");
+        when(tracingConfiguration.getServiceName()).thenReturn("trunkline");
 
         TracingConfiguration.OpenTelemetryConfig otel = mock(TracingConfiguration.OpenTelemetryConfig.class);
         TracingConfiguration.OpenTelemetryConfig.SdkConfig sdk =

@@ -105,7 +105,7 @@ class MigrateOnlyEntryProcessTest {
                 + "未结束说明非守护线程又把 JVM 留住了");
         assertNotEquals(0, child.exitCode(),
                 "启动/迁移失败必须以非 0 退出，否则 K8s Job 会把失败的迁移报成成功");
-        Path log = workDir.resolve("logs").resolve("jairouter-all.log");
+        Path log = workDir.resolve("logs").resolve("trunkline-all.log");
         assertTrue(logContains(log, FAILED_FAST),
                 "失败结论应来自 main 的失败分支（而不是异常直接冒出 main）。日志 " + log + " 内容：\n"
                         + child.output());
@@ -123,9 +123,8 @@ class MigrateOnlyEntryProcessTest {
                 "--spring.main.banner-mode=off",
                 "--spring.datasource.url=" + datasourceUrl,
                 "--spring.datasource.username=sa",
-                // 避开生产安全前置检查：它查的是密钥/口令强度，与本用例要验的退出码无关
-                "--JWT_SECRET=probe-secret-key-for-migrate-entry-0123456789",
-                "--INITIAL_ADMIN_PASSWORD=ProbeAdminPwd123!"));
+                // 避开生产安全前置检查：它只查密钥强度，与本用例要验的退出码无关
+                "--JWT_SECRET=probe-secret-key-for-migrate-entry-0123456789"));
 
         ProcessBuilder builder = new ProcessBuilder(command);
         builder.directory(workDir.toFile());

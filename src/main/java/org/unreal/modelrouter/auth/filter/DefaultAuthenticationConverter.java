@@ -104,25 +104,8 @@ public final class DefaultAuthenticationConverter implements ServerAuthenticatio
         // 从配置的自定义头中提取（大小写不敏感）
         String jwtHeader = securityProperties.getJwt().getJwtHeader();
         String token = getHeaderIgnoreCase(exchange, jwtHeader);
-        if (token != null && !token.isEmpty()) {
-            return token;
-        }
-        // 品牌切换双读过渡（S2 任务 26a①）：默认头已从 Jairouter_Token 改为 Trunkline_Token，
-        // 但存量外部调用方（脚本/旧集成）可能仍发旧头——配置头未命中时回落读取旧头，
-        // 保证平滑升级；显式配置 jwt-header 的部署不受影响（配置头优先）。
-        if (!LEGACY_JWT_HEADER.equalsIgnoreCase(jwtHeader)) {
-            token = getHeaderIgnoreCase(exchange, LEGACY_JWT_HEADER);
-            if (token != null && !token.isEmpty()) {
-                log.debug("JWT token read from legacy header {} (consider migrating to {})",
-                        LEGACY_JWT_HEADER, jwtHeader);
-                return token;
-            }
-        }
-        return null;
+        return token == null || token.isEmpty() ? null : token;
     }
-
-    /** 旧品牌认证头（双读回落用，与 JwtConfig 旧默认值一致） */
-    private static final String LEGACY_JWT_HEADER = "Jairouter_Token";
 
     /**
      * 大小写不敏感地获取请求头

@@ -1,6 +1,6 @@
 package org.unreal.modelrouter.persistence.jpa;
 
-import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
+import org.unreal.modelrouter.persistence.store.ConfigKeys;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -129,7 +129,7 @@ public class JpaDatabaseInitializer {
     /**
      * 按已有分类目录补建 service_config 行（实例归属外键）。
      *
-     * <p>分类目录优先取持久化配置（{@code config_data} 里 {@code model-router-config}
+     * <p>分类目录优先取持久化配置（{@code config_data} 里 {@code trunkline-config}
      * 的 {@code services} 映射），取不到时回退 YAML 的 services 配置。
      * 幂等：已存在的分类直接跳过。</p>
      */
@@ -156,7 +156,7 @@ public class JpaDatabaseInitializer {
                     ? String.valueOf(lb.get("type"))
                     : defaultLoadBalance;
             serviceConfigRepository.save(ServiceConfigEntity.builder()
-                    .configKey(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY)
+                    .configKey(ConfigKeys.CURRENT_CONFIG_KEY)
                     .serviceType(serviceType)
                     .adapter(adapter != null ? String.valueOf(adapter) : defaultAdapter)
                     .loadBalanceType(loadBalanceType)
@@ -178,7 +178,7 @@ public class JpaDatabaseInitializer {
     private Map<String, Map<String, Object>> readPersistedServiceCatalog() {
         final Map<String, Map<String, Object>> fromPersisted = new LinkedHashMap<>();
         try {
-            configRepository.findFirstByConfigKeyAndIsLatestTrue(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY)
+            configRepository.findFirstByConfigKeyAndIsLatestTrue(ConfigKeys.CURRENT_CONFIG_KEY)
                     .ifPresent(entity -> {
                         try {
                             final JsonNode root = objectMapper.readTree(entity.getConfigValue());
@@ -251,7 +251,7 @@ public class JpaDatabaseInitializer {
         }
 
         ConfigEntity configEntity = ConfigEntity.builder()
-                .configKey(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY)
+                .configKey(ConfigKeys.CURRENT_CONFIG_KEY)
                 .configValue(configValue)
                 .version(1)
                 .isLatest(true)
@@ -260,7 +260,7 @@ public class JpaDatabaseInitializer {
                 .build();
 
         configRepository.save(configEntity);
-        log.info("Saved model-router-config with {} service types",
+        log.info("Saved trunkline-config with {} service types",
                 modelRouterProperties.getServices() != null ? modelRouterProperties.getServices().size() : 0);
     }
 
@@ -283,7 +283,7 @@ public class JpaDatabaseInitializer {
 
             // 创建服务配置实体
             ServiceConfigEntity configEntity = ServiceConfigEntity.builder()
-                    .configKey(ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY)
+                    .configKey(ConfigKeys.CURRENT_CONFIG_KEY)
                     .serviceType(serviceType)
                     .adapter(serviceConfig.getAdapter() != null
                             ? serviceConfig.getAdapter()
@@ -376,7 +376,7 @@ public class JpaDatabaseInitializer {
             // 从 YAML 配置获取账户列表
             List<JwtAccountProperties> accounts = securityProperties.getJwt().getAccounts();
             if (accounts == null || accounts.isEmpty()) {
-                log.warn("No JWT accounts configured in YAML, skipping initialization");
+                log.info("No static JWT accounts configured; first admin must be created by /init setup wizard");
                 return;
             }
 

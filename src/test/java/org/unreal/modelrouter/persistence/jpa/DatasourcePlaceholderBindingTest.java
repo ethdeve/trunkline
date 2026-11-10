@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class DatasourcePlaceholderBindingTest {
 
     private static final String EXPECTED_DEFAULT_URL =
-            "jdbc:h2:file:./data/jairouter;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE";
+            "jdbc:h2:file:./data/trunkline;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_UPPER=FALSE";
 
     /**
      * 从 core.yml 加载属性源并绑定 DataSourceProperties
@@ -73,7 +73,7 @@ class DatasourcePlaceholderBindingTest {
     @Test
     @DisplayName("设置 DATABASE_URL 环境变量后可覆盖默认值")
     void override_databaseUrl() throws Exception {
-        String customUrl = "jdbc:postgresql://localhost:5432/jairouter";
+        String customUrl = "jdbc:postgresql://localhost:5432/trunkline";
         DataSourceProperties props = bindProperties(Map.of("DATABASE_URL", customUrl));
 
         assertEquals(customUrl, props.getUrl(), "环境变量 DATABASE_URL 应覆盖默认 URL");
@@ -83,10 +83,10 @@ class DatasourcePlaceholderBindingTest {
     @DisplayName("设置 DATABASE_USERNAME / DATABASE_PASSWORD 后可覆盖")
     void override_usernamePassword() throws Exception {
         DataSourceProperties props = bindProperties(Map.of(
-                "DATABASE_USERNAME", "jairouter",
+                "DATABASE_USERNAME", "trunkline",
                 "DATABASE_PASSWORD", "secret-pw"));
 
-        assertEquals("jairouter", props.getUsername(), "环境变量 DATABASE_USERNAME 应覆盖默认值");
+        assertEquals("trunkline", props.getUsername(), "环境变量 DATABASE_USERNAME 应覆盖默认值");
         assertEquals("secret-pw", props.getPassword(), "环境变量 DATABASE_PASSWORD 应覆盖默认值");
     }
 

@@ -20,9 +20,10 @@ import java.util.List;
  * <h3>必须配置的环境变量：</h3>
  * <ul>
  *   <li>JWT_SECRET - JWT 密钥，长度 ≥32 字符</li>
- *   <li>INITIAL_ADMIN_PASSWORD - 初始管理员密码</li>
- *   <li>GPUSTACK_API_TOKEN - 模型服务 API Token（如使用 GPUStack）</li>
+ *   <li>GPUSTACK_API_TOKEN - 模型服务 API Token（如使用 GPUStack，可选但推荐）</li>
  * </ul>
+ *
+ * <p>管理员密码已改由首次部署的 /init 向导创建并校验，不再作为启动期环境变量要求。</p>
  */
 @Component
 @ConditionalOnProperty(name = "trunkline.config.validation.enabled", havingValue = "true", matchIfMissing = true)
@@ -32,9 +33,6 @@ public class SensitiveConfigValidator implements ApplicationListener<Application
 
     @Value("${JWT_SECRET:}")
     private String jwtSecret;
-
-    @Value("${INITIAL_ADMIN_PASSWORD:}")
-    private String initialAdminPassword;
 
     @Value("${GPUSTACK_API_TOKEN:}")
     private String gpustackApiToken;
@@ -49,9 +47,6 @@ public class SensitiveConfigValidator implements ApplicationListener<Application
 
         // 校验 JWT_SECRET
         validateJwtSecret(warnings, errors);
-
-        // 校验 INITIAL_ADMIN_PASSWORD
-        validateInitialAdminPassword(warnings, errors);
 
         // 校验 GPUSTACK_API_TOKEN（非必须，但强烈推荐）
         validateGpustackApiToken(warnings);
@@ -89,22 +84,6 @@ public class SensitiveConfigValidator implements ApplicationListener<Application
             errors.add("JWT_SECRET 看起来是硬编码值（请使用环境变量）");
         } else {
             log.info("✓ JWT_SECRET 配置正确（长度: {} 字符）", jwtSecret.length());
-        }
-    }
-
-    private void validateInitialAdminPassword(List<String> warnings, List<String> errors) {
-        if (initialAdminPassword == null || initialAdminPassword.isEmpty()) {
-            if (strictMode) {
-                errors.add("INITIAL_ADMIN_PASSWORD 未设置（必须配置）");
-            } else {
-                warnings.add("INITIAL_ADMIN_PASSWORD 未设置（首次启动将生成随机密码）");
-            }
-        } else if (initialAdminPassword.length() < 8) {
-            warnings.add("INITIAL_ADMIN_PASSWORD 长度过短（建议 ≥8 字符，当前: " + initialAdminPassword.length() + ")");
-        } else if (isHardcodedSecret(initialAdminPassword)) {
-            warnings.add("INITIAL_ADMIN_PASSWORD 看起来是硬编码值（请使用环境变量）");
-        } else {
-            log.info("✓ INITIAL_ADMIN_PASSWORD 已配置");
         }
     }
 

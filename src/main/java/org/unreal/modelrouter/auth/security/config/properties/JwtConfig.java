@@ -21,11 +21,9 @@ public class JwtConfig {
     private boolean enabled = false;
 
     /**
-     * JWT令牌请求头名称
+     * JWT 令牌请求头名称。
      *
-     * <p>品牌切换（S2 任务 26a①）：默认值从 {@code Jairouter_Token} 改为
-     * {@code Trunkline_Token}；服务端双读回落旧头（见 DefaultAuthenticationConverter），
-     * 旧调用方平滑过渡。显式配置过 jwt-header 的部署不受影响。
+     * <p>仅接受此配置头（大小写不敏感）；旧版本认证头已不再兼容。
      */
     @NotBlank
     @Size(min = 1, max = 100)

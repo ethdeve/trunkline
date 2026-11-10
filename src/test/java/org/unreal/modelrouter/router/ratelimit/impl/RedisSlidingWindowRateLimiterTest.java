@@ -38,7 +38,7 @@ class RedisSlidingWindowRateLimiterTest {
                 .thenThrow(new IllegalStateException("redis down"));
 
         final RedisSlidingWindowRateLimiter limiter = new RedisSlidingWindowRateLimiter(
-                config(), "jairouter:ratelimit:test", template, Duration.ofMillis(50));
+                config(), "trunkline:ratelimit:test", template, Duration.ofMillis(50));
 
         assertTrue(limiter.tryAcquire(null),
                 "Redis 故障时全站拒绝比放宽限流更糟，必须 fail-open");
@@ -48,7 +48,7 @@ class RedisSlidingWindowRateLimiterTest {
     @DisplayName("Redis 模板不可用时放行（不阻断请求）")
     void allowsWhenTemplateIsAbsent() {
         final RedisSlidingWindowRateLimiter limiter = new RedisSlidingWindowRateLimiter(
-                config(), "jairouter:ratelimit:test", null, Duration.ofMillis(50));
+                config(), "trunkline:ratelimit:test", null, Duration.ofMillis(50));
 
         assertTrue(limiter.tryAcquire(null));
     }
@@ -58,7 +58,7 @@ class RedisSlidingWindowRateLimiterTest {
     void exposesConfig() {
         final RateLimitConfig config = config();
         final RedisSlidingWindowRateLimiter limiter = new RedisSlidingWindowRateLimiter(
-                config, "jairouter:ratelimit:test", null, Duration.ofMillis(50));
+                config, "trunkline:ratelimit:test", null, Duration.ofMillis(50));
 
         assertTrue(config == limiter.getConfig());
     }

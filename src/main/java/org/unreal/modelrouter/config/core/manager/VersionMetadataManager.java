@@ -1,6 +1,6 @@
 package org.unreal.modelrouter.config.core.manager;
 
-import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
+import org.unreal.modelrouter.persistence.store.ConfigKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -28,7 +28,7 @@ public class VersionMetadataManager {
 
     private static final Logger logger = LoggerFactory.getLogger(VersionMetadataManager.class);
 
-    private static final String CURRENT_KEY = ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY;
+    private static final String CURRENT_KEY = ConfigKeys.CURRENT_CONFIG_KEY;
 
     // 版本元数据映射表
     private final Map<String, ConfigMetadata> configMetadataMap = new HashMap<>();

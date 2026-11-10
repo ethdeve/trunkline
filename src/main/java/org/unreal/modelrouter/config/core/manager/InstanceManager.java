@@ -1,6 +1,6 @@
 package org.unreal.modelrouter.config.core.manager;
 
-import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
+import org.unreal.modelrouter.persistence.store.ConfigKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -32,7 +32,7 @@ public class InstanceManager {
     private final StoreManager storeManager;
     private final ConfigMergeService configMergeService;
 
-    private static final String CURRENT_KEY = ConfigKeyCompatStoreManager.CURRENT_CONFIG_KEY;
+    private static final String CURRENT_KEY = ConfigKeys.CURRENT_CONFIG_KEY;
 
     // 实例更新锁，防止同一实例的并发更新
     private final ConcurrentHashMap<String, Object> instanceUpdateLocks = new ConcurrentHashMap<>();

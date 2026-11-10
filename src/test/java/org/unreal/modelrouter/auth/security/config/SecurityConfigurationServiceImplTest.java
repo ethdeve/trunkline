@@ -68,7 +68,7 @@ class SecurityConfigurationServiceImplTest {
         jwtConfig.setAlgorithm("HS512");
         jwtConfig.setExpirationMinutes(60);
         jwtConfig.setRefreshExpirationDays(7);
-        jwtConfig.setIssuer("jairouter");
+        jwtConfig.setIssuer("trunkline");
         jwtConfig.setBlacklistEnabled(true);
         when(securityProperties.getJwt()).thenReturn(jwtConfig);
 
@@ -161,7 +161,7 @@ class SecurityConfigurationServiceImplTest {
             newConfig.setAlgorithm("HS256");
             newConfig.setExpirationMinutes(30);
             newConfig.setRefreshExpirationDays(14);
-            newConfig.setIssuer("jairouter-new");
+            newConfig.setIssuer("trunkline-new");
             newConfig.setBlacklistEnabled(false);
 
             // When
@@ -349,7 +349,7 @@ class SecurityConfigurationServiceImplTest {
         jwtConfig.setAlgorithm("HS512");
         jwtConfig.setExpirationMinutes(60);
         jwtConfig.setRefreshExpirationDays(7);
-        jwtConfig.setIssuer("jairouter");
+        jwtConfig.setIssuer("trunkline");
         jwtConfig.setBlacklistEnabled(true);
         props.setJwt(jwtConfig);
 

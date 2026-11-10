@@ -37,7 +37,7 @@ class ServiceNameResolverTest {
 
     @BeforeEach
     void setUp() {
-        lenient().when(tracingConfiguration.getServiceName()).thenReturn("jairouter");
+        lenient().when(tracingConfiguration.getServiceName()).thenReturn("trunkline");
         serviceNameResolver = new ServiceNameResolver(tracingConfiguration);
     }
 
@@ -186,7 +186,7 @@ class ServiceNameResolverTest {
         String serviceName = serviceNameResolver.resolveServiceName(request);
 
         // Then
-        assertEquals("jairouter", serviceName);
+        assertEquals("trunkline", serviceName);
     }
 
     @Test

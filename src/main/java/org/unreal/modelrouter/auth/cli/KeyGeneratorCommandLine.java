@@ -115,7 +115,7 @@ public final class KeyGeneratorCommandLine {
         }
 
         System.out.println(ANSI_YELLOW + "使用建议：" + ANSI_RESET);
-        System.out.println("  export INITIAL_ADMIN_PASSWORD=\"<选择的密码>\"");
+        System.out.println("  首次部署访问 /init，在初始化向导第 3 步填入该密码");
     }
 
     /**
