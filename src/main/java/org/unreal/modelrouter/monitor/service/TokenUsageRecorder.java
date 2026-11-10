@@ -16,7 +16,6 @@ import java.time.LocalDateTime;
  * 用于在请求处理完成后异步记录 Token 使用量
  *
  * @author JAiRouter Team
- * @since 1.9.5
  * @modified Trunkline Team
  */
 @Slf4j

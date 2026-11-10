@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.spi;
 
 import java.util.Optional;
@@ -7,6 +11,7 @@ import java.util.Optional;
  *
  * <p>企业 IdP（OIDC / LDAP / 飞书钉钉扫码等）接入入口；社区版由
  * {@code NoopSsoConnector} 返回不支持，登录仍走本地账号密码。
+ * @author Trunkline Team
  */
 public interface SsoConnector {
 

@@ -27,7 +27,6 @@ import java.util.Map;
  * v2.4.4: 实现启动时自动恢复 + 手动 API 两种恢复机制
  * 
  * @author JAiRouter Team
- * @since 2.4.4
  * @modified Trunkline Team
  */
 @Service

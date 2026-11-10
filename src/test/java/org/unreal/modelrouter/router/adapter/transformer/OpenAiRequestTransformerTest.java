@@ -21,8 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * OpenAiRequestTransformer 测试类
- *
- * @since v2.7.18
  */
 class OpenAiRequestTransformerTest {
 

@@ -20,7 +20,6 @@ import java.util.Map;
  * 实时推送路由选择事件到前端
  *
  * @author JAiRouter Team
- * @since 2.7.0
  */
 @Slf4j
 @Component

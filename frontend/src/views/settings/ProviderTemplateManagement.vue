@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <template>
   <PageSkeleton :title="t('providerTemplate.title')">
     <!-- 聚合页嵌入模式下 PageSkeleton 隐藏标题区（含 actions 插槽），按钮需自绘工具行 -->

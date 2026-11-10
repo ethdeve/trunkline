@@ -1,0 +1,103 @@
+{
+  "nav": {
+    "groups": {
+      "my": "My Workspace",
+      "team": "Team",
+      "system": "System"
+    },
+    "myQuota": {
+      "title": "My Quota",
+      "subtitle": "How much you spent this month and what is left"
+    },
+    "myKeys": {
+      "title": "My API Keys",
+      "subtitle": "Your keys and the models they can use"
+    },
+    "quickstart": {
+      "title": "Quick Start",
+      "subtitle": "Three steps to add your key to the AI tools you use"
+    },
+    "playground": {
+      "title": "Playground",
+      "subtitle": "Try a prompt here before setting it up in your tools"
+    },
+    "myBills": {
+      "title": "My Bills",
+      "subtitle": "Your monthly spend at a glance"
+    },
+    "teamUsage": {
+      "title": "Team Usage",
+      "subtitle": "Company-wide spend and who is using what"
+    },
+    "providers": {
+      "title": "Providers",
+      "subtitle": "Add providers, configure models and pricing"
+    },
+    "modelPools": {
+      "title": "Virtual Models",
+      "subtitle": "The model names employees use, backed by multiple provider models"
+    },
+    "routingRules": {
+      "title": "Routing Rules",
+      "subtitle": "Route requests to different models by conditions"
+    },
+    "allKeys": {
+      "title": "All API Keys",
+      "subtitle": "Every key issued to employees"
+    },
+    "observability": {
+      "title": "Call Observability",
+      "subtitle": "Who called what and when, traces and analytics"
+    },
+    "statusMonitoring": {
+      "title": "Status",
+      "subtitle": "What is broken and which models are temporarily disabled"
+    },
+    "accounts": {
+      "title": "Accounts",
+      "subtitle": "Employee accounts and permissions"
+    },
+    "modelConfig": {
+      "title": "Model Config",
+      "subtitle": "Provider presets / model categories / custom protocols"
+    },
+    "auditVersions": {
+      "title": "Audit & Versions",
+      "subtitle": "Audit log / configuration versions"
+    },
+    "globalConfig": {
+      "title": "Global Config",
+      "subtitle": "Gateway-wide defaults, overridable per model"
+    },
+    "pages": {
+      "modelCategories": "Model Categories",
+      "quickStartWizard": "Quick Integration",
+      "protocolAdapters": "Model Adapters",
+      "keyManagement": "API Keys",
+      "integrationGuide": "Integration Guide",
+      "helpDocs": "Help Center",
+      "observeCenter": "Observability",
+      "usageQuota": "Usage Quota",
+      "forbidden": "Access Denied"
+    }
+  },
+  "app": {
+    "consoleTitle": "Trunkline Console"
+  },
+  "pageHeader": {
+    "helpTip": "Open help for this page"
+  },
+  "command": {
+    "groupMenu": "Menu",
+    "groupRecent": "Recent",
+    "groupAction": "Actions",
+    "toggleTheme": "Toggle light / dark theme",
+    "toggleDensity": "Toggle compact mode",
+    "logout": "Sign out",
+    "placeholder": "Search commands and pages...",
+    "empty": "No matching commands",
+    "footerSelect": "↑↓ Navigate",
+    "footerRun": "Enter Run",
+    "footerClose": "Esc Close"
+  }
+}

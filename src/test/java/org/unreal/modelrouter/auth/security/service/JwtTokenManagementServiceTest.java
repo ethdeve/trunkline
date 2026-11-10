@@ -34,7 +34,6 @@ import static org.mockito.Mockito.*;
  * <p>测试JWT令牌管理功能</p>
  *
  * @version v2.10.0
- * @since 2026-05-24
  */
 @DisplayName("JwtTokenManagementService 令牌管理服务测试")
 @ExtendWith(MockitoExtension.class)

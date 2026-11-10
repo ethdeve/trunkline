@@ -20,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * SamplingConfigurationValidator 单元测试
  *
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @DisplayName("SamplingConfigurationValidator 测试")
 class SamplingConfigurationValidatorTest {

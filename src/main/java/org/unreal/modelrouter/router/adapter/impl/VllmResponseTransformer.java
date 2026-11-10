@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
  * 负责将vLLM响应格式转换为OpenAI标准格式
  *
  * @author JAiRouter Team
- * @since 2.9.1
  */
 public final class VllmResponseTransformer {
 

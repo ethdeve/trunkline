@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.config;
 
 /**
@@ -6,6 +10,7 @@ package org.unreal.modelrouter.enterprise.config;
  * <p>单独抽出的原因：{@code @FilterDef} 注解只能出现在
  * {@code package-info.java} / 类型 / 字段级，实体包需要引用过滤器名
  * 而不依赖过滤器的实现细节。
+ * @author Trunkline Team
  */
 public final class TenantJpaFilterDefinition {
 

@@ -34,7 +34,6 @@ import static org.mockito.Mockito.when;
  * JVM 里模拟两个副本。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.7
  */
 @EnabledIfEnvironmentVariable(named = "REDIS_TEST", matches = "true")
 @DisplayName("跨副本事件广播：真 Redis 双实例（REDIS_TEST=true 时执行）")

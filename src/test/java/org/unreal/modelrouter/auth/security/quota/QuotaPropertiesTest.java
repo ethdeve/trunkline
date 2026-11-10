@@ -17,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@link QuotaProperties} 默认值与保留期解析测试（v3.1 PR-1）。
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 @DisplayName("QuotaProperties 配置与保留期测试")
 class QuotaPropertiesTest {

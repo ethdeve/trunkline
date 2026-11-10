@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@link QuotaWindow} 窗口截断边界测试（v3.1 PR-1）。
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 @DisplayName("QuotaWindow 窗口截断测试")
 class QuotaWindowTest {

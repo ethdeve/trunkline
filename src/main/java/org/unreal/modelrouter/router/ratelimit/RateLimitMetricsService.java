@@ -14,7 +14,6 @@ import java.util.List;
  * 定期收集限流器状态并更新 Prometheus Gauge
  *
  * @author JAiRouter Team
- * @since v2.10.0
  */
 @Service
 public class RateLimitMetricsService {

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.common.gateway;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -19,8 +23,7 @@ import java.util.List;
  * @param replicas         副本数；{@code <=0} 表示未知（未显式配置且无法从环境探测）
  * @param sharedStateReady 跨副本共享态是否齐备（单机恒为 true，无共享态概念）
  * @param sharedStateMissing 未开启的共享态开关配置键；多副本下用于运维排障提示
- * @author JAiRouter Team
- * @since 3.5.0
+ * @author Trunkline Team
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record GatewayInfo(

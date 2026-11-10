@@ -15,7 +15,6 @@ import static org.mockito.Mockito.*;
  * ApiCallHistoryCleanupScheduler 单元测试
  *
  * @author JAiRouter Team
- * @since 2.7.8
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ApiCallHistoryCleanupScheduler 测试")

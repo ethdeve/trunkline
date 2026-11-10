@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * 员工侧「我能用的模型」白名单（P1 员工侧⑤）
  *
  * <p><b>要解决的问题</b>：测试场的模型下拉原先对员工显示<b>全公司所有虚拟模型</b>

@@ -25,7 +25,6 @@ import org.unreal.modelrouter.router.model.ModelRouterProperties;
  * 单独调用、未经过 handler）时，适配器回退为自行选择，行为与既有实现一致。
  *
  * @author JAiRouter Team
- * @since 3.2.2
  * @modified Trunkline Team
  */
 public final class SelectedInstanceHolder {

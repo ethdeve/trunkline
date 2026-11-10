@@ -35,7 +35,6 @@ import static org.mockito.Mockito.when;
  * 改为 {@code storeManager.getConfig} 直读 v0 当前行——版本快照行只追加、不再承载当前值。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.3
  * @modified Trunkline Team
  */
 @ExtendWith(MockitoExtension.class)

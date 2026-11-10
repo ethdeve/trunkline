@@ -12,8 +12,6 @@ import java.time.Instant;
 
 /**
  * Configuration audit log entity for tracking config changes.
- *
- * @since v2.6.12
  */
 @Entity
 @Table(name = "config_audit_log", indexes = {

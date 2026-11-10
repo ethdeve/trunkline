@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.config;
 
 import org.unreal.modelrouter.enterprise.noop.SingleTenantContext;
@@ -19,6 +23,7 @@ import org.unreal.modelrouter.enterprise.noop.SingleTenantContext;
  *
  * <p>社区版调用方现状无需改动：{@link #isMultiTenant()} 为 false 时
  * 输出与既有 key 完全一致。
+ * @author Trunkline Team
  */
 public final class TenantKeyBuilder {
 

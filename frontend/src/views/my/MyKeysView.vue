@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <script setup lang="ts">
 /**
  * 我的密钥（v3.5 Trunkline UI 改造：按原型实现 + 接真实数据）
@@ -224,7 +229,7 @@ onMounted(loadKeys)
           <div class="card-head__text">
             <div class="card-head__title">{{ t('myKeys.title') }}</div>
             <!-- P0-I：页面目标说明统一取自 menu.ts（单一文案源），与侧边栏 tooltip 同源 -->
-            <div class="card-head__sub">{{ menuSubtitle('/my-keys') }}</div>
+            <div class="card-head__sub">{{ t(menuSubtitle('/my-keys')) }}</div>
           </div>
           <el-button type="primary" size="small" @click="applyVisible = true">{{ t('myKeys.applyNewKey') }}</el-button>
         </div>

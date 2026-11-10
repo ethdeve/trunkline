@@ -35,7 +35,6 @@ import java.util.concurrent.atomic.LongAdder;
  * {@code pending*} 与 {@code published*} 的读写路径按上文加锁 / 单写者约束。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 public final class LocalCounterBackend implements QuotaCounterBackend {

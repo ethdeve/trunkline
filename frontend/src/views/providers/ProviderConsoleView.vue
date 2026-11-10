@@ -1,9 +1,14 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <template>
   <PageSkeleton class="pc-root">
     <template #title>
       <div class="page-heading">
-        <h2>接入管理</h2>
-        <p class="page-heading__sub">{{ menuSubtitle('/providers') }}</p>
+        <h2>{{ t('v.pc.t001') }}</h2>
+        <p class="page-heading__sub">{{ t(menuSubtitle('/providers')) }}</p>
       </div>
     </template>
 
@@ -11,7 +16,7 @@
       <!-- ==================== Tab1：接入厂商 ==================== -->
       <el-tab-pane name="providers">
         <template #label>
-          <span class="tab-label"><el-icon><Connection /></el-icon>接入厂商</span>
+          <span class="tab-label"><el-icon><Connection /></el-icon>{{ t('v.pc.t002') }}</span>
         </template>
 
         <div v-if="activeTab === 'providers'" class="providers-pane">
@@ -19,7 +24,7 @@
           <div class="guide-card">
             <div class="guide-card__head">
               <el-icon class="guide-card__rocket"><Promotion /></el-icon>
-              <span class="guide-card__title">第一次接 AI 服务？跟着向导走</span>
+              <span class="guide-card__title">{{ t('v.pc.t003') }}</span>
             </div>
             <div class="guide-steps">
               <div v-for="(step, idx) in guideSteps" :key="step.key" class="guide-step">
@@ -37,7 +42,7 @@
                 >
                   {{ step.actionLabel }}
                 </el-button>
-                <span v-else class="guide-step__todo">去建 →</span>
+                <span v-else class="guide-step__todo">{{ t('v.pc.t004') }}</span>
               </div>
             </div>
           </div>
@@ -48,17 +53,17 @@
             :closable="false"
             show-icon
             class="rule-alert"
-            title="员工不能直接调用刚接进来的厂商模型——必须先建成虚拟模型才能用，这样才能统一管控成本和审计。"
+            :title="t('v.pc.t026')"
           />
 
           <!-- ---------- 已接入的供应商 ---------- -->
           <div class="panel">
             <div class="panel__head">
-              <span class="panel__title">已接入的供应商</span>
+              <span class="panel__title">{{ t('v.pc.t005') }}</span>
               <div class="panel__actions">
                 <el-input
                   v-model="keyword"
-                  placeholder="搜索供应商或地址"
+                  :placeholder="t('v.pc.t027')"
                   clearable
                   size="small"
                   class="panel__search"
@@ -67,13 +72,13 @@
                 </el-input>
                 <el-button v-if="canWrite" type="primary" size="small" @click="openAddDialog">
                   <el-icon><Plus /></el-icon>
-                  添加供应商
+                  {{ t('v.pc.t006') }}
                 </el-button>
               </div>
             </div>
 
             <el-table ref="providerTableRef" :data="filteredProviders" :max-height="providerMaxHeight" v-loading="loading" style="width: 100%">
-              <el-table-column label="供应商" min-width="180">
+              <el-table-column :label="t('v.pc.t028')" min-width="180">
                 <template #default="{ row }">
                   <div class="cell-title">{{ row.name }}</div>
                   <el-tag v-if="providerCategory(row)" size="small" effect="plain" class="cat-tag">
@@ -82,27 +87,27 @@
                 </template>
               </el-table-column>
 
-              <el-table-column label="地址" min-width="160">
+              <el-table-column :label="t('v.pc.t029')" min-width="160">
                 <template #default="{ row }">
                   <span class="cell-sub" :title="row.baseUrl">{{ domainOf(row.baseUrl) }}</span>
                 </template>
               </el-table-column>
 
-              <el-table-column label="自动发现的模型" min-width="260">
+              <el-table-column :label="t('v.pc.t030')" min-width="260">
                 <template #default="{ row }">
                   <template v-if="row.models && row.models.length > 0">
                     <el-tag size="small" type="success" effect="light" class="model-count-tag">
-                      {{ row.models.length }} 个模型可用
+                      {{ row.models.length }} {{ t('v.pc.x001') }}
                     </el-tag>
                     <div class="model-names" :title="row.models.join(', ')">
                       {{ row.models.slice(0, 3).join(', ') }}{{ row.models.length > 3 ? '…' : '' }}
                     </div>
                   </template>
-                  <span v-else class="cell-sub">尚未接入模型</span>
+                  <span v-else class="cell-sub">{{ t('v.pc.t007') }}</span>
                 </template>
               </el-table-column>
 
-              <el-table-column label="状态" width="110" align="center">
+              <el-table-column :label="t('v.pc.t031')" width="110" align="center">
                 <template #default="{ row }">
                   <el-tag :type="statusType(row)" size="small" effect="light">
                     <span class="status-dot" :class="`is-${statusType(row)}`"></span>
@@ -111,7 +116,7 @@
                 </template>
               </el-table-column>
 
-              <el-table-column label="下一步" min-width="220">
+              <el-table-column :label="t('v.pc.t017')" min-width="220">
                 <template #default="{ row }">
                   <div class="next-step">
                     <span class="next-step__text">{{ nextStepHint(row) }}</span>
@@ -127,10 +132,10 @@
                 </template>
               </el-table-column>
 
-              <el-table-column label="操作" width="110" align="center" fixed="right">
+              <el-table-column :label="t('v.pc.t032')" width="110" align="center" fixed="right">
                 <template #default="{ row }">
                   <el-button size="small" type="primary" plain @click="openModels(row)">
-                    查看模型
+                    {{ t('v.pc.t008') }}
                   </el-button>
                 </template>
               </el-table-column>
@@ -138,12 +143,12 @@
 
             <el-empty
               v-if="!loading && filteredProviders.length === 0"
-              :description="keyword ? '没有匹配的供应商' : '还没有接入任何供应商'"
+              :description="keyword ? t('v.pc.t049') : t('v.pc.t050')"
               :image-size="70"
             >
               <el-button v-if="canWrite && !keyword" type="primary" @click="openAddDialog">
                 <el-icon><Plus /></el-icon>
-                添加供应商
+                {{ t('v.pc.t006') }}
               </el-button>
             </el-empty>
           </div>
@@ -156,7 +161,7 @@
            熔断与限流，不再需要在两张表之间来回切换改同一个模型。 -->
       <el-tab-pane name="models">
         <template #label>
-          <span class="tab-label"><el-icon><Money /></el-icon>模型管理</span>
+          <span class="tab-label"><el-icon><Money /></el-icon>{{ t('v.pc.t009') }}</span>
         </template>
         <!-- serviceType：外部深链（模型分类页/调用详情页跳入）带来的分类过滤 -->
         <ModelConfigPanel
@@ -167,18 +172,18 @@
     </el-tabs>
 
     <!-- ==================== 添加供应商（向导弹窗） ==================== -->
-    <el-dialog v-model="addVisible" title="添加供应商" width="min(800px, 92vw)" :close-on-click-modal="false">
+    <el-dialog v-model="addVisible" :title="t('v.pc.t006')" width="min(800px, 92vw)" :close-on-click-modal="false">
       <el-steps :active="addStep" align-center finish-status="success" class="add-steps">
-        <el-step title="选择厂商" />
-        <el-step title="填 API Key" />
-        <el-step title="发现模型" />
+        <el-step :title="t('v.pc.t033')" />
+        <el-step :title="t('v.pc.t034')" />
+        <el-step :title="t('v.pc.t035')" />
       </el-steps>
 
       <!-- Step 1：选择厂商模板 -->
       <div v-if="addStep === 0" class="add-pane">
         <el-input
           v-model="presetQuery"
-          placeholder="搜索厂商（如 OpenAI / DeepSeek）"
+          :placeholder="t('v.pc.t036')"
           clearable
           size="default"
           class="add-search"
@@ -186,10 +191,10 @@
           <template #prefix><el-icon><Search /></el-icon></template>
         </el-input>
         <el-radio-group v-model="presetCategory" size="small" class="add-categories">
-          <el-radio-button value="">全部</el-radio-button>
-          <el-radio-button value="domestic">国内</el-radio-button>
-          <el-radio-button value="international">国外</el-radio-button>
-          <el-radio-button value="local">本地</el-radio-button>
+          <el-radio-button value="">{{ t('v.pc.t010') }}</el-radio-button>
+          <el-radio-button value="domestic">{{ t('v.pc.t011') }}</el-radio-button>
+          <el-radio-button value="international">{{ t('v.pc.t012') }}</el-radio-button>
+          <el-radio-button value="local">{{ t('v.pc.t013') }}</el-radio-button>
         </el-radio-group>
 
         <div class="preset-grid">
@@ -211,17 +216,17 @@
             </el-tag>
           </div>
         </div>
-        <el-empty v-if="filteredPresets.length === 0" description="没有匹配的厂商模板" :image-size="60" />
+        <el-empty v-if="filteredPresets.length === 0" :description="t('v.pc.t037')" :image-size="60" />
       </div>
 
       <!-- Step 2：填 API Key -->
       <div v-else-if="addStep === 1" class="add-pane">
         <el-form label-width="110px">
-          <el-form-item label="厂商">
+          <el-form-item :label="t('v.pc.t038')">
             <span class="selected-preset">{{ selectedPreset?.label }}</span>
           </el-form-item>
-          <el-form-item label="名称">
-            <el-input v-model="providerName" placeholder="给这个供应商起个名字" />
+          <el-form-item :label="t('v.pc.t039')">
+            <el-input v-model="providerName" :placeholder="t('v.pc.t040')" />
           </el-form-item>
           <el-form-item label="API Key" required>
             <el-input
@@ -229,11 +234,11 @@
               type="password"
               show-password
               clearable
-              placeholder="把厂商给你的 key 粘进来"
+              :placeholder="t('v.pc.t041')"
             />
-            <div class="form-note">Key 只保存在服务端，不会回显。</div>
+            <div class="form-note">{{ t('v.pc.x002') }}</div>
           </el-form-item>
-          <el-form-item label="地址">
+          <el-form-item :label="t('v.pc.t029')">
             <el-input v-model="baseUrl" disabled />
           </el-form-item>
         </el-form>
@@ -241,7 +246,7 @@
           type="info"
           :closable="false"
           show-icon
-          title="模型分类不用在这里选：下一步会按模型 ID 自动识别，每个模型都能单独下拉调整。"
+          :title="t('v.pc.t042')"
           class="step-hint"
         />
       </div>
@@ -259,14 +264,14 @@
         <template v-else>
           <div class="discover-head">
             <span>
-              已从厂商发现 {{ discoveredModels.length }} 个模型，分类已按模型 ID 自动识别，可逐个下拉调整
+              {{ t('v.pc.x003') }} {{ discoveredModels.length }} {{ t('v.pc.x004') }}
             </span>
             <el-checkbox
               :model-value="allSelected"
               :indeterminate="someSelected"
               @change="toggleAll"
             >
-              全选
+              {{ t('v.pc.t014') }}
             </el-checkbox>
           </div>
           <el-alert
@@ -274,7 +279,7 @@
             type="warning"
             :closable="false"
             show-icon
-            :title="`有 ${unsupportedCount} 个模型识别为视频生成，网关暂不支持该类端点，未勾选`"
+            :title="t('v.pc.x007', { n: unsupportedCount })"
             class="step-hint"
           />
           <ModelCategoryPicker
@@ -287,16 +292,16 @@
       </div>
 
       <template #footer>
-        <el-button @click="addVisible = false">取消</el-button>
-        <el-button v-if="addStep === 1" @click="addStep = 0">上一步</el-button>
+        <el-button @click="addVisible = false">{{ t('v.pc.t015') }}</el-button>
+        <el-button v-if="addStep === 1" @click="addStep = 0">{{ t('v.pc.t016') }}</el-button>
         <el-button v-if="addStep === 0" type="primary" :disabled="!selectedPreset" @click="addStep = 1">
-          下一步
+          {{ t('v.pc.t017') }}
         </el-button>
         <el-button v-if="addStep === 1" type="primary" :loading="submitting" @click="submitProvider">
-          保存并发现模型
+          {{ t('v.pc.t018') }}
         </el-button>
         <el-button v-if="addStep === 2" type="primary" :loading="importing" @click="importModels">
-          接入选中的 {{ pickedModels.length }} 个模型
+          {{ t('v.pc.x005') }} {{ pickedModels.length }} {{ t('v.pc.x006') }}
         </el-button>
       </template>
     </el-dialog>
@@ -306,65 +311,65 @@
       <div class="drawer-actions">
         <el-button v-if="canWrite" size="small" type="primary" @click="openAddModels">
           <el-icon><Plus /></el-icon>
-          添加模型
+          {{ t('v.pc.t019') }}
         </el-button>
-        <el-button size="small" @click="openRotateKey">更换 Key</el-button>
+        <el-button size="small" @click="openRotateKey">{{ t('v.pc.t020') }}</el-button>
         <el-button size="small" @click="toggleProviderStatus">
-          {{ currentProvider?.status === 'ACTIVE' ? '停用' : '启用' }}
+          {{ currentProvider?.status === 'ACTIVE' ? t('v.pc.t051') : t('v.pc.t052') }}
         </el-button>
         <el-button v-if="canWrite" size="small" type="danger" plain @click="removeProvider">
-          删除供应商
+          {{ t('v.pc.t021') }}
         </el-button>
       </div>
 
       <el-table :data="providerModels" style="width: 100%" size="small">
-        <el-table-column label="模型" min-width="180">
+        <el-table-column :label="t('v.pc.t043')" min-width="180">
           <template #default="{ row }">
             <div class="cell-title">{{ row.tags?.alias || row.name }}</div>
             <div class="cell-sub">{{ row.name }}</div>
           </template>
         </el-table-column>
-        <el-table-column prop="serviceType" label="分类" width="100" align="center">
+        <el-table-column prop="serviceType" :label="t('v.pc.t044')" width="100" align="center">
           <template #default="{ row }">
             <el-tag size="small" type="info" effect="plain">
               {{ row.serviceType ? serviceTypeLabel(row.serviceType) : '-' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="90" align="center">
+        <el-table-column :label="t('v.pc.t031')" width="90" align="center">
           <template #default="{ row }">
             <el-tag
               size="small"
               :type="row.status === 'active' ? 'success' : 'info'"
             >
-              {{ row.status === 'active' ? '已启用' : '已停用' }}
+              {{ row.status === 'active' ? t('v.pc.t053') : t('v.pc.t054') }}
             </el-tag>
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="providerModels.length === 0" description="该供应商下还没有接入模型" :image-size="70" />
+      <el-empty v-if="providerModels.length === 0" :description="t('v.pc.t045')" :image-size="70" />
     </el-drawer>
 
     <!-- ==================== 添加模型（已接入供应商追加） ==================== -->
     <el-dialog
       v-model="addModelsVisible"
-      :title="`为「${currentProvider?.name || ''}」添加模型`"
+      :title="t('v.pc.x008', { name: currentProvider?.name || '' })"
       width="min(640px, 92vw)"
       :close-on-click-modal="false"
     >
       <div class="add-models-bar">
         <el-button size="small" :loading="discovering" @click="rediscoverModels">
           <el-icon><Refresh /></el-icon>
-          重新发现模型
+          {{ t('v.pc.t022') }}
         </el-button>
         <el-input
           v-model="manualModelInput"
           size="small"
-          placeholder="手动输入模型 ID（多个用逗号分隔）"
+          :placeholder="t('v.pc.t046')"
           class="add-models-input"
           @keyup.enter="appendManualModels"
         />
-        <el-button size="small" @click="appendManualModels">加入列表</el-button>
+        <el-button size="small" @click="appendManualModels">{{ t('v.pc.t023') }}</el-button>
       </div>
       <el-alert
         v-if="addModelsError"
@@ -382,29 +387,29 @@
         :auto-types="addedModelAutoTypes"
       />
       <template #footer>
-        <el-button @click="addModelsVisible = false">取消</el-button>
+        <el-button @click="addModelsVisible = false">{{ t('v.pc.t015') }}</el-button>
         <el-button
           type="primary"
           :loading="addingModels"
           :disabled="addedModels.length === 0"
           @click="submitAddModels"
         >
-          接入选中的 {{ addedModels.length }} 个模型
+          {{ t('v.pc.x005') }} {{ addedModels.length }} {{ t('v.pc.x006') }}
         </el-button>
       </template>
     </el-dialog>
 
     <!-- ==================== 更换 Key ==================== -->
-    <el-dialog v-model="rotateVisible" title="更换 API Key" width="min(480px, 92vw)">
+    <el-dialog v-model="rotateVisible" :title="t('v.pc.t047')" width="min(480px, 92vw)">
       <el-form label-width="90px">
-        <el-form-item label="新 Key" required>
+        <el-form-item :label="t('v.pc.t048')" required>
           <el-input v-model="rotateValue" type="password" show-password placeholder="sk-..." />
-          <div class="form-note">更换后会同步到该供应商下的所有模型。</div>
+          <div class="form-note">{{ t('v.pc.t024') }}</div>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="rotateVisible = false">取消</el-button>
-        <el-button type="primary" :loading="rotating" @click="submitRotate">保存</el-button>
+        <el-button @click="rotateVisible = false">{{ t('v.pc.t015') }}</el-button>
+        <el-button type="primary" :loading="rotating" @click="submitRotate">{{ t('v.pc.t025') }}</el-button>
       </template>
     </el-dialog>
   </PageSkeleton>
@@ -452,10 +457,12 @@ import {
   updateProviderStatus,
   type ProviderCatalogItem
 } from '@/api/provider'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
 const route = useRoute()
 const { hasPermission } = usePermission()
+const { t } = useI18n()
 const canWrite = computed(() => hasPermission('config:instances:write'))
 
 /**
@@ -549,7 +556,7 @@ const categoryByUid = computed(() => {
 const providerCategory = (row: ProviderCatalogItem): string => {
   const category = categoryByUid.value[row.providerUid]
   if (!category) return ''
-  return category === 'domestic' ? '国内' : category === 'international' ? '国外' : '本地'
+  return category === 'domestic' ? t('v.pc.t011') : category === 'international' ? t('v.pc.t012') : t('v.pc.t013')
 }
 
 /* ---------- 三态「下一步」引导 ----------
@@ -560,16 +567,16 @@ const providerCategory = (row: ProviderCatalogItem): string => {
 
 /** 按供应商当前完成度，给出唯一的下一步提示文案 */
 const nextStepHint = (row: ProviderCatalogItem): string => {
-  if (!row.hasApiKey) return '下一步：先填好上游 API Key'
-  if (!row.modelCount) return '下一步：添加该供应商下的模型'
-  return '下一步：创建网关密钥，开始调用'
+  if (!row.hasApiKey) return t('v.pc.t055')
+  if (!row.modelCount) return t('v.pc.t056')
+  return t('v.pc.t057')
 }
 
 /** 下一步动作按钮文案 */
 const nextStepActionLabel = (row: ProviderCatalogItem): string => {
-  if (!row.hasApiKey) return '去配置'
-  if (!row.modelCount) return '去添加模型'
-  return '去创建密钥'
+  if (!row.hasApiKey) return t('v.pc.t058')
+  if (!row.modelCount) return t('v.pc.t059')
+  return t('v.pc.t060')
 }
 
 /** 执行下一步：未配 Key → 打开 Key 配置弹窗；未加模型 → 打开模型抽屉；已就绪 → 去创建密钥 */
@@ -603,9 +610,9 @@ const statusType = (row: ProviderCatalogItem): 'success' | 'info' | 'warning' =>
 }
 
 const statusText = (row: ProviderCatalogItem): string => {
-  if (row.status !== 'ACTIVE') return '未连接'
-  if (row.unhealthyCount > 0) return '异常'
-  return '已连接'
+  if (row.status !== 'ACTIVE') return t('v.pc.t061')
+  if (row.unhealthyCount > 0) return t('v.pc.t062')
+  return t('v.pc.t063')
 }
 
 const reloadCatalog = async () => {
@@ -615,10 +622,10 @@ const reloadCatalog = async () => {
     if (res.data?.success) {
       providers.value = res.data.data || []
     } else {
-      ElMessage.error(res.data?.message || '获取供应商列表失败')
+      ElMessage.error(res.data?.message || t('v.pc.t064'))
     }
   } catch (error: any) {
-    ElMessage.error(error?.message || '获取供应商列表失败')
+    ElMessage.error(error?.message || t('v.pc.t064'))
   } finally {
     loading.value = false
   }
@@ -628,10 +635,10 @@ const reloadCatalog = async () => {
 const guideSteps = computed(() => [
   {
     key: 'pick',
-    title: '选择厂商',
-    desc: '选 OpenAI / DeepSeek 等',
+    title: t('v.pc.t033'),
+    desc: t('v.pc.t065'),
     tone: 'primary',
-    actionLabel: '去选',
+    actionLabel: t('v.pc.t066'),
     action: () => {
       activeTab.value = 'providers'
       openAddDialog()
@@ -639,10 +646,10 @@ const guideSteps = computed(() => [
   },
   {
     key: 'key',
-    title: '填 API Key',
-    desc: '把厂商给你的 key 粘进来',
+    title: t('v.pc.t034'),
+    desc: t('v.pc.t041'),
     tone: 'primary',
-    actionLabel: '去填',
+    actionLabel: t('v.pc.t067'),
     action: () => {
       activeTab.value = 'providers'
       openAddDialog()
@@ -650,18 +657,18 @@ const guideSteps = computed(() => [
   },
   {
     key: 'pool',
-    title: '建虚拟模型',
-    desc: '员工在 AI 工具里填的名字',
+    title: t('v.pc.t068'),
+    desc: t('v.pc.t069'),
     tone: 'primary',
-    actionLabel: '去建',
+    actionLabel: t('v.pc.t070'),
     action: () => router.push('/model-pools')
   },
   {
     key: 'key-grant',
-    title: '发密钥给员工',
-    desc: '员工用密钥调用虚拟模型',
+    title: t('v.pc.t071'),
+    desc: t('v.pc.t072'),
     tone: 'plain',
-    actionLabel: '去发',
+    actionLabel: t('v.pc.t073'),
     action: () => router.push('/all-keys')
   }
 ])
@@ -765,7 +772,7 @@ const filteredPresets = computed<ProviderPreset[]>(() => {
 })
 
 const categoryLabel = (category: string): string =>
-  category === 'domestic' ? '国内' : category === 'international' ? '国外' : '本地'
+  category === 'domestic' ? t('v.pc.t011') : category === 'international' ? t('v.pc.t012') : t('v.pc.t013')
 
 const selectPreset = (preset: ProviderPreset) => {
   selectedPreset.value = preset
@@ -794,11 +801,11 @@ function openAddDialog() {
 const submitProvider = async () => {
   if (!selectedPreset.value) return
   if (!providerName.value.trim()) {
-    ElMessage.warning('请填写供应商名称')
+    ElMessage.warning(t('v.pc.t074'))
     return
   }
   if (!apiKey.value.trim()) {
-    ElMessage.warning('请填写厂商的 API Key')
+    ElMessage.warning(t('v.pc.t075'))
     return
   }
   submitting.value = true
@@ -815,12 +822,12 @@ const submitProvider = async () => {
       apiKey: apiKey.value.trim()
     })
     if (!res.data?.success) {
-      ElMessage.error(res.data?.message || '添加供应商失败')
+      ElMessage.error(res.data?.message || t('v.pc.t076'))
       return
     }
     const providerId = res.data.data?.id
     if (providerId == null) {
-      ElMessage.error('供应商已创建，但未返回供应商 ID，请刷新后在列表中查看')
+      ElMessage.error(t('v.pc.t077'))
       addVisible.value = false
       reloadCatalog()
       return
@@ -839,18 +846,18 @@ const submitProvider = async () => {
           checked: pickedModels
         })
         if (discoveredModels.value.length === 0) {
-          discoverError.value = '厂商没有返回可用模型，可以稍后在「查看模型」里手动添加。'
+          discoverError.value = t('v.pc.t078')
         } else if (pickedModels.value.length === 0) {
-          discoverError.value = '没有识别到可接入的模型（视频生成类网关暂不支持），请手动勾选或改选模型分类。'
+          discoverError.value = t('v.pc.t079')
         }
       } else {
-        discoverError.value = disc.data?.message || '自动发现模型失败，可稍后手动添加。'
+        discoverError.value = disc.data?.message || t('v.pc.t080')
       }
     } catch (error: any) {
-      discoverError.value = error?.message || '自动发现模型失败，可稍后手动添加。'
+      discoverError.value = error?.message || t('v.pc.t080')
     }
   } catch (error: any) {
-    ElMessage.error(error?.message || '添加供应商失败')
+    ElMessage.error(error?.message || t('v.pc.t076'))
   } finally {
     submitting.value = false
   }
@@ -869,14 +876,14 @@ const importModels = async () => {
     if (res.data?.success) {
       const created = res.data.data?.created ?? 0
       const skipped = res.data.data?.skipped?.length ?? 0
-      ElMessage.success(`已接入 ${created} 个模型${skipped ? `，跳过 ${skipped} 个（已存在）` : ''}`)
+      ElMessage.success(t('v.pc.x009', { n: created }) + (skipped ? t('v.pc.x010', { n: skipped }) : ''))
       addVisible.value = false
       reloadCatalog()
     } else {
-      ElMessage.error(res.data?.message || '接入模型失败')
+      ElMessage.error(res.data?.message || t('v.pc.t081'))
     }
   } catch (error: any) {
-    ElMessage.error(error?.message || '接入模型失败')
+    ElMessage.error(error?.message || t('v.pc.t081'))
   } finally {
     importing.value = false
   }
@@ -889,7 +896,7 @@ const currentCreatedProviderId = ref<number | null>(null)
 const modelsVisible = ref(false)
 const currentProvider = ref<ProviderCatalogItem | null>(null)
 const providerModels = ref<any[]>([])
-const drawerTitle = computed(() => `已接入的模型 · ${currentProvider.value?.name || ''}`)
+const drawerTitle = computed(() => t('v.pc.x011', { name: currentProvider.value?.name || '' }))
 
 const openModels = async (row: ProviderCatalogItem) => {
   currentProvider.value = row
@@ -898,7 +905,7 @@ const openModels = async (row: ProviderCatalogItem) => {
     const res = await getProviderModels(row.id)
     providerModels.value = res.data?.success ? (res.data.data || []) : []
   } catch (error: any) {
-    ElMessage.error(error?.message || '获取模型列表失败')
+    ElMessage.error(error?.message || t('v.pc.t082'))
     providerModels.value = []
   }
 }
@@ -946,13 +953,13 @@ const rediscoverModels = async () => {
         checked: addedModels
       }, joinedModelNames.value)
       if (list.length === 0) {
-        addModelsError.value = '厂商没有返回可用模型，可在上方手动输入模型 ID。'
+        addModelsError.value = t('v.pc.t083')
       }
     } else {
-      addModelsError.value = res.data?.message || '发现模型失败，可手动输入模型 ID。'
+      addModelsError.value = res.data?.message || t('v.pc.t084')
     }
   } catch (error: any) {
-    addModelsError.value = error?.message || '发现模型失败，可手动输入模型 ID。'
+    addModelsError.value = error?.message || t('v.pc.t084')
   } finally {
     discovering.value = false
   }
@@ -990,17 +997,17 @@ const submitAddModels = async () => {
       const created = res.data.data?.created ?? 0
       const skipped = res.data.data?.skipped ?? []
       const detail = skipped.length
-        ? `，跳过 ${skipped.length} 个：${skipped.map(s => `${s.modelId}（${s.reason}）`).join('；')}`
+        ? t('v.pc.x012', { n: skipped.length, detail: skipped.map(s => t('v.pc.x014', { model: s.modelId, reason: s.reason })).join(t('v.pc.x015')) })
         : ''
-      ElMessage.success(`已添加 ${created} 个模型${detail}`)
+      ElMessage.success(t('v.pc.x013', { n: created, detail }))
       addModelsVisible.value = false
       await openModels(currentProvider.value)
       reloadCatalog()
     } else {
-      ElMessage.error(res.data?.message || '添加模型失败')
+      ElMessage.error(res.data?.message || t('v.pc.t085'))
     }
   } catch (error: any) {
-    ElMessage.error(error?.message || '添加模型失败')
+    ElMessage.error(error?.message || t('v.pc.t085'))
   } finally {
     addingModels.value = false
   }
@@ -1018,21 +1025,21 @@ const openRotateKey = () => {
 
 const submitRotate = async () => {
   if (!currentProvider.value || !rotateValue.value.trim()) {
-    ElMessage.warning('请填写新的 API Key')
+    ElMessage.warning(t('v.pc.t086'))
     return
   }
   rotating.value = true
   try {
     const res = await rotateProviderKey(currentProvider.value.id, rotateValue.value.trim())
     if (res.data?.success) {
-      ElMessage.success('Key 已更换并同步到该供应商下的模型')
+      ElMessage.success(t('v.pc.t087'))
       rotateVisible.value = false
       reloadCatalog()
     } else {
-      ElMessage.error(res.data?.message || '更换失败')
+      ElMessage.error(res.data?.message || t('v.pc.t088'))
     }
   } catch (error: any) {
-    ElMessage.error(error?.message || '更换失败')
+    ElMessage.error(error?.message || t('v.pc.t088'))
   } finally {
     rotating.value = false
   }
@@ -1045,14 +1052,14 @@ const toggleProviderStatus = async () => {
   try {
     const res = await updateProviderStatus(currentProvider.value.id, target)
     if (res.data?.success) {
-      ElMessage.success(target === 'ACTIVE' ? '已启用' : '已停用')
+      ElMessage.success(target === 'ACTIVE' ? t('v.pc.t053') : t('v.pc.t054'))
       reloadCatalog()
       openModels(currentProvider.value)
     } else {
-      ElMessage.error(res.data?.message || '操作失败')
+      ElMessage.error(res.data?.message || t('v.pc.t089'))
     }
   } catch (error: any) {
-    ElMessage.error(error?.message || '操作失败')
+    ElMessage.error(error?.message || t('v.pc.t089'))
   }
 }
 
@@ -1061,14 +1068,14 @@ const removeProvider = async () => {
   try {
     const res = await deleteProvider(currentProvider.value.id)
     if (res.data?.success) {
-      ElMessage.success('供应商已删除')
+      ElMessage.success(t('v.pc.t090'))
       modelsVisible.value = false
       reloadCatalog()
     } else {
-      ElMessage.error(res.data?.message || '删除失败（其下仍有模型时需先删模型）')
+      ElMessage.error(res.data?.message || t('v.pc.t091'))
     }
   } catch (error: any) {
-    ElMessage.error(error?.message || '删除失败（其下仍有模型时需先删模型）')
+    ElMessage.error(error?.message || t('v.pc.t091'))
   }
 }
 

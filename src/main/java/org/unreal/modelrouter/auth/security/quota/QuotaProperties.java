@@ -28,7 +28,6 @@ import java.util.Objects;
  * 无单位按天解释），解析见 {@link #retentionCutoff(QuotaWindow, LocalDateTime)}。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 @Data

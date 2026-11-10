@@ -6,7 +6,6 @@ package org.unreal.modelrouter.monitor.stats;
  * 用于事件驱动的统计更新，避免同步阻塞。
  *
  * @author JAiRouter Team
- * @since 2.7.4
  */
 public class StatsUpdateEvent {
 

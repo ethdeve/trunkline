@@ -43,7 +43,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 会在每次尝试上都复现，因此重试不会掩盖它。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.5
  */
 @Slf4j
 @EnabledIfEnvironmentVariable(named = "REDIS_TEST", matches = "true")

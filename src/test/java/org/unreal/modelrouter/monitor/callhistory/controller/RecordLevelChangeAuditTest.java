@@ -28,7 +28,6 @@ import static org.mockito.Mockito.*;
  * 覆盖配置查询、配置更新、审计事件触发
  *
  * @author JAiRouter Team
- * @since 2.9.2
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CallHistoryConfigController 配置管理与审计测试")

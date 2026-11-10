@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.persistence.jpa;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,8 +39,7 @@ import static org.mockito.Mockito.when;
  * 「{@code config_data} 与 {@code service_config} 都为空」才从 YAML 灌数据，
  * 于是「分类目录有、外键表空」的库接入厂商时必然报「服务配置不存在: chat」。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @DisplayName("启动自愈 · 模型分类外键补建测试")
 class JpaDatabaseInitializerCategoryHealTest {

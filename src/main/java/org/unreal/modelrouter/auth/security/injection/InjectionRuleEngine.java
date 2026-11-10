@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.injection;
 
 import java.util.ArrayList;
@@ -29,8 +33,7 @@ import org.unreal.modelrouter.common.util.SafeRegexValidator;
  *
  * <p>本类为自研扩展（fork 维护：纯新增包，零上游接触）。</p>
  *
- * @author wjy-gateway Extensions
- * @since 3.3.1
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 @Component

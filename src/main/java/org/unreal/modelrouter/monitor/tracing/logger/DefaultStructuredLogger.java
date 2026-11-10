@@ -63,7 +63,6 @@ import java.util.Map;
  * - v2.16.6: 提取BackendCallLogBuilder、ErrorLogBuilder、SystemEventLogBuilder，删除Map版本方法
  *
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 @Component

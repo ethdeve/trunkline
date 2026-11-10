@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.billing.service;
 
 import lombok.RequiredArgsConstructor;
@@ -39,8 +43,7 @@ import java.util.Set;
  * <p>价格缺失容错：未配置价格（或停用）的模型按 ¥0 计入，前端账单页给空态提示；
  * 金额计算在内存完成，避免跨实体 JOIN 的方言兼容性风险。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Slf4j
 @Service

@@ -440,7 +440,6 @@ public class RateLimitManager {
      *
      * @param type       原服务类型
      * @param instanceId 实例唯一 ID
-     * @since 2026-10-22
      */
     public void removeInstanceRateLimiterById(final ModelServiceRegistry.ServiceType type,
                                               final String instanceId) {

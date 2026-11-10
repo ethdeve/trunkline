@@ -31,7 +31,6 @@ import java.util.Set;
  * <p>抽取自原 {@code ModelInfoController} 的内联逻辑，字段集合保持完全一致，避免两处漂移。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  * @modified Trunkline Team
  */
 @Service

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.core;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +40,7 @@ import static org.mockito.Mockito.when;
  * <p>实例表没有 service_type 列，服务类型由 service_config_id 决定，因此「换分类」是改外键。
  * 但这个外键是路由的一级维度（请求分桶、健康位图 key、限流桶 key、池成员匹配都带 serviceType），
  * 所以迁移必须带前置校验与级联清理，否则会出现路由断裂与孤儿状态。</p>
+ * @author Trunkline Team
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

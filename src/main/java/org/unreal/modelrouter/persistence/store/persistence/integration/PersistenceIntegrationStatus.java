@@ -8,7 +8,6 @@ import java.util.Map;
  * v2.4.6: 强类型状态对象，替代 Map 返回
  *
  * @author JAiRouter Team
- * @since 2.4.6
  */
 public final class PersistenceIntegrationStatus {
 

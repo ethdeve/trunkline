@@ -25,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * - 恢复事件触发同步
  *
  * @author JAiRouter Team
- * @since 2.4.4
  */
 @Component
 public class CircuitBreakerStatePersistenceAdapter {

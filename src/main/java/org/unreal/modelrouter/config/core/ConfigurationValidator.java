@@ -24,8 +24,6 @@ import java.util.regex.Pattern;
  *   <li>服务实例地址验证</li>
  *   <li>服务配置验证</li>
  * </ul>
- *
- * @since v1.0
  */
 @Component("configurationValidator")
 public class ConfigurationValidator {

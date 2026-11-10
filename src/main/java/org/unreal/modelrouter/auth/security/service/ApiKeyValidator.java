@@ -11,8 +11,6 @@ import java.util.Map;
 /**
  * API Key 验证组件
  * 负责 API Key 的格式验证、安全检查和权限验证
- *
- * @since v2.14.0
  */
 @Slf4j
 @Component

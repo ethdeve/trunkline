@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * CSV 导出工具
  *
  * 背景：全站多张列表需要导出，此前各页各写一份（JSON / CSV / 纯文本混用），

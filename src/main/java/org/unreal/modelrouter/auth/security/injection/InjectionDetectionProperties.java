@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.injection;
 
 import java.util.ArrayList;
@@ -33,8 +37,7 @@ import lombok.Data;
  * <p>本类为自研扩展（fork 维护：纯新增包，零上游接触；
  * 采用 @Component 注册以避开 ModelRouterApplication 的扫描包清单改动）。</p>
  *
- * @author wjy-gateway Extensions
- * @since 3.3.1
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 @Data

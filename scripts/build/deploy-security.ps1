@@ -118,25 +118,25 @@ function New-DefaultEnvFile {
 # Trunkline 安全功能环境变量配置
 
 # 安全功能总开关
-JAIROUTER_SECURITY_ENABLED=true
+TRUNKLINE_SECURITY_ENABLED=true
 
 # API Key 认证配置
-JAIROUTER_SECURITY_API_KEY_ENABLED=true
+TRUNKLINE_SECURITY_API_KEY_ENABLED=true
 ADMIN_API_KEY=your-admin-api-key-here
 USER_API_KEY=your-user-api-key-here
 
 # JWT 认证配置
-JAIROUTER_SECURITY_JWT_ENABLED=false
+TRUNKLINE_SECURITY_JWT_ENABLED=false
 JWT_SECRET=your-jwt-secret-key-here
 JWT_ALGORITHM=HS256
 JWT_EXPIRATION_MINUTES=60
 
 # 数据脱敏配置
-JAIROUTER_SECURITY_SANITIZATION_REQUEST_ENABLED=true
-JAIROUTER_SECURITY_SANITIZATION_RESPONSE_ENABLED=true
+TRUNKLINE_SECURITY_SANITIZATION_REQUEST_ENABLED=true
+TRUNKLINE_SECURITY_SANITIZATION_RESPONSE_ENABLED=true
 
 # 审计配置
-JAIROUTER_SECURITY_AUDIT_ENABLED=true
+TRUNKLINE_SECURITY_AUDIT_ENABLED=true
 
 # Redis 缓存配置
 REDIS_PASSWORD=your-redis-password-here
@@ -176,7 +176,7 @@ function Test-EnvVariables {
     
     # 检查必要的环境变量
     $requiredVars = @(
-        "JAIROUTER_SECURITY_ENABLED",
+        "TRUNKLINE_SECURITY_ENABLED",
         "ADMIN_API_KEY",
         "USER_API_KEY"
     )
@@ -207,7 +207,7 @@ function Test-EnvVariables {
         exit 1
     }
     
-    if ($envVars["JAIROUTER_SECURITY_JWT_ENABLED"] -eq "true") {
+    if ($envVars["TRUNKLINE_SECURITY_JWT_ENABLED"] -eq "true") {
         if ($envVars["JWT_SECRET"] -eq "your-jwt-secret-key-here" -or $envVars["JWT_SECRET"].Length -lt 32) {
             Log-Error "启用 JWT 时，JWT_SECRET 必须设置为至少32位的强密钥"
             exit 1

@@ -31,7 +31,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * - 异步任务管理和监控
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 @Component

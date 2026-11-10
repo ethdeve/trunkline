@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.dependency;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>不使用 Mockito：Spring Data 仓库用 {@link Proxy} 造最小替身，密钥缓存用反射注入，
  * 池持久化用真实 {@link PoolPersistenceService} + 假 {@link StoreManager}。</p>
+ * @author Trunkline Team
  */
 @DisplayName("删除前依赖检测")
 class DependencyCheckServiceTest {

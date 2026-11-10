@@ -38,7 +38,6 @@ import java.time.Duration;
  * </ul>
  *
  * @author JAiRouter Team
- * @since 3.2.3
  * @modified Trunkline Team
  */
 @Data

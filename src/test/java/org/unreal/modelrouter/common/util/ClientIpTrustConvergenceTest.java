@@ -18,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * 「默认配置下伪造转发头不生效」——断言写错会让伪造的 XFF 被采信，属于安全性质。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.6
  */
 @DisplayName("#151：客户端 IP 推导点收敛到共享信任策略")
 class ClientIpTrustConvergenceTest {

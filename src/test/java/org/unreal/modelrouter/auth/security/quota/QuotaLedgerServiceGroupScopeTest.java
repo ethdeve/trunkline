@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.quota;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -30,8 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>使用真实服务实现 + 手写内存仓库，不使用 Mockito mock。</p>
  *
- * @author JAiRouter Team
- * @since 3.5.0
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 @DisplayName("QuotaLedgerService 分组聚合/组内明细口径测试")

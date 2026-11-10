@@ -20,8 +20,6 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * 配置同步集成测试.
  * 验证配置同步相关服务的依赖注入和协作.
- *
- * @since v2.6.12
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("配置同步集成测试")

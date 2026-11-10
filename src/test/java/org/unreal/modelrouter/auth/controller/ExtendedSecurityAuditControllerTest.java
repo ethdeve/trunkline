@@ -40,7 +40,6 @@ import static org.mockito.Mockito.*;
  * <p>测试 JWT/API Key 审计功能</p>
  *
  * @version v2.7.6
- * @since 2025-01-17
  */
 @DisplayName("ExtendedSecurityAuditController RESTful 接口测试")
 @ExtendWith(MockitoExtension.class)

@@ -31,7 +31,6 @@ import org.unreal.modelrouter.common.exception.ApiException;
  * 提供异常事件的查询、统计和管理 REST API
  * 
  * @author JAiRouter Team
- * @since 1.9.2
  */
 @Slf4j
 @RestController

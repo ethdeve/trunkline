@@ -26,7 +26,6 @@ import java.util.UUID;
  * 提供记录治理（Record Governance）配置的查询和修改接口
  *
  * @author JAiRouter Team
- * @since 2.9.2
  */
 @Slf4j
 @RestController

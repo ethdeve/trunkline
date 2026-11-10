@@ -16,7 +16,6 @@ import java.io.Serializable;
  * - 包含成功率、延迟等关键指标
  * 
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @Data
 @Builder

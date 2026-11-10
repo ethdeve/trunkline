@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.common.exception;
 
 import org.springframework.http.HttpStatus;
@@ -17,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
  * 断言的就是这个类型。若改为继承 {@code RuntimeException}，该契约会被破坏——
  * 捕获 {@code ResponseStatusException} 的调用方将漏掉本异常，异常直接冒泡成 500。
  * 继承它可同时保留「503 状态语义」与「带 Retry-After 的额外信息」。</p>
+ * @author Trunkline Team
  */
 public class PoolUnavailableException extends ResponseStatusException {
 

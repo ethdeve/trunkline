@@ -10,8 +10,6 @@ import java.util.List;
 
 /**
  * Repository for ConfigAuditLogEntity.
- *
- * @since v2.6.12
  */
 @Repository
 public interface ConfigAuditLogRepository extends JpaRepository<ConfigAuditLogEntity, Long> {

@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * 提供慢查询统计和分析功能。
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Component
 public class SlowQueryDetector {

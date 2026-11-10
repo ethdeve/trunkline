@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.common.config;
 
 import org.slf4j.Logger;
@@ -42,6 +46,7 @@ import java.util.Map;
  * <p>EnvironmentPostProcessor 运行时日志系统尚未初始化，因此映射清单先暂存，
  * 待 {@link ApplicationEnvironmentPreparedEvent}（日志系统就绪后）统一打 WARN，
  * 提示运维把旧前缀迁移为新前缀。
+ * @author Trunkline Team
  */
 public class JairouterLegacyPropertyMapper
         implements EnvironmentPostProcessor, ApplicationListener<ApplicationEnvironmentPreparedEvent>, Ordered {

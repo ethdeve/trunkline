@@ -37,7 +37,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * 仅保留以维持管理端点契约（恒为空）。</p>
  *
  * @author JAiRouter Team
- * @since 2.4.4
  * @modified Trunkline Team
  */
 @Component

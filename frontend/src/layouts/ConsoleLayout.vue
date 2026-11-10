@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <script setup lang="ts">
 /**
  * ConsoleLayout：双栏导航 + 顶栏 + 内容区 + 命令面板（一期骨架）
@@ -50,13 +55,30 @@ const showClusterBadge = computed(
   () => userStore.hasLogicalRoleOneOf(['ops', 'admin']) && !!deployment.clusterLabel
 )
 
+/**
+ * 内置帮助文档入口（书本图标 → /docs）：【2026-11-10 用户决策】仅运维/管理员可见。
+ * 普通用户的上手与答疑走顶栏问号图标 → /guide（接入指南）与「快速上手」菜单页，
+ * 不再提供按菜单组织的全站帮助中心。与 /docs 路由的 meta.roles、后端 OPS 级别同口径。
+ */
+const canViewDocs = computed(() => userStore.hasLogicalRoleOneOf(['ops', 'admin']))
+
+/**
+ * 菜单/路由标题统一经 t() 解析（nav.* / menu.* 为 i18n key）。
+ * tr 在 computed 内调用，t() 会收集全局 locale 依赖 —— 顶栏切换语言时
+ * 侧边栏与面包屑即时重渲染，无需刷新页面。字面文本仍原样直出以兼容旧配置。
+ */
+const tr = (key: string) => (key.startsWith('nav.') || key.startsWith('menu.') ? t(key) : key)
+
 const filteredGroups = computed(() =>
   filterMenuByPermission(menuGroups).map(g => ({
     ...g,
-    title: g.title.startsWith('menu.') ? t(g.title) : g.title,
-    children: g.children.map(c => ({ ...c, title: c.title.startsWith('menu.') ? t(c.title) : c.title }))
+    title: tr(g.title),
+    children: g.children.map(c => ({ ...c, title: tr(c.title) }))
   }))
 )
+
+/** 面包屑右半段：router meta.title 存的是 i18n key，同样随语言实时切换 */
+const currentPageTitle = computed(() => tr((route.meta.title as string) || ''))
 
 // 菜单高亮：先按完整路径精确匹配菜单项（/settings/* 四个子项共用 /settings 前缀，
 // 首段回退无法区分），无命中再回退首段（子路由如 /strategy/quota 高亮到 /strategy）
@@ -207,19 +229,9 @@ async function onLogout() {
         </el-button>
 
         <!-- 当前组名面包屑 -->
-        <span v-if="activeGroup" class="topbar-crumb">{{ activeGroup.title }} / {{ route.meta.title }}</span>
+        <span v-if="activeGroup" class="topbar-crumb">{{ activeGroup.title }} / {{ currentPageTitle }}</span>
 
         <div style="flex: 1" />
-
-        <!-- 租户切换器占位（S2 任务 42）：社区版只显示「默认租户」且禁用；
-             商业版多租户解锁后由 enterprise 配置驱动出现真实切换器 -->
-        <el-tooltip :content="t('topbar.tenantTip')" placement="bottom">
-          <div class="topbar-tenant topbar-tenant--locked">
-            <el-icon :size="14"><OfficeBuilding /></el-icon>
-            <span>{{ t('topbar.tenant') }}</span>
-            <el-tag size="small" type="info" effect="plain">{{ t('topbar.enterprise') }}</el-tag>
-          </div>
-        </el-tooltip>
 
         <!-- 部署形态标识（S4）：单机不渲染，员工不渲染 -->
         <el-tooltip
@@ -284,7 +296,8 @@ async function onLogout() {
           </el-button>
         </el-tooltip>
 
-        <el-tooltip :content="t('topbar.help')">
+        <!-- 帮助中心：仅运维/管理员（普通用户用左侧的「接入指南」问号入口） -->
+        <el-tooltip v-if="canViewDocs" :content="t('topbar.help')">
           <el-button text @click="router.push('/docs')">
             <el-icon :size="16"><Reading /></el-icon>
           </el-button>
@@ -409,21 +422,6 @@ async function onLogout() {
   align-items: center;
   gap: 4px;
   font-size: 11.5px;
-}
-
-/* 租户切换器占位（S2 任务 42）：社区版展示为禁用态 */
-.topbar-tenant {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-right: 12px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 11.5px;
-  color: var(--ja-text-secondary);
-  background: var(--ja-surface-muted, rgba(23, 108, 107, 0.06));
-  cursor: not-allowed;
-  user-select: none;
 }
 
 .topbar-cluster__warn {

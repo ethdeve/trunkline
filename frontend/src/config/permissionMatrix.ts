@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * 固定权限矩阵（社区版权权固定化，2026-11 用户决策）
  *
  * 社区版不做可配置 RBAC：权限 = 角色 × 菜单分组，与后端

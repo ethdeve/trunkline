@@ -18,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * ApiCallHistoryRecorder 单元测试
  *
  * @author JAiRouter Team
- * @since 2.7.8
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ApiCallHistoryRecorder 测试")

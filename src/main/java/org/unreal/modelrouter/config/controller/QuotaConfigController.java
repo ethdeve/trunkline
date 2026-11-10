@@ -42,7 +42,6 @@ import java.util.Map;
  * </ul>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 @Slf4j
 @RestController

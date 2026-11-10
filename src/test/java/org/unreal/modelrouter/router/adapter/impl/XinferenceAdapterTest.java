@@ -33,8 +33,6 @@ import static org.mockito.Mockito.*;
 
 /**
  * XinferenceAdapter 单元测试
- *
- * @since v2.9.x
  */
 @ExtendWith(MockitoExtension.class)
 class XinferenceAdapterTest {

@@ -23,7 +23,6 @@ import java.util.Map;
  * {@code SpringApplication.run}，应用不会带病对外提供服务。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.3
  * @modified Trunkline Team
  */
 @Slf4j

@@ -15,8 +15,6 @@ import java.util.Map;
  *
  * 封装实例的增删改操作，从 ConfigurationService 提取。
  * 负责实例级别的操作逻辑，不涉及配置获取、版本控制等协调职责。
- *
- * @since v2.6.15
  */
 @Service
 public class InstanceOperationService {

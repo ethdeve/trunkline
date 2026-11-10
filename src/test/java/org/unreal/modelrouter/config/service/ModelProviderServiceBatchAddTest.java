@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.service;
 
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>纯 JUnit + 反射 + {@link Proxy} 仓库替身：不拉起 Spring 上下文、不依赖 Mockito
  * （本机 GraalVM JDK 21 下 Mockito inline MockMaker 初始化失败，属既有环境限制）。
  * {@code buildSkippedItem} 只读 {@code providerRepository}，其余依赖传 null 安全。
+ * @author Trunkline Team
  */
 @DisplayName("ModelProviderService 批量添加模型跳过明细")
 class ModelProviderServiceBatchAddTest {

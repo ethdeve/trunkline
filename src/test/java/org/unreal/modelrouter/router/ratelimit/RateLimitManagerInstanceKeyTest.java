@@ -27,7 +27,6 @@ import static org.mockito.Mockito.when;
  * generateInstanceKey 依次回退 name -> baseUrl,避免 key 冲突与监控 identifier 显示 "null"。
  *
  * @author JAiRouter Team
- * @since 2.9.7
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RateLimitManager generateInstanceKey 回退逻辑")

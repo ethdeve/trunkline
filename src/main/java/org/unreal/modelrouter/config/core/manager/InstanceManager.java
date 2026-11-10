@@ -22,7 +22,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * 负责服务实例的 CRUD 操作，使用强类型 DTO 替代 Map。
  * 
  * @author JAiRouter Team
- * @since v2.1.0
  * @modified Trunkline Team
  */
 @Component("configInstanceManager")

@@ -26,7 +26,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * - 成功率和失败率
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 public final class LoadBalancerTracingWrapper implements LoadBalancer {

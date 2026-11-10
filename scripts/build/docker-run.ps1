@@ -1,4 +1,4 @@
-# JAiRouter Docker 运行脚本 (PowerShell)
+# Trunkline Docker 运行脚本 (PowerShell)
 # 用法: .\scripts\docker-run.ps1 [环境] [版本]
 
 param(
@@ -59,7 +59,7 @@ if ($Environment -notin @("prod", "dev")) {
     exit 1
 }
 
-Write-Info "启动 JAiRouter Docker 容器"
+Write-Info "启动 Trunkline Docker 容器"
 Write-Info "环境: $Environment"
 Write-Info "版本: $Version"
 

@@ -13,8 +13,6 @@ import java.util.Map;
 /**
  * JWT令牌查询服务
  * 提供令牌状态查询和统计信息聚合
- *
- * @since v2.17.0
  */
 @Slf4j
 @Service

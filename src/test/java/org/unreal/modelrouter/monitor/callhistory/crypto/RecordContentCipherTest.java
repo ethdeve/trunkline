@@ -18,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * RecordContentCipher 单元测试
  *
  * @author JAiRouter Team
- * @since 2.9.2
  */
 @DisplayName("RecordContentCipher 测试")
 class RecordContentCipherTest {

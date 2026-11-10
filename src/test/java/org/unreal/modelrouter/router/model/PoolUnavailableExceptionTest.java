@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.router.model;
 
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>本测试<strong>不使用 Mockito</strong>（本机沙箱环境 Mockito 无法加载默认 MockMaker），
  * 改为直接 new 真实的 {@link ServiceStateManager}，行为更接近生产。</p>
+ * @author Trunkline Team
  */
 @DisplayName("池感知异常 N-3/N-4 测试")
 class PoolUnavailableExceptionTest {

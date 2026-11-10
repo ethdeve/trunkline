@@ -38,7 +38,6 @@ import static org.mockito.Mockito.*;
  * <p>测试黑名单管理功能</p>
  *
  * @version v2.7.6
- * @since 2025-01-17
  */
 @DisplayName("SecurityBlacklistController RESTful 接口测试")
 @ExtendWith(MockitoExtension.class)

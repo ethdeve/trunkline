@@ -24,7 +24,6 @@ import java.util.Set;
  * 当 Redis 可用时使用此实现
  * 
  * @author JAiRouter Team
- * @since 2.4.4
  * @modified Trunkline Team
  */
 @Service

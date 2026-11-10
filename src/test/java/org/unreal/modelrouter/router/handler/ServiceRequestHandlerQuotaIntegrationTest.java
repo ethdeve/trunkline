@@ -85,7 +85,6 @@ import static org.mockito.Mockito.when;
  * 按既有 {@link RouterResponse} 格式渲染。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

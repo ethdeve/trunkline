@@ -22,7 +22,6 @@ import java.util.Map;
  * 支持深度合并 Map 结构，保留不冲突的字段。
  *
  * @author JAiRouter Team
- * @since v2.2.6
  */
 @Component
 public class ConfigMerger {

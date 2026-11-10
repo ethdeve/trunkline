@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <script setup lang="ts">
 /**
  * 登录页（新台重写：浅色卡片视觉，复用 user store 登录逻辑）
@@ -6,8 +11,10 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useLocale } from '@/composables/useLocale'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
+const { t } = useI18n()
 const userStore = useUserStore()
 const { locale, setLocale } = useLocale()
 
@@ -24,23 +31,23 @@ function friendlyLoginError(e: any): string {
   const status = e?.response?.status
   const raw = String(e?.response?.data?.message || e?.message || '').toLowerCase()
   if (status === 401 || raw.includes('credential') || raw.includes('密码') || raw.includes('用户名')) {
-    return '用户名或密码不对，请再试一次'
+    return t('v.lg.t001')
   }
   if (status === 423 || raw.includes('locked') || raw.includes('disabled') || raw.includes('停用') || raw.includes('锁定')) {
-    return '这个账号被停用或锁定了，请联系管理员'
+    return t('v.lg.t002')
   }
   if (status === 429 || raw.includes('too many') || raw.includes('尝试')) {
-    return '尝试太频繁了，请等一分钟再试'
+    return t('v.lg.t003')
   }
   if (raw.includes('timeout') || raw.includes('network') || raw.includes('connection')) {
-    return '连不上服务，请检查网络后重试'
+    return t('v.lg.t004')
   }
-  return '登录出了点问题，请稍后再试；一直不行就联系管理员'
+  return t('v.lg.t005')
 }
 
 async function onSubmit() {
   if (!form.username || !form.password) {
-    errMsg.value = '请输入用户名与密码'
+    errMsg.value = t('v.lg.t006')
     return
   }
   loading.value = true
@@ -66,15 +73,15 @@ function switchLocale() {
     <el-card class="login-card" shadow="always">
       <div class="login-brand">
         <img src="/brand-mark.svg" alt="Trunkline" class="brand-mark" />
-        <h1>Trunkline 控制台</h1>
-        <p>统一接入 · 路由调度 · 用量观测</p>
+        <h1>{{ t('v.lg.t007') }}</h1>
+        <p>{{ t('v.lg.t008') }}</p>
       </div>
 
       <el-form @submit.prevent="onSubmit">
         <el-form-item>
           <el-input
             v-model="form.username"
-            placeholder="用户名"
+:placeholder="t('v.lg.t009')"
             size="large"
             :prefix-icon="'User'"
             autofocus
@@ -84,7 +91,7 @@ function switchLocale() {
           <el-input
             v-model="form.password"
             type="password"
-            placeholder="密码"
+:placeholder="t('v.lg.t010')"
             size="large"
             :prefix-icon="'Lock'"
             show-password
@@ -95,7 +102,7 @@ function switchLocale() {
         <el-alert v-if="errMsg" :title="errMsg" type="error" :closable="false" style="margin-bottom: 12px" />
 
         <el-button type="primary" size="large" style="width: 100%" :loading="loading" native-type="submit">
-          登 录
+          {{ t('v.lg.t011') }}
         </el-button>
       </el-form>
 

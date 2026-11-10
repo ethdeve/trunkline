@@ -26,7 +26,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>所有静态入口对 {@code reservation == null} 均安全：账本未启用 / 未预扣的请求直接返回。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 @Slf4j

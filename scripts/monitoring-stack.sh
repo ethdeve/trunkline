@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# JAiRouter 监控栈启动脚本 v1.9.5
+# Trunkline 监控栈启动脚本
 # 用于快速启动完整的监控体系（Prometheus + Grafana + AlertManager + Loki + Tempo）
 
 set -e
@@ -49,7 +49,7 @@ check_docker() {
 
 # 检查网络是否存在
 check_network() {
-    local network_name="jairouter-network"
+    local network_name="trunkline-network"
     
     if ! docker network ls | grep -q "$network_name"; then
         log_info "创建 Docker 网络：$network_name"
@@ -85,20 +85,20 @@ generate_env() {
     if [ ! -f .env ]; then
         log_info "生成 .env 环境变量文件..."
         cat > .env << EOF
-# JAiRouter 监控栈环境变量配置
+# Trunkline 监控栈环境变量配置
 
 # Grafana 配置
 GRAFANA_USER=admin
 GRAFANA_PASSWORD=admin
 
 # Redis 配置
-REDIS_PASSWORD=jairouter_redis_password_2026
+REDIS_PASSWORD=trunkline_redis_password_2026
 
 # MySQL Exporter 配置（可选）
 MYSQL_EXPORTER_USER=exporter
 MYSQL_EXPORTER_PASSWORD=exporter
 
-# JAiRouter 配置
+# Trunkline 配置
 SPRING_PROFILES_ACTIVE=prod
 SERVER_PORT=8080
 EOF
@@ -110,7 +110,7 @@ EOF
 
 # 启动监控栈
 start_monitoring() {
-    log_info "启动 JAiRouter 监控栈..."
+    log_info "启动 Trunkline 监控栈..."
 
     # 检测 docker compose 命令
     if docker compose version &> /dev/null; then
@@ -129,7 +129,7 @@ start_monitoring() {
 show_access_info() {
     echo ""
     log_success "=========================================="
-    log_success "   JAiRouter 监控栈已启动"
+    log_success "   Trunkline 监控栈已启动"
     log_success "=========================================="
     echo ""
     echo "访问地址:"
@@ -145,7 +145,7 @@ show_access_info() {
     echo "使用说明:"
     echo "  1. 访问 Grafana 配置 Prometheus 数据源"
     echo "  2. 导入异常管理仪表盘 (monitoring/grafana/dashboards/exception-management.json)"
-    echo "  3. 在 Prometheus 中验证指标：jairouter_errors_*"
+    echo "  3. 在 Prometheus 中验证指标：trunkline_errors_*"
     echo ""
     echo "停止监控栈:"
     echo "  $0 stop"
@@ -157,7 +157,7 @@ show_access_info() {
 
 # 停止监控栈
 stop_monitoring() {
-    log_info "停止 JAiRouter 监控栈..."
+    log_info "停止 Trunkline 监控栈..."
 
     if docker compose version &> /dev/null; then
         COMPOSE_CMD="docker compose"
@@ -208,7 +208,7 @@ clean_data() {
 
 # 显示帮助
 show_help() {
-    echo "JAiRouter 监控栈管理脚本 v1.9.5"
+    echo "Trunkline 监控栈管理脚本"
     echo ""
     echo "用法：$0 [command]"
     echo ""

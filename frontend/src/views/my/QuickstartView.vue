@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <script setup lang="ts">
 /**
  * 快速上手：三步把公司 AI 接到你常用的工具里
@@ -22,8 +27,10 @@ import { getGatewayInfo, type GatewayInfo } from '@/api/gateway'
 import { getMyApiKeys } from '@/api/apiKey'
 import { copyToClipboard } from '@/utils/clipboard'
 import type { ApiKeyVO } from '@/types'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
+const { t } = useI18n()
 
 const loading = ref(true)
 const gateway = ref<GatewayInfo | null>(null)
@@ -59,7 +66,7 @@ async function copy(text: string, tag: string) {
   if (!text) return
   const ok = await copyToClipboard(text)
   if (!ok) {
-    ElMessage.warning('复制失败，请手动选中上面的地址')
+    ElMessage.warning(t('v.qs.t037'))
     return
   }
   copied.value = tag
@@ -90,14 +97,14 @@ const branch = computed<'hasKey' | 'noKey'>(() => (keys.value.length > 0 ? 'hasK
 const verifyCommand = computed(() => {
   const model = sampleModels.value[0] || 'company-chat'
   const url = baseUrl.value || 'https://your-gateway/v1'
-  return `curl ${url}/chat/completions \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer <你的密钥>" \\\n  -d '{"model":"${model}","messages":[{"role":"user","content":"你好"}]}'`
+  return `curl ${url}/chat/completions \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer <${t('v.qs.x005')}>" \\\n  -d '{"model":"${model}","messages":[{"role":"user","content":"${t('v.qs.x006')}"}]}'`
 })
 
 const copiedVerify = ref(false)
 async function copyVerify() {
   const ok = await copyToClipboard(verifyCommand.value)
   if (!ok) {
-    ElMessage.warning('复制失败，请手动选中上面的命令')
+    ElMessage.warning(t('v.qs.t039'))
     return
   }
   copiedVerify.value = true
@@ -117,13 +124,13 @@ async function copyVerify() {
 const qrDataUrl = ref('')
 const qrPayload = computed(() => {
   if (!baseUrl.value) return ''
-  const models = sampleModels.value.length ? sampleModels.value.join('、') : '（以管理员分配为准）'
+  const models = sampleModels.value.length ? sampleModels.value.join('、') : t('v.qs.t040')
   return [
-    'Trunkline AI 接入配置',
-    `地址：${baseUrl.value}`,
-    `模型：${models}`,
-    '密钥：登录控制台 → 我的密钥 → 复制',
-    'API Key 一栏填密钥，接口地址一栏填上面的地址'
+    t('v.qs.t041'),
+    t('v.qs.x007', { url: baseUrl.value }),
+    t('v.qs.x008', { models }),
+    t('v.qs.t042'),
+    t('v.qs.t043')
   ].join('\n')
 })
 
@@ -148,7 +155,7 @@ const load = async () => {
   if (gw.status === 'fulfilled') {
     gateway.value = gw.value
   } else {
-    ElMessage.error('获取接入地址失败，请刷新页面重试')
+    ElMessage.error(t('v.qs.t044'))
   }
 
   if (myKeys.status === 'fulfilled') {
@@ -169,13 +176,13 @@ onMounted(load)
     <!-- ============ P1 员工侧①：双分支引导 ============ -->
     <el-card shadow="never" class="qs-card">
       <h2 class="qs-title">
-        {{ branch === 'hasKey' ? '三步把密钥装进你常用的 AI 工具' : '先领一把密钥' }}
+        {{ branch === 'hasKey' ? t('v.qs.t029') : t('v.qs.t030') }}
       </h2>
       <p class="qs-sub">
         {{
           branch === 'hasKey'
-            ? '不需要自己去 OpenAI/Anthropic 充值，把公司给你的密钥填到你常用的 AI 工具里就行。'
-            : '公司 AI 的调用需要一把密钥。先找管理员申请，拿到之后按下面三步接进你的工具。'
+            ? t('v.qs.t031')
+            : t('v.qs.t032')
         }}
       </p>
 
@@ -184,44 +191,44 @@ onMounted(load)
         <el-row :gutter="16" class="qs-steps">
           <el-col :span="12">
             <div class="qs-step">
-              <div class="qs-step__label">第 1 步 · 复制地址</div>
+              <div class="qs-step__label">{{ t('v.qs.t001') }}</div>
               <div class="qs-code" :class="{ 'is-empty': !baseUrl }">
-                {{ baseUrl || '地址暂时获取不到' }}
+                {{ baseUrl || t('v.qs.t033') }}
               </div>
               <el-button size="small" :disabled="!baseUrl" @click="copy(baseUrl, 'url')">
-                {{ copied === 'url' ? '✓ 已复制' : '📋 复制地址' }}
+                {{ copied === 'url' ? t('v.qs.t034') : t('v.qs.t035') }}
               </el-button>
             </div>
           </el-col>
           <el-col :span="12">
             <div class="qs-step">
-              <div class="qs-step__label">第 2 步 · 拿到密钥</div>
+              <div class="qs-step__label">{{ t('v.qs.t002') }}</div>
               <div class="qs-code">
                 {{ primaryKey?.keyMasked || '••••••••' }}
                 <span v-if="primaryKey?.description" class="qs-key-desc">{{ primaryKey.description }}</span>
               </div>
-              <el-button size="small" type="primary" @click="goMyKeys">去「我的密钥」复制</el-button>
+              <el-button size="small" type="primary" @click="goMyKeys">{{ t('v.qs.t003') }}</el-button>
               <div v-if="keys.length > 1" class="qs-hint">
-                你名下一共有 {{ keys.length }} 把密钥，可在「我的密钥」里挑选
+                {{ t('v.qs.x001') }} {{ keys.length }} {{ t('v.qs.x002') }}
               </div>
             </div>
           </el-col>
         </el-row>
 
-        <el-divider>第 3 步 · 填到工具里，然后验证一下</el-divider>
+        <el-divider>{{ t('v.qs.t004') }}</el-divider>
 
         <div class="qs-tools">
           <div class="qs-tool">
             <div class="qs-tool__name">Cherry Studio</div>
-            <div class="qs-tool__desc">设置 → 模型服务 → 添加 → 选 OpenAI，地址和密钥粘进去</div>
+            <div class="qs-tool__desc">{{ t('v.qs.t005') }}</div>
           </div>
           <div class="qs-tool">
             <div class="qs-tool__name">Cursor</div>
-            <div class="qs-tool__desc">设置 → 模型 → OpenAI，把地址填到接口地址那一栏，密钥填到 API Key</div>
+            <div class="qs-tool__desc">{{ t('v.qs.t006') }}</div>
           </div>
           <div class="qs-tool">
             <div class="qs-tool__name">ChatBox / NextChat</div>
-            <div class="qs-tool__desc">设置 → 接口地址填上面的 URL，API Key 填密钥</div>
+            <div class="qs-tool__desc">{{ t('v.qs.t007') }}</div>
           </div>
         </div>
 
@@ -232,39 +239,39 @@ onMounted(load)
           style="margin-top: 16px"
         >
           <template #title>
-            在工具里 model 那一栏填
-            <b v-if="sampleModels.length === 0">可用模型名</b>
+            {{ t('v.qs.t008') }}
+            <b v-if="sampleModels.length === 0">{{ t('v.qs.t009') }}</b>
             <template v-else>
               <code v-for="m in sampleModels" :key="m" class="qs-model">{{ m }}</code>
             </template>
-            这种可用模型名，不要填 gpt-4o。
+            {{ t('v.qs.t010') }}
           </template>
         </el-alert>
 
         <!-- ============ P1 员工侧①：验证步骤 ============ -->
         <div class="qs-verify">
-          <h3 class="qs-verify__title">验证一下真的通了</h3>
+          <h3 class="qs-verify__title">{{ t('v.qs.t011') }}</h3>
           <p class="qs-verify__desc">
-            配好之后不想在工具里试？把下面这条命令粘到终端里跑一下，
-            <b>能返回一段文字就说明配对了</b>；报错就把错误整段发给管理员。
+            {{ t('v.qs.t012') }}
+            <b>{{ t('v.qs.t013') }}</b>{{ t('v.qs.x003') }}
           </p>
           <pre class="qs-verify__code">{{ verifyCommand }}</pre>
           <div class="qs-verify__ops">
             <el-button size="small" @click="copyVerify">
-              {{ copiedVerify ? '✓ 已复制' : '📋 复制命令' }}
+              {{ copiedVerify ? t('v.qs.t034') : t('v.qs.t036') }}
             </el-button>
             <el-button size="small" type="primary" plain @click="goPlayground">
-              也可以直接在测试场试一句 →
+              {{ t('v.qs.t014') }}
             </el-button>
           </div>
         </div>
 
         <!-- ============ P1 员工侧②：接入配置二维码 ============ -->
         <div v-if="qrDataUrl" class="qs-qr">
-          <img :src="qrDataUrl" alt="接入配置二维码" class="qs-qr__img" />
+          <img :src="qrDataUrl" :alt="t('v.qs.t026')" class="qs-qr__img" />
           <div class="qs-qr__text">
-            <b>手机扫码，配置带走</b>
-            <p>扫出来是接入地址和模型名。密钥不在二维码里（防止截图泄漏），拿到手机上也回「我的密钥」复制。</p>
+            <b>{{ t('v.qs.t015') }}</b>
+            <p>{{ t('v.qs.t016') }}</p>
           </div>
         </div>
       </template>
@@ -275,34 +282,33 @@ onMounted(load)
           <li class="qs-path__item">
             <div class="qs-path__head">
               <span class="qs-path__idx">1</span>
-              <b>告诉管理员你要做什么</b>
+              <b>{{ t('v.qs.t017') }}</b>
             </div>
             <p class="qs-path__desc">
-              在「我的密钥」页点「申请新密钥」，写一句用途（比如「Q4 出差客户拜访，需要临时用 AI 写方案」），
-              内容会自动复制好，粘贴给管理员或发到企业微信即可。
+              {{ t('v.qs.t018') }}
             </p>
-            <el-button size="small" type="primary" @click="goMyKeys">去「我的密钥」申请 →</el-button>
+            <el-button size="small" type="primary" @click="goMyKeys">{{ t('v.qs.t019') }}</el-button>
           </li>
           <li class="qs-path__item">
             <div class="qs-path__head">
               <span class="qs-path__idx">2</span>
-              <b>等管理员开通</b>
+              <b>{{ t('v.qs.t020') }}</b>
             </div>
             <p class="qs-path__desc">
-              通常 1 个工作日内完成。开通后你会拿到一把密钥，同时管理员会告诉你
-              <b>能用哪几个模型名</b>（比如 company-chat）和你有多少额度。
+              {{ t('v.qs.t021') }}
+              <b>{{ t('v.qs.t022') }}</b>{{ t('v.qs.x004') }}
             </p>
             <div class="qs-path__note">
-              还没等到？直接在企业微信里催一下管理员就行，不用重复申请。
+              {{ t('v.qs.t023') }}
             </div>
           </li>
           <li class="qs-path__item">
             <div class="qs-path__head">
               <span class="qs-path__idx">3</span>
-              <b>拿到密钥后回来照着配</b>
+              <b>{{ t('v.qs.t024') }}</b>
             </div>
             <p class="qs-path__desc">
-              密钥到手后本页会变成「三步接入」的样子：复制地址 → 复制密钥 → 填进工具 → 验证。
+              {{ t('v.qs.t025') }}
             </p>
           </li>
         </ol>
@@ -312,8 +318,8 @@ onMounted(load)
           :closable="false"
           show-icon
           style="margin-top: 16px"
-          title="为什么需要密钥？"
-          description="密钥就像公司 AI 的「门卡」，系统靠它判断谁、用哪些模型、花多少额度。没有密钥任何工具都调不通。"
+          :title="t('v.qs.t027')"
+          :description="t('v.qs.t028')"
         />
       </template>
     </el-card>

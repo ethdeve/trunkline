@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 内存语义（累加 / 基线 / 结算不建档 / 清理保护）以及降级补偿记账（pending 增量）。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 @DisplayName("QuotaCounterBackend 计数后端契约测试")
 class QuotaCounterBackendTest {

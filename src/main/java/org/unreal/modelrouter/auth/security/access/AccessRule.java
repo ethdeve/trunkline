@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.access;
 
 import org.springframework.http.HttpMethod;
@@ -11,8 +15,7 @@ import java.util.Set;
  *
  * <p>规则按登记顺序匹配（首条命中优先），更具体的路径必须登记在更宽泛的模式之前。</p>
  *
- * @author JAiRouter Team
- * @since 3.5.1
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 public record AccessRule(Set<HttpMethod> methods, String pathPattern, AccessLevel level, PathPattern compiled) {

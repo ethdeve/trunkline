@@ -33,7 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 不使用 Mockito mock；时钟可控（{@link MutableClock}）以便验证窗口边界与保留期清理。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 @DisplayName("QuotaLedgerService 配额账本测试")
 class QuotaLedgerServiceTest {

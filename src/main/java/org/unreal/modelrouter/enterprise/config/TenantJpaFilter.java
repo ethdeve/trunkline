@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.config;
 
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +39,7 @@ import jakarta.persistence.EntityManagerFactory;
  *       不会报错——严格 fail-closed 语义由 enterprise jar 替换本切面实现。</li>
  *   <li>enableFilter 对同名过滤器重复调用只更新参数，幂等无副作用。</li>
  * </ul>
+ * @author Trunkline Team
  */
 @Slf4j
 @Aspect

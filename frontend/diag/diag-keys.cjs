@@ -73,6 +73,6 @@ const { chromium } = require('playwright-core')
     }
   })
   console.log(JSON.stringify(r, null, 1))
-  await page.screenshot({ path: 'D:/wdx/wjy/jairouter-console/diag-keys-data.png' })
+  await page.screenshot({ path: 'D:/wdx/wjy/trunkline-console/diag-keys-data.png' })
   await browser.close()
 })().catch(e => { console.error('FATAL', e); process.exit(1) })

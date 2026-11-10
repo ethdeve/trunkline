@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.router.circuitbreaker;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li>{@code enabled=false} 时 {@code canExecute} 始终放行（实例级禁用真正生效）；</li>
  *   <li>实例级阈值（如 failureThreshold=3）真正参与状态机判定（连续 3 次失败即 OPEN）。</li>
  * </ol>
+ * @author Trunkline Team
  */
 @DisplayName("CircuitBreakerManager 实例级配置生效")
 class CircuitBreakerManagerInstanceConfigTest {

@@ -21,8 +21,6 @@ import static org.mockito.Mockito.*;
 
 /**
  * DefaultInstanceConfigUpdateService 单元测试.
- *
- * @since v2.6.12
  */
 @DisplayName("DefaultInstanceConfigUpdateService 测试")
 @ExtendWith(MockitoExtension.class)

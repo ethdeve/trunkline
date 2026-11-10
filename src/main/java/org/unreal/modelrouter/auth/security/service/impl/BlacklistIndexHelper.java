@@ -17,8 +17,6 @@ import java.util.Map;
  *
  * 从 JwtBlacklistServiceImpl 中提取的索引管理和统计方法。
  * 非Spring Bean，由 JwtBlacklistServiceImpl 直接构造并持有。
- *
- * @since v2.30.0
  */
 @Slf4j
 public class BlacklistIndexHelper {

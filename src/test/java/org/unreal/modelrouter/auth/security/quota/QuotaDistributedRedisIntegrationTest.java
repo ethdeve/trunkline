@@ -52,7 +52,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 续期、读数 / 结算 / 清理路径在真实协议下的行为。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 @EnabledIfEnvironmentVariable(named = "REDIS_TEST", matches = "true")
 @DisplayName("RedisCounterBackend 真 Redis 集成测试（REDIS_TEST=true 时执行）")

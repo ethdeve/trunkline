@@ -150,7 +150,6 @@ public class ServiceInstanceManager {
      *
      * @param serviceType 服务类型（chat / embedding / …）；大小写无关
      * @return 该服务类型下的实例列表（明文 headers，仅供管理面内部复用）
-     * @since P0-L
      */
     public List<ServiceInstanceDTO> findByServiceType(final String serviceType) {
         if (serviceType == null || serviceType.trim().isEmpty()) {
@@ -191,7 +190,6 @@ public class ServiceInstanceManager {
      * 员工 VO 不含 headers → 前端无法覆盖 → 审查项4 后端部分由本方法完全覆盖。</p>
      *
      * @return 员工裁剪后的实例列表
-     * @since P0-L
      */
     public List<EmployeeServiceInstanceVO> getAllInstancesForEmployee() {
         return serviceInstanceRepository.findAll()
@@ -226,7 +224,6 @@ public class ServiceInstanceManager {
      *
      * @param serviceType 服务类型（大小写无关）
      * @return 员工裁剪后的实例列表
-     * @since P0-L
      */
     public List<EmployeeServiceInstanceVO> findByServiceTypeForEmployee(
             final String serviceType) {
@@ -394,7 +391,6 @@ public class ServiceInstanceManager {
      *
      * @param entity            实例实体
      * @param targetServiceType 目标服务类型；为空或与当前一致则不做任何事
-     * @since 2026-10-22
      */
     private void migrateServiceType(final ServiceInstanceEntity entity, final String targetServiceType) {
         if (targetServiceType == null || targetServiceType.isBlank()) {
@@ -568,7 +564,6 @@ public class ServiceInstanceManager {
      * 候选为空时路由层会抛出带逐成员明细的 503。</p>
      *
      * @param entity 变更后的实例实体；为 {@code null} 时只做分类级快照失效
-     * @since 2026-10-27
      */
     private void resetInstanceHealthStateAfterChange(final ServiceInstanceEntity entity) {
         if (entity == null) {

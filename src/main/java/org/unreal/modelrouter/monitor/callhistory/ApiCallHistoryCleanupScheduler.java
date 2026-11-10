@@ -12,7 +12,6 @@ import org.unreal.modelrouter.monitor.callhistory.config.CallHistoryProperties;
  * 定期清理过期的调用历史记录
  *
  * @author JAiRouter Team
- * @since 2.7.8
  * @modified Trunkline Team
  */
 @Slf4j

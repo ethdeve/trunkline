@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
 import { ref } from 'vue'
 /**
  * 紧凑模式密度控制（新台新增，旧台无此能力）

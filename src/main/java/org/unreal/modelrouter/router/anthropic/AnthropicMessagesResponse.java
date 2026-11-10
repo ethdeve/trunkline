@@ -33,7 +33,6 @@ import java.util.List;
  * {@code stop_sequence} 字段存在（无匹配时为显式 {@code null}），缺字段会被严格客户端判为协议不符。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  */
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public record AnthropicMessagesResponse(

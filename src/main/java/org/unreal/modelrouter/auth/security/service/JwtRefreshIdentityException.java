@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 /**
@@ -7,8 +11,7 @@ package org.unreal.modelrouter.auth.security.service;
  * 也不能签发一个仍带旧权限的令牌（越权复活）。因此本异常必须向上抛出，
  * 不允许被降级成「沿用旧 claim」。
  *
- * @author JAiRouter Team
- * @since 3.3.1
+ * @author Trunkline Team
  */
 public class JwtRefreshIdentityException extends RuntimeException {
 

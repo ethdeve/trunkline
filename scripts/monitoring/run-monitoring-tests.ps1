@@ -10,7 +10,7 @@ param(
     [string]$Profile = "integration-test"
 )
 
-Write-Host "=== JAiRouter 监控系统测试运行器 ===" -ForegroundColor Green
+Write-Host "=== Trunkline 监控系统测试运行器 ===" -ForegroundColor Green
 Write-Host "测试类型: $TestType" -ForegroundColor Yellow
 Write-Host "跳过构建: $SkipBuild" -ForegroundColor Yellow
 Write-Host "详细输出: $Verbose" -ForegroundColor Yellow

@@ -27,7 +27,6 @@ import java.util.Map;
  * - 错误处理和状态管理
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 public final class DefaultTracingContext implements TracingContext {

@@ -27,7 +27,6 @@ import static org.mockito.Mockito.*;
  * TokenUsageService 单元测试
  *
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TokenUsageService 测试")

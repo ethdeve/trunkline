@@ -15,7 +15,6 @@ import java.util.Map;
  * 从 ConfigVersionManager 中提取，遵循单一职责原则
  *
  * @author AI Assistant
- * @since v2.27.0
  */
 @Component
 public class VersionValidator {

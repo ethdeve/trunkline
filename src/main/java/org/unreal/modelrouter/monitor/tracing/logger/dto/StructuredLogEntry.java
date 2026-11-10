@@ -40,7 +40,6 @@ import java.time.Instant;
  * - level: 日志级别
  *
  * @author JAiRouter Team
- * @since v2.16.4
  */
 @Data
 @Builder

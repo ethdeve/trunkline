@@ -53,7 +53,6 @@ import java.util.Optional;
  * <p>提供兼容OpenAI格式的统一模型服务接口，所有请求处理逻辑委托给 {@link ServiceRequestHandler}。
  *
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @RestController
 @RequestMapping("/api/v1")

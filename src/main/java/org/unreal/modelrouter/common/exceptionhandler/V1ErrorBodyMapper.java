@@ -52,7 +52,6 @@ import java.util.regex.Pattern;
  * {@code SecurityExceptionHandler} 共用同一套判定与映射）。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  */
 public final class V1ErrorBodyMapper {
 

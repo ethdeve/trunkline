@@ -11,7 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * {@link QuotaDimension} 哨兵值与维度隔离测试（v3.1 PR-1）。
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 @DisplayName("QuotaDimension 维度哨兵值测试")
 class QuotaDimensionTest {

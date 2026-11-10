@@ -27,7 +27,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * BitSet 触发数组越界。</p>
  *
  * @author JAiRouter Team
- * @since v2.7.11
  * @modified Trunkline Team
  */
 public final class HealthStateBitSet {
@@ -132,7 +131,6 @@ public final class HealthStateBitSet {
      * 用于「实例配置变了（如换了上游地址），旧的探活结论已不适用」的场景。</p>
      *
      * @param instanceKey 实例键
-     * @since 2026-10-27
      */
     public void clearHealth(final String instanceKey) {
         Integer index = instanceIndexMap.get(instanceKey);
@@ -194,7 +192,6 @@ public final class HealthStateBitSet {
      * 与原 Map「清除即移除键」的语义一致。返回的是某一时刻的一致性快照。</p>
      *
      * @return 实例键 -> 健康状态
-     * @since 2026-10-28
      */
     public Map<String, Boolean> snapshotKnownStates() {
         BitSet currentKnown = knownBits;

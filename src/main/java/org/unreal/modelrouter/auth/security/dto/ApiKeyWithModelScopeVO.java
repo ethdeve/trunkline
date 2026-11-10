@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -24,8 +28,7 @@ import java.util.List;
  * <p>这样前端就<b>不再需要</b>调用 {@code GET /api/config/pools/list}（全公司资源池），
  * 从而可以在收紧 {@code config:pools:read} 权限后保持员工侧功能完整。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Data
 @Builder

@@ -17,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 可用会让不同客户端共用配额，错误地判定为不可用会让限流静默失效。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.4
  */
 class RateLimitKeyResolverTest {
 

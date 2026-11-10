@@ -21,7 +21,6 @@ import java.time.LocalDateTime;
  * 用于自适应阈值调整，记录时间窗口内的调用统计数据
  * 
  * @author JAiRouter Team
- * @since v2.6.12
  */
 @Data
 @Builder

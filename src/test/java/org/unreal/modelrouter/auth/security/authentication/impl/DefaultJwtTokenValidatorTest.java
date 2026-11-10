@@ -33,7 +33,6 @@ import static org.mockito.Mockito.*;
  * DefaultJwtTokenValidator 单元测试
  *
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

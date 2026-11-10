@@ -41,7 +41,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * {@link AnthropicMessagesResponse}（其类级注解同为 {@code ALWAYS}）。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  */
 public final class AnthropicStreamEvent {
 

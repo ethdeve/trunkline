@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
  * - 实例选择延迟：~2ms → <0.5ms (100实例场景)
  *
  * @author JAiRouter Team
- * @since v2.7.7
  * @modified Trunkline Team
  */
 @Component

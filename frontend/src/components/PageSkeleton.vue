@@ -9,7 +9,7 @@
         </slot>
       </div>
       <div class="page-header__right">
-        <el-tooltip v-if="helpLink && !embedded" content="查看这一页的帮助" placement="bottom">
+        <el-tooltip v-if="resolvedHelpLink && !embedded" :content="t('pageHeader.helpTip')" placement="bottom">
           <el-button text class="page-header__help" @click="openHelp">
             <el-icon :size="16"><QuestionFilled /></el-icon>
           </el-button>
@@ -43,9 +43,11 @@
 </template>
 
 <script setup lang="ts">
-import { inject, ref } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { QuestionFilled } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { useUserStore } from '@/stores/user'
 
 const props = defineProps<{
   title?: string
@@ -54,10 +56,20 @@ const props = defineProps<{
 }>()
 
 const router = useRouter()
+const { t } = useI18n()
+
+/** 同 PageHeader：/docs 帮助链接对普通用户降级到接入指南 /guide */
+const resolvedHelpLink = computed(() => {
+  const link = props.helpLink
+  if (!link) return ''
+  if (!link.startsWith('/docs')) return link
+  return useUserStore().hasLogicalRoleOneOf(['ops', 'admin']) ? link : '/guide'
+})
+
 function openHelp() {
-  if (!props.helpLink) return
-  if (props.helpLink.startsWith('/')) router.push(props.helpLink)
-  else window.open(props.helpLink, '_blank', 'noopener')
+  if (!resolvedHelpLink.value) return
+  if (resolvedHelpLink.value.startsWith('/')) router.push(resolvedHelpLink.value)
+  else window.open(resolvedHelpLink.value, '_blank', 'noopener')
 }
 
 /**

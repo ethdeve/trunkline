@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 /**
@@ -50,10 +55,12 @@ watch(
 
 <template>
   <div>
-    <PageHeader :title="t('shell.strategy.title')" :subtitle="menuSubtitle('/strategy')" help-link="/docs?path=team/routing-rules" />
+    <PageHeader :title="t('shell.strategy.title')" :subtitle="t(menuSubtitle('/strategy'))" help-link="/docs?path=team/routing-rules" />
 
     <!-- 原型式 tab 按钮组 -->
-    <div class="pol-tabs">
+    <!-- 页面 H2 已是「路由规则」：只剩一个 tab 时不再叠一层「分配规则」标题。
+         RESPONSE_CACHE_ENABLED 打开（多 tab）后自动恢复按钮组，术语也统一为「路由规则」。 -->
+    <div v-if="TABS.length > 1" class="pol-tabs">
       <button
         class="pol-tab"
         :class="{ 'is-active': active === 'rules' }"

@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * 员工侧术语映射单点（S3-1）
  *
  * <p><b>为什么要有这个文件</b>：网关是技术产品，员工是业务人员。同一个概念在运维侧必须

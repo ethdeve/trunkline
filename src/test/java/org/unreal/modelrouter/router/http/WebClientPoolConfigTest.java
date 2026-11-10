@@ -15,7 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * 否则默认行为会悄悄改变。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.8
  */
 @DisplayName("WebClientPool 连接参数外部化")
 class WebClientPoolConfigTest {

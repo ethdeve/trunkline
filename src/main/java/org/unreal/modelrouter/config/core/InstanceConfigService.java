@@ -25,8 +25,6 @@ import java.util.Map;
  * 实例配置管理服务
  *
  * 从 ConfigurationService 中提取的实例管理方法，提供实例的增删改查和批量操作功能。
- *
- * @since v2.30.0
  */
 @Service
 public class InstanceConfigService {

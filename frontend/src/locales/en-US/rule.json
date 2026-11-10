@@ -1,8 +1,8 @@
 {
   "rule": {
-    "pageTitle": "Assignment Rules",
+    "pageTitle": "Routing Rules",
     "refreshTooltip": "Refresh list & hit statistics",
-    "emptyText": "No assignment rules yet. Rules decide which request goes to which model; defaults apply when empty",
+    "emptyText": "No routing rules yet. Rules decide which request goes to which model; defaults apply when empty",
     "createFromTemplate": "Create from Template",
     "addRule": "New Rule",
     "editRule": "Edit Rule",

@@ -1,4 +1,4 @@
-# JAiRouter 脚本目录
+# Trunkline 脚本目录
 
 本目录包含项目所有的脚本文件，按功能分类管理。
 
@@ -8,7 +8,6 @@
 scripts/
 ├── build/          # 构建部署脚本
 ├── dev/            # 开发辅助脚本
-├── docs/           # 文档管理脚本
 ├── migration/      # 数据迁移脚本
 ├── monitoring/     # 监控部署脚本
 ├── test/           # 测试脚本
@@ -36,10 +35,6 @@ scripts/
 | `quick-fix-assets.sh` | 快速修复静态资源版本问题 |
 | `quick-test-fixes.sh` | 快速测试 JWT 安全修复 |
 
-### docs/ - 文档管理
-
-文档相关的管理和验证脚本。
-
 ### migration/ - 数据迁移
 
 | 脚本 | 说明 |
@@ -56,25 +51,17 @@ scripts/
 
 ### test/ - 测试脚本
 
-各类功能测试和验证脚本，包括：
-- E2E 测试
-- API 集成测试
-- 版本管理测试
-- 安全功能测试
-- 熔断器/限流器测试
-
 | 脚本 | 说明 |
 |------|------|
 | `mock-model-server.mjs` | OpenAI 兼容的 mock 模型服务，供本地联调与路由/负载均衡测试使用（见下） |
+| `test-backward-compatibility.ps1` | 安全配置向后兼容验证：确认旧的 `JAIROUTER_SECURITY_*` 环境变量名仍被识别（历史兼容校验，勿删） |
+
+> 说明：早期一批硬编码了已废弃凭据（`dev-admin-12345` API Key、过期 JWT、旧管理员弱密码）或内网测试机地址（`172.16.30.6`）的 E2E / 版本管理 / headers / 审计 / 追踪数据生成脚本已清理。这些脚本依赖的 `X-API-Key` 认证与旧配置文件 `config-dev/security.api-keys.json` 均已从项目移除；现行追踪接口 `/api/tracing/**` 改由 JWT + 角色矩阵（OPS/ADMIN）鉴权，如需验证请通过控制台登录态调用。
 
 ### tools/ - 工具脚本
 
 | 脚本 | 说明 |
 |------|------|
-| `fix_frontend_complete.py` | 前端配置完整修复 |
-| `fix_frontend_independent_config.sh` | 前端独立配置修复 |
-| `quick_fix_frontend.sh` | 前端快速修复 |
-| `generate_sitemap.py` | 生成站点地图 |
 | `validate-jwt-persistence-config.sh` | JWT 持久化配置验证 |
 
 ## 常用脚本使用
@@ -117,7 +104,7 @@ scripts/
 
 ### 本地 mock 模型服务
 
-JAiRouter 的实例健康检查是「socket 探测上游 host:port」，且路由、负载均衡、
+Trunkline 的实例健康检查是「socket 探测上游 host:port」，且路由、负载均衡、
 熔断、配额等链路都需要一个**真实可达**的上游。当手边没有可用的推理服务
 （或只想验证网关自身行为）时，用本 mock 起一个 OpenAI 兼容端点即可跑通完整链路。
 
@@ -141,7 +128,7 @@ node scripts/test/mock-model-server.mjs --fail-rate 0.5
 `/v1/embeddings`、`/v1/rerank`、`/v1/audio/speech`、`/v1/audio/transcriptions`、
 `/v1/images/generations`、`/v1/images/edits`。其余路径一律返回 200，保证健康检查通过。
 
-在 JAiRouter 里把它挂成实例（`Jairouter_Token` 为控制台登录后的 JWT）：
+在 Trunkline 里把它挂成实例（`Jairouter_Token` 为控制台登录后的 JWT）：
 
 ```bash
 curl -X POST http://127.0.0.1:8080/api/config/instance/chat \

@@ -46,7 +46,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * - 可配置批量大小和上报间隔
  *
  * @author JAiRouter Team
- * @since v2.7.12
  * @modified Trunkline Team
  */
 @Component

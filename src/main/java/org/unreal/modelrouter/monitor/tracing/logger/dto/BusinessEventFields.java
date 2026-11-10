@@ -37,7 +37,6 @@ import java.util.Map;
  * - circuit_breaker_state_change: 熔断状态变更
  *
  * @author JAiRouter Team
- * @since v2.16.4
  */
 @Data
 @Builder

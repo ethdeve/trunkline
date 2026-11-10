@@ -19,7 +19,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * - 统计功能：命中率、淘汰数
  *
  * @author JAiRouter Team
- * @since v2.7.10
  */
 public final class ClientIpRateLimiterCache {
 

@@ -47,7 +47,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo "=== JAiRouter 监控系统测试运行器 ==="
+echo "=== Trunkline 监控系统测试运行器 ==="
 echo "测试类型: $TEST_TYPE"
 echo "跳过构建: $SKIP_BUILD"
 echo "详细输出: $VERBOSE"

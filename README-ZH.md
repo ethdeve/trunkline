@@ -196,7 +196,6 @@ Trunkline 是一个 **生产级 AI 模型网关**，面向自建推理基础设�
 | **智谱 (GLM)** | `adapter-definitions: zhipu: type: openai-compatible` |
 | **月之暗面** | `adapter-definitions: moonshot: type: openai-compatible` |
 | **通义千问** | `adapter-definitions: qwen: type: openai-compatible` |
-| **百川** | `adapter-definitions: baichuan: type: openai-compatible` |
 | **Minimax** | `adapter-definitions: minimax: type: openai-compatible` |
 
 > 📖 详见 [Adapter 配置指南](https://trunkline.com/configuration/adapter-config/)
@@ -255,7 +254,7 @@ Trunkline 是一个 **生产级 AI 模型网关**，面向自建推理基础设�
 
 **当前版本：0.1.0**（版本号冻结中——社区版完善后一次性升版，见[迭代计划](docs/product/Trunkline-产品迭代计划.md)）
 
-0.1.0 继承了上游 JAiRouter v3.1.2 的全部能力，并新增 Trunkline 品牌体系与平滑兼容层（旧配置前缀 / Redis key / 配置存储 key 自动迁移）。
+0.1.0 继承了上游 JAiRouter 的全部能力，并新增 Trunkline 品牌体系与平滑兼容层（旧配置前缀 / Redis key / 配置存储 key 自动迁移）。
 
 **社区版阶段计划**（阶段名不代表发布版本号）：
 

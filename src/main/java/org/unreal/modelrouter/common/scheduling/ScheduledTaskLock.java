@@ -32,7 +32,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * 置 {@code false} 可完全回退到「每个副本各跑一遍」的旧行为。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.3
  * @modified Trunkline Team
  */
 @Slf4j

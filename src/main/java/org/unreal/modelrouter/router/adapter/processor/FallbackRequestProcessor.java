@@ -40,7 +40,6 @@ import reactor.core.publisher.Mono;
  * 注意：不依赖BaseAdapter，避免循环依赖
  *
  * @author JAiRouter Team
- * @since v2.15.4
  */
 @Service
 public class FallbackRequestProcessor {

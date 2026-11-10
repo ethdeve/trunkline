@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <script setup lang="ts">
 /**
  * 系统设置
@@ -100,8 +105,12 @@ const currentMenuItem = computed(() => {
   }
   return undefined
 })
-const pageTitle = computed(() => currentMenuItem.value?.title ?? t('shell.settings.title'))
-const pageSubtitle = computed(() => currentMenuItem.value?.subtitle ?? t('shell.settings.subtitle'))
+const pageTitle = computed(() =>
+  currentMenuItem.value ? t(currentMenuItem.value.title) : t('shell.settings.title')
+)
+const pageSubtitle = computed(() =>
+  currentMenuItem.value?.subtitle ? t(currentMenuItem.value.subtitle) : t('shell.settings.subtitle')
+)
 
 // 外部导航（菜单点击 / 浏览器前进后退 / 命令面板）改变路径或 sub 时同步页内状态
 watch(
@@ -140,7 +149,7 @@ watch(activeSub, s => {
         />
         <ClusterScopeNotice
           v-if="currentSubs[0] === 'persistence'"
-          text="这里看到的是当前这台网关副本自己的状态；多台网关一起跑时，各台的状态靠共享存储保持一致"
+          :text="t('v.ov.t011')"
         />
         <component :is="SUB_COMPONENTS[currentSubs[0]]" />
       </template>

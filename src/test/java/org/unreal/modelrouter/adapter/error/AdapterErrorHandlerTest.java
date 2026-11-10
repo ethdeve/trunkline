@@ -16,7 +16,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * AdapterErrorHandler 单元测试
  *
  * @author JAiRouter Team
- * @since v2.3.0
  */
 class AdapterErrorHandlerTest {
 

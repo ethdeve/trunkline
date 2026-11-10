@@ -14,7 +14,6 @@ import java.util.List;
  * Token 使用量统计仓库接口
  *
  * @author JAiRouter Team
- * @since 1.9.5
  * @modified Trunkline Team
  */
 @Repository

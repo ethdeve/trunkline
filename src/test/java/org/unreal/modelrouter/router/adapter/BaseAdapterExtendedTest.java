@@ -62,8 +62,6 @@ import static org.mockito.Mockito.*;
  *
  * 目标覆盖率：从 7% 提升到 30%
  * 测试重点：核心方法的正常/异常/边界情况
- *
- * @since v2.9.x
  */
 @ExtendWith(MockitoExtension.class)
 class BaseAdapterExtendedTest {

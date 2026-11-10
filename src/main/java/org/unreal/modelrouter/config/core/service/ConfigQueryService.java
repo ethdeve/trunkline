@@ -23,8 +23,6 @@ import java.util.stream.Collectors;
  *
  * 提供配置查询功能，包括获取所有配置、可用服务类型、可用模型等。
  * 从 ConfigurationService 提取，实现单一职责原则。
- *
- * @since v2.6.14
  */
 @Service
 public class ConfigQueryService {

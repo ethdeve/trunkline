@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.common.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,8 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       否则前端行为会变）。</li>
  * </ol>
  *
- * @author JAiRouter Team
- * @since P0-L
+ * @author Trunkline Team
  */
 @DisplayName("SensitiveHeaderSanitizer 测试")
 class SensitiveHeaderSanitizerTest {

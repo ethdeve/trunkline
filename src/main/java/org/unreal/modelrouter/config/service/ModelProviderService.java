@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.service;
 
 import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
@@ -48,6 +52,7 @@ import java.util.regex.Pattern;
  * {@link ModelProviderEntity}，模型（实例）通过 providerId 继承。核心能力：
  * CRUD、启停、换 Key 级联刷新实例 Authorization、发现模型（代理上游 /models）、
  * 按勾选清单批量创建模型实例。
+ * @author Trunkline Team
  */
 @Slf4j
 @Service

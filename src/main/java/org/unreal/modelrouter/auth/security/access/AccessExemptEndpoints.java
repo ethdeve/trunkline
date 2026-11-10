@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.access;
 
 import org.springframework.http.HttpMethod;
@@ -20,8 +24,7 @@ import java.util.Set;
  *
  * <p>每条豁免必须写明理由，审查时逐条可追溯。</p>
  *
- * @author JAiRouter Team
- * @since 3.5.1
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 public final class AccessExemptEndpoints {
@@ -108,10 +111,9 @@ public final class AccessExemptEndpoints {
                 // ===== 控制台/客户端公共读取 =====
                 Exemption.get("/api/models",
                         "模型目录（ModelInfoController），UI 与客户端公共读取，无敏感操作面"),
-                Exemption.get("/api/docs/content",
-                        "内置帮助文档正文（DocsController）：按控制台菜单组织，面向所有已登录角色"
-                                + "（员工也要读「我的」分组的帮助）；内容随 jar 打包、纯只读且不含敏感数据。"
-                                + "未登记端点 fail-closed 仅 ADMIN，会让非管理员 403、帮助中心显示「没找到这页帮助」"),
+                // 【2026-11-10 用户决策】内置帮助文档只对运维/管理员开放，普通用户用「接入指南」(/guide)。
+                // /api/docs/content 已从豁免清单移除，改由 FixedRoleAccessPolicy 登记为 OPS 级别；
+                // 若保留在此豁免清单，URL 层会按「已认证即放行」把 USER 也放过去，方法级注解形同虚设。
 
                 // ===== Token 用量上报（外部摄取面） =====
                 // 内部代理的用量落库走进程内 TokenUsageRecorder → TokenUsageService，

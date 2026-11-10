@@ -32,7 +32,6 @@ import io.opentelemetry.sdk.trace.SdkTracerProvider;
  * - 状态管理
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

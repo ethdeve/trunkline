@@ -21,7 +21,6 @@ import static org.mockito.Mockito.when;
  * （替身无法验证 ZSET 与并发语义）。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.5
  */
 @DisplayName("Redis 滑动窗口限流器（降级路径）")
 class RedisSlidingWindowRateLimiterTest {

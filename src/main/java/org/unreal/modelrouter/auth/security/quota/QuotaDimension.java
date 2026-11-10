@@ -24,7 +24,6 @@ package org.unreal.modelrouter.auth.security.quota;
  * @param model       模型名称（已接入模型 / 实例名），未指定时为空串
  * @param groupId     分组（模型分组 / 池）名称，未指定时为空串
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 public record QuotaDimension(String tenantId, String apiKeyId, String userId, String serviceType, String model, String groupId) {

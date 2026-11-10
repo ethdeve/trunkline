@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <script setup lang="ts">
 /**
  * P0-B 撞墙页（403）
@@ -59,15 +64,15 @@ const missingRoles = computed(() => {
  */
 const menuItem = computed(() => flattenMenuItems().find(i => i.path === fromPath.value))
 
-/** 页面名称：菜单标题优先，其次用路径兜底 */
+/** 页面名称：菜单标题（i18n key）优先，其次用路径兜底 */
 const pageTitle = computed(() => {
-  if (menuItem.value) return menuItem.value.title
+  if (menuItem.value) return t(menuItem.value.title)
   return fromPath.value || t('forbidden.unknownPage')
 })
 
-/** 页面用途：菜单 subtitle 优先；无菜单项时给通用兜底说明 */
+/** 页面用途：菜单 subtitle（i18n key）优先；无菜单项时给通用兜底说明 */
 const pagePurpose = computed(() => {
-  if (menuItem.value?.subtitle) return menuItem.value.subtitle
+  if (menuItem.value?.subtitle) return t(menuItem.value.subtitle)
   return t('forbidden.unknownPurpose')
 })
 
@@ -142,7 +147,7 @@ const goBack = () => {
 
 onMounted(() => {
   // 页面自身不需要任何权限即可打开（否则会无限重定向）
-  document.title = `${t('forbidden.title')} · Trunkline 控制台`
+  document.title = `${t('forbidden.title')} · ${t('app.consoleTitle')}`
 })
 
 /** 当前用户的逻辑角色（用于申请文本里自报身份） */

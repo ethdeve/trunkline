@@ -23,7 +23,6 @@ import org.unreal.modelrouter.common.dto.RerankDTO;
  * 因此“in-flight 请求的输出 token”不参与上限预占；结算时会按实际用量冲正。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 public final class QuotaTokenEstimator {
 

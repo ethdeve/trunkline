@@ -48,7 +48,6 @@ import static org.mockito.Mockito.when;
  * 路径判定复用 {@link V1ErrorBodyMapper}（与 {@code SecurityExceptionHandler} 同源）。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  */
 @DisplayName("v3.1: SpringSecurityAuthenticationFilter /v1 401 错误体形状")
 class SpringSecurityAuthenticationFilterV1BodyTest {

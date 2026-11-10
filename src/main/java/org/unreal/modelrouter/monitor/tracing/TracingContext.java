@@ -15,7 +15,6 @@ import java.util.Map;
  * - 日志关联信息
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 public interface TracingContext {
     

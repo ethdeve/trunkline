@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.access;
 
 /**
@@ -17,8 +21,7 @@ package org.unreal.modelrouter.auth.security.access;
  * 未显式登记且不在豁免清单的端点维持 fail-closed（仅 ADMIN 直通）——与移除前的
  * DENY_ALL 姿态一致，不因本次改造放宽任何默认边界。</p>
  *
- * @author JAiRouter Team
- * @since 3.5.1
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 public enum AccessLevel {

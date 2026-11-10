@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * 内置帮助文档导航配置（zh/en 双语）
  *
  * 2026-11-09 重写：导航按控制台菜单（我的 / 团队 / 系统）组织，

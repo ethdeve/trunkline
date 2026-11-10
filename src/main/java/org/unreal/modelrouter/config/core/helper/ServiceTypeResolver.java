@@ -10,7 +10,6 @@ import org.unreal.modelrouter.router.model.ModelServiceRegistry;
  * 负责解析和验证服务类型，支持多种格式（连字符、下划线、驼峰等）。
  *
  * @author JAiRouter Team
- * @since v2.13.1
  */
 @Component
 public class ServiceTypeResolver {

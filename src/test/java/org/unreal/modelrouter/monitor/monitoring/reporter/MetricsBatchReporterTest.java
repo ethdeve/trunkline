@@ -35,7 +35,6 @@ import static org.mockito.Mockito.verify;
  * MetricsBatchReporter 单元测试
  *
  * @author JAiRouter Team
- * @since v2.7.x
  * @modified Trunkline Team
  */
 class MetricsBatchReporterTest {

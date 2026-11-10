@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.common.gateway;
 
 import lombok.extern.slf4j.Slf4j;
@@ -30,8 +34,7 @@ import java.util.Map;
  * {@code https://ai.example.com} 访问。写死任一值都会让另一侧用户拿到不可达地址。
  * 用请求上下文推导，天然对每个访问者给出「他自己能连通的那个地址」。</p>
  *
- * @author JAiRouter Team
- * @since 3.5.0
+ * @author Trunkline Team
  */
 @Slf4j
 @Service

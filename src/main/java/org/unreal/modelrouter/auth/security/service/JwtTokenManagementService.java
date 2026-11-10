@@ -16,8 +16,6 @@ import java.util.List;
 /**
  * JWT令牌管理服务
  * 提供令牌撤销、状态更新等管理操作
- *
- * @since v2.17.0
  */
 @Slf4j
 @Service

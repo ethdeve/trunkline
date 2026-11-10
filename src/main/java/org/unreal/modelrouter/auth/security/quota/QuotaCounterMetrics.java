@@ -30,7 +30,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>指标记录本身绝不抛出：测试与无监控环境下可通过 {@link #noop()} 获取空实现。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 @Slf4j

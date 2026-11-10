@@ -16,7 +16,6 @@ import java.util.concurrent.TimeoutException;
  * 负责处理适配器调用中的错误分类、错误响应和降级策略。
  *
  * @author JAiRouter Team
- * @since v2.3.0
  */
 @Component
 public class AdapterErrorHandler {

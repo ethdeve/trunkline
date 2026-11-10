@@ -10,7 +10,6 @@ import java.util.Map;
  * 封装采样决策的结果，包括是否采样和采样属性
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 public class SamplingResult {
     

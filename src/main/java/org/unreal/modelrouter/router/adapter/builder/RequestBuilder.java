@@ -18,7 +18,6 @@ import org.unreal.modelrouter.common.dto.SttDTO;
  * 支持 JSON、multipart 等多种格式
  * 
  * @author AI Assistant
- * @since v2.2.1
  */
 @Component("adapterRequestBuilder")
 public final class RequestBuilder {

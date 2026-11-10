@@ -20,7 +20,6 @@ import java.util.Map;
  * 熔断器监控 REST API 控制器
  *
  * @author JAiRouter Team
- * @since 2.7.0
  */
 @Slf4j
 @RestController

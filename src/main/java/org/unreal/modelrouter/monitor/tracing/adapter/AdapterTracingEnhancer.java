@@ -20,7 +20,6 @@ import java.util.Map;
  * - 适配器特定的结构化日志
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Component
 public class AdapterTracingEnhancer {

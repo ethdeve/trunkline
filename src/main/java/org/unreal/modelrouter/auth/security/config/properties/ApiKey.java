@@ -61,7 +61,6 @@ public class ApiKey {
      *             <p>此字段将在 v3.0 版本中移除。</p>
      * @see #keyHash
      * @see org.unreal.modelrouter.auth.security.util.ApiKeyHashUtil
-     * @since v2.5.2 完善废弃标注
      */
     @Deprecated(since = "2.5.2", forRemoval = true)
     @JsonProperty

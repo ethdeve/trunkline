@@ -86,7 +86,6 @@ import static org.mockito.Mockito.when;
  * {@link ErrorBodyUtf8CharsetTest}；本类仍不依赖中文字面量，以保持与运行环境无关）。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

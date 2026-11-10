@@ -18,7 +18,6 @@ import org.unreal.modelrouter.common.dto.TtsDTO;
  * 负责将各种请求格式转换为vLLM API格式
  *
  * @author JAiRouter Team
- * @since 2.9.1
  */
 public final class VllmRequestTransformer {
 

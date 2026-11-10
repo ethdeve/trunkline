@@ -1,16 +1,21 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <template>
   <div>
     <!-- ---------- 维度与月份 ---------- -->
     <div class="toolbar">
       <el-radio-group v-model="dimension" size="small" @change="loadUsage">
-        <el-radio-button value="COMPANY">全公司</el-radio-button>
-        <el-radio-button value="DEPARTMENT">按部门</el-radio-button>
+        <el-radio-button value="COMPANY">{{ t('v.tu.t001') }}</el-radio-button>
+        <el-radio-button value="DEPARTMENT">{{ t('v.tu.t002') }}</el-radio-button>
       </el-radio-group>
 
       <el-select
         v-if="dimension === 'DEPARTMENT'"
         v-model="department"
-        placeholder="全部部门"
+        :placeholder="t('v.tu.t015')"
         clearable
         size="small"
         style="width: 180px"
@@ -24,14 +29,14 @@
         type="month"
         size="small"
         value-format="YYYY-MM"
-        placeholder="选择月份"
+        :placeholder="t('v.tu.t016')"
         style="width: 140px"
         @change="loadUsage"
       />
 
       <el-button size="small" :loading="loading" @click="loadUsage">
         <el-icon><Refresh /></el-icon>
-        刷新
+        {{ t('v.tu.t003') }}
       </el-button>
     </div>
 
@@ -49,7 +54,7 @@
           <div class="dept-name">{{ d.department }}</div>
           <div class="dept-amount">¥{{ formatAmount(d.amount) }}</div>
           <div class="dept-foot">
-            {{ d.userCount }} 人 · {{ formatNumber(d.requestCount) }} 次调用
+            {{ d.userCount }} {{ t('v.tu.x001') }} {{ formatNumber(d.requestCount) }} {{ t('v.tu.x002') }}
           </div>
           <el-progress
             :percentage="Math.round((d.amountRatio || 0) * 100)"
@@ -67,37 +72,37 @@
       :closable="false"
       show-icon
       class="price-hint"
-      title="还没有给厂商模型配置单价，花费会显示为 ¥0。到「接入管理 → 模型管理」里配价后即可看到真实金额。"
+      :title="t('v.tu.t017')"
     />
 
     <!-- ---------- Token 用量 4 KPI ---------- -->
     <el-row :gutter="12" class="kpi-row">
       <el-col :xs="12" :sm="6">
         <el-card shadow="never">
-          <div class="kpi-label">总用量</div>
+          <div class="kpi-label">{{ t('v.tu.t004') }}</div>
           <div class="kpi-value">{{ formatCompact(usage.totalTokens) }}</div>
-          <div class="kpi-foot">输入 + 输出</div>
+          <div class="kpi-foot">{{ t('v.tu.t005') }}</div>
         </el-card>
       </el-col>
       <el-col :xs="12" :sm="6">
         <el-card shadow="never">
-          <div class="kpi-label">输入（员工提问）</div>
+          <div class="kpi-label">{{ t('v.tu.t006') }}</div>
           <div class="kpi-value kpi-value--primary">{{ formatCompact(usage.promptTokens) }}</div>
-          <div class="kpi-foot">占 {{ percentOf(usage.promptTokens, usage.totalTokens) }}%</div>
+          <div class="kpi-foot">{{ t('v.tu.x003') }} {{ percentOf(usage.promptTokens, usage.totalTokens) }}%</div>
         </el-card>
       </el-col>
       <el-col :xs="12" :sm="6">
         <el-card shadow="never">
-          <div class="kpi-label">输出（AI 回答）</div>
+          <div class="kpi-label">{{ t('v.tu.t007') }}</div>
           <div class="kpi-value kpi-value--accent">{{ formatCompact(usage.completionTokens) }}</div>
-          <div class="kpi-foot">占 {{ percentOf(usage.completionTokens, usage.totalTokens) }}%</div>
+          <div class="kpi-foot">{{ t('v.tu.x003') }} {{ percentOf(usage.completionTokens, usage.totalTokens) }}%</div>
         </el-card>
       </el-col>
       <el-col :xs="12" :sm="6">
         <el-card shadow="never">
-          <div class="kpi-label">成功率</div>
+          <div class="kpi-label">{{ t('v.tu.t008') }}</div>
           <div class="kpi-value kpi-value--ok">{{ formatPercent(usage.successRate) }}</div>
-          <div class="kpi-foot">失败 {{ formatNumber(usage.failedCount) }} 次</div>
+          <div class="kpi-foot">{{ t('v.tu.x004') }} {{ formatNumber(usage.failedCount) }} {{ t('v.tu.x005') }}</div>
         </el-card>
       </el-col>
     </el-row>
@@ -108,24 +113,24 @@
         <el-card shadow="never">
           <template #header>
             <div class="card-head">
-              <span>虚拟模型用量排行</span>
-              <span class="card-head__hint">本月 · 按花费排序</span>
+              <span>{{ t('v.tu.t009') }}</span>
+              <span class="card-head__hint">{{ t('v.tu.t010') }}</span>
             </div>
           </template>
           <div v-show="usage.byVirtualModel.length > 0" ref="vmChartRef" class="chart-box" />
-          <el-empty v-if="!loading && usage.byVirtualModel.length === 0" description="本月还没有用量" :image-size="70" />
+          <el-empty v-if="!loading && usage.byVirtualModel.length === 0" :description="t('v.tu.t018')" :image-size="70" />
         </el-card>
       </el-col>
       <el-col :xs="24" :md="10">
         <el-card shadow="never">
           <template #header>
             <div class="card-head">
-              <span>按用途类型分布</span>
-              <span class="card-head__hint">本月</span>
+              <span>{{ t('v.tu.t011') }}</span>
+              <span class="card-head__hint">{{ t('v.tu.t012') }}</span>
             </div>
           </template>
           <div v-show="usage.byServiceType.length > 0" ref="stChartRef" class="chart-box" />
-          <el-empty v-if="!loading && usage.byServiceType.length === 0" description="本月还没有用量" :image-size="60" />
+          <el-empty v-if="!loading && usage.byServiceType.length === 0" :description="t('v.tu.t018')" :image-size="60" />
         </el-card>
       </el-col>
     </el-row>
@@ -136,30 +141,30 @@
         <el-card shadow="never">
           <template #header>
             <div class="card-head">
-              <span>{{ dimension === 'DEPARTMENT' ? '部门用量' : '成员用量' }}</span>
-              <span class="card-head__hint">按花费排序</span>
+              <span>{{ dimension === 'DEPARTMENT' ? t('v.tu.t025') : t('v.tu.t026') }}</span>
+              <span class="card-head__hint">{{ t('v.tu.t013') }}</span>
             </div>
           </template>
           <el-table ref="groupUsageTableRef" :data="usage.groups" :max-height="groupUsageMaxHeight" v-loading="loading" size="small">
-            <el-table-column :label="dimension === 'DEPARTMENT' ? '部门' : '成员'" min-width="110">
+            <el-table-column :label="dimension === 'DEPARTMENT' ? t('v.tu.t027') : t('v.tu.t028')" min-width="110">
               <template #default="{ row }">
                 <span class="cell-title">{{ row.label }}</span>
               </template>
             </el-table-column>
-            <el-table-column v-if="dimension === 'DEPARTMENT'" label="人数" width="60" align="right">
+            <el-table-column v-if="dimension === 'DEPARTMENT'" :label="t('v.tu.t019')" width="60" align="right">
               <template #default="{ row }">{{ row.userCount }}</template>
             </el-table-column>
-            <el-table-column label="请求数" width="80" align="right">
+            <el-table-column :label="t('v.tu.t020')" width="80" align="right">
               <template #default="{ row }">{{ formatNumber(row.requestCount) }}</template>
             </el-table-column>
-            <el-table-column label="用量（tokens）" width="110" align="right">
+            <el-table-column :label="t('v.tu.t021')" width="110" align="right">
               <template #default="{ row }">{{ formatCompact(row.totalTokens) }}</template>
             </el-table-column>
-            <el-table-column label="花费" width="90" align="right">
+            <el-table-column :label="t('v.tu.t022')" width="90" align="right">
               <template #default="{ row }">¥{{ formatAmount(row.amount) }}</template>
             </el-table-column>
           </el-table>
-          <el-empty v-if="!loading && usage.groups.length === 0" description="本月还没有用量" :image-size="70" />
+          <el-empty v-if="!loading && usage.groups.length === 0" :description="t('v.tu.t018')" :image-size="70" />
         </el-card>
       </el-col>
 
@@ -167,17 +172,17 @@
         <el-card shadow="never">
           <template #header>
             <div class="card-head">
-              <span>虚拟模型背后是哪些厂商模型</span>
-              <span class="card-head__hint">本月</span>
+              <span>{{ t('v.tu.t014') }}</span>
+              <span class="card-head__hint">{{ t('v.tu.t012') }}</span>
             </div>
           </template>
           <el-table ref="vmUsageTableRef" :data="usage.byVirtualModel" :max-height="vmUsageMaxHeight" v-loading="loading" size="small">
-            <el-table-column label="请求的模型" min-width="90">
+            <el-table-column :label="t('v.tu.t023')" min-width="90">
               <template #default="{ row }">
                 <span class="cell-title">{{ row.virtualModel }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="实际用的模型" min-width="130">
+            <el-table-column :label="t('v.tu.t024')" min-width="130">
               <template #default="{ row }">
                 <span class="model-tags">
                   <el-tag
@@ -194,11 +199,11 @@
                 </span>
               </template>
             </el-table-column>
-            <el-table-column label="花费" width="80" align="right">
+            <el-table-column :label="t('v.tu.t022')" width="80" align="right">
               <template #default="{ row }">¥{{ formatAmount(row.amount) }}</template>
             </el-table-column>
           </el-table>
-          <el-empty v-if="!loading && usage.byVirtualModel.length === 0" description="本月还没有用量" :image-size="60" />
+          <el-empty v-if="!loading && usage.byVirtualModel.length === 0" :description="t('v.tu.t018')" :image-size="60" />
         </el-card>
       </el-col>
     </el-row>
@@ -230,7 +235,9 @@ import echarts from '@/utils/echarts'
 import { getBillingDepartments, getTeamUsage, type TeamUsageVO } from '@/api/billing'
 import { useChartTheme } from '@/composables/useChartTheme'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const loading = ref(false)
 const dimension = ref('COMPANY')
 const department = ref('')
@@ -290,10 +297,10 @@ const loadUsage = async () => {
       await nextTick()
       renderCharts()
     } else {
-      ElMessage.error(res.data?.message || '获取团队用量失败')
+      ElMessage.error(res.data?.message || t('v.tu.t029'))
     }
   } catch (error: any) {
-    ElMessage.error(error?.message || '获取团队用量失败')
+    ElMessage.error(error?.message || t('v.tu.t029'))
   } finally {
     loading.value = false
   }
@@ -349,7 +356,7 @@ const renderVmChart = () => {
         const p = params[0]
         const row = rows[rows.length - 1 - p.dataIndex]
         if (!row) return ''
-        return `${p.name}<br/>花费 ¥${formatAmount(row.amount)}<br/>Token ${formatNumber(row.totalTokens)}<br/>调用 ${formatNumber(row.requestCount)} 次`
+        return `${p.name}${t('v.tu.x006', { amount: formatAmount(row.amount), tokens: formatNumber(row.totalTokens), calls: formatNumber(row.requestCount) })}`
       }
     },
     xAxis: {
@@ -389,7 +396,7 @@ const renderStChart = () => {
     stChart.setOption({
     tooltip: {
       trigger: 'item',
-      formatter: (p: any) => `${p.name}<br/>花费 ¥${formatAmount(p.value)}<br/>占比 ${p.percent}%`
+      formatter: (p: any) => `${p.name}${t('v.tu.x007', { amount: formatAmount(p.value), percent: p.percent })}`
     },
     legend: {
       bottom: 0,

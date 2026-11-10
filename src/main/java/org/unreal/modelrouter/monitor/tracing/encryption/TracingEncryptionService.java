@@ -37,7 +37,6 @@ import java.util.concurrent.TimeUnit;
  * - 密钥管理和轮换
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Slf4j

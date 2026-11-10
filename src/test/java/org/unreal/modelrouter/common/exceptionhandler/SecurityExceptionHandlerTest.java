@@ -59,7 +59,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * timestamp / path）逐条保留；{@code /v1} 路径新增协议形状断言。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  */
 @ExtendWith(MockitoExtension.class)
 class SecurityExceptionHandlerTest {

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# JAiRouter监控栈一键部署脚本
+# Trunkline 监控栈一键部署脚本
 # 该脚本用于快速部署完整的监控环境，包括Prometheus、Grafana、AlertManager等组件
 
 set -e  # 遇到错误立即退出
@@ -81,10 +81,10 @@ validate_configs() {
     
     # 检查必要的配置文件是否存在
     local required_files=(
-        "docker-compose-monitoring.yml"
+        "docker-compose.monitoring.yml"
         "monitoring/prometheus/prometheus.yml"
-        "monitoring/grafana/provisioning/datasources/prometheus.yml"
-        "monitoring/grafana/provisioning/dashboards/jairouter-dashboards.yml"
+        "monitoring/grafana/provisioning/datasources/datasources.yml"
+        "monitoring/grafana/provisioning/dashboards/dashboards.yml"
         "monitoring/alertmanager/alertmanager.yml"
     )
     
@@ -96,7 +96,7 @@ validate_configs() {
     done
     
     # 验证Docker Compose配置
-    if ! docker-compose -f docker-compose-monitoring.yml config &> /dev/null; then
+    if ! docker-compose -f docker-compose.monitoring.yml config &> /dev/null; then
         log_error "Docker Compose配置文件验证失败"
         exit 1
     fi
@@ -108,7 +108,7 @@ validate_configs() {
 pull_images() {
     log_info "拉取Docker镜像..."
     
-    docker-compose -f docker-compose-monitoring.yml pull
+    docker-compose -f docker-compose.monitoring.yml pull
     
     log_success "Docker镜像拉取完成"
 }
@@ -118,10 +118,10 @@ start_services() {
     log_info "启动监控服务..."
     
     # 停止可能存在的旧服务
-    docker-compose -f docker-compose-monitoring.yml down 2>/dev/null || true
+    docker-compose -f docker-compose.monitoring.yml down 2>/dev/null || true
     
     # 启动服务
-    docker-compose -f docker-compose-monitoring.yml up -d
+    docker-compose -f docker-compose.monitoring.yml up -d
     
     log_success "监控服务启动完成"
 }
@@ -192,18 +192,18 @@ verify_services() {
 
 # 显示访问信息
 show_access_info() {
-    log_success "JAiRouter监控栈部署完成！"
+    log_success "Trunkline 监控栈部署完成！"
     echo ""
     echo "=========================================="
     echo "服务访问信息："
     echo "=========================================="
     echo "🎯 Grafana仪表板:     http://localhost:3000"
     echo "   用户名: admin"
-    echo "   密码: jairouter2024"
+    echo "   密码: admin"
     echo ""
     echo "📊 Prometheus:        http://localhost:9090"
     echo "🚨 AlertManager:      http://localhost:9093"
-    echo "📈 JAiRouter指标:     http://localhost:8080/actuator/prometheus"
+    echo "📈 Trunkline 指标:     http://localhost:8080/actuator/prometheus"
     echo ""
     echo "🖥️  系统监控:"
     echo "   Node Exporter:     http://localhost:9100/metrics"
@@ -212,16 +212,16 @@ show_access_info() {
     echo "=========================================="
     echo "常用命令："
     echo "=========================================="
-    echo "查看服务状态:   docker-compose -f docker-compose-monitoring.yml ps"
-    echo "查看服务日志:   docker-compose -f docker-compose-monitoring.yml logs -f [service]"
-    echo "停止监控栈:     docker-compose -f docker-compose-monitoring.yml down"
-    echo "重启监控栈:     docker-compose -f docker-compose-monitoring.yml restart"
+    echo "查看服务状态:   docker-compose -f docker-compose.monitoring.yml ps"
+    echo "查看服务日志:   docker-compose -f docker-compose.monitoring.yml logs -f [service]"
+    echo "停止监控栈:     docker-compose -f docker-compose.monitoring.yml down"
+    echo "重启监控栈:     docker-compose -f docker-compose.monitoring.yml restart"
     echo ""
     echo "🔧 配置文件位置："
     echo "   Prometheus:        monitoring/prometheus/prometheus.yml"
     echo "   Grafana:           monitoring/grafana/provisioning/"
     echo "   AlertManager:      monitoring/alertmanager/alertmanager.yml"
-    echo "   告警规则:          monitoring/prometheus/rules/jairouter-alerts.yml"
+    echo "   告警规则:          monitoring/prometheus/rules/trunkline-alerts.yml"
     echo ""
     echo "📚 文档和工具："
     echo "   告警规则指南:      monitoring/prometheus/ALERT_RULES_GUIDE.md"
@@ -234,14 +234,14 @@ show_access_info() {
 cleanup() {
     if [[ $? -ne 0 ]]; then
         log_error "部署过程中出现错误，正在清理..."
-        docker-compose -f docker-compose-monitoring.yml down 2>/dev/null || true
+        docker-compose -f docker-compose.monitoring.yml down 2>/dev/null || true
     fi
 }
 
 # 主函数
 main() {
     echo "=========================================="
-    echo "🚀 JAiRouter监控栈部署脚本"
+    echo "🚀 Trunkline 监控栈部署脚本"
     echo "=========================================="
     echo ""
     
@@ -276,7 +276,7 @@ main() {
 # 处理命令行参数
 case "${1:-}" in
     --help|-h)
-        echo "JAiRouter监控栈部署脚本"
+        echo "Trunkline 监控栈部署脚本"
         echo ""
         echo "用法: $0 [选项]"
         echo ""
@@ -289,14 +289,14 @@ case "${1:-}" in
         ;;
     --clean)
         log_info "清理现有监控栈..."
-        docker-compose -f docker-compose-monitoring.yml down -v
+        docker-compose -f docker-compose.monitoring.yml down -v
         docker system prune -f
         log_success "清理完成"
         exit 0
         ;;
     --status)
         log_info "检查监控栈状态..."
-        docker-compose -f docker-compose-monitoring.yml ps
+        docker-compose -f docker-compose.monitoring.yml ps
         exit 0
         ;;
     "")

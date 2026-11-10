@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# JAiRouter Docker Build Script (China Optimized)
+# Trunkline Docker Build Script (China Optimized)
 # 使用阿里云Maven镜像加速构建
 
 set -e
@@ -19,7 +19,7 @@ IMAGE_NAME="trunkline/trunkline"
 # Get version from pom.xml
 VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
 
-echo -e "${YELLOW}Starting JAiRouter Docker build (China Optimized, Version: ${VERSION})...${NC}"
+echo -e "${YELLOW}Starting Trunkline Docker build (China Optimized, Version: ${VERSION})...${NC}"
 echo -e "${BLUE}使用阿里云Maven镜像加速构建${NC}"
 
 # Check if settings-china.xml exists

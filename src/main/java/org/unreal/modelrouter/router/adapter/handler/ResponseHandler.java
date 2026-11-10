@@ -22,7 +22,6 @@ import java.util.Map;
  * 支持错误处理、响应转换和格式化
  * 
  * @author AI Assistant
- * @since v2.2.1
  */
 @Component("adapterResponseHandler")
 public class ResponseHandler {

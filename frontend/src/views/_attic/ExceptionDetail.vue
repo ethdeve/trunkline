@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <template>
   <PageSkeleton :title="t('exception.detail.title')">
     <template #actions>

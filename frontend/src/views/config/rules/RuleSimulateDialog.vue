@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <template>
   <el-dialog v-model="visible" :title="t('rule.test.title')" width="min(640px, 92vw)" append-to-body>
     <el-form label-width="90px">

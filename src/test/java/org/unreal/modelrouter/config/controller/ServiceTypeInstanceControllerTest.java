@@ -37,7 +37,6 @@ import static org.mockito.Mockito.*;
  * <p>测试按服务类型获取实例配置功能</p>
  *
  * @version v2.7.6
- * @since 2025-01-17
  */
 @DisplayName("ServiceTypeInstanceController RESTful 接口测试")
 @ExtendWith(MockitoExtension.class)

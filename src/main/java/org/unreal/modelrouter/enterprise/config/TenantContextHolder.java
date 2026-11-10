@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.config;
 
 /**
@@ -12,6 +16,7 @@ package org.unreal.modelrouter.enterprise.config;
  *
  * <p>商业版通过 enterprise jar 注入多租户 TenantContext Bean 后，
  * 此处自动跟随，无需改动任何调用方。
+ * @author Trunkline Team
  */
 public final class TenantContextHolder {
 

@@ -1,4 +1,4 @@
-# JAiRouter 最终优化版 Dockerfile  
+# Trunkline 最终优化版 Dockerfile  
 # 使用 Alpine + 多阶段构建 + JVM 参数优化
 # 实际大小：~280MB（比标准版减少 36%）
 # 注：JLink 方案由于 Spring Boot 3.x 模块兼容性问题无法使用
@@ -22,9 +22,9 @@ RUN java -Djarmode=layertools -jar app.jar extract --destination extracted
 FROM eclipse-temurin:17-jre-alpine
 
 # 设置元数据
-LABEL maintainer="JAiRouter Team"
-LABEL description="JAiRouter - AI Model Service Routing Gateway (Optimized)"
-LABEL version="3.1.1"
+LABEL maintainer="Trunkline Team"
+LABEL description="Trunkline - AI Governance Gateway (Optimized)"
+LABEL version="0.1.0"
 
 # 安装必要工具
 RUN apk add --no-cache wget tzdata
@@ -54,12 +54,12 @@ ENV SPRING_PROFILES_ACTIVE=prod
 ENV SERVER_PORT=8080
 
 # 安全功能配置
-ENV JAIROUTER_SECURITY_ENABLED=true
-ENV JAIROUTER_SECURITY_API_KEY_ENABLED=true
-ENV JAIROUTER_SECURITY_JWT_ENABLED=true
-ENV JAIROUTER_SECURITY_SANITIZATION_REQUEST_ENABLED=true
-ENV JAIROUTER_SECURITY_SANITIZATION_RESPONSE_ENABLED=true
-ENV JAIROUTER_SECURITY_AUDIT_ENABLED=true
+ENV TRUNKLINE_SECURITY_ENABLED=true
+ENV TRUNKLINE_SECURITY_API_KEY_ENABLED=true
+ENV TRUNKLINE_SECURITY_JWT_ENABLED=true
+ENV TRUNKLINE_SECURITY_SANITIZATION_REQUEST_ENABLED=true
+ENV TRUNKLINE_SECURITY_SANITIZATION_RESPONSE_ENABLED=true
+ENV TRUNKLINE_SECURITY_AUDIT_ENABLED=true
 
 # API Key 配置
 ENV ADMIN_API_KEY=""

@@ -64,7 +64,6 @@ import java.util.UUID;
  * 因此既有用例与既有面行为逐字节不变。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  */
 @Slf4j
 @Component
@@ -173,7 +172,6 @@ public class AnthropicRequestTranslator {
      * @param request Anthropic 请求体（可为 {@code null}）
      * @param stream  内部请求的流式标记（{@code null} 视为非流式）
      * @return 内部 Chat 请求
-     * @since v3.1 PR-4c
      */
     public ChatDTO.Request toChatRequest(final AnthropicMessagesRequest request, final Boolean stream) {
         final Boolean streamFlag = Boolean.TRUE.equals(stream) ? Boolean.TRUE : Boolean.FALSE;

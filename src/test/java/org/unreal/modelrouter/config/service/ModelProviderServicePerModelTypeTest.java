@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.service;
 
 import org.junit.jupiter.api.DisplayName;
@@ -35,8 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>本测试用 {@link Proxy} 仓库替身 + 真实对象（继承 {@link ServiceInstanceManager} 记录调用），
  * 不依赖 Mockito（本机 GraalVM JDK 21 下 Mockito inline MockMaker 初始化失败）。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @DisplayName("批量接入模型 · 逐模型分类")
 class ModelProviderServicePerModelTypeTest {

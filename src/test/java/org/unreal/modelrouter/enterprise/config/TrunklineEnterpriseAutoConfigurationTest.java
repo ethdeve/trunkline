@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.config;
 
 import org.junit.jupiter.api.DisplayName;
@@ -22,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * 企业扩展点装配测试（S2 任务 34）：
  * 验证 Noop 兜底注册、商业版实现覆盖、TenantContextHolder 绑定。
+ * @author Trunkline Team
  */
 class TrunklineEnterpriseAutoConfigurationTest {
 

@@ -24,8 +24,6 @@ import static org.mockito.Mockito.*;
 
 /**
  * HttpConfigPushService 单元测试.
- *
- * @since v2.6.12
  */
 @DisplayName("HttpConfigPushService 测试")
 @ExtendWith(MockitoExtension.class)

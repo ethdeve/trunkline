@@ -35,8 +35,6 @@ import static org.mockito.Mockito.*;
 
 /**
  * NormalOpenAiAdapter 单元测试
- *
- * @since v2.9.x
  */
 @ExtendWith(MockitoExtension.class)
 class NormalOpenAiAdapterTest {

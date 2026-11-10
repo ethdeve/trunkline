@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 /**
@@ -24,8 +28,7 @@ package org.unreal.modelrouter.auth.security.service;
  * {@code IllegalArgumentException} 逐条捕获并记为失败——
  * 继承后这些语义全部保持不变，无需连带改动。</p>
  *
- * @author JAiRouter Team
- * @since 3.3.2
+ * @author Trunkline Team
  */
 public class ApiKeyWhitelistMismatchException extends IllegalArgumentException {
 

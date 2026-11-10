@@ -22,7 +22,6 @@ package org.unreal.modelrouter.monitor.tracing.logger.dto;
  * 定义结构化日志的所有类型常量
  *
  * @author JAiRouter Team
- * @since v2.16.4
  */
 public enum LogType {
 

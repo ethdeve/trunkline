@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.controller;
 
 import lombok.RequiredArgsConstructor;
@@ -43,8 +47,7 @@ import java.util.List;
  * <p><b>注意</b>：本端点为同步 {@code ResponseEntity} 返回，
  * <b>不要</b>加 {@code @PreAuthorize} —— 在 {@code @EnableReactiveMethodSecurity} 下
  * 同步返回会抛 500。鉴权由固定角色矩阵（FixedRoleAccessPolicy）承担。</p>
- *
- * @since P0-L
+ * @author Trunkline Team
  */
 @Slf4j
 @RestController

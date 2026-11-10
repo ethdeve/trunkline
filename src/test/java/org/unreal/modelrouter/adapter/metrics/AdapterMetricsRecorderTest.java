@@ -27,7 +27,6 @@ import static org.mockito.Mockito.*;
  * - 服务注册调用记录 (v2.26.0)
  *
  * @author JAiRouter Team
- * @since v2.3.2
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AdapterMetricsRecorder 单元测试")

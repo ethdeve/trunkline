@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.router.adapter.processor;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -30,6 +34,7 @@ import java.util.concurrent.TimeoutException;
  * <p><b>适用范围</b>：仅 {@code /v1/**} 的 OpenAI 面。Anthropic 面（{@code /v1/messages}）由
  * {@code AnthropicStreamingTranslator} 发出协议定义的 {@code event: error}；legacy {@code /api/**}
  * 面逐字节保持既有语义 —— 两者都原样终止、不补帧。</p>
+ * @author Trunkline Team
  */
 final class StreamingErrorTermination {
 

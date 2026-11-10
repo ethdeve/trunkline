@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * 全站术语表（U7-3）
  *
  * 面向普通运营用户：把「慢查询 / 采样率 / span / 熔断 / 虚拟节点」等网关术语

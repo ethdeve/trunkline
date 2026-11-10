@@ -53,7 +53,6 @@ import java.util.Map;
  * {@code ROLE_<SERVICE>}）共同约束。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  * @modified Trunkline Team
  */
 @RestController

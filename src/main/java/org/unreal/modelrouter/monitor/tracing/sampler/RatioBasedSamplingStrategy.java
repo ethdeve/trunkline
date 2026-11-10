@@ -12,7 +12,6 @@ import java.util.concurrent.ThreadLocalRandom;
  * 根据配置的比例决定是否采样，支持0.0-1.0之间的采样率
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 public class RatioBasedSamplingStrategy implements SamplingStrategy {
     

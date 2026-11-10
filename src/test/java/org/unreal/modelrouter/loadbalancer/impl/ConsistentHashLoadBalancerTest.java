@@ -24,7 +24,6 @@ import static org.mockito.Mockito.*;
  * 测试一致性哈希算法的正确性和冲突处理能力
  * 
  * @author JAiRouter Team
- * @since 2.4.0
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ConsistentHashLoadBalancer 单元测试")

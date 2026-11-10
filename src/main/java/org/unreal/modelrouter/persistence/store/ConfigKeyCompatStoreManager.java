@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.persistence.store;
 
 import org.unreal.modelrouter.persistence.store.ConfigKeyCompatStoreManager;
@@ -22,9 +26,8 @@ import java.util.Map;
  * <p>装配点：{@link StoreManagerConfiguration#storeManager}（唯一的 {@code @Primary} 出口），
  * 对所有注入 {@link StoreManager} 的服务透明生效。</p>
  *
- * @author JAiRouter Team
+ * @author Trunkline Team
  * @modified Trunkline Team 品牌清理新增：主配置 key 旧→新读回落兼容
- * @since 3.3.1
  */
 @Slf4j
 public class ConfigKeyCompatStoreManager implements StoreManager {

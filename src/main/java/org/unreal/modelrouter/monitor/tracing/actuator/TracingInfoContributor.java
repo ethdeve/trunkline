@@ -24,7 +24,6 @@ import java.util.Map;
  * 为Spring Boot Actuator的info端点提供追踪系统相关信息
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 @Component

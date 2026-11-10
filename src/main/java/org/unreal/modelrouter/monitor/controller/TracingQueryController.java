@@ -40,7 +40,6 @@ import java.util.stream.Collectors;
  * - 性能分析数据
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 @RestController

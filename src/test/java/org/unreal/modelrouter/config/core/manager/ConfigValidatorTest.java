@@ -18,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * ConfigValidator 单元测试
  *
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @DisplayName("ConfigValidator 测试")
 class ConfigValidatorTest {

@@ -15,7 +15,6 @@ import reactor.core.publisher.Mono;
  * 负责检查适配器是否支持指定的服务能力，提供统一的能力验证逻辑。
  *
  * @author JAiRouter Team
- * @since v2.2.7
  */
 @Component
 public class CapabilityChecker {

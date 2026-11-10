@@ -18,7 +18,6 @@ import java.util.Optional;
  * 提供强类型的 ServiceConfiguration 访问接口。
  *
  * @author JAiRouter Team
- * @since v2.2.6
  * @modified Trunkline Team
  */
 @Component("storeConfigRepository")

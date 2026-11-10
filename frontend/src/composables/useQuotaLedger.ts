@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * 配额账本开关探针（单例缓存）
  *
  * <p><b>为什么需要它</b>：系统里密钥可以配 6 个限额的窗口（每分钟 / 每小时 / 每日 /

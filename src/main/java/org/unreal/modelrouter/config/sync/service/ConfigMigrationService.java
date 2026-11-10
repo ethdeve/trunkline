@@ -5,8 +5,6 @@ import java.util.Map;
 
 /**
  * Config migration service interface.
- *
- * @since v2.6.12
  */
 public interface ConfigMigrationService {
 

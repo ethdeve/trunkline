@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * OpenAI 兼容的 mock 模型服务 —— 用于本地测试 JAiRouter。
+ * OpenAI 兼容的 mock 模型服务 —— 用于本地测试 Trunkline。
  *
- * 用途：JAiRouter 的实例健康检查是「socket_connect 探测上游 host:port」，
+ * 用途：Trunkline 的实例健康检查是「socket_connect 探测上游 host:port」，
  * 且路由/负载均衡/熔断/配额等链路都需要一个**真实可达**的上游。本服务提供
  * 一个零依赖的 OpenAI 兼容端点，把实例指过来即可跑通完整链路。
  *
@@ -12,7 +12,7 @@
  *   node scripts/test/mock-model-server.mjs --latency 800         # 模拟慢上游
  *   node scripts/test/mock-model-server.mjs --fail-rate 0.5       # 模拟故障（测熔断/降级）
  *
- * 在 JAiRouter 里加实例：
+ * 在 Trunkline 里加实例：
  *   POST /api/config/instance/chat
  *   { "name": "qwen3.8-flash", "baseUrl": "http://127.0.0.1:9099",
  *     "path": "/v1/chat/completions", "weight": 1, "status": "active", "adapter": "gpustack" }

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.noop;
 
 import org.unreal.modelrouter.enterprise.spi.LicenseVerifier;
@@ -7,6 +11,7 @@ import org.unreal.modelrouter.enterprise.spi.LicenseVerifier;
  *
  * <p>社区版自身无需 license 文件，恒定合法、单租户；
  * 商业版部署时由 enterprise jar 的 RSA 校验实现替换本 Bean。
+ * @author Trunkline Team
  */
 public class NoopLicenseVerifier implements LicenseVerifier {
 

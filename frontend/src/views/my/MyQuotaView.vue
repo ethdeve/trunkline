@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <script setup lang="ts">
 /**
  * 我的额度（v3.5 Trunkline UI 改造：按原型实现员工版额度首页）
@@ -36,8 +41,10 @@ import type { ApiKeyVO } from '@/types'
 import type { ApiCallHistoryRecord } from '@/types/callHistory'
 import { employeeTerm } from '@/constants/employeeTerms'
 import { friendlyError } from '@/utils/friendlyError'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
+const { t } = useI18n()
 
 /**
  * 员工侧用量单位（替代「tokens」）。
@@ -157,10 +164,10 @@ const topVirtualModel = computed(() => recent.value.byVirtualModel?.[0] || null)
  */
 const modelDesc = (model: string): string => {
   const owners = myKeys.value.filter(k => (k.allowedGroups || []).includes(model))
-  if (owners.length === 0) return '由管理员分配给你'
-  const names = owners.map(k => k.description || '未命名密钥')
-  if (owners.length === 1) return `用密钥「${names[0]}」调用`
-  return `可用密钥：${names.join('、')}`
+  if (owners.length === 0) return t('v.mq.t056')
+  const names = owners.map(k => k.description || t('v.mq.t048'))
+  if (owners.length === 1) return t('v.mq.x019', { name: names[0] })
+  return t('v.mq.x020', { names: names.join('、') })
 }
 
 /* ---------------- 顶部欢迎语：按用户实际状态分支 ---------------- */
@@ -229,7 +236,7 @@ const renderTrendChart = () => {
     },
     yAxis: {
       type: 'value',
-      name: '元',
+      name: t('v.mq.t057'),
       nameTextStyle: { color: 'var(--ja-text-secondary, #6b7d7c)', fontSize: 11 },
       splitLine: { lineStyle: { color: 'rgba(16,38,38,.06)' } },
       axisLabel: { color: 'var(--ja-text-secondary, #6b7d7c)', fontSize: 11 }
@@ -281,7 +288,7 @@ const loadAll = async () => {
     await nextTick()
     renderTrendChart()
   } catch (error: any) {
-    ElMessage.error(friendlyError(error, '加载额度信息'))
+    ElMessage.error(friendlyError(error, t('v.mq.t058')))
   } finally {
     loading.value = false
   }
@@ -291,7 +298,7 @@ const loadAll = async () => {
 const copied = ref('')
 const copyKey = async (text?: string) => {
   if (!text) {
-    ElMessage.warning('没有可复制的密钥串')
+    ElMessage.warning(t('v.mq.t059'))
     return
   }
   try {
@@ -299,9 +306,9 @@ const copyKey = async (text?: string) => {
     copied.value = text
     setTimeout(() => (copied.value = ''), 1200)
     // 脱敏串复制出去也调不通，必须说清楚，否则用户会以为「复制了就配好了」
-    ElMessage.warning('复制的是脱敏串，不能直接用于调用。完整密钥只在创建时显示一次，如已遗失请联系管理员重置')
+    ElMessage.warning(t('v.mq.t060'))
   } catch {
-    ElMessage.error('复制失败，请手动选中复制')
+    ElMessage.error(t('v.mq.t061'))
   }
 }
 
@@ -309,7 +316,7 @@ const applyVisible = ref(false)
 const applyAmount = ref<number | null>(null)
 
 const submitApply = () => {
-  ElMessage.info('申请功能尚未接入，请联系管理员为你调整额度')
+  ElMessage.info(t('v.mq.t062'))
   applyVisible.value = false
 }
 
@@ -329,7 +336,7 @@ const callTime = (iso?: string): string => {
   const isToday = d.toDateString() === now.toDateString()
   if (isToday) return `${hh}:${mm}`
   const isYesterday = new Date(now.getTime() - 86400000).toDateString() === d.toDateString()
-  if (isYesterday) return `昨天 ${hh}:${mm}`
+  if (isYesterday) return t('v.mq.x021', { time: `${hh}:${mm}` })
   return `${d.getMonth() + 1}/${d.getDate()} ${hh}:${mm}`
 }
 
@@ -342,23 +349,23 @@ onMounted(loadAll)
     <div class="welcome" :class="`welcome--${welcomeState}`">
       <div class="welcome__text">
         <h2 class="welcome__title">
-          <template v-if="welcomeState === 'noKey'">你还没有接入密钥</template>
-          <template v-else-if="welcomeState === 'unused'">额度已经准备好，还没开始用</template>
+          <template v-if="welcomeState === 'noKey'">{{ t('v.mq.t001') }}</template>
+          <template v-else-if="welcomeState === 'unused'">{{ t('v.mq.t002') }}</template>
           <template v-else>
-            本月已用 {{ formatAmount(bills.totalAmount) }}
-            <template v-if="remainingAmount !== null">，还剩 {{ formatAmount(remainingAmount) }}</template>
+            {{ t('v.mq.t009') }} {{ formatAmount(bills.totalAmount) }}
+            <template v-if="remainingAmount !== null">{{ t('v.mq.x001') }} {{ formatAmount(remainingAmount) }}</template>
           </template>
         </h2>
         <p class="welcome__desc">
           <template v-if="welcomeState === 'noKey'">
-            密钥就像公司 AI 的"门卡"，领到之后才能在自己的工具里调用。
+            {{ t('v.mq.t003') }}
           </template>
           <template v-else-if="welcomeState === 'unused'">
-            你名下有 {{ myKeys.length }} 把密钥，这个月还没产生消耗。可以先去测试场试试手。
+            {{ t('v.mq.x002') }} {{ myKeys.length }} {{ t('v.mq.x003') }}
           </template>
           <template v-else>
-            共 {{ formatNumber(bills.requestCount) }} 次调用 · 用量 {{ formatNumber(bills.totalTokens) }}
-            <template v-if="usedPercent !== null"> · 额度已用 {{ usedPercent }}%</template>
+            {{ t('v.mq.x004') }} {{ formatNumber(bills.requestCount) }} {{ t('v.mq.x005') }} {{ formatNumber(bills.totalTokens) }}
+            <template v-if="usedPercent !== null"> {{ t('v.mq.x006') }} {{ usedPercent }}%</template>
           </template>
         </p>
       </div>
@@ -368,17 +375,17 @@ onMounted(loadAll)
           type="primary"
           @click="router.push('/my-keys')"
         >
-          去领一个密钥
+          {{ t('v.mq.t004') }}
         </el-button>
         <el-button
           v-else-if="welcomeState === 'unused'"
           type="primary"
           @click="router.push('/playground')"
         >
-          去测试场试试
+          {{ t('v.mq.t005') }}
         </el-button>
         <el-button v-else @click="router.push('/quickstart')">
-          查看接入教程
+          {{ t('v.mq.t006') }}
         </el-button>
       </div>
     </div>
@@ -388,16 +395,16 @@ onMounted(loadAll)
       <!-- 左：本月已用额度 -->
       <div class="quota-card">
         <div class="q-head">
-          <h2>本月已用额度</h2>
-          <span class="month">{{ (bills.month || '').replace('-', ' 年 ') }} 月 · 每月 1 号重置</span>
+          <h2>{{ t('v.mq.t007') }}</h2>
+          <span class="month">{{ (bills.month || '').replace('-', t('v.mq.t047')) }} {{ t('v.mq.x007') }}</span>
         </div>
 
         <div class="q-amount">
           <span class="cur">¥</span>{{ formatNumber(Math.round((bills.totalAmount || 0) * 100) / 100) }}
-          <em v-if="limitAmount !== null">/ 共 {{ formatAmount(limitAmount) }}</em>
+          <em v-if="limitAmount !== null">{{ t('v.mq.x008') }} {{ formatAmount(limitAmount) }}</em>
           <!-- 有额度上限但本月零消耗 → 均价无法反推 → 用数量口径说清，不能写成「未设上限」 -->
-          <em v-else-if="tokenLimit > 0">/ 上限 {{ formatNumber(tokenLimit) }} {{ amountUnit }}</em>
-          <em v-else>· 未设上限</em>
+          <em v-else-if="tokenLimit > 0">{{ t('v.mq.x009') }} {{ formatNumber(tokenLimit) }} {{ amountUnit }}</em>
+          <em v-else>{{ t('v.mq.x010') }}</em>
         </div>
 
         <!-- 进度条只按 token 口径画：usedPercent 只依赖 tokenLimit/usedTokens，
@@ -411,27 +418,27 @@ onMounted(loadAll)
 
         <div class="q-meta">
           <span v-if="usedPercent !== null">
-            已用 <b>{{ usedPercent }}%</b>
-            <template v-if="remainingAmount !== null"> · 剩余 <b>{{ formatAmount(remainingAmount) }}</b></template>
+            {{ t('v.mq.t008') }} <b>{{ usedPercent }}%</b>
+            <template v-if="remainingAmount !== null"> {{ t('v.mq.x011') }} <b>{{ formatAmount(remainingAmount) }}</b></template>
           </span>
           <!-- 有额度上限但金额无法折算 -->
           <span v-else-if="tokenLimit > 0">
-            本月已用 <b>{{ formatNumber(usedTokens) }}</b> / {{ formatNumber(tokenLimit) }} {{ amountUnit }}
+            {{ t('v.mq.t009') }} <b>{{ formatNumber(usedTokens) }}</b> / {{ formatNumber(tokenLimit) }} {{ amountUnit }}
           </span>
           <span v-else>
-            本月已用 <b>{{ formatNumber(usedTokens) }}</b> {{ amountUnit }} · 未设月度上限
+            {{ t('v.mq.t009') }} <b>{{ formatNumber(usedTokens) }}</b> {{ amountUnit }} {{ t('v.mq.x012') }}
           </span>
         </div>
 
         <div class="q-actions">
-          <el-button type="primary" @click="applyVisible = true">申请更多额度</el-button>
-          <el-button @click="router.push('/my-bills')">查看怎么花的 →</el-button>
+          <el-button type="primary" @click="applyVisible = true">{{ t('v.mq.t010') }}</el-button>
+          <el-button @click="router.push('/my-bills')">{{ t('v.mq.t011') }}</el-button>
         </div>
       </div>
 
       <!-- 右：我的接入密钥 -->
       <div class="keys-card">
-        <h3>我的接入密钥</h3>
+        <h3>{{ t('v.mq.t012') }}</h3>
 
         <template v-if="myKeys.length > 0">
           <div v-for="k in myKeys.slice(0, 2)" :key="k.keyId" class="key-row">
@@ -439,32 +446,32 @@ onMounted(loadAll)
               <el-icon><Key /></el-icon>
             </div>
             <div class="k-info">
-              <b>{{ k.description || '未命名密钥' }}</b>
-              <span>{{ k.keyMasked || '（密钥串不可展示）' }}</span>
+              <b>{{ k.description || t('v.mq.t048') }}</b>
+              <span>{{ k.keyMasked || t('v.mq.t049') }}</span>
             </div>
             <el-button size="small" @click="copyKey(k.keyMasked)">
-              {{ copied === k.keyMasked ? '✓ 已复制' : '复制' }}
+              {{ copied === k.keyMasked ? t('v.mq.t050') : t('v.mq.t051') }}
             </el-button>
           </div>
 
           <div class="k-hint">
-            把这串密钥填到你用的 AI 工具里就能直接调用。
-            <el-link type="primary" underline="never" @click="router.push('/quickstart')">查看接入教程 →</el-link>
+            {{ t('v.mq.t013') }}
+            <el-link type="primary" underline="never" @click="router.push('/quickstart')">{{ t('v.mq.t014') }}</el-link>
           </div>
 
           <div v-if="myKeys.length > 2" class="k-more">
             <el-link type="primary" underline="never" @click="router.push('/my-keys')">
-              还有 {{ myKeys.length - 2 }} 个密钥 →
+              {{ t('v.mq.x013') }} {{ myKeys.length - 2 }} {{ t('v.mq.x014') }}
             </el-link>
           </div>
         </template>
 
         <div v-else class="k-empty">
-          你名下还没有密钥。
-          <el-link type="primary" underline="never" @click="router.push('/my-keys')">去申请 →</el-link>
+          {{ t('v.mq.t015') }}
+          <el-link type="primary" underline="never" @click="router.push('/my-keys')">{{ t('v.mq.t016') }}</el-link>
         </div>
 
-        <el-button size="small" style="margin-top:10px" @click="router.push('/my-keys')">+ 申请新密钥</el-button>
+        <el-button size="small" style="margin-top:10px" @click="router.push('/my-keys')">{{ t('v.mq.x015') }}</el-button>
       </div>
     </div>
 
@@ -472,30 +479,30 @@ onMounted(loadAll)
     <el-row :gutter="12" class="stats-row">
       <el-col :xs="24" :sm="8">
         <el-card shadow="never">
-          <div class="stat-k">本月调用次数</div>
-          <div class="stat-v">{{ formatNumber(bills.requestCount) }}<em>次</em></div>
+          <div class="stat-k">{{ t('v.mq.t017') }}</div>
+          <div class="stat-v">{{ formatNumber(bills.requestCount) }}<em>{{ t('v.mq.t018') }}</em></div>
           <div class="stat-foot">{{ formatNumber(bills.totalTokens) }} {{ amountUnit }}</div>
         </el-card>
       </el-col>
       <el-col :xs="24" :sm="8">
         <el-card shadow="never">
-          <div class="stat-k">可用模型</div>
-          <div class="stat-v">{{ availableVirtualModels.length }}<em>个</em></div>
+          <div class="stat-k">{{ t('v.mq.t019') }}</div>
+          <div class="stat-v">{{ availableVirtualModels.length }}<em>{{ t('v.mq.t020') }}</em></div>
           <div class="stat-foot">
-            {{ availableVirtualModels.length > 0 ? availableVirtualModels.join(' / ') : (hasUnrestrictedKey ? '不限制模型' : '未分配模型') }}
+            {{ availableVirtualModels.length > 0 ? availableVirtualModels.join(' / ') : (hasUnrestrictedKey ? t('v.mq.t052') : t('v.mq.t053')) }}
           </div>
         </el-card>
       </el-col>
       <el-col :xs="24" :sm="8">
         <el-card shadow="never">
-          <div class="stat-k">本周最常用</div>
+          <div class="stat-k">{{ t('v.mq.t021') }}</div>
           <div v-if="topVirtualModel" class="stat-v stat-v--text">{{ topVirtualModel.virtualModel }}</div>
           <div v-else class="stat-v stat-v--text">—</div>
           <div class="stat-foot">
             <template v-if="topVirtualModel">
-              占你本周花费的 {{ Math.round(topVirtualModel.amountRatio * 100) }}%
+              {{ t('v.mq.x016') }} {{ Math.round(topVirtualModel.amountRatio * 100) }}%
             </template>
-            <template v-else>最近 7 天还没有调用</template>
+            <template v-else>{{ t('v.mq.t022') }}</template>
           </div>
         </el-card>
       </el-col>
@@ -505,8 +512,8 @@ onMounted(loadAll)
     <el-card shadow="never" class="models-card">
       <template #header>
         <div class="panel-head">
-          <span>我能用的模型</span>
-          <span class="hint">在 AI 工具里 model 那一栏就填这些名字</span>
+          <span>{{ t('v.mq.t023') }}</span>
+          <span class="hint">{{ t('v.mq.t024') }}</span>
         </div>
       </template>
 
@@ -520,26 +527,25 @@ onMounted(loadAll)
       </div>
       <!-- 白名单为空 = 不限制（后端 ApiKey.isModelAllowed 语义），不是「没有可用模型」 -->
       <div v-else-if="hasUnrestrictedKey" class="models-empty">
-        <el-empty description="你的密钥不限制模型" :image-size="56" />
+        <el-empty :description="t('v.mq.t038')" :image-size="56" />
         <div class="empty-hint">
-          管理员没有给你的密钥限定模型范围，也就是公司建出来的可用模型你都能用。
-          想知道具体有哪些，可以在「我的密钥」里看，或直接问管理员。
+          {{ t('v.mq.t025') }}
         </div>
       </div>
 
       <div v-else class="models-empty">
-        <el-empty description="还没有分配任何模型" :image-size="56" />
+        <el-empty :description="t('v.mq.t039')" :image-size="56" />
         <div class="empty-hint">
-          管理员分配后这里会列出你能用的模型名。需要某个模型的话，找管理员开通即可。
+          {{ t('v.mq.t026') }}
         </div>
         <el-button size="small" type="primary" plain @click="router.push('/my-keys')">
-          去「我的密钥」看看 →
+          {{ t('v.mq.t027') }}
         </el-button>
       </div>
 
       <div class="tip-bar">
-        💡 这些是公司统一准备的模型名，背后可能挂了好几个真实模型（系统会自动切换），
-        <b>你不需要知道背后是 GPT 还是 Claude</b>。
+        {{ t('v.mq.x017') }}
+        <b>{{ t('v.mq.t028') }}</b>。
       </div>
     </el-card>
 
@@ -548,15 +554,15 @@ onMounted(loadAll)
       <el-card shadow="never">
         <template #header>
           <div class="panel-head">
-            <span>本月每天花了多少钱</span>
-            <span class="hint">单位：元</span>
+            <span>{{ t('v.mq.t029') }}</span>
+            <span class="hint">{{ t('v.mq.t030') }}</span>
           </div>
         </template>
         <div ref="chartEl" class="chart" />
         <div v-if="!loading && (bills.byDay || []).length === 0" class="empty-with-action">
-          <el-empty description="本月还没有调用记录" :image-size="56" />
+          <el-empty :description="t('v.mq.t040')" :image-size="56" />
           <el-button size="small" type="primary" plain @click="router.push('/quickstart')">
-            看怎么接入
+            {{ t('v.mq.t031') }}
           </el-button>
         </div>
       </el-card>
@@ -564,53 +570,53 @@ onMounted(loadAll)
       <el-card shadow="never">
         <template #header>
           <div class="panel-head">
-            <span>最近几次使用</span>
-            <el-link type="primary" underline="never" @click="router.push('/my-bills')">全部 →</el-link>
+            <span>{{ t('v.mq.t032') }}</span>
+            <el-link type="primary" underline="never" @click="router.push('/my-bills')">{{ t('v.mq.t033') }}</el-link>
           </div>
         </template>
         <el-table :data="recentCalls" size="small" :show-header="true">
-          <el-table-column prop="createdAt" label="时间" width="86">
+          <el-table-column prop="createdAt" :label="t('v.mq.t041')" width="86">
             <template #default="{ row }">{{ callTime(row.createdAt) }}</template>
           </el-table-column>
-          <el-table-column label="用了哪个模型" min-width="120">
+          <el-table-column :label="t('v.mq.t042')" min-width="120">
             <template #default="{ row }">
               <span v-if="row.virtualModel" class="model-chip"><i></i>{{ row.virtualModel }}</span>
               <span v-else class="cell-none">-</span>
             </template>
           </el-table-column>
           <!-- 花费：按本月实际均价折算，保证与顶部「本月已用」自洽 -->
-          <el-table-column label="花了多少" width="110" align="right">
+          <el-table-column :label="t('v.mq.t043')" width="110" align="right">
             <template #default="{ row }">
               <span v-if="callCost(row) !== null" class="cost">{{ formatAmount(callCost(row)) }}</span>
               <!-- 折算不出金额时说明「这是用量不是钱」，避免 ¥0 与空值的歧义 -->
-              <span v-else class="cost cost--tokens">用量 {{ formatNumber(row.totalTokens) }}</span>
+              <span v-else class="cost cost--tokens">{{ t('v.mq.x018') }} {{ formatNumber(row.totalTokens) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="成败" width="72" align="center">
+          <el-table-column :label="t('v.mq.t044')" width="72" align="center">
             <template #default="{ row }">
               <el-tag :type="row.isSuccess ? 'success' : 'danger'" size="small">
-                {{ row.isSuccess ? '成功' : '失败' }}
+                {{ row.isSuccess ? t('v.mq.t054') : t('v.mq.t055') }}
               </el-tag>
             </template>
           </el-table-column>
         </el-table>
         <!-- 空态必须有出口：只说「还没有记录」等于把用户困住 -->
         <div v-if="!loading && recentCalls.length === 0" class="empty-with-action">
-          <el-empty description="还没有调用记录" :image-size="56" />
+          <el-empty :description="t('v.mq.t045')" :image-size="56" />
           <el-button size="small" type="primary" plain @click="router.push('/playground')">
-            去测试场试一次
+            {{ t('v.mq.t034') }}
           </el-button>
         </div>
       </el-card>
     </div>
 
     <!-- 申请额度弹窗 -->
-    <el-dialog v-model="applyVisible" title="申请更多额度" width="min(480px, 92vw)">
-      <p class="dialog-tip">当前额度由管理员在「全部密钥」里配置。填写期望的月度额度，我们会在 1 个工作日内处理。</p>
-      <el-input-number v-model="applyAmount" :min="0" :step="100" placeholder="期望的月度额度（¥）" style="width:100%" />
+    <el-dialog v-model="applyVisible" :title="t('v.mq.t010')" width="min(480px, 92vw)">
+      <p class="dialog-tip">{{ t('v.mq.t035') }}</p>
+      <el-input-number v-model="applyAmount" :min="0" :step="100" :placeholder="t('v.mq.t046')" style="width:100%" />
       <template #footer>
-        <el-button @click="applyVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitApply">提交申请</el-button>
+        <el-button @click="applyVisible = false">{{ t('v.mq.t036') }}</el-button>
+        <el-button type="primary" @click="submitApply">{{ t('v.mq.t037') }}</el-button>
       </template>
     </el-dialog>
   </div>

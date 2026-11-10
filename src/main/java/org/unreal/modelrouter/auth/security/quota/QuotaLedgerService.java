@@ -85,7 +85,6 @@ import java.util.function.Supplier;
  * <p>{@code trunkline.quota.enabled=false}（默认）时所有方法立即返回、不访问数据库与 Redis。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 @Slf4j

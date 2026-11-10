@@ -35,7 +35,6 @@ import static org.mockito.Mockito.when;
  * 未配置 Redis、Redis 抛异常、开关关闭。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.3
  */
 @DisplayName("定时任务排他锁测试")
 class ScheduledTaskLockTest {

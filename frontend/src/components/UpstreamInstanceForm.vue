@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <template>
   <el-form :model="form" label-width="120px" ref="formRef">
     <el-alert v-if="!simplified" type="info" :closable="false" show-icon class="paas-tip">

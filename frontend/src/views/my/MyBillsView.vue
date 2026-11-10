@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <script setup lang="ts">
 /**
  * 我的账单（v3.5 Trunkline UI 改造：按原型改为「按天汇总 × 按虚拟模型」交叉表）
@@ -21,8 +26,10 @@ import { friendlyBusinessError, friendlyError } from '@/utils/friendlyError'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { menuSubtitle } from '@/config/menu'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
+const { t } = useI18n()
 const goPlayground = () => router.push('/playground')
 
 /** 员工侧用量单位（替代「tokens」），与「我的额度」「我的密钥」两页同一文案 */
@@ -121,7 +128,7 @@ const grandTotal = computed(() => Number(bills.value.totalAmount || 0))
  */
 const summaryMethod = ({ columns, data }: { columns: any[]; data: any[] }) => {
   return columns.map((col, index) => {
-    if (index === 0) return '本月合计'
+    if (index === 0) return t('v.mb.t015')
     if (index === columns.length - 1) return `¥${formatAmount(grandTotal.value)}`
     const vm = virtualModelColumns.value[index - 1]
     if (!vm) return ''
@@ -138,10 +145,10 @@ const loadBills = async () => {
     if (res.data?.success) {
       bills.value = { ...emptyBills(), ...(res.data.data || {}) }
     } else {
-      ElMessage.error(friendlyBusinessError(res.data, '获取我的账单'))
+      ElMessage.error(friendlyBusinessError(res.data, t('v.mb.t016')))
     }
   } catch (error: any) {
-    ElMessage.error(friendlyError(error, '获取我的账单'))
+    ElMessage.error(friendlyError(error, t('v.mb.t016')))
   } finally {
     loading.value = false
   }
@@ -156,8 +163,8 @@ const formatDate = (dateStr?: string): string => {
   const [, m, d] = dateStr.split('-')
   const today = new Date()
   const isToday = dateStr === `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  const label = `${Number(m)} 月 ${Number(d)} 日`
-  return isToday ? `${label}（今天）` : label
+  const label = t('v.mb.x004', { m: Number(m), d: Number(d) })
+  return isToday ? `${label}${t('v.mb.x005')}` : label
 }
 
 onMounted(() => {
@@ -168,7 +175,7 @@ onMounted(() => {
 <template>
   <div>
     <!-- P0-I：页面目标说明统一取自 menu.ts（单一文案源），与侧边栏 tooltip 同源 -->
-    <PageHeader title="我的账单" :subtitle="menuSubtitle('/my-bills')" />
+    <PageHeader :title="t('nav.myBills.title')" :subtitle="t(menuSubtitle('/my-bills'))" />
 
     <!-- ---------- 工具条 ---------- -->
     <div class="toolbar">
@@ -177,13 +184,13 @@ onMounted(() => {
         type="month"
         size="small"
         value-format="YYYY-MM"
-        placeholder="选择月份"
+        :placeholder="t('v.mb.t010')"
         style="width: 140px"
         @change="loadBills"
       />
       <el-button size="small" :loading="loading" @click="loadBills">
         <el-icon><Refresh /></el-icon>
-        刷新
+        {{ t('v.mb.t001') }}
       </el-button>
     </div>
 
@@ -191,7 +198,7 @@ onMounted(() => {
     <el-row :gutter="12" style="margin-bottom:12px">
       <el-col :span="8">
         <el-card shadow="never">
-          <div class="stat-k">本月总计</div>
+          <div class="stat-k">{{ t('v.mb.t002') }}</div>
           <div class="stat-v">
             ¥{{ formatAmount(bills.totalAmount) }}
             <span class="stat-em">/ {{ bills.month || '-' }}</span>
@@ -201,20 +208,20 @@ onMounted(() => {
       </el-col>
       <el-col :span="8">
         <el-card shadow="never">
-          <div class="stat-k">本月调用次数</div>
-          <div class="stat-v">{{ formatNumber(bills.requestCount) }}<span class="stat-em">次</span></div>
-          <div class="stat-foot">成功调用</div>
+          <div class="stat-k">{{ t('v.mb.t003') }}</div>
+          <div class="stat-v">{{ formatNumber(bills.requestCount) }}<span class="stat-em">{{ t('v.mb.t004') }}</span></div>
+          <div class="stat-foot">{{ t('v.mb.t005') }}</div>
         </el-card>
       </el-col>
       <el-col :span="8">
         <el-card shadow="never">
-          <div class="stat-k">上月同期</div>
+          <div class="stat-k">{{ t('v.mb.t006') }}</div>
           <div v-if="monthOverMonth !== null" class="stat-v" :class="monthOverMonth > 0 ? 'stat-up' : 'stat-down'">
             {{ monthOverMonth > 0 ? '+' : '' }}{{ monthOverMonth }}%
           </div>
           <div v-else class="stat-v">—</div>
           <div class="stat-foot">
-            上月 ¥{{ formatAmount(bills.previousMonthAmount) }} · {{ formatNumber(bills.previousMonthRequestCount) }} 次
+            {{ t('v.mb.x001') }}{{ formatAmount(bills.previousMonthAmount) }} · {{ formatNumber(bills.previousMonthRequestCount) }} {{ t('v.mb.t004') }}
           </div>
         </el-card>
       </el-col>
@@ -230,20 +237,20 @@ onMounted(() => {
       :closable="false"
       show-icon
       class="price-hint"
-      title="价格还没配好，所以花费暂时显示为 ¥0。请联系管理员配置后就能看到真实金额。"
+      :title="t('v.mb.t011')"
     />
 
     <!-- ---------- 按天 × 虚拟模型 交叉表 ---------- -->
     <el-card shadow="never">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span>{{ (bills.month || '').replace('-', ' ') }} 消费明细</span>
-          <span style="font-size:12px;color:var(--ja-text-secondary)">按天汇总 · 按模型统计</span>
+          <span>{{ (bills.month || '').replace('-', ' ') }} {{ t('v.mb.x002') }}</span>
+          <span style="font-size:12px;color:var(--ja-text-secondary)">{{ t('v.mb.t007') }}</span>
         </div>
       </template>
 
       <el-table ref="billsTableRef" :data="bills.byDay" :max-height="billsMaxHeight" v-loading="loading" stripe show-summary :summary-method="summaryMethod">
-        <el-table-column prop="usageDate" label="日期" width="150">
+        <el-table-column prop="usageDate" :label="t('v.mb.t012')" width="150">
           <template #default="{ row }">{{ formatDate(row.usageDate) }}</template>
         </el-table-column>
 
@@ -263,7 +270,7 @@ onMounted(() => {
           </template>
         </el-table-column>
 
-        <el-table-column label="当日合计" width="120" align="right">
+        <el-table-column :label="t('v.mb.t013')" width="120" align="right">
           <template #default="{ row }">
             <b>¥{{ formatAmount(row.amount) }}</b>
           </template>
@@ -272,13 +279,13 @@ onMounted(() => {
 
       <!-- 空态必须有出口 -->
       <div v-if="!loading && bills.byDay.length === 0" class="empty-with-action">
-        <el-empty description="本月还没有调用记录" :image-size="70" />
-        <el-button size="small" type="primary" plain @click="goPlayground">去测试场试一次</el-button>
-        <div class="empty-hint">用完回来这里就能看到每天花了多少</div>
+        <el-empty :description="t('v.mb.t014')" :image-size="70" />
+        <el-button size="small" type="primary" plain @click="goPlayground">{{ t('v.mb.t008') }}</el-button>
+        <div class="empty-hint">{{ t('v.mb.t009') }}</div>
       </div>
 
       <div class="tip-bar">
-        💡 每一列就是你在 AI 工具里填的模型名。它背后可能是不同厂商的模型（系统自动切换），你不用关心具体是哪个厂商，看 ¥ 就行。
+        {{ t('v.mb.x003') }}
       </div>
     </el-card>
   </div>

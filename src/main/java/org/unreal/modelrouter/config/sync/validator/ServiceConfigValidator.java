@@ -19,7 +19,6 @@ import java.util.List;
  * 负责验证服务配置的合法性，包括服务类型、配置完整性、实例配置等。
  *
  * @author JAiRouter Team
- * @since v2.2.6
  */
 @Component
 public class ServiceConfigValidator {

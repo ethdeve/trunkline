@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.common.filter;
 
 import org.springframework.core.Ordered;
@@ -30,8 +34,7 @@ import org.springframework.core.Ordered;
  * 已修正。若未来需要真正「认证后」的请求体扫描，须把 order 调到 {@code > -100}
  * 或挂入 SecurityWebFilterChain 内部。</p>
  *
- * @author JAiRouter Team
- * @since 3.3.1
+ * @author Trunkline Team
  */
 public final class FilterOrderContract {
 

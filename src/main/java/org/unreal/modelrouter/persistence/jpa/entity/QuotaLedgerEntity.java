@@ -33,7 +33,6 @@ import java.time.LocalDateTime;
  * PostgreSQL btree 的 2704 字节上限（H2 无此限制，但保留跨库可移植性）。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 @Data

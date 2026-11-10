@@ -25,7 +25,6 @@ import static org.mockito.Mockito.*;
  * <p>测试配置校验、来源追踪等核心功能</p>
  *
  * @version v2.7.6
- * @since 2025-01-17
  */
 @DisplayName("ConfigValidationController RESTful 接口测试")
 @ExtendWith(MockitoExtension.class)

@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 /**
@@ -83,7 +88,7 @@ watch(visibleTabs, list => {
 
 <template>
   <div>
-    <PageHeader :title="t('shell.playground.title')" :subtitle="menuSubtitle('/playground')" />
+    <PageHeader :title="t('shell.playground.title')" :subtitle="t(menuSubtitle('/playground'))" />
     <el-card shadow="never">
       <el-tabs v-model="active">
         <el-tab-pane label="对话" name="chat">

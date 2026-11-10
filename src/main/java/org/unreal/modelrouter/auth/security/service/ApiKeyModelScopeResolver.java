@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import lombok.extern.slf4j.Slf4j;
@@ -43,8 +47,7 @@ import java.util.Map;
  * <p><b>依赖缺失容错</b>：全部依赖均以 {@link ObjectProvider} 注入，缺失时降级为
  * 「无分组信息」而不是抛异常 —— 极简测试上下文与降级部署下接口仍可返回密钥列表。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Slf4j
 @Component

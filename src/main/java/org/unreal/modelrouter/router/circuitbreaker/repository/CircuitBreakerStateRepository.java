@@ -24,7 +24,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * - 支持 H2 和 Redis 两种存储方式
  * 
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @Repository
 public class CircuitBreakerStateRepository {

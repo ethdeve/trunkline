@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import java.util.List;
@@ -18,8 +22,7 @@ import java.util.List;
  * <p>角色来源以函数式接口注入，使本类既能被 Spring 装配（账户服务），
  * 也能在单元测试中用 lambda 直接构造。</p>
  *
- * @author JAiRouter Team
- * @since 3.3.1
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 public class JwtRefreshIdentityResolver {

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.persistence.jpa;
 
 import org.junit.jupiter.api.DisplayName;
@@ -30,8 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  *   <li>year / month 由 {@code occurredAt} 推导正确（聚合按这两个字段过滤）。</li>
  * </ul>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

@@ -23,8 +23,6 @@ import static org.mockito.Mockito.*;
 
 /**
  * PasswordSecurityChecker 单元测试.
- *
- * @since v2.6.12
  */
 @DisplayName("PasswordSecurityChecker 测试")
 @ExtendWith(MockitoExtension.class)

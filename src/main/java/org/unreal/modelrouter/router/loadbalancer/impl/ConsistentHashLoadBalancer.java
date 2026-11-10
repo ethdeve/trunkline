@@ -22,7 +22,6 @@ import java.util.stream.Collectors;
  * 使用一致性哈希算法解决IP Hash冲突问题，支持虚拟节点机制
  * 
  * @author JAiRouter Team
- * @since 2.4.0
  * @modified Trunkline Team
  */
 public class ConsistentHashLoadBalancer implements LoadBalancer {

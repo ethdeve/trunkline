@@ -34,7 +34,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * - LeakyBucket: water level
  *
  * @author JAiRouter Team
- * @since 2.4.5
  */
 @Component
 public class RateLimiterStatePersistenceAdapter {

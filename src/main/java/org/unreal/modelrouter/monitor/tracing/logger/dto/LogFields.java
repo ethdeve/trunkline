@@ -34,7 +34,6 @@ package org.unreal.modelrouter.monitor.tracing.logger.dto;
  * - SystemEventFields: 系统事件字段
  *
  * @author JAiRouter Team
- * @since v2.16.4
  */
 public interface LogFields {
 

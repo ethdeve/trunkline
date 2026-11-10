@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.common.api.config;
 
 import java.util.Collection;
@@ -19,8 +23,7 @@ import java.util.Set;
  * （它们已经依赖 auth，双向会形成包级环）。故此处只声明接口，实现放在 config 侧，
  * auth 侧仅依赖本接口。</p>
  *
- * @author JAiRouter Team
- * @since 3.3.2
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 public interface ServiceTypeCatalogApi {

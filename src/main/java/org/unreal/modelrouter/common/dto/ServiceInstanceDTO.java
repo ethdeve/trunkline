@@ -35,7 +35,6 @@ public final class ServiceInstanceDTO {
      *             </ul>
      *             <p>此字段将在 v3.0 版本中移除，前端需同步更新。</p>
      * @return 实例ID字符串
-     * @since v2.5.1 标注废弃
      */
     @Deprecated(since = "2.5.1", forRemoval = true)
     @JsonProperty("instanceId")
@@ -52,7 +51,6 @@ public final class ServiceInstanceDTO {
      * 由 {@code ServiceInstanceManager#convertToDTO} 从 service_config 反查带出，
      * 避免前端靠「当前在哪个 Tab」推断而与真实归属脱节。</p>
      * <p>前端据此展示「模型分类」，并在编辑时提交目标分类触发跨分类迁移。</p>
-     * @since 2026-10-22
      */
     private String serviceType;
 

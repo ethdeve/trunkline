@@ -23,7 +23,6 @@ import java.util.Map;
  * - 健康检查失败的详细分析
  *
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Component
 public class HealthCheckTracingEnhancer {

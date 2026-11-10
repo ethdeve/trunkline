@@ -77,7 +77,6 @@ import org.unreal.modelrouter.config.core.service.ServiceConfigUpdateService;
  *   <li>StoreManager - 存储管理器</li>
  * </ul>
  * 
- * @since v1.0.0
  * @see InstanceConfigService
  * @see ConfigMergeService
  * @see ServiceConfigManager

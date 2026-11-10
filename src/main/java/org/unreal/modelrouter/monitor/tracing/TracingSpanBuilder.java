@@ -22,7 +22,6 @@ import java.util.concurrent.TimeUnit;
  * - 错误处理和降级
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 public final class TracingSpanBuilder {

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.access;
 
 import org.springframework.http.HttpMethod;
@@ -36,8 +40,7 @@ import java.util.Optional;
  *       允许 OPERATOR，URL 规则却漏登记而落入 fail-closed → 现登记为 OPS。</li>
  * </ul>
  *
- * @author JAiRouter Team
- * @since 3.5.1
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 @Component
@@ -178,6 +181,11 @@ public class FixedRoleAccessPolicy {
                 AccessRule.write("/api/tracing/performance/**", AccessLevel.ADMIN),
                 AccessRule.get("/api/tracing/query/**", AccessLevel.OPS),
                 AccessRule.write("/api/tracing/query/**", AccessLevel.ADMIN),
+
+                // 内置帮助文档正文（DocsController）：【2026-11-10 用户决策】只对运维/管理员开放。
+                // 普通用户的上手路径是「接入指南」(/guide) 与「快速上手」(/quickstart)，不进帮助中心。
+                // 必须显式登记为 OPS：未登记端点 fail-closed 仅 ADMIN，会把 OPERATOR 也挡在门外。
+                AccessRule.get("/api/docs/content", AccessLevel.OPS),
 
                 // 概览仪表盘（技术总览）
                 AccessRule.get("/api/dashboard/**", AccessLevel.OPS),

@@ -23,7 +23,6 @@ import java.time.LocalDateTime;
  * 记录每次 API 请求的完整信息（请求、路由、响应、性能）
  *
  * @author JAiRouter Team
- * @since 2.7.8
  * @modified Trunkline Team
  */
 @Data

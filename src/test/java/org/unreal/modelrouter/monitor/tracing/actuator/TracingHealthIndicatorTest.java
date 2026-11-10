@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.monitor.tracing.actuator;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +37,7 @@ import static org.mockito.Mockito.when;
  *
  * <p>本类把「哪些情况才配 DOWN」钉死：丢 span 属可观测性降级（WARNING、HTTP 仍 200），
  * 只有「异步处理器没在跑」「内存压力 CRITICAL」「性能监控自身 DOWN」才算追踪不可用。</p>
+ * @author Trunkline Team
  */
 @DisplayName("TracingHealthIndicator 健康判定守护")
 class TracingHealthIndicatorTest {

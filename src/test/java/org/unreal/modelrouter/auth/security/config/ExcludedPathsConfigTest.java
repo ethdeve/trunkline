@@ -80,6 +80,18 @@ class ExcludedPathsConfigTest {
     }
 
     @Test
+    @DisplayName("P1：/docs-res/** 不得排除认证（帮助文档正文只能经 OPS 鉴权接口读取）")
+    void docsResPaths_mustNotBeAuthExcluded() {
+        // 【2026-11-10】原 /docs-res/** 匿名放行 + 静态映射 classpath:/docs/，
+        // 任何人无需权限即可下载全部 zh/en .md 帮助正文（实测返回 200），
+        // 绕过 /api/docs/content 的角色鉴权。帮助中心已收紧为仅运维/管理员，
+        // 该静态直读通道整体移除，此处防止其被重新加入认证排除列表。
+        assertFalse(ExcludedPathsConfig.isAuthExcluded("/docs-res/zh/index.md"),
+                "帮助文档正文不得匿名直读");
+        assertFalse(ExcludedPathsConfig.isAuthExcluded("/docs-res/en/system/global.md"));
+    }
+
+    @Test
     @DisplayName("设计说明：记录侧脱敏不依赖本过滤器排除列表")
     void recordSideSanitization_isIndependentOfExcludedPaths() {
         // 契约文档化：调用历史 SUMMARY 走 sanitizeForStorage，即使路径被排除也应脱敏

@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
  * 支持静态配置(application.yml)和运行时动态调整
  *
  * @author JAiRouter Team
- * @since 2.7.0
  * @modified Trunkline Team
  */
 @Component

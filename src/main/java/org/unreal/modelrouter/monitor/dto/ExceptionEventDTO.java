@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
  * 用于异常管理 API 的数据传输
  * 
  * @author JAiRouter Team
- * @since 1.9.2
  */
 @Data
 @Builder

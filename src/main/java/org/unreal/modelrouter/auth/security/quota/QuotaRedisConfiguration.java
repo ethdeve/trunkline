@@ -25,7 +25,6 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
  * 与“Redis 运行期不可用”是两种不同的场景，前者应当立即暴露。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 @Slf4j

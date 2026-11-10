@@ -29,8 +29,6 @@ import java.util.Map;
  * - 从请求中提取 API Key ID
  * - 提取原始请求的 model 字段
  * - 池路由后改写 model 字段
- *
- * @since v2.26.6
  */
 @Component
 public class TokenUsageExtractor {

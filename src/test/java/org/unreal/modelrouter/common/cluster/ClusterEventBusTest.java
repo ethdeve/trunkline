@@ -23,7 +23,6 @@ import static org.mockito.Mockito.when;
  * 收到重复事件）与<b>Redis 不可用时的降级</b>（可观测性能力不应阻断服务启动）。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.4
  */
 @DisplayName("集群事件广播")
 class ClusterEventBusTest {

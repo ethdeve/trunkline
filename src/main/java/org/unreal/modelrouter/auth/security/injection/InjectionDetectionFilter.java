@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.injection;
 
 import java.nio.charset.StandardCharsets;
@@ -53,8 +57,7 @@ import reactor.core.publisher.Mono;
  *
  * <p>本类为自研扩展（fork 维护：纯新增包，UPSTREAM-TOUCH: 0）。</p>
  *
- * @author wjy-gateway Extensions
- * @since 3.3.1
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 @Component

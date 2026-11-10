@@ -18,7 +18,6 @@ import java.util.concurrent.atomic.LongAdder;
  * - 适合写多读少的统计场景
  *
  * @author JAiRouter Team
- * @since 2.7.2
  */
 public final class ConcurrentModelCallStats {
 

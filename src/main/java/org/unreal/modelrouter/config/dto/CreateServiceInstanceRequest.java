@@ -56,7 +56,6 @@ public final class CreateServiceInstanceRequest {
      * <p>迁移不是单纯改一个字段——实例的服务类型由 {@code service_config_id} 决定，
      * 且健康状态、实例限流、池成员引用都按「serviceType:instanceId」组织，
      * 因此由 {@code ServiceInstanceManager#updateInstance} 统一做级联迁移与前置校验。</p>
-     * @since 2026-10-22
      */
     private String serviceType;
 }

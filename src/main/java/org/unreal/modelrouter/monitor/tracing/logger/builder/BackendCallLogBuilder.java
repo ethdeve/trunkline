@@ -33,7 +33,6 @@ import org.unreal.modelrouter.monitor.tracing.logger.dto.BackendCallFields;
  * 注意：只负责构建日志字段数据，不负责输出
  *
  * @author JAiRouter Team
- * @since v2.16.6
  */
 @Component
 public final class BackendCallLogBuilder {

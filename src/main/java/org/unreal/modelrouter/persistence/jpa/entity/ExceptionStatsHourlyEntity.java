@@ -22,7 +22,6 @@ import java.time.LocalDateTime;
  * 按小时聚合异常统计信息
  * 
  * @author JAiRouter Team
- * @since 1.9.1
  */
 @Data
 @Builder

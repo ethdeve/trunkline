@@ -20,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * RequestBuilder 单元测试
  * 
  * @author AI Assistant
- * @since v2.2.3
  */
 @ExtendWith(MockitoExtension.class)
 class RequestBuilderTest {

@@ -12,7 +12,6 @@ import java.util.Map;
  * 记录慢查询告警的详细信息，包括操作信息、性能指标、统计数据等。
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Data
 @Builder

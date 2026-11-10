@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.quota;
 
 import java.util.Optional;
@@ -9,8 +13,7 @@ import java.util.Optional;
  * 各自落在 {@code PoolDefinition} / 已接入模型配置上，由对应模块以本接口实现并注入，
  * 避免执行层直接依赖具体配置服务（保持包边界）。</p>
  *
- * @author JAiRouter Team
- * @since 3.4.0
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 public interface QuotaLimitResolver {

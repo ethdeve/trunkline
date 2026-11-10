@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 /**
@@ -17,8 +21,7 @@ package org.unreal.modelrouter.auth.security.service;
  * <p>继承 {@link IllegalArgumentException} 以保持既有调用点
  * （{@code catch (IllegalArgumentException)} 与既有单测断言）行为不变。</p>
  *
- * @author JAiRouter Team
- * @since 3.3.2
+ * @author Trunkline Team
  */
 public class ApiKeyNotFoundException extends IllegalArgumentException {
 

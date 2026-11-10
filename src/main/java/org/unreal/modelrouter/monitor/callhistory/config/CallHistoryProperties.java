@@ -7,7 +7,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * API 调用历史配置属性
  *
  * @author JAiRouter Team
- * @since 2.7.8
  * @modified Trunkline Team
  */
 @Data

@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
 import { ref } from 'vue'
 import { PROVIDER_PRESETS, templateToPreset, type ProviderPreset } from '@/constants/providerPresets'
 import { getAdapterTemplates } from '@/api/adapter'

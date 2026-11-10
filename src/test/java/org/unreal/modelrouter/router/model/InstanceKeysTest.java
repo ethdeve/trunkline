@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.router.model;
 
 import org.junit.jupiter.api.DisplayName;
@@ -8,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * #636 健康键解析测试：instance-id → baseUrl → name → unknown。
  * 不用 Mockito，直接构造真实 ModelInstance。
+ * @author Trunkline Team
  */
 @DisplayName("InstanceKeys 健康键解析测试")
 class InstanceKeysTest {

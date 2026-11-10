@@ -1,4 +1,4 @@
-# JAiRouter 优化版 Dockerfile
+# Trunkline 优化版 Dockerfile
 # 多阶段构建 + Alpine 基础镜像 + Spring Boot 分层
 # 镜像大小: ~200MB (比标准版减少 40%+)
 #
@@ -24,9 +24,9 @@ RUN java -Djarmode=layertools -jar app.jar extract --destination extracted
 FROM eclipse-temurin:17-jre-alpine
 
 # 设置元数据
-LABEL maintainer="JAiRouter Team"
-LABEL description="JAiRouter - AI Model Service Routing and Load Balancing Gateway"
-LABEL version="3.1.1"
+LABEL maintainer="Trunkline Team"
+LABEL description="Trunkline - AI Governance Gateway"
+LABEL version="0.1.0"
 LABEL org.opencontainers.image.source="https://github.com/sodlinken/trunkline"
 
 # 安装必要工具（wget 用于健康检查，tzdata 用于时区支持）

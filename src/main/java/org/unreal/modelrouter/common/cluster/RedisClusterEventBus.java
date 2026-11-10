@@ -36,7 +36,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * </ul>
  *
  * @author JAiRouter Team
- * @since 3.2.4
  * @modified Trunkline Team
  */
 @Slf4j

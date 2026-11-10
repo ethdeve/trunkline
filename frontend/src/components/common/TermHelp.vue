@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <template>
   <el-tooltip :content="text" placement="top" :show-after="200">
     <el-icon class="term-help" tabindex="0"><QuestionFilled /></el-icon>

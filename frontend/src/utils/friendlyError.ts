@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * P0-H 友好错误层
  *
  * <p><b>要解决的问题</b>：{@code utils/request.ts:83-91} 会把后端返回的原始 message

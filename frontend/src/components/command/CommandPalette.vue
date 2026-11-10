@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <script setup lang="ts">
 /**
  * 全局命令面板（Cmd/Ctrl+K，一期必做）
@@ -40,15 +45,15 @@ const menuCommands = computed<Command[]>(() =>
     .map((item: MenuItem) => ({
       key: `menu:${item.path}`,
       title: renderTitle(item.title),
-      group: '菜单',
+      group: t('command.groupMenu'),
       icon: item.icon,
       run: () => router.push(item.path)
     }))
 )
 
-/** 'menu.' 前缀走 i18n（为后续国际化留后路），字面中文直出 */
+/** nav.* / menu.* 前缀走 i18n（响应式，随全局语言切换），字面文本直出 */
 function renderTitle(title: string): string {
-  return title.startsWith('menu.') ? t(title) : title
+  return title.startsWith('nav.') || title.startsWith('menu.') ? t(title) : title
 }
 
 const recentCommands = computed<Command[]>(() => {
@@ -63,7 +68,7 @@ const recentCommands = computed<Command[]>(() => {
           ? {
               key: `recent:${path}`,
               title: renderTitle(item.title),
-              group: '最近访问',
+              group: t('command.groupRecent'),
               icon: item.icon,
               run: () => router.push(path)
             }
@@ -78,12 +83,13 @@ const recentCommands = computed<Command[]>(() => {
 const actionCommands = computed<Command[]>(() => {
   const { toggleTheme } = useTheme()
   const { toggleDensity } = useDensity()
+  const group = t('command.groupAction')
   const list: Command[] = [
-    { key: 'act:theme', title: '切换亮/暗主题', group: '动作', icon: 'sunny', run: toggleTheme },
-    { key: 'act:density', title: '切换紧凑模式', group: '动作', icon: 'grid', run: toggleDensity }
+    { key: 'act:theme', title: t('command.toggleTheme'), group, icon: 'sunny', run: toggleTheme },
+    { key: 'act:density', title: t('command.toggleDensity'), group, icon: 'grid', run: toggleDensity }
   ]
   if (userStore.isAuthenticated()) {
-    list.push({ key: 'act:logout', title: '退出登录', group: '动作', icon: 'switch-button', run: () => userStore.logout().finally(() => router.push('/login')) })
+    list.push({ key: 'act:logout', title: t('command.logout'), group, icon: 'switch-button', run: () => userStore.logout().finally(() => router.push('/login')) })
   }
   return list
 })
@@ -150,7 +156,7 @@ defineExpose({ visible })
           ref="inputRef"
           v-model="query"
           class="palette__input"
-          placeholder="搜索命令、页面..."
+          :placeholder="t('command.placeholder')"
           spellcheck="false"
         />
         <div class="palette__list">
@@ -166,10 +172,10 @@ defineExpose({ visible })
             <span class="palette__item-title">{{ cmd.title }}</span>
             <span class="palette__item-group">{{ cmd.group }}</span>
           </div>
-          <div v-if="filtered.length === 0" class="palette__empty">无匹配命令</div>
+          <div v-if="filtered.length === 0" class="palette__empty">{{ t('command.empty') }}</div>
         </div>
         <div class="palette__footer">
-          <span>↑↓ 选择</span><span>回车执行</span><span>Esc 关闭</span>
+          <span>{{ t('command.footerSelect') }}</span><span>{{ t('command.footerRun') }}</span><span>{{ t('command.footerClose') }}</span>
         </div>
       </div>
     </div>

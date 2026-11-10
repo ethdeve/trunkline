@@ -30,7 +30,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * - 支持 QPS 计算
  * 
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @Repository
 public class ModelCallStatsRepository {

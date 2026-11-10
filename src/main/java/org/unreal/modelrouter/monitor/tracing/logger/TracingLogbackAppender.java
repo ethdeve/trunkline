@@ -19,7 +19,6 @@ import java.util.Map;
  * 为日志添加追踪上下文信息，包括traceId和spanId，支持JSON格式输出
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 public final class TracingLogbackAppender extends AppenderBase<ILoggingEvent> {

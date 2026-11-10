@@ -17,7 +17,6 @@ import static org.mockito.Mockito.*;
  * MonitoringConfigurationValidator 单元测试
  *
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @DisplayName("MonitoringConfigurationValidator 测试")
 class MonitoringConfigurationValidatorTest {

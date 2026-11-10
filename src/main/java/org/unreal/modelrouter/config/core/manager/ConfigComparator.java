@@ -17,7 +17,6 @@ import java.util.Map;
  * - 版本配置比较
  *
  * @author AI Assistant
- * @since v2.26.0
  */
 @Component
 public class ConfigComparator {

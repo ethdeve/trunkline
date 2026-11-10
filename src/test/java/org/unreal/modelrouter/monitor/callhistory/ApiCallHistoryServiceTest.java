@@ -30,7 +30,6 @@ import static org.mockito.Mockito.*;
  * ApiCallHistoryService 单元测试
  *
  * @author JAiRouter Team
- * @since 2.7.8
  * @modified Trunkline Team
  */
 @ExtendWith(MockitoExtension.class)

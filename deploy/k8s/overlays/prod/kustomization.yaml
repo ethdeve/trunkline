@@ -38,5 +38,5 @@ patches:
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
-          name: JAIROUTER_REPLICAS
+          name: TRUNKLINE_REPLICAS
           value: "3"

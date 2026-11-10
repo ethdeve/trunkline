@@ -29,7 +29,6 @@ import org.unreal.modelrouter.common.exception.ApiException;
  * 提供负载均衡器状态查询和配置管理功能
  *
  * @author JAiRouter Team
- * @since 2.4.3
  */
 @Slf4j
 @RestController

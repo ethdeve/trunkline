@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.common.dto;
 
 import lombok.AllArgsConstructor;
@@ -13,8 +17,7 @@ import java.util.List;
  * <p>把「供应商」与「其下已接入的模型名」合并成一条，供表格直接渲染——
  * 避免前端为每个供应商再发一次模型列表请求（N+1）。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Data
 @Builder

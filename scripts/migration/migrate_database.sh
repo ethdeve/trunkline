@@ -4,7 +4,7 @@ echo "=== 数据库迁移：添加限流器和熔断器字段 ==="
 echo ""
 
 # H2 数据库文件路径
-DB_PATH="/home/ubuntu/jairouter/modelrouter/data/jairouter-dev.mv.db"
+DB_PATH="/home/ubuntu/trunkline/data/trunkline.mv.db"
 
 # 检查数据库文件是否存在
 if [ ! -f "$DB_PATH" ]; then
@@ -48,7 +48,7 @@ import java.sql.*;
 
 public class H2Migrate {
     public static void main(String[] args) throws Exception {
-        String dbPath = args.length > 0 ? args[0] : "/home/ubuntu/jairouter/modelrouter/data/jairouter-dev";
+        String dbPath = args.length > 0 ? args[0] : "/home/ubuntu/trunkline/data/trunkline";
         String url = "jdbc:h2:" + dbPath;
         
         try (Connection conn = DriverManager.getConnection(url, "sa", "")) {

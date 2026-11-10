@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import org.junit.jupiter.api.DisplayName;
@@ -36,8 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>纯逻辑测试，不使用 Mockito（避开本机 inline mock maker 故障）。
  * 事件发布器用手写空实现，避免引入 Spring 上下文。</p>
  *
- * @author JAiRouter Team
- * @since P0-A
+ * @author Trunkline Team
  */
 @DisplayName("P0-A 补充验证：月/小时额度窗口边界 + 真实运行期链路")
 class ApiKeyMonthlyWindowBoundaryTest {

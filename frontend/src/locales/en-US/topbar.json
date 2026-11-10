@@ -10,9 +10,6 @@
     "langShortZh": "中",
     "langShortEn": "EN",
     "logout": "Log out",
-    "tenant": "Default tenant",
-    "enterprise": "Enterprise",
-    "tenantTip": "Community edition (single tenant). Multi-tenant switching is available in the enterprise edition.",
     "clusterTipOk": "Multi-replica deployment: live counters on this page usually cover the current replica only",
     "clusterTipGap": "Multi-replica deployment with cross-replica shared state disabled — data may differ between replicas. See State & Storage for details"
   }

@@ -28,14 +28,11 @@ public class WebAdminResourceConfig implements WebFluxConfigurer {
                 .resourceChain(true)
                 .addResolver(new SpaPathResourceResolver());
 
-        // 内置帮助文档静态资源（markdown 内引用的图片等）：
-        // 前端渲染后把 md 内相对图片路径重写为 /docs-res/{lang}/{相对路径}，
-        // 此处直接映射 classpath:/docs/ 目录（zh/en 双语内容）。
-        registry.addResourceHandler("/docs-res/**")
-                .addResourceLocations("classpath:/docs/")
-                .setCacheControl(org.springframework.http.CacheControl.maxAge(
-                        java.time.Duration.ofHours(1)).cachePublic())
-                .resourceChain(true);
+        // 【2026-11-10 收紧】原 /docs-res/** → classpath:/docs/ 静态映射已移除。
+        // 该映射把 zh/en 全部帮助文档 .md 正文匿名暴露，普通用户可直接下载全文，
+        // 绕过 /api/docs/content 的角色鉴权（实测 /docs-res/zh/index.md 返回 200）。
+        // 帮助文档 38 篇均为纯文本、无配图，正文统一经 DocsController（OPS 级别）读取；
+        // 若将来需要文档配图，应另建带角色鉴权的资源端点，而不是重新放行整个 docs 目录。
 
         log.info("Web 管理界面静态资源配置完成");
     }

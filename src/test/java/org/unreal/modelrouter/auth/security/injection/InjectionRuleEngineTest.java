@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.injection;
 
 import java.util.List;
@@ -14,8 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * {@link InjectionRuleEngine} 单元测试：内置规则命中、误报收敛、禁用与附加规则。
  *
- * @author wjy-gateway Extensions
- * @since 3.3.1
+ * @author Trunkline Team
  */
 class InjectionRuleEngineTest {
 

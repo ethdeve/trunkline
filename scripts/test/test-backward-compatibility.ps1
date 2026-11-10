@@ -1,4 +1,4 @@
-# JAiRouter 向后兼容性测试脚本
+# Trunkline 向后兼容性测试脚本
 # 用于验证安全功能的向后兼容性支持
 
 param(
@@ -55,7 +55,7 @@ function Log-Error {
 # 显示帮助信息
 function Show-Help {
     @"
-JAiRouter 向后兼容性测试脚本
+Trunkline 向后兼容性测试脚本
 
 用法: .\test-backward-compatibility.ps1 [选项]
 
@@ -84,7 +84,7 @@ JAiRouter 向后兼容性测试脚本
 
 # 测试结果记录
 $TestResults = @{
-    TestSuite = "JAiRouter Backward Compatibility"
+    TestSuite = "Trunkline Backward Compatibility"
     StartTime = Get-Date
     Tests = @()
     Summary = @{
@@ -470,7 +470,7 @@ function Main {
         return
     }
     
-    Log-Info "开始JAiRouter向后兼容性测试..."
+    Log-Info "开始 Trunkline 向后兼容性测试..."
     Log-Info "测试结果将保存到: $TestResultsFile"
     Write-Host ""
     

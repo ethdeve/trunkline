@@ -32,8 +32,6 @@ import static org.mockito.Mockito.*;
 /**
  * ClaudeAdapter 单元测试
  * 验证 Claude API 适配器的请求/响应转换逻辑
- *
- * @since v2.8.0
  */
 @ExtendWith(MockitoExtension.class)
 class ClaudeAdapterTest {

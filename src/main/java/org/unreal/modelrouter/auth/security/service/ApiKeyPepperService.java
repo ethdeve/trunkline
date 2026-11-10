@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import lombok.extern.slf4j.Slf4j;
@@ -23,8 +27,7 @@ import java.util.Map;
  *
  * <p>说明：pepper 仅用于让 {@code lookupHash} 不可离线预计算，其泄漏不弱于 {@code keyHash} 已暴露的
  * 威胁模型（二者同存于共享存储）。真正的安全边界仍是 {@code keyHash} 的随机盐恒定时间比较。</p>
- *
- * @since v3.5 (C6)
+ * @author Trunkline Team
  */
 @Slf4j
 @Service

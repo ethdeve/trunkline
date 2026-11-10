@@ -36,7 +36,6 @@ import java.util.Map;
  * 单个 {@code type=text} 块，使下游翻译逻辑只需处理一种形态。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record AnthropicMessagesRequest(

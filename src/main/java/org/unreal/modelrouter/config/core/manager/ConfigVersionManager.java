@@ -24,7 +24,6 @@ import java.util.stream.Collectors;
  * 提供完整的版本控制功能，包括版本历史记录和元数据管理
  *
  * @author AI Assistant
- * @since v2.2.0
  * @modified Trunkline Team
  */
 @Component

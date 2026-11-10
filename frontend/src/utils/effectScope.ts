@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * 多副本生效提示（S4）
  *
  * <p><b>为什么需要</b>：控制台的「已保存」「已吊销」在多副本部署下是<b>半真</b>的——

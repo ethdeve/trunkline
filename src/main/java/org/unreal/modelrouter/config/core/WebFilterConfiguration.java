@@ -22,7 +22,6 @@ import org.unreal.modelrouter.common.filter.FilterOrderContract;
  * 禁止直接书写 {@code HIGHEST_PRECEDENCE + n} 字面量。</p>
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Slf4j

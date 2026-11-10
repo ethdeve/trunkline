@@ -36,7 +36,6 @@ import java.util.concurrent.atomic.AtomicReference;
  * - 错误统计和告警
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Slf4j

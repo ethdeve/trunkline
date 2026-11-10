@@ -19,7 +19,6 @@ import java.util.function.Consumer;
  * 统计更新事件通过事件总线分发到各个处理器。
  *
  * @author JAiRouter Team
- * @since 2.7.4
  */
 public class StatsEventBus {
 

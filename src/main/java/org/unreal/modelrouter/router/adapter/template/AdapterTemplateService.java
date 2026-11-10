@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 
 /**
  * 适配器模板服务
- * 管理常见 AI 供应商的预配置模板（内置 13 个硬编码预置）
+ * 管理常见 AI 供应商的预配置模板（内置 11 个硬编码预置；2026-11-10 移除百川智能）
  * + 用户自定义模板（系统设置 → 模型供应商管理 维护，经 StoreManager 持久化）
  */
 @Service
@@ -266,16 +266,6 @@ public class AdapterTemplateService {
                 "Authorization", "Bearer ",
                 List.of("moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"),
                 30
-        ));
-
-        templates.add(createTemplate(
-                "baichuan", "百川智能", "百川大模型",
-                "domestic", "openai-compatible",
-                "https://api.baichuan-ai.com/v1",
-                true, false, false, false, false, false, false, true,
-                "Authorization", "Bearer ",
-                List.of("Baichuan4", "Baichuan3-Turbo"),
-                40
         ));
 
         templates.add(createTemplate(

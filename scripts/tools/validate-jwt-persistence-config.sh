@@ -173,9 +173,9 @@ validate_redis_connectivity() {
 validate_application_health() {
     log_info "Validating application health..."
     
-    # Check if JAiRouter is running
+    # Check if Trunkline is running
     if curl -f http://localhost:8080/actuator/health >/dev/null 2>&1; then
-        log_success "JAiRouter application is healthy"
+        log_success "Trunkline application is healthy"
         
         # Check JWT persistence specific health
         if curl -f http://localhost:8080/actuator/health/jwt-persistence >/dev/null 2>&1; then
@@ -186,7 +186,7 @@ validate_application_health() {
         
         return 0
     else
-        log_info "JAiRouter application not running, skipping health check"
+        log_info "Trunkline application not running, skipping health check"
         return 0
     fi
 }
@@ -243,12 +243,12 @@ Pre-deployment:
 Deployment:
 □ Start Redis container: docker-compose up -d redis
 □ Wait for Redis to be healthy
-□ Start JAiRouter: docker-compose up -d jairouter
+□ Start Trunkline: docker-compose up -d trunkline
 □ Verify application health: curl http://localhost:8080/actuator/health
 □ Verify JWT persistence: curl http://localhost:8080/actuator/health/jwt-persistence
 
 Post-deployment:
-□ Start monitoring stack: docker-compose -f docker-compose-monitoring.yml up -d
+□ Start monitoring stack: docker-compose -f docker-compose.monitoring.yml up -d
 □ Configure Grafana dashboards
 □ Test JWT token operations
 □ Verify audit logging

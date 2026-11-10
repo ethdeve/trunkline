@@ -38,7 +38,6 @@ import java.util.concurrent.ThreadLocalRandom;
  * </ul>
  *
  * @author JAiRouter Team
- * @since 3.2.5
  */
 @Slf4j
 public class RedisSlidingWindowRateLimiter implements RateLimiter {

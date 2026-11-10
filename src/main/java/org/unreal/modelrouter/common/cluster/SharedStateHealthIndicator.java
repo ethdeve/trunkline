@@ -26,7 +26,6 @@ import java.util.Map;
  * 或 {@code mode=FAIL}（启动即失败）。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.3
  * @modified Trunkline Team
  */
 @Component("sharedState")

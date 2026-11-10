@@ -80,7 +80,6 @@ public class ServiceStateManager {
      *
      * @param instanceKey 实例键值 (格式：serviceType:instanceId)
      * @return "HEALTHY" - 健康，"UNHEALTHY" - 不健康，"UNKNOWN" - 未知（未检查）
-     * @since v2.3.3
      */
     public String getInstanceHealthStatus(final String instanceKey) {
         // v2.7.11: 使用 BitSet 查询
@@ -121,7 +120,6 @@ public class ServiceStateManager {
      * 真正不健康的实例仍会被过滤掉，候选为空时路由层会抛出带逐成员明细的 503。</p>
      *
      * @param serviceType 服务类型（分类名）
-     * @since 2026-10-27
      */
     public void resetServiceHealthStatus(final String serviceType) {
         if (serviceType == null || serviceType.isBlank()) {
@@ -183,7 +181,6 @@ public class ServiceStateManager {
      *
      * @param serviceType 服务类型（分类名）
      * @param instance    实例
-     * @since 2026-10-27
      */
     public void resetInstanceHealthStatus(final String serviceType,
                                           final ModelRouterProperties.ModelInstance instance) {
@@ -210,7 +207,6 @@ public class ServiceStateManager {
      *
      * @param serviceType 服务类型（分类枚举名）
      * @param instanceId  实例唯一 ID（UUID）
-     * @since 2026-10-27
      */
     public void resetInstanceHealthStatusById(final String serviceType, final String instanceId) {
         if (serviceType == null || serviceType.isBlank() || instanceId == null || instanceId.isBlank()) {
@@ -235,7 +231,6 @@ public class ServiceStateManager {
      *
      * @param serviceType  原服务类型
      * @param instanceId   实例唯一 ID
-     * @since 2026-10-22
      */
     public void removeInstanceHealthStatus(final String serviceType, final String instanceId) {
         if (serviceType == null || instanceId == null || instanceId.isBlank()) {

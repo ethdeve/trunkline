@@ -67,7 +67,6 @@ import static org.mockito.Mockito.when;
  * （DB 落库协作方）为 Mockito 桩，其余均为真实实现。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

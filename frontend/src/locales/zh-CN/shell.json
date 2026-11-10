@@ -16,7 +16,7 @@
       "title": "路由规则",
       "subtitle": "按条件把请求转给不同的模型",
       "tabs": {
-        "routeRules": "🎯 分配规则",
+        "routeRules": "🎯 路由规则",
         "responseCache": "响应缓存"
       }
     },

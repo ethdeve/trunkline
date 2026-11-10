@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 /**
@@ -18,8 +22,7 @@ package org.unreal.modelrouter.auth.security.service;
  * <p>注意：<b>ADMIN 也不能刷新他人的令牌</b> —— 归属判定一律要求 subject 一致，
  * 避免把「刷新」变成令牌提权通道。
  *
- * @author JAiRouter Team
- * @since 3.3.1
+ * @author Trunkline Team
  */
 public final class JwtTokenOwnershipValidator {
 

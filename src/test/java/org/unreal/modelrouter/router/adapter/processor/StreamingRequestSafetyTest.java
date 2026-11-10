@@ -65,7 +65,6 @@ import static org.mockito.Mockito.when;
  * cancel + 终止错误，长但持续产出的流不受影响。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.3
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

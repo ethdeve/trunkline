@@ -32,7 +32,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * 支持频率控制、告警抑制、趋势分析等功能。
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Service
 public class SlowQueryAlertService {

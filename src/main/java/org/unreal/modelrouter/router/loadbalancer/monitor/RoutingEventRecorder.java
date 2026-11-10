@@ -23,7 +23,6 @@ import java.util.function.Consumer;
  * 支持暂停/恢复监控和历史记录导出
  *
  * @author JAiRouter Team
- * @since 2.7.0
  */
 @Slf4j
 @Component

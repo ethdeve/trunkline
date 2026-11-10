@@ -9,7 +9,6 @@ package org.unreal.modelrouter.auth.security.quota;
  * @param dimension       请求维度，{@code null} 时归一化为 {@link QuotaDimension#empty()}
  * @param estimatedTokens 预估消耗 token 数（负数按 0 处理），结算时按实际值冲正
  * @author JAiRouter Team
- * @since 3.1.0
  */
 public record QuotaRequest(QuotaDimension dimension, long estimatedTokens) {
 

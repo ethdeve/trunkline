@@ -16,7 +16,7 @@
       "title": "Routing Rules",
       "subtitle": "Route requests to different models by conditions",
       "tabs": {
-        "routeRules": "🎯 Assignment Rules",
+        "routeRules": "🎯 Routing Rules",
         "responseCache": "Response Cache"
       }
     },

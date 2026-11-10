@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * 危险操作确认弹窗统一模板（U10-3）
  *
  * 全站删除/重置类操作此前各页自行发挥，运营看到弹窗时不知道：

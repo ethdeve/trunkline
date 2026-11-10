@@ -36,7 +36,6 @@ import java.util.Map;
  * - 手动性能调优触发
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 @RestController

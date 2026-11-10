@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.billing.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -17,8 +21,7 @@ import java.util.List;
  * <p>金额按<b>厂商模型</b>单价算好后汇总到<b>虚拟模型</b>——员工看到的是虚拟模型名，
  * 不必关心背后是哪个厂商。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Data
 @Builder

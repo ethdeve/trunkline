@@ -33,7 +33,6 @@ import static org.mockito.Mockito.*;
  * TracingSanitizationService 测试类
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

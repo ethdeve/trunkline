@@ -18,7 +18,6 @@ import java.time.Instant;
  * @param triggerReason   触发原因
  *
  * @author JAiRouter Team
- * @since 2.7.0
  */
 public record CircuitBreakerEvent(
     Instant timestamp,

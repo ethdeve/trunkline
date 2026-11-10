@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 断言写错会让伪造的 XFF 被采信。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.6
  */
 @DisplayName("可信代理策略与客户端 IP 推导")
 class TrustedProxyPolicyTest {

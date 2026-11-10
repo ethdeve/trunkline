@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.spi;
 
 /**
@@ -6,6 +10,7 @@ package org.unreal.modelrouter.enterprise.spi;
  * <p>社区版由 {@code NoopLicenseVerifier} 恒定返回 community 版、永远合法；
  * 商业版由 {@code trunkline-enterprise.jar} 提供 RSA 签名校验实现
  * （S2 任务 71 只做接口与 Noop，RSA 实现与 license 签发流程归 ENT-MVP）。
+ * @author Trunkline Team
  */
 public interface LicenseVerifier {
 

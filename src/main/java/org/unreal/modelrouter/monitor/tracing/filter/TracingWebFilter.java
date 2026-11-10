@@ -37,7 +37,6 @@ import java.util.Optional;
  * - 集成结构化日志记录
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Slf4j

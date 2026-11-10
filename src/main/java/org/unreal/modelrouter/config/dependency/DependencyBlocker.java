@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.dependency;
 
 import java.util.Objects;
@@ -7,8 +11,7 @@ import java.util.Objects;
  *
  * <p>用于在删除前把「还有谁在用我」这件事讲清楚，而不是只丢一句「存在关联，无法删除」。</p>
  *
- * @author JAiRouter Team
- * @since 3.3.2
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 public class DependencyBlocker {

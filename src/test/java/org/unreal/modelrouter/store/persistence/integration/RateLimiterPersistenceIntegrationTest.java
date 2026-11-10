@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * v2.4.6: 测试 RateLimitManager 与状态持久化的集成
  *
  * @author JAiRouter Team
- * @since 2.4.6
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RateLimiterPersistenceIntegration Tests")

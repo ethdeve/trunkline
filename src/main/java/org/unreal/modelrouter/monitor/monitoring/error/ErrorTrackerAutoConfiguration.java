@@ -15,7 +15,6 @@ import org.unreal.modelrouter.monitor.tracing.logger.StructuredLogger;
  * 根据配置条件自动装配错误追踪相关的组件。
  *
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Configuration

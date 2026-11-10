@@ -37,7 +37,6 @@ import java.util.Map;
  * - exceededBy: 超出阈值（慢查询专用）
  *
  * @author JAiRouter Team
- * @since v2.16.4
  */
 @Data
 @Builder

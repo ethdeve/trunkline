@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
  * @param requestCount 窗口内累计请求数
  * @param tokenCount   窗口内累计 token 数
  * @author JAiRouter Team
- * @since 3.1.0
  */
 public record QuotaUsage(QuotaDimension dimension,
                          QuotaWindow window,

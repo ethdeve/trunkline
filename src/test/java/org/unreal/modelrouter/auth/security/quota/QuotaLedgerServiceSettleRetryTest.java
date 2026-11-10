@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.quota;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -29,8 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * （{@link FakeReactiveRedisTemplate}）+ 内存仓库（{@link InMemoryQuotaLedgerRepository}），
  * 不使用 Mockito；等待异步落 Redis 使用有界轮询（沿用仓库既有做法）。</p>
  *
- * @author JAiRouter Team
- * @since 3.5.0
+ * @author Trunkline Team
  */
 @DisplayName("QuotaLedgerService 结算补写失败重试队列（D1 整改）")
 class QuotaLedgerServiceSettleRetryTest {

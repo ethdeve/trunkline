@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.quota;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>覆盖：旧计数并入新前缀（求和语义）、迁移后删除旧 key、无旧 key 时零操作、
  * legacy 前缀置空 / 与新前缀相同时跳过、新前缀已有计数时正确合并。</p>
+ * @author Trunkline Team
  */
 @DisplayName("QuotaRedisKeyMigrator 旧前缀迁移")
 class QuotaRedisKeyMigratorTest {

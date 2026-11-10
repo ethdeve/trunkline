@@ -11,7 +11,6 @@ import java.util.List;
  * 将数据库查询结果安全映射为 DTO 对象
  *
  * @author JAiRouter Team
- * @since 2.9.1
  */
 @Slf4j
 public final class ApiCallHistoryStatisticsMapper {

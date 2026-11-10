@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * ServiceEndpoint 枚举测试.
  *
  * @author JAiRouter Team
- * @since 2.10.0
  */
 @DisplayName("ServiceEndpoint 测试")
 class ServiceEndpointTest {

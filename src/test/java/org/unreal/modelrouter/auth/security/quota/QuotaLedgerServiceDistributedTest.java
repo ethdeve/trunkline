@@ -37,7 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * </ul>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 @DisplayName("QuotaLedgerService 分布式计数与降级测试")

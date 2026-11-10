@@ -5,8 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 /**
  * OpenAI响应转换器接口
  * 将后端响应转换为标准格式
- *
- * @since v2.7.24
  */
 public interface OpenAiResponseTransformer {
 

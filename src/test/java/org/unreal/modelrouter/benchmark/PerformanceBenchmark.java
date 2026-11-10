@@ -21,7 +21,6 @@ import java.util.stream.Collectors;
  * 3. 单次 Stream vs 多次 Stream
  *
  * @author JAiRouter Team
- * @since v2.7.13
  */
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)

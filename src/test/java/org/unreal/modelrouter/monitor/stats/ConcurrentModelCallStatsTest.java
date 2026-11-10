@@ -16,7 +16,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * ConcurrentModelCallStats 单元测试
  *
  * @author JAiRouter Team
- * @since 2.7.2
  */
 class ConcurrentModelCallStatsTest {
 

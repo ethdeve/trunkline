@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.service;
 
 import org.junit.jupiter.api.DisplayName;
@@ -30,8 +34,7 @@ import static org.mockito.Mockito.when;
  * 才灌数据，导致「分类目录有、{@code service_config} 表空」的库：接入厂商时按分类查服务配置
  * 必然落空，报「服务配置不存在: chat」。修复后接入流程自行补建缺失的分类行。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @DisplayName("接入厂商 · 模型分类缺失自愈测试")
 class ModelProviderServiceCategoryHealTest {

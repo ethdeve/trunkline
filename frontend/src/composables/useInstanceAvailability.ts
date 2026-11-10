@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * 实例可用性评估（测试场模型选择器专用）
  *
  * 背景：运营在测试场「选了模型调不通」，最常见原因是选到了

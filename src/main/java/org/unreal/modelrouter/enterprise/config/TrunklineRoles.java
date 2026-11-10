@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.config;
 
 /**
@@ -13,6 +17,7 @@ package org.unreal.modelrouter.enterprise.config;
  * <p>社区版 {@code ADMIN} 角色语义 = 平台唯一管理员；商业版启用后
  * 由 enterprise jar 在登录流中给 admin 账号补签这两个角色
  * （对应迭代计划任务 39 「社区版 admin 同时挂两个角色」）。
+ * @author Trunkline Team
  */
 public final class TrunklineRoles {
 

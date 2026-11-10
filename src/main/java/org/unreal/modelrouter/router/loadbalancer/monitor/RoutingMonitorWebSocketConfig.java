@@ -13,7 +13,6 @@ import java.util.Map;
  * 路由监控 WebSocket 配置
  *
  * @author JAiRouter Team
- * @since 2.7.0
  */
 @Configuration
 @RequiredArgsConstructor

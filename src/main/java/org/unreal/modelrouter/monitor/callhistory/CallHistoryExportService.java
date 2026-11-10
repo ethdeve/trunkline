@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.monitor.callhistory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,8 +40,7 @@ import java.util.Set;
  * <p>CSV 采用 RFC 4180 转义（逗号/引号/换行），带 UTF-8 BOM，Excel 直接打开不乱码；
  * JSON 为对象数组（列序固定），字段名与 CSV 表头一致，便于程序消费。</p>
  *
- * @author JAiRouter Team
- * @since 3.5.1
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 @Slf4j

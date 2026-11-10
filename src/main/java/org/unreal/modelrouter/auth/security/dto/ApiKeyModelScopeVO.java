@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -22,8 +26,7 @@ import lombok.NoArgsConstructor;
  * 实例索引为空）导致分组扩展信息不可用时，该标志置 {@code false}。
  * 前端据此显示「模型范围暂不可用」提示，而不是静默降级为空白下拉（员工会以为没有可用模型）。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Data
 @Builder
@@ -64,8 +67,6 @@ public class ApiKeyModelScopeVO {
      * 数据库未就绪），前端应显示「模型范围暂不可用」提示而不是空白下拉。</p>
      *
      * <p>默认 {@code true}：正常部署下该标志应为 true；只有依赖缺失时才置 false。</p>
-     *
-     * @since P0-L 应修9
      */
     @Builder.Default
     private boolean modelScopeAvailable = true;

@@ -26,7 +26,6 @@ import static org.mockito.ArgumentMatchers.eq;
  * v2.4.6: 测试三层退坡策略、健康检查、恢复同步
  *
  * @author JAiRouter Team
- * @since 2.4.6
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CompositeStatePersistenceService Tests")

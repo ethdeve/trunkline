@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.billing.dto;
 
 import lombok.AllArgsConstructor;
@@ -20,8 +24,7 @@ import java.util.List;
  * <p>费用口径与「我的账单」一致：{@code prompt/1000 × priceInput + completion/1000 × priceOutput}，
  * 单价取自 {@code model_price}（¥ / 千 token），未配置价格按 ¥0 计。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Data
 @Builder

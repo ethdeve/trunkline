@@ -13,7 +13,6 @@ import static org.mockito.Mockito.*;
  * ConfigIntegrityValidator 单元测试
  *
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @DisplayName("ConfigIntegrityValidator 测试")
 class ConfigIntegrityValidatorTest {

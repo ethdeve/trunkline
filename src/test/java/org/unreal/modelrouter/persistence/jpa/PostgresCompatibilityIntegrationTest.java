@@ -64,7 +64,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 未设置该变量的环境（含本地离线跑）整类跳过，不会让门闩变红。</p>
  *
  * @author JAiRouter Team
- * @since 2.9.9
  * @modified Trunkline Team
  */
 @EnabledIfEnvironmentVariable(named = "PG_TEST", matches = "true")

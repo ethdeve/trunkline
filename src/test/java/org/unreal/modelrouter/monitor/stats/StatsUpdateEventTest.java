@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * StatsUpdateEvent 单元测试
  *
  * @author JAiRouter Team
- * @since 2.7.4
  */
 class StatsUpdateEventTest {
 

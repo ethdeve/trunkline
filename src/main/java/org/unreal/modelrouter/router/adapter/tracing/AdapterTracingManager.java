@@ -25,7 +25,6 @@ import org.unreal.modelrouter.monitor.tracing.adapter.AdapterTracingEnhancer;
  * - 业务日志记录 (v2.27.0)
  *
  * @author JAiRouter Team
- * @since v2.3.2
  */
 @Slf4j
 @Component
@@ -271,7 +270,6 @@ public class AdapterTracingManager {
      * @param instance 实例信息
      * @param serviceType 服务类型
      * @param modelName 模型名称
-     * @since v2.27.0
      */
     public void recordCallStart(
             final String adapterType,
@@ -312,7 +310,6 @@ public class AdapterTracingManager {
      * @param modelName 模型名称
      * @param durationMs 耗时（毫秒）
      * @param success 是否成功
-     * @since v2.27.0
      */
     public void recordCallComplete(
             final String adapterType,
@@ -348,7 +345,6 @@ public class AdapterTracingManager {
      * @param retryCount 当前重试次数
      * @param maxRetries 最大重试次数
      * @param error 导致重试的错误
-     * @since v2.27.0
      */
     public void recordRetry(
             final String adapterType,
@@ -379,7 +375,6 @@ public class AdapterTracingManager {
      * 
      * @param adapterType 适配器类型
      * @param error 错误对象
-     * @since v2.27.0
      */
     public void recordTransformError(
             final String adapterType,
@@ -405,7 +400,6 @@ public class AdapterTracingManager {
      * 检查追踪是否活跃（便捷方法）
      * 
      * @return 追踪是否活跃
-     * @since v2.27.0
      */
     public boolean isTracingActive() {
         TracingContext context = TracingContextHolder.getCurrentContext();

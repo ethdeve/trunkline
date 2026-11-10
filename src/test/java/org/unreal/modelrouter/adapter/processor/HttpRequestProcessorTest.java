@@ -21,7 +21,6 @@ import static org.mockito.Mockito.*;
  * RequestProcessor 单元测试
  *
  * @author JAiRouter Team
- * @since v2.3.1.1
  */
 class HttpRequestProcessorTest {
 

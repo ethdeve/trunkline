@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.router.adapter;
 
 import org.slf4j.Logger;
@@ -23,6 +27,7 @@ import org.unreal.modelrouter.router.handler.ServiceRequestHandler;
  *
  * <p>取不到时返回 {@code null}（密钥已删除 / 系统密钥 / 缓存未同步），
  * 调用方据此把该行归入「未知」或「未归类」，不丢数据。</p>
+ * @author Trunkline Team
  */
 @Component
 public class CallerIdentityResolver {

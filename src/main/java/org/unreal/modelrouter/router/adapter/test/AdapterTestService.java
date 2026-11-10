@@ -59,7 +59,7 @@ public class AdapterTestService {
                 .header(authHeaderName != null ? authHeaderName : "Authorization",
                         authHeaderValue != null ? authHeaderValue : "")
                 // 部分 WAF（火山引擎等）会对默认 UA 的非浏览器客户端直接重置连接，声明 UA 降低被拦概率
-                .header(HttpHeaders.USER_AGENT, "JAiRouter/3.3.1 (provider connectivity check)")
+                .header(HttpHeaders.USER_AGENT, "Trunkline/0.1.0 (provider connectivity check)")
                 .retrieve()
                 .toBodilessEntity()
                 .map(response -> {
@@ -129,7 +129,7 @@ public class AdapterTestService {
                 .uri("/chat/completions")
                 .header(authHeaderName != null ? authHeaderName : "Authorization",
                         authHeaderValue != null ? authHeaderValue : "")
-                .header(HttpHeaders.USER_AGENT, "JAiRouter/3.3.1 (provider connectivity check)")
+                .header(HttpHeaders.USER_AGENT, "Trunkline/0.1.0 (provider connectivity check)")
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(String.class)

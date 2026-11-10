@@ -42,7 +42,6 @@ import java.util.Map;
  * <p>本类为无状态工具类：全局唯一估算实现，避免 count_tokens 与流式入口各写一份比例系数。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  */
 public final class AnthropicTokenEstimator {
 

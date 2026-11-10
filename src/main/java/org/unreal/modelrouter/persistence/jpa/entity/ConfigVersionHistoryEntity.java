@@ -12,8 +12,6 @@ import java.time.Instant;
 
 /**
  * Configuration version history entity for version tracking.
- *
- * @since v2.6.12
  */
 @Entity
 @Table(name = "config_version_history", indexes = {

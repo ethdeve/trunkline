@@ -24,7 +24,6 @@ import java.util.Map;
  * 集成到Spring Boot Actuator的健康检查端点，提供追踪系统的健康状态信息
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 @Component("tracing")

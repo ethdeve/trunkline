@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import java.util.LinkedHashSet;
@@ -20,8 +24,7 @@ import java.util.Locale;
  * <p><b>这些是废弃角色的兼容降级入口，不是「可被选用 / 展示」的角色清单</b>：
  * 任何「选择角色」入口（前端下拉、权限管理页角色卡）都不得再出现 VIEWER。</p>
  *
- * @author JAiRouter Team
- * @since 3.6.0
+ * @author Trunkline Team
  */
 public final class DeprecatedRoles {
 

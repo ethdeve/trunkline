@@ -19,7 +19,6 @@ import static org.mockito.Mockito.*;
  * SecurityConfigurationValidator 单元测试
  *
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @DisplayName("SecurityConfigurationValidator 测试")
 class SecurityConfigurationValidatorTest {

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# JAiRouter Docker Build Script
+# Trunkline Docker Build Script
 # Usage: ./scripts/build/docker-build.sh [image-type]
 # Image types: standard, optimized, jlink
 
@@ -46,7 +46,7 @@ fi
 # Get version from pom.xml
 VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
 
-echo -e "${YELLOW}Starting JAiRouter Docker build (Version: ${VERSION})...${NC}"
+echo -e "${YELLOW}Starting Trunkline Docker build (Version: ${VERSION})...${NC}"
 echo -e "${BLUE}Image type: ${IMAGE_TYPE}${NC}"
 
 # Step 1: Clean and build the JAR

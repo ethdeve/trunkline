@@ -26,7 +26,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * - 定期清理空闲缓冲区
  *
  * @author JAiRouter Team
- * @since 2.7.5
  */
 public final class ByteBufferPool {
 

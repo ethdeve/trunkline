@@ -27,7 +27,6 @@ import static org.mockito.Mockito.*;
  * <p>测试慢查询分析功能</p>
  *
  * @version v2.7.6
- * @since 2025-01-17
  */
 @DisplayName("SlowQueryAnalysisController RESTful 接口测试")
 @ExtendWith(MockitoExtension.class)

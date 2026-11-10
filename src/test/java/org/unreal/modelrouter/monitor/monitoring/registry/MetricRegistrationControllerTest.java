@@ -35,7 +35,6 @@ import static org.mockito.Mockito.*;
  * <p>测试指标注册管理功能</p>
  *
  * @version v2.7.6
- * @since 2025-01-17
  */
 @DisplayName("MetricRegistrationController RESTful 接口测试")
 @ExtendWith(MockitoExtension.class)

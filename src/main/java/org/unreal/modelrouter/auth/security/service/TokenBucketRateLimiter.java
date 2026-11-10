@@ -18,7 +18,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * 造成内存无上限增长。过期只在 key 闲置时发生，活跃 key 的窗口计数不受影响。</p>
  *
  * @author JAiRouter Team
- * @since v2.7.6
  */
 @Slf4j
 @Component

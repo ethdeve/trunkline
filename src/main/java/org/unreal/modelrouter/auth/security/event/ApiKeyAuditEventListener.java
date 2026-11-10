@@ -20,8 +20,6 @@ import reactor.core.publisher.Mono;
  * 2. 异步批量处理审计日志
  * 3. 解耦审计逻辑和业务逻辑
  * 4. 更好的可扩展性
- *
- * @since v2.14.3
  */
 @Slf4j
 @Component

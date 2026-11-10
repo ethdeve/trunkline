@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.common.dto;
 
 import lombok.AllArgsConstructor;
@@ -12,6 +16,7 @@ import java.time.LocalDateTime;
  *
  * <p>apiKey 永不出现在本 DTO 中（仅创建/更新请求可写）；列表用 {@code hasApiKey} 表达「已设置 Key」。
  * {@code modelCount} 为该供应商下已接入的实例数（卡片「可用 N 个模型」）。
+ * @author Trunkline Team
  */
 @Data
 @Builder

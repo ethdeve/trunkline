@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
  * 提供调用历史的记录、查询、统计和清理功能
  *
  * @author JAiRouter Team
- * @since 2.7.8
  * @modified Trunkline Team
  */
 @Slf4j

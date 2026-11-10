@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import lombok.extern.slf4j.Slf4j;
@@ -23,8 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>本组件为无状态叶子组件，被 {@link ApiKeyService}、{@link ApiKeyValidator}、
  * {@link ApiKeyPersistenceService} 共同依赖，自身不反向依赖它们，避免循环依赖。</p>
- *
- * @since v3.5 (C6)
+ * @author Trunkline Team
  */
 @Slf4j
 @Component

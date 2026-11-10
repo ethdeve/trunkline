@@ -30,7 +30,6 @@ import java.time.Duration;
  * - API 调用历史记录 (v2.7.8)
  *
  * @author JAiRouter Team
- * @since v2.3.2
  * @modified Trunkline Team
  */
 @Slf4j
@@ -248,7 +247,6 @@ public class AdapterMetricsRecorder {
      * @param instance 实例
      * @param durationMs 调用耗时（毫秒）
      * @param success 是否成功
-     * @since v2.9.3
      */
     public void recordCallSuccessToRegistry(
             final ModelServiceRegistry.ServiceType serviceType,
@@ -272,7 +270,6 @@ public class AdapterMetricsRecorder {
      * @param instance 实例
      * @param durationMs 调用耗时（毫秒）
      * @param errorCode 错误码
-     * @since v2.9.3
      */
     public void recordCallFailureToRegistry(
             final ModelServiceRegistry.ServiceType serviceType,
@@ -303,7 +300,6 @@ public class AdapterMetricsRecorder {
      * @param modelName 模型名称
      * @param serviceType 服务类型
      * @param instance 实例对象
-     * @since v2.26.0
      */
     public void recordCompleteCall(
             final String adapterType,
@@ -331,7 +327,6 @@ public class AdapterMetricsRecorder {
      * @param modelName    模型名称
      * @param serviceType  服务类型
      * @param instance     实例对象
-     * @since v2.9.2
      */
     public void recordCompleteCallStats(
             final String adapterType,
@@ -367,7 +362,6 @@ public class AdapterMetricsRecorder {
      * @param instance     实例对象
      * @param requestBody  请求体原始内容（可为 null，METADATA_ONLY 时忽略）
      * @param responseBody 响应体原始内容（可为 null，METADATA_ONLY 时忽略）
-     * @since v2.9.2
      */
     public void recordCompleteCall(
             final String adapterType,
@@ -396,7 +390,6 @@ public class AdapterMetricsRecorder {
      * （与流式路径 {@code traceIdForRecord} 同一修法）。</p>
      *
      * @param traceId 调用方同步捕获的追踪 ID；空串/null 时退回运行时取值
-     * @since v3.5
      */
     public void recordCompleteCall(
             final String adapterType,

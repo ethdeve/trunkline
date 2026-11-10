@@ -64,7 +64,6 @@ import reactor.test.StepVerifier;
  * - TracingWebClientFactory集成
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

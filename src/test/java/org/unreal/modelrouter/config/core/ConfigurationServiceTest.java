@@ -41,7 +41,6 @@ import static org.mockito.Mockito.*;
  * <p>测试配置管理核心功能</p>
  *
  * @version v2.10.0
- * @since 2026-05-24
  */
 @DisplayName("ConfigurationService 配置管理服务测试")
 @ExtendWith(MockitoExtension.class)

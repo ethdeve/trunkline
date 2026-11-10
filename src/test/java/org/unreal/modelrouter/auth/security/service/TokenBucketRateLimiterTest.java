@@ -10,7 +10,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * TokenBucketRateLimiter 单元测试
  *
  * @author JAiRouter Team
- * @since v2.7.6
  */
 @DisplayName("TokenBucketRateLimiter 滑动窗口速率限制器测试")
 class TokenBucketRateLimiterTest {

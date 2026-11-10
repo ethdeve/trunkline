@@ -33,7 +33,6 @@ import java.util.function.Supplier;
  * - 成功/错误响应处理
  *
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 @Component

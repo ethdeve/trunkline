@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.common.dto;
 
 import lombok.AllArgsConstructor;
@@ -13,8 +17,7 @@ import java.time.LocalDateTime;
  *
  * <p>单价口径：¥ / 千 token。价格来源一期手工配置（用户决策 #2）。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Data
 @Builder

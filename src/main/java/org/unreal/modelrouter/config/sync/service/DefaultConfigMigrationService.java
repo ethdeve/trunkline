@@ -15,8 +15,6 @@ import java.util.Map;
 
 /**
  * Default config migration service implementation.
- *
- * @since v2.6.12
  */
 @Service
 @Slf4j

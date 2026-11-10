@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.router.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -44,8 +48,7 @@ import java.util.Map;
  * 因此两个端点都显式切到 {@link Schedulers#boundedElastic()}（与
  * {@code ApiKeyManagementController} 的配额端点一致）。</p>
  *
- * @author JAiRouter Team
- * @since 3.4.0
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 @Slf4j

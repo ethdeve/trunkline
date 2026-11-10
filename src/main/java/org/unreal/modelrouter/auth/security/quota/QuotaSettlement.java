@@ -19,7 +19,6 @@ package org.unreal.modelrouter.auth.security.quota;
  * @param actualTokens    实际消耗 token 数（负数按 0 处理；失败时忽略）
  * @param failed          本次调用是否失败（失败时回滚整笔预留）
  * @author JAiRouter Team
- * @since 3.1.0
  */
 public record QuotaSettlement(QuotaDimension dimension, long estimatedTokens, long actualTokens, boolean failed) {
 

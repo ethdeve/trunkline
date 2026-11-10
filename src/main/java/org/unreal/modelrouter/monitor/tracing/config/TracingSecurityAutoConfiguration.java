@@ -23,7 +23,6 @@ import org.unreal.modelrouter.monitor.tracing.security.TracingSecurityManager;
  * - 安全功能的协调和初始化
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Slf4j

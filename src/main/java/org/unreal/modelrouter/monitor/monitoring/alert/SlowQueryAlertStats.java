@@ -11,7 +11,6 @@ import java.util.Set;
  * 记录慢查询告警系统的运行统计数据，用于监控和分析告警系统的效果。
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Data
 @Builder

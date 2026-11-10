@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.spi;
 
 /**
@@ -8,6 +12,7 @@ package org.unreal.modelrouter.enterprise.spi;
  *
  * <p>约定：租户 ID 只允许小写字母、数字、连字符（{@code [a-z0-9-]}），
  * 因为它会被拼进 Redis key（{@code trunkline:{tenantId}:{domain}:}）。
+ * @author Trunkline Team
  */
 public interface TenantContext {
 

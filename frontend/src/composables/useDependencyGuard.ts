@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
 import { ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { checkDependencies, type DependencyBlocker, type DependencyReport, type DependencyTargetType } from '@/api/dependency'

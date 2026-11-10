@@ -34,7 +34,6 @@ import static org.mockito.Mockito.*;
  * <p>测试JWT账户管理功能</p>
  *
  * @version v2.10.0
- * @since 2026-05-24
  */
 @DisplayName("JwtAccountService JWT账户服务测试")
 @ExtendWith(MockitoExtension.class)

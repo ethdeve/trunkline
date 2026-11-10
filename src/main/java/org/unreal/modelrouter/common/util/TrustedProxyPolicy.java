@@ -24,7 +24,6 @@ import java.util.List;
  * </ul>
  *
  * @author JAiRouter Team
- * @since 3.2.6
  */
 @Slf4j
 public final class TrustedProxyPolicy {

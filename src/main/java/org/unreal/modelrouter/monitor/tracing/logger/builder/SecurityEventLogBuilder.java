@@ -32,7 +32,6 @@ import org.unreal.modelrouter.monitor.tracing.logger.dto.SecurityEventFields;
  * 注意：只负责构建日志字段数据，不负责输出
  *
  * @author JAiRouter Team
- * @since v2.16.1 (重构于 v2.16.4)
  */
 @Component
 public final class SecurityEventLogBuilder {

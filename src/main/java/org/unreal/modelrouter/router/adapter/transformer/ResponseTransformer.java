@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
  * 支持模型名称适配和响应格式转换
  * 
  * @author AI Assistant
- * @since v2.2.4
  */
 @Component
 public class ResponseTransformer {

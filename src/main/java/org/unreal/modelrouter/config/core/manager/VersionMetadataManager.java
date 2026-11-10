@@ -21,7 +21,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * 从 ConfigVersionManager 中提取，遵循单一职责原则
  *
  * @author AI Assistant
- * @since v2.28.0
  * @modified Trunkline Team
  */
 @Component

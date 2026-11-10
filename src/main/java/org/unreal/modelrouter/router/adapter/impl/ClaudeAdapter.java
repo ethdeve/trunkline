@@ -24,8 +24,6 @@ import java.util.Map;
  * - x-api-key 认证头（非 Authorization: Bearer）
  * - anthropic-version 头自动注入
  * - 请求/响应格式转换（Claude 格式 ↔ OpenAI 格式）
- *
- * @since v2.8.0
  */
 @Slf4j
 public class ClaudeAdapter extends BaseAdapter {

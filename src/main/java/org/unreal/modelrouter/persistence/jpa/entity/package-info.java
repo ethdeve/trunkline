@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 /**
  * JPA 实体定义包。
  *
@@ -8,6 +12,7 @@
  * {@link org.unreal.modelrouter.enterprise.config.TenantJpaFilter} 才会在
  * 事务会话上调用 {@code enableFilter("tenantFilter")}，此时所有挂接实体的查询
  * 自动追加 {@code tenant_id = :tenantId} 条件。社区版（默认关闭）行为零变化。
+ * @author Trunkline Team
  */
 @FilterDef(
     name = TenantJpaFilterDefinition.NAME,

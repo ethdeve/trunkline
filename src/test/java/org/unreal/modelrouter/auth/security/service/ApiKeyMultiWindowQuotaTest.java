@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import org.junit.jupiter.api.DisplayName;
@@ -37,8 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>纯逻辑测试，不使用 Mockito（避免依赖 inline mock maker）。</p>
  *
- * @author JAiRouter Team
- * @since P0-A
+ * @author Trunkline Team
  */
 @DisplayName("P0-A 多窗口配额（小时 / 月）生效测试")
 class ApiKeyMultiWindowQuotaTest {

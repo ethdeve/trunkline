@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * 上游厂商预设（表单 + 列表共用）
  * 用于：InstanceManagement 接入表单预填、InstanceManagement 列表识别厂商名称、
  * 供应商层预设目录一键启用（uid 作为幂等标识，同一厂商在库里只存一份）。
@@ -97,7 +102,6 @@ const TEMPLATE_SOURCES: TemplateSource[] = [
   { uid: 'deepseek', label: 'DeepSeek', category: 'domestic', baseUrl: 'https://api.deepseek.com', type: 'openai-compatible', models: ['deepseek-chat', 'deepseek-coder', 'deepseek-reasoner'] },
   { uid: 'zhipu', label: '智谱 AI (GLM)', category: 'domestic', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', type: 'openai-compatible', models: ['glm-4', 'glm-4-flash', 'embedding-3'] },
   { uid: 'moonshot', label: '月之暗面 (Kimi)', category: 'domestic', baseUrl: 'https://api.moonshot.cn/v1', type: 'openai-compatible', models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'] },
-  { uid: 'baichuan', label: '百川智能', category: 'domestic', baseUrl: 'https://api.baichuan-ai.com/v1', type: 'openai-compatible', models: ['Baichuan4', 'Baichuan3-Turbo'] },
   { uid: 'qwen', label: '通义千问', category: 'domestic', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', type: 'openai-compatible', models: ['qwen-turbo', 'qwen-plus', 'qwen-max', 'text-embedding-v3'] },
   { uid: 'minimax', label: 'MiniMax', category: 'domestic', baseUrl: 'https://api.minimax.chat/v1', type: 'openai-compatible', models: ['abab6.5-chat', 'abab6.5s-chat'] },
   { uid: 'stepfun', label: '阶跃星辰', category: 'domestic', baseUrl: 'https://api.stepfun.com/v1', type: 'openai-compatible', models: ['step-1-8k', 'step-1-32k', 'step-1-128k'] },

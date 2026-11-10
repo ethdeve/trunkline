@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 内存仓库（{@link InMemoryQuotaLedgerRepository}），不使用 Mockito。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 @DisplayName("QuotaLedgerService 多窗口预留冲正（issue #120）")
 class QuotaLedgerServiceMultiWindowReserveTest {

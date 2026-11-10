@@ -27,7 +27,6 @@ import reactor.core.publisher.Mono;
  * 该过滤器应该在安全认证过滤器之后执行，以便能够获取到认证信息
  *
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Slf4j

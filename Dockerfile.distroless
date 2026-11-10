@@ -1,4 +1,4 @@
-# JAiRouter Distroless 版本 Dockerfile
+# Trunkline Distroless 版本 Dockerfile
 # 使用 Google Distroless 基础镜像，最小化攻击面
 # 镜像大小: ~180MB (比标准版减少 50%+)
 # 
@@ -27,9 +27,9 @@ RUN java -Djarmode=layertools -jar app.jar extract --destination extracted
 FROM gcr.io/distroless/java17-debian12:latest
 
 # 设置元数据
-LABEL maintainer="JAiRouter Team"
-LABEL description="JAiRouter - AI Model Service Routing Gateway (Distroless)"
-LABEL version="3.1.1"
+LABEL maintainer="Trunkline Team"
+LABEL description="Trunkline - AI Governance Gateway (Distroless)"
+LABEL version="0.1.0"
 LABEL org.opencontainers.image.source="https://github.com/sodlinken/trunkline"
 
 WORKDIR /app

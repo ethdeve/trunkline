@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
  * 统一协调事件记录和状态管理
  *
  * @author JAiRouter Team
- * @since 2.7.0
  */
 @Slf4j
 @Service

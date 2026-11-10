@@ -16,7 +16,6 @@ import org.unreal.modelrouter.common.util.InstanceIdentity;
  * 避免出现「日志里叫 A、指标里叫 B」的混乱。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.7
  */
 @Configuration
 public class InstanceMetricsConfiguration {

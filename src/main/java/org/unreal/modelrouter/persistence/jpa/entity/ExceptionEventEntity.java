@@ -20,7 +20,6 @@ import java.time.LocalDateTime;
  * 存储所有异常事件的详细信息
  * 
  * @author JAiRouter Team
- * @since 1.9.1
  */
 @Data
 @Builder

@@ -8,8 +8,6 @@ import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 /**
  * AdapterContext - BaseAdapter 核心上下文
  * 聚合核心基础设施依赖，减少构造函数参数数量。
- *
- * @since v2.28.0
  */
 @Component
 public final class AdapterContext {

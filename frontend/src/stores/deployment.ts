@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * 部署形态 store（S4 副本感知）
  *
  * <p><b>为什么要有这一层</b>：单机部署下页面上出现「副本」「实例数」是纯噪音，多副本部署下

@@ -31,7 +31,6 @@ import static org.mockito.Mockito.*;
  * SpringSecurityAuthenticationFilter 单元测试
  *
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @DisplayName("SpringSecurityAuthenticationFilter 测试")
 class SpringSecurityAuthenticationFilterTest {

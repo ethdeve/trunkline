@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * RetryPolicy 单元测试
  *
  * @author JAiRouter Team
- * @since v2.3.0
  */
 class RetryPolicyTest {
 

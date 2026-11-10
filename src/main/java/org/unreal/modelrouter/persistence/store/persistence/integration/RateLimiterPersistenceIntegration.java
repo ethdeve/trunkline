@@ -25,7 +25,6 @@ import java.util.Map;
  * 3. 提供手动同步/恢复接口
  *
  * @author JAiRouter Team
- * @since 2.4.6
  */
 @Component
 public class RateLimiterPersistenceIntegration {

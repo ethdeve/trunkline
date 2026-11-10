@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.access;
 
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>矩阵即产品契约：员工=「我的」分组、运维=「我的+团队/策略」、管理员=全部。
  * 本测试锁定关键路径的级别与规则顺序（首条命中优先），防止后续改动破坏菜单-后端一致性。</p>
+ * @author Trunkline Team
  */
 @DisplayName("固定角色访问矩阵")
 class FixedRoleAccessPolicyTest {
@@ -54,6 +59,12 @@ class FixedRoleAccessPolicyTest {
     @Nested
     @DisplayName("OPS：团队/策略分组")
     class OpsEndpoints {
+
+        @Test
+        @DisplayName("内置帮助文档正文为 OPS——「只从豁免清单移除」会让 OPERATOR 落回 fail-closed 403")
+        void docsContentIsRegisteredAsOps() {
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/docs/content"));
+        }
 
         @Test
         @DisplayName("调用历史列表（调用观测）为 OPS——修正存量运维 403 不一致")

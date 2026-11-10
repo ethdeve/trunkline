@@ -45,8 +45,6 @@ import java.util.function.Function;
  * 3. RouterResponse 包装
  * 4. 二进制响应处理
  * 5. 指标记录
- *
- * @since v2.5.9
  */
 import org.springframework.stereotype.Component;
 

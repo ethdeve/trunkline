@@ -40,7 +40,6 @@ import static org.mockito.Mockito.when;
  * 沿用例既有的 Mockito 协作方夹具（与 {@code ApiKeyQuotaServiceTest} 保持一致）。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

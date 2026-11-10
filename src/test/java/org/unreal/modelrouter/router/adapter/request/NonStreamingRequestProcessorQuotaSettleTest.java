@@ -60,7 +60,6 @@ import static org.mockito.Mockito.when;
  * <p>仅 {@link TokenUsageService}（DB 落库协作方）为 Mockito 桩。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 @ExtendWith(MockitoExtension.class)

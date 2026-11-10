@@ -27,7 +27,6 @@ import java.util.Map;
  * 仿 {@link RuleConfigController} 同步 controller 模式（无方法级 @PreAuthorize）。
  *
  * @author JAiRouter Team
- * @since 2.9.10
  */
 @RestController
 @RequestMapping("/api/config/cache")

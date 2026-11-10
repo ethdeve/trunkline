@@ -19,7 +19,6 @@ import java.time.Duration;
  * 实时推送熔断器事件到前端
  *
  * @author JAiRouter Team
- * @since 2.7.0
  */
 @Slf4j
 @Component

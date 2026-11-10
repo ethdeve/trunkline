@@ -5,7 +5,6 @@
  * @see org.unreal.modelrouter.constants.ServiceTypeConstants
  * 
  * @author Trunkline Team
- * @since v2.1.0
  */
 
 import { i18n } from '@/i18n'

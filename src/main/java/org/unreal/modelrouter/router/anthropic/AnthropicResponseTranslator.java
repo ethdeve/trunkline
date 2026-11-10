@@ -53,7 +53,6 @@ import java.util.UUID;
  * 前者保留原文（{@code {"raw_arguments":"<原文>"}}）并记 warn，后者生成 {@code toolu_<uuid>}。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  */
 @Slf4j
 @Component

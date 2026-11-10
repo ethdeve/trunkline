@@ -10,7 +10,6 @@ import org.unreal.modelrouter.monitor.tracing.TracingContextHolder;
  * 在日志模式中使用，输出当前追踪上下文的traceId
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 public final class TraceIdConverter extends ClassicConverter {
     

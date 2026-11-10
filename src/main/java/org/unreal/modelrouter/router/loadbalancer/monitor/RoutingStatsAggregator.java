@@ -20,7 +20,6 @@ import java.util.concurrent.locks.ReentrantLock;
  * 实时统计各服务类型的实例选中分布
  *
  * @author JAiRouter Team
- * @since 2.7.0
  */
 @Slf4j
 @Component

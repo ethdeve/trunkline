@@ -10,7 +10,6 @@ import java.util.Optional;
  * 命中与否由 {@link Optional} 表达，null 值约定不缓存。
  *
  * @author JAiRouter Team
- * @since 2.9.9
  */
 public interface CacheStore {
 

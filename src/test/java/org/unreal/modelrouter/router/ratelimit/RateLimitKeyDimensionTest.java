@@ -12,7 +12,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * 让应用起不来，也不应静默换成另一种维度。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.4
  */
 class RateLimitKeyDimensionTest {
 

@@ -25,7 +25,6 @@ import org.springframework.web.server.ResponseStatusException;
  * </ul>
  *
  * @author JAiRouter Team
- * @since 3.2.2
  */
 public final class ApiExceptions {
 

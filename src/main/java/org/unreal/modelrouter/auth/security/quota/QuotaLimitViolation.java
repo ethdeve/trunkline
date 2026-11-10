@@ -17,7 +17,6 @@ package org.unreal.modelrouter.auth.security.quota;
  *                          为 token 数）
  * @param retryAfterSeconds 距离窗口重置（下一窗口边界）的秒数，最小为 1
  * @author JAiRouter Team
- * @since 3.1.0
  */
 public record QuotaLimitViolation(String metric,
                                  QuotaWindow window,

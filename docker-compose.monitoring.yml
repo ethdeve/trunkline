@@ -1,4 +1,4 @@
-# Trunkline 完整监控体系 Docker Compose 配置 (v1.9.5)
+# Trunkline 完整监控体系 Docker Compose 配置
 # 包含：Prometheus + Grafana + AlertManager + Loki + Tempo + Redis + Node Exporter + cAdvisor
 #
 # 使用说明:

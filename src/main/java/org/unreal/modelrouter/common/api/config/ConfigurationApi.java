@@ -13,8 +13,6 @@ import java.util.Map;
  * </ul>
  *
  * <p>微服务拆分后，此接口将成为 config-service 对外暴露的 API。
- *
- * @since v2.8.0
  */
 public interface ConfigurationApi {
 

@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * 列表筛选状态持久化（U10-5）
  *
  * 运营每天重复进同一个列表页，筛选条件却每次都要重设一遍。

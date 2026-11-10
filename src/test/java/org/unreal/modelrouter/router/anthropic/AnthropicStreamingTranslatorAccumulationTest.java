@@ -19,7 +19,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code output_tokens} 估算走独立字符计数，截断不得压低账单数字。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.3
  */
 @DisplayName("Anthropic 流式翻译器累积上界 (#127)")
 class AnthropicStreamingTranslatorAccumulationTest {

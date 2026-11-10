@@ -56,7 +56,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@link #requestUsage} 订阅并取回响应，因此断言仍与同步实现的载荷一致。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 @DisplayName("QuotaMonitoringController 配额观测面测试")

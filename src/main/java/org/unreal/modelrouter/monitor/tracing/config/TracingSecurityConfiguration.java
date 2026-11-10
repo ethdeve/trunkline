@@ -20,7 +20,6 @@ import org.unreal.modelrouter.monitor.tracing.security.TracingSecurityFilter;
  * - 处理追踪和安全的协调工作
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Slf4j

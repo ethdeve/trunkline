@@ -24,7 +24,6 @@ import static org.mockito.Mockito.*;
  * 验证不同 RecordLevel 下 buildEntity 和 decryptBodies 的行为
  *
  * @author JAiRouter Team
- * @since 2.9.2
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ApiCallHistoryService 记录级别测试")

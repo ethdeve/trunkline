@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.access;
 
 import lombok.extern.slf4j.Slf4j;
@@ -30,8 +34,7 @@ import java.util.Optional;
  * {@code ROLE_<SERVICE>}，只对豁免的服务代理面生效，不满足任何管理级别——
  * 与移除前的权限码矩阵行为一致。</p>
  *
- * @author JAiRouter Team
- * @since 3.5.1
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 @Slf4j

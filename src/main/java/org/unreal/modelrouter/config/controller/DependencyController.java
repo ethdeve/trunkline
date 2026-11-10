@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,8 +26,7 @@ import org.unreal.modelrouter.config.dependency.DependencyReport;
  * <p>路径：{@code GET /api/config/dependencies/{targetType}/{target}}，
  * 其中 {@code targetType} 取值 provider / instance / pool / template / apiKey。</p>
  *
- * @author JAiRouter Team
- * @since 3.3.2
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 @RestController

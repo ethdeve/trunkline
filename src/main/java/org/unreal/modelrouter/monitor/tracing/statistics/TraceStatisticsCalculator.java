@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
  * </ul>
  *
  * @author JAiRouter Team
- * @since 2.10.0
  * @see TraceQueryService
  */
 @Slf4j

@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
  * 提供异常事件的查询、统计和管理功能
  * 
  * @author JAiRouter Team
- * @since 1.9.2
  */
 @Slf4j
 @Service

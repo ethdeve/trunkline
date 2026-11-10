@@ -33,7 +33,6 @@ import java.util.Optional;
  * <p>提供只读的配额运行状态与用量查询接口，绝不触发写入或结算。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 @Slf4j

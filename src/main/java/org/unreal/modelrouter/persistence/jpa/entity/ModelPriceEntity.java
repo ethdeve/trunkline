@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.persistence.jpa.entity;
 
 import jakarta.persistence.Column;
@@ -38,8 +42,7 @@ import java.time.LocalDateTime;
  * <p>新表由迁移脚本创建（见 {@code src/main/resources/db/migration/<方言>/V9__model_price.sql}），
  * 额度/限速列由 {@code V11__model_price_quota.sql} 追加。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Data
 @Builder

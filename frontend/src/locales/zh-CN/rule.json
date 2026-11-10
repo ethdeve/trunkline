@@ -1,8 +1,8 @@
 {
   "rule": {
-    "pageTitle": "分配规则",
+    "pageTitle": "路由规则",
     "refreshTooltip": "刷新列表与命中统计",
-    "emptyText": "还没有分配规则。规则决定「哪个请求用哪个模型」，不配置则按默认分配",
+    "emptyText": "还没有路由规则。规则决定「哪个请求用哪个模型」，不配置则按默认分配",
     "createFromTemplate": "从模板创建",
     "addRule": "新增规则",
     "editRule": "编辑规则",

@@ -1,8 +1,12 @@
 # Help Center
 
-> Not sure where to click? Start with the role that sounds like you.
+> Organized by console menu, for **operators and administrators**. Jump straight to the page for what you need to do.
+> Employees do not need this: the "Integration Guide" (question-mark icon in the top bar) and the "Quick Start" menu page are enough.
+> When someone asks how to connect, send them the Integration Guide.
 
-## I just want to get my AI tool working
+## Employees asking about setup, keys, or quota
+
+These five pages are the "My Workspace" group — the pages employees can see themselves. Use them to tell an employee where to click and what they will see.
 
 1. [Quick Start](my/quickstart.md) — three steps to connect your AI tool
 2. [My Keys](my/keys.md) — get your personal access key

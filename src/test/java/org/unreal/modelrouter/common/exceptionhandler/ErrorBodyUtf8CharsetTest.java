@@ -43,7 +43,6 @@ import static org.mockito.Mockito.when;
  * 未修复的实现会因写出 GBK 字节而失败，修复后仍全绿。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  */
 @DisplayName("v3.1 PR-4d.1: 错误体 UTF-8 字符集")
 class ErrorBodyUtf8CharsetTest {

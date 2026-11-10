@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.router.checker;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>刻意不使用 Mockito：这些方法只操作内部 {@link java.util.concurrent.ConcurrentHashMap}
  * 与 {@link HealthStateBitSet}，用真实对象才能验证位图语义（保留索引 vs 回收索引）。</p>
+ * @author Trunkline Team
  */
 @DisplayName("健康状态快照失效")
 class ServiceStateManagerHealthResetTest {

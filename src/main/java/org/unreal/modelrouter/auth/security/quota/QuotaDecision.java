@@ -12,7 +12,6 @@ package org.unreal.modelrouter.auth.security.quota;
  * @param degraded 本次决策是否处于降级状态（账本不可用 / 未启用）
  * @param reason   决策原因，未设置时为空串（不会为 {@code null}）
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 public record QuotaDecision(boolean allowed, boolean degraded, String reason) {

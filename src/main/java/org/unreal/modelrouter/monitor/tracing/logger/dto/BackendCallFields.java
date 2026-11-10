@@ -35,7 +35,6 @@ import lombok.NoArgsConstructor;
  * - method: HTTP方法（可选）
  *
  * @author JAiRouter Team
- * @since v2.16.4
  */
 @Data
 @Builder

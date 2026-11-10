@@ -23,7 +23,6 @@ import java.util.function.Function;
  * - 性能指标收集
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 public class TracingOperator {

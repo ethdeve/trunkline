@@ -1,4 +1,4 @@
-# JAiRouter 安全功能迁移脚本 (PowerShell)
+# Trunkline 安全功能迁移脚本 (PowerShell)
 # 用于帮助用户从传统模式迁移到安全增强模式
 
 param(
@@ -63,7 +63,7 @@ function Log-Error {
 # 显示帮助信息
 function Show-Help {
     @"
-JAiRouter 安全功能迁移脚本 (PowerShell)
+Trunkline 安全功能迁移脚本 (PowerShell)
 
 用法: .\migrate-to-security.ps1 [选项]
 
@@ -167,12 +167,12 @@ function Test-MigrationReadiness {
         Log-Warning "磁盘空间可能不足，建议清理后再迁移"
     }
     
-    # 检查是否有运行中的JAiRouter实例
+    # 检查是否有运行中的 Trunkline 实例
     $javaProcesses = Get-Process -Name "java" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*trunkline*" }
     if ($javaProcesses) {
-        Log-Warning "检测到运行中的JAiRouter实例，建议停止后再迁移"
+        Log-Warning "检测到运行中的 Trunkline 实例，建议停止后再迁移"
     } else {
-        Log-Success "没有运行中的JAiRouter实例"
+        Log-Success "没有运行中的 Trunkline 实例"
     }
     
     # 总结检查结果
@@ -218,7 +218,7 @@ function Backup-CurrentConfig {
     
     # 创建备份信息文件
     $backupInfo = @"
-JAiRouter 配置备份信息
+Trunkline 配置备份信息
 备份时间: $(Get-Date)
 备份目录: $BackupDir
 原始目录: $ProjectRoot
@@ -228,7 +228,7 @@ JAiRouter 配置备份信息
 $(Get-ChildItem $BackupDir | Format-Table -AutoSize | Out-String)
 
 恢复方法:
-1. 停止JAiRouter服务
+1. 停止 Trunkline 服务
 2. 将备份文件复制回原位置
 3. 重启服务
 
@@ -247,7 +247,7 @@ function New-SecurityConfig {
     $securityConfigFile = Join-Path $ProjectRoot "security-config-template.yml"
     
     $securityConfigContent = @'
-# JAiRouter 安全功能配置模板
+# Trunkline 安全功能配置模板
 # 此文件包含启用安全功能所需的基本配置
 # 请根据实际需求修改相关参数
 
@@ -317,18 +317,18 @@ jairouter:
     $envTemplateFile = Join-Path $ProjectRoot ".env.security.template"
     
     $envTemplateContent = @'
-# JAiRouter 安全功能环境变量模板
+# Trunkline 安全功能环境变量模板
 # 复制此文件为 .env 并设置实际的密钥值
 
 # 安全功能开关
-JAIROUTER_SECURITY_ENABLED=true
+TRUNKLINE_SECURITY_ENABLED=true
 
 # API Key 配置
 ADMIN_API_KEY=your-admin-api-key-here-please-change-this
 USER_API_KEY=your-user-api-key-here-please-change-this
 
 # JWT 配置 (可选)
-JAIROUTER_SECURITY_JWT_ENABLED=false
+TRUNKLINE_SECURITY_JWT_ENABLED=false
 JWT_SECRET=your-jwt-secret-key-here-please-change-this
 
 # Redis 配置 (可选)
@@ -402,7 +402,7 @@ function Start-StepByStepMigration {
     Log-Info "开始分步骤迁移..."
     
     Write-Host ""
-    Write-Host "=== JAiRouter 安全功能迁移向导 ===" -ForegroundColor Cyan
+    Write-Host "=== Trunkline 安全功能迁移向导 ===" -ForegroundColor Cyan
     Write-Host ""
     
     # 步骤1: 确认迁移
@@ -453,10 +453,10 @@ function Start-StepByStepMigration {
     # 创建环境变量文件
     $envFile = Join-Path $ProjectRoot ".env"
     $envContent = @"
-# JAiRouter 安全功能环境变量
+# Trunkline 安全功能环境变量
 # 由迁移脚本自动生成于 $(Get-Date)
 
-JAIROUTER_SECURITY_ENABLED=true
+TRUNKLINE_SECURITY_ENABLED=true
 ADMIN_API_KEY=$adminKey
 USER_API_KEY=$userKey
 "@
@@ -474,7 +474,7 @@ USER_API_KEY=$userKey
     Write-Host ""
     Write-Host "下一步操作:" -ForegroundColor Yellow
     Write-Host "1. 检查生成的配置文件并根据需要调整"
-    Write-Host "2. 重启JAiRouter服务"
+    Write-Host "2. 重启 Trunkline 服务"
     Write-Host "3. 使用API Key测试访问: curl -H 'X-API-Key: $adminKey' http://localhost:8080/v1/models"
     Write-Host "4. 查看迁移日志: $MigrationLog"
     Write-Host ""
@@ -540,7 +540,7 @@ function Start-Rollback {
     }
     
     Log-Success "回滚完成！"
-    Log-Info "请重启JAiRouter服务以应用回滚的配置"
+    Log-Info "请重启 Trunkline 服务以应用回滚的配置"
 }
 
 # 主函数
@@ -552,7 +552,7 @@ function Main {
     }
     
     # 创建迁移日志
-    "JAiRouter 安全功能迁移日志 - $(Get-Date)" | Out-File -FilePath $MigrationLog -Encoding UTF8
+    "Trunkline 安全功能迁移日志 - $(Get-Date)" | Out-File -FilePath $MigrationLog -Encoding UTF8
     Log-Info "迁移日志: $MigrationLog"
     
     try {

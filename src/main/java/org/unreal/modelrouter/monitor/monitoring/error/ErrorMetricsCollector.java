@@ -17,7 +17,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * 支持多维度标签：错误代码、严重级别、模块、模型、错误类型、操作等。
  *
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 public class ErrorMetricsCollector {

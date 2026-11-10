@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import org.junit.jupiter.api.DisplayName;
@@ -24,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       旧 permissions 声明刷新时被剔除、不再写入）；</li>
  *   <li>刷新时不校验令牌归属 → 任意已认证用户可刷出他人（含 ADMIN）的新令牌。</li>
  * </ol>
+ * @author Trunkline Team
  */
 @DisplayName("JWT 刷新链路安全修复")
 class JwtRefreshSecurityTest {

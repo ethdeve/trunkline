@@ -23,7 +23,6 @@ import org.unreal.modelrouter.monitor.tracing.logger.StructuredLogger;
  * 支持条件创建，可以通过配置开关控制是否启用追踪功能。
  *
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Slf4j

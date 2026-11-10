@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
 import { onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
 
 /**

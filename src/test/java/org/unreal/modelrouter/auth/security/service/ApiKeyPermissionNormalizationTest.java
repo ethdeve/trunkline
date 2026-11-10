@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import org.junit.jupiter.api.DisplayName;
@@ -20,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 密钥列表显示原始字符串，且编辑弹窗复选框不勾选，用户保存即静默丢失权限。</p>
  *
  * <p>本测试不依赖 Mockito，直接实例化真实对象，避免沙箱环境 self-attach 限制。</p>
+ * @author Trunkline Team
  */
 class ApiKeyPermissionNormalizationTest {
 

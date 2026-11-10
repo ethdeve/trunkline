@@ -17,8 +17,6 @@ import java.util.Map;
 /**
  * API Key 持久化服务
  * 负责 API Key 的存储、加载和版本管理
- *
- * @since v2.14.2
  */
 @Slf4j
 @Service

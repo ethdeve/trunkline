@@ -37,7 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 不使用 Mockito；等待异步补写使用有界轮询（仓库未引入 awaitility 等依赖）。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 @DisplayName("QuotaLedgerService 结算线程语义（issue #105）")
 class QuotaLedgerServiceSettleThreadingTest {

@@ -19,7 +19,6 @@ import reactor.core.publisher.Flux;
  * 本就是同一份数据，广播只会带来重复推送。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.4
  */
 public interface ClusterEventBus {
 

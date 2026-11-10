@@ -1,4 +1,4 @@
-# JAiRouter监控栈一键部署脚本 (PowerShell版本)
+# Trunkline 监控栈一键部署脚本 (PowerShell版本)
 # 该脚本用于快速部署完整的监控环境，包括Prometheus、Grafana、AlertManager等组件
 
 param(
@@ -119,10 +119,10 @@ function Test-ConfigFiles {
     
     # 检查必要的配置文件是否存在
     $requiredFiles = @(
-        "docker-compose-monitoring.yml",
+        "docker-compose.monitoring.yml",
         "monitoring\prometheus\prometheus.yml",
-        "monitoring\grafana\provisioning\datasources\prometheus.yml",
-        "monitoring\grafana\provisioning\dashboards\jairouter-dashboards.yml",
+        "monitoring\grafana\provisioning\datasources\datasources.yml",
+        "monitoring\grafana\provisioning\dashboards\dashboards.yml",
         "monitoring\alertmanager\alertmanager.yml"
     )
     
@@ -135,7 +135,7 @@ function Test-ConfigFiles {
     
     # 验证Docker Compose配置
     try {
-        docker-compose -f docker-compose-monitoring.yml config | Out-Null
+        docker-compose -f docker-compose.monitoring.yml config | Out-Null
     }
     catch {
         Log-Error "Docker Compose配置文件验证失败"
@@ -150,7 +150,7 @@ function Get-DockerImages {
     Log-Info "拉取Docker镜像..."
     
     try {
-        docker-compose -f docker-compose-monitoring.yml pull
+        docker-compose -f docker-compose.monitoring.yml pull
     }
     catch {
         Log-Error "Docker镜像拉取失败: $_"
@@ -166,7 +166,7 @@ function Start-MonitoringServices {
     
     # 停止可能存在的旧服务
     try {
-        docker-compose -f docker-compose-monitoring.yml down 2>$null
+        docker-compose -f docker-compose.monitoring.yml down 2>$null
     }
     catch {
         # 忽略错误，可能是首次运行
@@ -174,7 +174,7 @@ function Start-MonitoringServices {
     
     # 启动服务
     try {
-        docker-compose -f docker-compose-monitoring.yml up -d
+        docker-compose -f docker-compose.monitoring.yml up -d
     }
     catch {
         Log-Error "监控服务启动失败: $_"
@@ -261,18 +261,18 @@ function Test-ServiceStatus {
 
 # 显示访问信息
 function Show-AccessInfo {
-    Log-Success "JAiRouter监控栈部署完成！"
+    Log-Success "Trunkline 监控栈部署完成！"
     Write-Host ""
     Write-Host "==========================================" -ForegroundColor Cyan
     Write-Host "服务访问信息：" -ForegroundColor Cyan
     Write-Host "==========================================" -ForegroundColor Cyan
     Write-Host "🎯 Grafana仪表板:     http://localhost:3000" -ForegroundColor White
     Write-Host "   用户名: admin" -ForegroundColor Gray
-    Write-Host "   密码: jairouter2024" -ForegroundColor Gray
+    Write-Host "   密码: admin" -ForegroundColor Gray
     Write-Host ""
     Write-Host "📊 Prometheus:        http://localhost:9090" -ForegroundColor White
     Write-Host "🚨 AlertManager:      http://localhost:9093" -ForegroundColor White
-    Write-Host "📈 JAiRouter指标:     http://localhost:8080/actuator/prometheus" -ForegroundColor White
+    Write-Host "📈 Trunkline 指标:     http://localhost:8080/actuator/prometheus" -ForegroundColor White
     Write-Host ""
     Write-Host "🖥️  系统监控:" -ForegroundColor White
     Write-Host "   Node Exporter:     http://localhost:9100/metrics" -ForegroundColor Gray
@@ -281,16 +281,16 @@ function Show-AccessInfo {
     Write-Host "==========================================" -ForegroundColor Cyan
     Write-Host "常用命令：" -ForegroundColor Cyan
     Write-Host "==========================================" -ForegroundColor Cyan
-    Write-Host "查看服务状态:   docker-compose -f docker-compose-monitoring.yml ps" -ForegroundColor White
-    Write-Host "查看服务日志:   docker-compose -f docker-compose-monitoring.yml logs -f [service]" -ForegroundColor White
-    Write-Host "停止监控栈:     docker-compose -f docker-compose-monitoring.yml down" -ForegroundColor White
-    Write-Host "重启监控栈:     docker-compose -f docker-compose-monitoring.yml restart" -ForegroundColor White
+    Write-Host "查看服务状态:   docker-compose -f docker-compose.monitoring.yml ps" -ForegroundColor White
+    Write-Host "查看服务日志:   docker-compose -f docker-compose.monitoring.yml logs -f [service]" -ForegroundColor White
+    Write-Host "停止监控栈:     docker-compose -f docker-compose.monitoring.yml down" -ForegroundColor White
+    Write-Host "重启监控栈:     docker-compose -f docker-compose.monitoring.yml restart" -ForegroundColor White
     Write-Host ""
     Write-Host "🔧 配置文件位置：" -ForegroundColor White
     Write-Host "   Prometheus:        monitoring\prometheus\prometheus.yml" -ForegroundColor Gray
     Write-Host "   Grafana:           monitoring\grafana\provisioning\" -ForegroundColor Gray
     Write-Host "   AlertManager:      monitoring\alertmanager\alertmanager.yml" -ForegroundColor Gray
-    Write-Host "   告警规则:          monitoring\prometheus\rules\jairouter-alerts.yml" -ForegroundColor Gray
+    Write-Host "   告警规则:          monitoring\prometheus\rules\trunkline-alerts.yml" -ForegroundColor Gray
     Write-Host ""
     Write-Host "📚 文档和工具：" -ForegroundColor White
     Write-Host "   告警规则指南:      monitoring\prometheus\ALERT_RULES_GUIDE.md" -ForegroundColor Gray
@@ -304,7 +304,7 @@ function Remove-MonitoringStack {
     Log-Info "清理现有监控栈..."
     
     try {
-        docker-compose -f docker-compose-monitoring.yml down -v
+        docker-compose -f docker-compose.monitoring.yml down -v
         docker system prune -f
         Log-Success "清理完成"
     }
@@ -317,12 +317,12 @@ function Remove-MonitoringStack {
 # 显示服务状态
 function Show-ServiceStatus {
     Log-Info "检查监控栈状态..."
-    docker-compose -f docker-compose-monitoring.yml ps
+    docker-compose -f docker-compose.monitoring.yml ps
 }
 
 # 显示帮助信息
 function Show-Help {
-    Write-Host "JAiRouter监控栈部署脚本 (PowerShell版本)" -ForegroundColor Cyan
+    Write-Host "Trunkline 监控栈部署脚本 (PowerShell版本)" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "用法: .\setup-monitoring.ps1 [选项]" -ForegroundColor White
     Write-Host ""
@@ -341,7 +341,7 @@ function Show-Help {
 # 主函数
 function Main {
     Write-Host "==========================================" -ForegroundColor Cyan
-    Write-Host "🚀 JAiRouter监控栈部署脚本 (PowerShell)" -ForegroundColor Cyan
+    Write-Host "🚀 Trunkline 监控栈部署脚本 (PowerShell)" -ForegroundColor Cyan
     Write-Host "==========================================" -ForegroundColor Cyan
     Write-Host ""
     
@@ -377,7 +377,7 @@ function Main {
         Log-Error "部署过程中出现错误: $_"
         Log-Info "正在清理..."
         try {
-            docker-compose -f docker-compose-monitoring.yml down 2>$null
+            docker-compose -f docker-compose.monitoring.yml down 2>$null
         }
         catch {
             # 忽略清理错误

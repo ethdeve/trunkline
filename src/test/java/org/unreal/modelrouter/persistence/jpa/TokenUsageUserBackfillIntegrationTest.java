@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.persistence.jpa;
 
 import org.junit.jupiter.api.DisplayName;
@@ -28,8 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * <p>本测试直接执行 V15 的两条回填 SQL（与迁移脚本保持一致），
  * 验证「先按 trace_id 精确匹配、再按 api_key_id 兜底」的策略。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

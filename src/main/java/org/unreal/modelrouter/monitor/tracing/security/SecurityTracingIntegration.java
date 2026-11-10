@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
  * - 安全事件的结构化日志
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 @Component

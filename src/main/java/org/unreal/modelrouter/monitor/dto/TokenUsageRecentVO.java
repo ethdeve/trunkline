@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.monitor.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
@@ -32,8 +36,7 @@ import java.time.LocalDateTime;
  * {@code Boolean} 包装类型，Lombok 生成的访问器为 {@code getIsSuccess()}，
  * 序列化后的 JSON 键为 {@code isSuccess}（与前端 {@code TokenUsageRecord.isSuccess} 对齐）。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Data
 @Builder

@@ -1,0 +1,103 @@
+{
+  "nav": {
+    "groups": {
+      "my": "我的",
+      "team": "团队",
+      "system": "系统"
+    },
+    "myQuota": {
+      "title": "我的额度",
+      "subtitle": "本月花了多少、还剩多少"
+    },
+    "myKeys": {
+      "title": "我的密钥",
+      "subtitle": "你名下的密钥和能用的模型"
+    },
+    "quickstart": {
+      "title": "快速上手",
+      "subtitle": "三步把密钥装进你常用的 AI 工具"
+    },
+    "playground": {
+      "title": "测试场",
+      "subtitle": "先在这里试一句，确认能用再去工具里配"
+    },
+    "myBills": {
+      "title": "我的账单",
+      "subtitle": "按月看自己花了多少钱"
+    },
+    "teamUsage": {
+      "title": "团队用量",
+      "subtitle": "全公司花了多少、谁在用"
+    },
+    "providers": {
+      "title": "接入管理",
+      "subtitle": "接新厂商、配模型与价格"
+    },
+    "modelPools": {
+      "title": "虚拟模型",
+      "subtitle": "员工用的模型名，背后可以挂多个厂商模型"
+    },
+    "routingRules": {
+      "title": "路由规则",
+      "subtitle": "按条件把请求转给不同的模型"
+    },
+    "allKeys": {
+      "title": "全部密钥",
+      "subtitle": "员工手上的所有密钥"
+    },
+    "observability": {
+      "title": "调用观测",
+      "subtitle": "谁在什么时候调了什么、链路追踪与分析"
+    },
+    "statusMonitoring": {
+      "title": "状态监控",
+      "subtitle": "现在有什么坏了、哪些模型被暂时停用"
+    },
+    "accounts": {
+      "title": "账号管理",
+      "subtitle": "员工的账号和权限"
+    },
+    "modelConfig": {
+      "title": "模型配置",
+      "subtitle": "厂商预设 / 模型分类 / 自定义接入协议"
+    },
+    "auditVersions": {
+      "title": "审计与版本",
+      "subtitle": "审计日志 / 配置版本"
+    },
+    "globalConfig": {
+      "title": "全局配置",
+      "subtitle": "网关级的统一默认设置，可单独调某个模型"
+    },
+    "pages": {
+      "modelCategories": "模型分类",
+      "quickStartWizard": "快速接入",
+      "protocolAdapters": "模型适配器",
+      "keyManagement": "密钥管理",
+      "integrationGuide": "接入指南",
+      "helpDocs": "帮助文档",
+      "observeCenter": "观测中心",
+      "usageQuota": "用量配额",
+      "forbidden": "无权访问"
+    }
+  },
+  "app": {
+    "consoleTitle": "Trunkline 控制台"
+  },
+  "pageHeader": {
+    "helpTip": "查看这一页的帮助"
+  },
+  "command": {
+    "groupMenu": "菜单",
+    "groupRecent": "最近访问",
+    "groupAction": "动作",
+    "toggleTheme": "切换亮/暗主题",
+    "toggleDensity": "切换紧凑模式",
+    "logout": "退出登录",
+    "placeholder": "搜索命令、页面...",
+    "empty": "无匹配命令",
+    "footerSelect": "↑↓ 选择",
+    "footerRun": "回车执行",
+    "footerClose": "Esc 关闭"
+  }
+}

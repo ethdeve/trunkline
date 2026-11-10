@@ -55,7 +55,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * </ul>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 @Slf4j

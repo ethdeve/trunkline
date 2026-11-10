@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.dto;
 
 import lombok.AllArgsConstructor;
@@ -28,8 +32,7 @@ import java.util.Map;
  * <p><b>与 ServiceInstanceDTO 的区别</b>：{@code ServiceInstanceDTO} 是管理面全量出参，
  * 含明文 headers 与全部运维字段；本 VO 是员工面裁剪出参，不含任何可用于覆盖真实 Key 的字段
  * （前端无法把 {@code "***"} 回填，因为根本没有该字段）。</p>
- *
- * @since P0-L
+ * @author Trunkline Team
  */
 @Data
 @Builder

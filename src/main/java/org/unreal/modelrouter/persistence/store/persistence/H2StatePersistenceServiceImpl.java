@@ -21,7 +21,6 @@ import java.util.stream.StreamSupport;
  * 当 Redis 不可用时，使用 H2 数据库存储状态
  * 
  * @author JAiRouter Team
- * @since 2.4.4
  */
 @Service
 public final class H2StatePersistenceServiceImpl implements StatePersistenceService {

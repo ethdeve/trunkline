@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# 快速构建并运行 JAiRouter 应用
+# 快速构建并运行 Trunkline 应用
 # 适用于 Linux/Unix 环境
 
 PORT=${1:-31080}
 PROFILE=${2:-fast}
 
-echo -e "\033[0;32m🚀 开始构建 JAiRouter 应用...\033[0m"
+echo -e "\033[0;32m🚀 开始构建 Trunkline 应用...\033[0m"
 
 # 检查 Maven 是否安装
 if ! command -v mvn &> /dev/null; then

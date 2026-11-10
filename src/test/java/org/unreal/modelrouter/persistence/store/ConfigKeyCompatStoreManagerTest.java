@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.persistence.store;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +33,7 @@ import static org.mockito.Mockito.when;
  * {@link ConfigKeyCompatStoreManager} 行为验证（品牌清理：model-router-config → trunkline-config）。
  *
  * <p>覆盖：新 key 读回落旧 key、写落新 key、删除连带清理、版本方法回落、非主配置 key 直通。</p>
+ * @author Trunkline Team
  */
 @DisplayName("ConfigKeyCompatStoreManager 主配置 key 兼容")
 class ConfigKeyCompatStoreManagerTest {

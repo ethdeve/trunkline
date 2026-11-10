@@ -42,7 +42,6 @@ import java.util.Optional;
  * 由 {@link QuotaLedgerService} 按 {@code degrade-to-local} 与 {@code fail-open} 策略统一处理。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 @Slf4j

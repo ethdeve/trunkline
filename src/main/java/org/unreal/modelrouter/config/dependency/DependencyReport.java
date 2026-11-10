@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.dependency;
 
 import java.util.ArrayList;
@@ -10,8 +14,7 @@ import java.util.stream.Collectors;
  * <p>{@code blockers} 非空即代表<strong>不允许删除</strong>；{@code warnings} 仅为提示
  * （例如密钥的历史用量），不阻断删除。</p>
  *
- * @author JAiRouter Team
- * @since 3.3.2
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 public class DependencyReport {

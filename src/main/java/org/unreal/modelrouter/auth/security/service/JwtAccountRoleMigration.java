@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -44,8 +48,7 @@ import java.util.List;
  * 且即使本步失败，{@link AccountManager} 签发 JWT 时仍会把 VIEWER 归一化为 USER
  * （见 {@link DeprecatedRoles}），不会出现「角色被删但账户仍持有」导致的锁死。
  *
- * @author JAiRouter Team
- * @since 3.6.0
+ * @author Trunkline Team
  */
 @Slf4j
 @Component

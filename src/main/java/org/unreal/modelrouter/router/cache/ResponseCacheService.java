@@ -29,7 +29,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * </ul>
  *
  * @author JAiRouter Team
- * @since 2.9.9
  */
 @Service
 public class ResponseCacheService {

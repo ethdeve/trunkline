@@ -30,7 +30,6 @@ import static org.mockito.Mockito.*;
  * - 追踪上下文管理
  * 
  * @author JAiRouter Team
- * @since v2.3.2
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AdapterTracingManager 单元测试")

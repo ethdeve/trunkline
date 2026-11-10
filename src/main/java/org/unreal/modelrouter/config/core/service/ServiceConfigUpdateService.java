@@ -16,8 +16,6 @@ import java.util.Map;
  *
  * 处理服务配置的 DTO 转换和更新逻辑。
  * 从 ConfigurationService 提取，实现单一职责原则。
- *
- * @since v2.6.15
  */
 @Service
 public class ServiceConfigUpdateService {

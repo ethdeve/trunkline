@@ -18,7 +18,6 @@ import java.util.function.Supplier;
  * 负责定义和管理重试策略，支持指数退避和最大延迟限制。
  *
  * @author JAiRouter Team
- * @since v2.3.0
  */
 @Component
 public class RetryPolicy {

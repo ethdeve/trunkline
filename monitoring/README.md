@@ -1,6 +1,6 @@
-# JAiRouter监控栈部署指南
+# Trunkline 监控栈部署指南
 
-本文档介绍如何部署和配置JAiRouter的完整监控栈，包括Prometheus、Grafana、AlertManager等组件。
+本文档介绍如何部署和配置 Trunkline 的完整监控栈，包括 Prometheus、Grafana、AlertManager 等组件。
 
 ## 📋 目录结构
 
@@ -20,13 +20,14 @@ monitoring/
 │       ├── datasources/
 │       │   └── prometheus.yml    # Prometheus数据源配置
 │       ├── dashboards/
-│       │   └── jairouter-dashboards.yml
+│       │   └── dashboards.yml
 │       └── plugins/
 │           └── plugins.yml       # 插件配置
 ├── prometheus/
 │   ├── prometheus.yml            # Prometheus主配置
 │   └── rules/
-│       └── jairouter-alerts.yml  # 告警规则
+│       ├── trunkline-alerts.yml   # 告警规则
+│       └── trunkline-slow-query-alerts.yml  # 慢查询告警规则
 └── data/                         # 数据存储目录
     ├── prometheus/
     ├── grafana/
@@ -61,12 +62,12 @@ mkdir -p monitoring/data/{prometheus,grafana,alertmanager}
 
 2. **启动监控栈**
 ```bash
-docker-compose -f docker-compose-monitoring.yml up -d
+docker-compose -f docker-compose.monitoring.yml up -d
 ```
 
 3. **验证服务状态**
 ```bash
-docker-compose -f docker-compose-monitoring.yml ps
+docker-compose -f docker-compose.monitoring.yml ps
 ```
 
 ## 🔧 配置说明
@@ -76,25 +77,25 @@ docker-compose -f docker-compose-monitoring.yml ps
 主配置文件：`monitoring/prometheus/prometheus.yml`
 
 关键配置项：
-- **抓取间隔**：15秒（全局），JAiRouter为10秒
+- **抓取间隔**：15秒（全局），Trunkline 为10秒
 - **数据保留**：30天或10GB
 - **告警规则**：自动加载`rules/`目录下的规则文件
 
 ### Grafana配置
 
 #### 数据源自动配置
-- 文件：`monitoring/grafana/provisioning/datasources/prometheus.yml`
+- 文件：`monitoring/grafana/provisioning/datasources/datasources.yml`
 - 自动配置Prometheus数据源
 - 默认启用告警查询和Exemplars支持
 
 #### 仪表板自动导入
-- 文件：`monitoring/grafana/provisioning/dashboards/jairouter-dashboards.yml`
+- 文件：`monitoring/grafana/provisioning/dashboards/dashboards.yml`
 - 自动导入所有仪表板JSON文件
 - 按功能分组到不同文件夹
 
 #### 默认登录信息
 - **用户名**：admin
-- **密码**：jairouter2024
+- **密码**：admin（可通过 `GRAFANA_PASSWORD` 环境变量覆盖）
 
 ### AlertManager配置
 
@@ -103,7 +104,7 @@ docker-compose -f docker-compose-monitoring.yml ps
 告警路由策略：
 - **严重告警**：立即通知，5分钟重复
 - **警告告警**：30秒等待，30分钟重复
-- **JAiRouter特定告警**：15秒等待，15分钟重复
+- **Trunkline 特定告警**：15秒等待，15分钟重复
 
 ## 📊 监控指标说明
 
@@ -182,18 +183,18 @@ docker-compose -f docker-compose-monitoring.yml ps
 **解决方案**：
 ```bash
 # 检查Prometheus服务状态
-docker-compose -f docker-compose-monitoring.yml logs prometheus
+docker-compose -f docker-compose.monitoring.yml logs prometheus
 
 # 检查网络连通性
 docker exec grafana curl http://prometheus:9090/api/v1/query?query=up
 ```
 
-#### 2. JAiRouter指标未显示
-**症状**：Prometheus targets页面显示JAiRouter为down状态
+#### 2. Trunkline 指标未显示
+**症状**：Prometheus targets 页面显示 Trunkline 为 down 状态
 
 **解决方案**：
 ```bash
-# 检查JAiRouter应用是否启动
+# 检查 Trunkline 应用是否启动
 curl http://localhost:8080/actuator/health
 
 # 检查指标端点
@@ -216,7 +217,7 @@ curl http://localhost:9090/api/v1/rules
 curl http://localhost:9093/api/v1/status
 
 # 查看AlertManager日志
-docker-compose -f docker-compose-monitoring.yml logs alertmanager
+docker-compose -f docker-compose.monitoring.yml logs alertmanager
 ```
 
 ### 性能优化
@@ -252,7 +253,7 @@ storage:
 1. 在`monitoring/prometheus/rules/`目录下创建新的规则文件
 2. 重启Prometheus服务：
 ```bash
-docker-compose -f docker-compose-monitoring.yml restart prometheus
+docker-compose -f docker-compose.monitoring.yml restart prometheus
 ```
 
 ### 集成外部通知
@@ -265,7 +266,7 @@ receivers:
     slack_configs:
       - api_url: 'YOUR_SLACK_WEBHOOK_URL'
         channel: '#alerts'
-        title: 'JAiRouter Alert'
+        title: 'Trunkline Alert'
         text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
 ```
 
@@ -307,10 +308,10 @@ docker cp grafana:/tmp/grafana-backup.tar.gz ./grafana-backup-$(date +%Y%m%d).ta
 ### 更新监控栈
 ```bash
 # 拉取最新镜像
-docker-compose -f docker-compose-monitoring.yml pull
+docker-compose -f docker-compose.monitoring.yml pull
 
 # 重启服务
-docker-compose -f docker-compose-monitoring.yml up -d
+docker-compose -f docker-compose.monitoring.yml up -d
 ```
 
 ### 清理旧数据

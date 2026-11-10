@@ -20,7 +20,6 @@ import java.util.Map;
  * 负责追踪采样配置的管理，从 ConfigurationService 提取。
  *
  * @author JAiRouter Team
- * @since v2.22.0
  * @modified Trunkline Team
  */
 @Component("configTracingConfigManager")

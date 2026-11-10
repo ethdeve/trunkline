@@ -6,8 +6,6 @@ import java.util.Map;
 
 /**
  * Instance config update service interface.
- *
- * @since v2.6.12
  */
 public interface InstanceConfigUpdateService {
 

@@ -10,8 +10,6 @@ import org.unreal.modelrouter.common.dto.TtsDTO;
 /**
  * OpenAI请求转换器接口
  * 负责将各种请求类型转换为OpenAI API格式
- *
- * @since v2.7.17
  */
 public interface OpenAiRequestTransformer {
 

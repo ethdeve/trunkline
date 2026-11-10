@@ -14,8 +14,6 @@ import org.unreal.modelrouter.router.adapter.transformer.ResponseTransformer;
 /**
  * RequestProcessingSupport - 请求处理支持组件
  * 聚合请求处理相关的依赖，减少 BaseAdapter 构造函数参数。
- *
- * @since v2.28.0
  */
 @Component
 public final class RequestProcessingSupport {

@@ -35,7 +35,6 @@ import org.springframework.stereotype.Service;
  * - 深度比较：支持Map、List、基本类型的递归比较
  * - 配置合并：支持服务配置和实例配置的递归合并
  * 
- * @since v2.23.0
  * @author Daniel Lee
  */
 @Service

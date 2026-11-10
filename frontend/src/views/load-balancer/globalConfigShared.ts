@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
 import { ref, type Ref, type InjectionKey } from 'vue'
 import request from '@/utils/request'
 

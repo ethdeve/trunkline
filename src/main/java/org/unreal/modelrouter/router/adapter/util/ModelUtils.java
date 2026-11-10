@@ -15,7 +15,6 @@ import org.unreal.modelrouter.common.dto.TtsDTO;
  * 从 BaseAdapter 提取的工具类，用于处理请求对象中的模型信息提取。
  *
  * @author JAiRouter Team
- * @since v2.26.5
  */
 public final class ModelUtils {
 

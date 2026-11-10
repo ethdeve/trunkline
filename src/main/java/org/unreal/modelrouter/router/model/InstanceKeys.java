@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.router.model;
 
 /**
@@ -9,6 +13,7 @@ package org.unreal.modelrouter.router.model;
  *
  * <p>解析顺序：{@code instance-id} → {@code baseUrl} → {@code name} → {@code unknown}。
  * 读写两侧（探活写入、路由查询、SSE 展示）必须共用本类，避免键口径不一致。</p>
+ * @author Trunkline Team
  */
 public final class InstanceKeys {
 

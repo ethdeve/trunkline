@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.router.adapter.support;
 
 import org.springframework.core.io.buffer.DataBuffer;
@@ -21,6 +25,7 @@ import java.util.List;
  * 在入站请求生命周期之后才写 body（异步链路），part 内容可能已被释放。
  * 用 {@link #materialize(FilePart)} 在组装请求前把文件内容读入内存，
  * 保留文件名与 headers，出站时作为普通 FilePart 写出。
+ * @author Trunkline Team
  */
 public final class InMemoryFilePart implements FilePart {
 

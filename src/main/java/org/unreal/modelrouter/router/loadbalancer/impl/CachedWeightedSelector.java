@@ -21,7 +21,6 @@ import java.util.concurrent.ThreadLocalRandom;
  * - 时间复杂度：O(1) 选择，O(n) 初始化（仅实例变化时）
  *
  * @author JAiRouter Team
- * @since v2.7.8
  */
 public class CachedWeightedSelector {
 

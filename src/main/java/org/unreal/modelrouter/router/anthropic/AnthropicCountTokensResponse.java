@@ -26,7 +26,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * 估算（与流式 {@code message_start.usage.input_tokens} 同源）。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  */
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public record AnthropicCountTokensResponse(

@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * </ul>
  *
  * @author JAiRouter Team
- * @since 2.9.8
  */
 @DisplayName("数据源占位符绑定测试")
 class DatasourcePlaceholderBindingTest {

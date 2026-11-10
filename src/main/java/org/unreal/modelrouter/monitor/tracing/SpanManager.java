@@ -25,7 +25,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * - 错误处理和恢复
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 @Component

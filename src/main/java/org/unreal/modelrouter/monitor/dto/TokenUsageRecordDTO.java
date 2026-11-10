@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
  * 用于记录单次 Token 使用量
  *
  * @author JAiRouter Team
- * @since 1.9.5
  * @modified Trunkline Team
  */
 @Data

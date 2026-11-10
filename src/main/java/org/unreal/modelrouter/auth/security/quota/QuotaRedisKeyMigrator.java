@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.quota;
 
 import lombok.extern.slf4j.Slf4j;
@@ -37,9 +41,8 @@ import java.util.Objects;
  * 执行一次；Redis 不可用时记录告警并跳过（不影响启动，下次启动重试）。通过
  * {@code trunkline.quota.distributed.legacy-key-prefix}（置空）可关闭迁移。</p>
  *
- * @author JAiRouter Team
+ * @author Trunkline Team
  * @modified Trunkline Team 品牌清理新增：旧前缀配额计数一次性迁移
- * @since 3.3.1
  */
 @Slf4j
 public final class QuotaRedisKeyMigrator {

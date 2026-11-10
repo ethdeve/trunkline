@@ -13,8 +13,6 @@ import java.util.Map;
  * </ul>
  *
  * <p>微服务拆分后，此接口将成为服务间通信协议。
- *
- * @since v2.8.0
  */
 public interface ConfigRepositoryApi {
 

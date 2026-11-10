@@ -28,7 +28,6 @@ import static org.mockito.Mockito.*;
  * <p>测试JWT黑名单服务功能</p>
  *
  * @version v2.10.0
- * @since 2026-05-24
  */
 @DisplayName("JwtBlacklistServiceImpl JWT黑名单服务测试")
 @ExtendWith(MockitoExtension.class)

@@ -24,7 +24,6 @@ import static org.mockito.Mockito.*;
  * ResponseSanitizationFilter 单元测试
  *
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @DisplayName("ResponseSanitizationFilter 测试")
 class ResponseSanitizationFilterTest {

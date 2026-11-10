@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <script setup lang="ts">
 /**
  * 调用观测（v3.5 Trunkline UI 改造；2026-11-05 收编「调用详情」/tracing）
@@ -26,11 +31,13 @@ import CallHistoryList from '@/views/callHistory/CallHistoryList.vue'
 import TracingDashboard from '@/views/tracing/Dashboard.vue'
 import TracingManagement from '@/views/tracing/Management.vue'
 import { menuSubtitle } from '@/config/menu'
+import { useI18n } from 'vue-i18n'
 
 // 壳层规范：内部收编组件的 PageSkeleton 进入嵌入模式（隐藏自带标题，统一由 PageHeader 承担）
 provide('skeletonEmbedded', true)
 
 const { hasPermission } = usePermission()
+const { t } = useI18n()
 
 /** 调用历史查询权限码（与 PermissionRuleRegistry URL 矩阵对齐） */
 const CAN_VIEW = 'callhistory:view'
@@ -101,11 +108,11 @@ watch(
 
 <template>
   <div>
-    <PageHeader title="调用观测" :subtitle="menuSubtitle('/observability')">
+    <PageHeader :title="t('nav.observability.title')" :subtitle="t(menuSubtitle('/observability'))">
       <template #actions>
         <el-button v-if="canManageTracing" text type="info" @click="showManagement = !showManagement">
           <el-icon><Setting /></el-icon>
-          {{ showManagement ? '收起高级设置' : '高级：追踪管理' }}
+          {{ showManagement ? t('v.ov.t001') : t('v.ov.t002') }}
         </el-button>
       </template>
     </PageHeader>
@@ -116,26 +123,26 @@ watch(
 
     <el-card shadow="never">
       <el-tabs v-model="active">
-        <el-tab-pane label="调用历史" name="history">
+        <el-tab-pane :label="t('v.ov.t003')" name="history">
           <template v-if="hasPermission(CAN_VIEW)">
             <div class="observability-toolbar">
               <el-radio-group v-model="viewMode" size="small">
-                <el-radio-button value="all">全部调用</el-radio-button>
-                <el-radio-button value="failed">只看失败</el-radio-button>
+                <el-radio-button value="all">{{ t('v.ov.t004') }}</el-radio-button>
+                <el-radio-button value="failed">{{ t('v.ov.t005') }}</el-radio-button>
               </el-radio-group>
               <span class="observability-hint">
                 {{
                   viewMode === 'failed'
-                    ? '只显示失败的调用（含错误码与失败原因）'
-                    : '显示全部调用记录，点击 Trace ID 可查看追踪详情'
+                    ? t('v.ov.t006')
+                    : t('v.ov.t007')
                 }}
               </span>
             </div>
             <CallHistoryList :initial-status="viewMode === 'failed' ? 'failed' : 'all'" />
           </template>
-          <el-empty v-else description="没有查看调用历史的权限" />
+          <el-empty v-else :description="t('v.ov.t008')" />
         </el-tab-pane>
-        <el-tab-pane v-if="canTrace" label="调用分析" name="analysis" lazy>
+        <el-tab-pane v-if="canTrace" :label="t('v.ov.t009')" name="analysis" lazy>
           <TracingDashboard />
         </el-tab-pane>
       </el-tabs>

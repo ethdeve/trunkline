@@ -27,7 +27,6 @@ import static org.mockito.Mockito.*;
  * 测试 IP Hash 算法的正确性、一致性和权重支持
  *
  * @author JAiRouter Team
- * @since 2.4.2
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("IpHashLoadBalancer 单元测试")

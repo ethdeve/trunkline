@@ -28,7 +28,6 @@ import reactor.core.publisher.Mono;
  * 支持不同的适配器方法调用（chat、embedding、rerank等）。
  *
  * @author JAiRouter Team
- * @since 2.10.0
  */
 @FunctionalInterface
 public interface ServiceRequestExecutor {

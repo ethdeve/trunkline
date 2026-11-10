@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <template>
   <div class="docs-view">
     <el-container class="docs-container">
@@ -5,13 +10,6 @@
       <el-aside width="272px" class="docs-side">
         <div class="docs-side-header">
           <span class="docs-side-title">{{ t('docs.title') }}</span>
-          <!-- 这里的切换与顶栏语言按钮共用同一个全局状态：切一处，全站同步 -->
-          <el-tooltip :content="t('docs.langHint')" placement="bottom">
-            <el-radio-group v-model="lang" size="small">
-              <el-radio-button value="zh">中</el-radio-button>
-              <el-radio-button value="en">EN</el-radio-button>
-            </el-radio-group>
-          </el-tooltip>
         </div>
         <el-scrollbar class="docs-side-scroll">
           <el-menu
@@ -46,10 +44,10 @@
             :closable="false"
             :title="notice"
           />
-          <!-- 首页：按角色直达，非技术人员不用先读完整目录 -->
+          <!-- 首页：按场景直达（帮助中心仅运维/管理员可见，不再以「我是员工」作为身份入口） -->
           <div v-if="!loading && found && isHome" class="home-shortcuts">
             <div class="home-shortcuts__title">
-              {{ lang === 'en' ? 'Jump to what you need' : '按你的身份快速进入' }}
+              {{ lang === 'en' ? 'Jump to what you need' : '按你要处理的事快速进入' }}
             </div>
             <div class="home-shortcuts__grid">
               <button
@@ -89,27 +87,23 @@ import { useLocale } from '@/composables/useLocale'
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const { locale: appLocale, setLocale } = useLocale()
+const { locale: appLocale } = useLocale()
 
 /** 后端资源目录名（src/main/resources/docs/{zh,en}） */
 type DocLang = 'zh' | 'en'
 
 /**
- * 帮助文档语言 = 全局 locale 的投影，不再由 URL query 单独决定。
+ * 帮助文档语言 = 全局 locale 的只读投影。
  *
- * 在此之前，文档页自己维护一个 lang（来自 ?lang=），顶栏/登录页切换语言后
- * 帮助中心仍停在原语言，两处互不相通。现在全局语言是唯一数据源：
- * - getter：zh-CN → zh、en-US → en，顶栏一切换这里立即跟着变；
- * - setter：左侧「中 / EN」单选器写回全局（setLocale 持久化 + 同步 <html lang>），
- *   等价于顶栏那颗按钮，因此任意入口切换都不会出现两处语言打架。
+ * 顶栏语言按钮是全站唯一入口（localStorage 持久化 + 同步 <html lang>）；
+ * 帮助中心不再提供第二套「中 / EN」控件，避免两处语言状态互相打架，
+ * 也让「切换语言」在任何页面都只有一个出处。
+ * 全局语言一变，这里立即跟着变，watch(lang) 负责重载对应语言的正文与目录。
  *
- * URL 上的 lang 参数降级为「展示同步」：与全局不一致时静默改写，
- * 不再覆盖全局语言，旧链接（?lang=zh-CN、?path=guide/xxx）仍按白名单回落首页。
+ * URL 上的 lang 参数只做「展示同步」：与全局不一致时静默改写，
+ * 不会反过来覆盖全局语言；旧链接（?lang=zh-CN、?path=guide/xxx）按白名单回落首页。
  */
-const lang = computed<DocLang>({
-  get: () => (appLocale.value === 'en-US' ? 'en' : 'zh'),
-  set: next => setLocale(next === 'en' ? 'en-US' : 'zh-CN')
-})
+const lang = computed<DocLang>(() => (appLocale.value === 'en-US' ? 'en' : 'zh'))
 
 /** 文档路径（相对 docs/{lang}，不含 .md）；zh/en 目录对称，切语言可直接平移 */
 const path = ref<string>(
@@ -123,19 +117,21 @@ const homePage = computed<DocPage>(() => getDocHome(lang.value))
 /** 是否为帮助首页（仅首页显示角色直达卡片） */
 const isHome = computed(() => path.value === 'index')
 
-/** 角色直达入口：path 必须与 docsNav.ts / resources/docs 中的文件一致 */
+/** 场景直达入口：path 必须与 docsNav.ts / resources/docs 中的文件一致。
+ *  帮助中心只对运维/管理员开放（普通用户走接入指南 /guide），
+ *  故第一张卡改成「员工来问时怎么答」的运维视角，不再自称「我是员工」。 */
 const homeShortcuts = computed(() =>
   lang.value === 'en'
     ? [
-        { label: 'I am an employee', hint: 'Start with Quick Start', path: 'my/quickstart' },
+        { label: 'Employees asking how to start', hint: 'Point them to Quick Start', path: 'my/quickstart' },
         { label: 'I manage the service', hint: 'Start with Providers', path: 'team/providers' },
         { label: 'I am an administrator', hint: 'Start with Accounts', path: 'system/accounts' },
         { label: 'Something is broken', hint: 'FAQ and error messages', path: 'faq' }
       ]
     : [
-        { label: '我是员工', hint: '从「快速上手」开始', path: 'my/quickstart' },
-        { label: '我是运维', hint: '从「接入管理」开始', path: 'team/providers' },
-        { label: '我是管理员', hint: '从「账号管理」开始', path: 'system/accounts' },
+        { label: '员工来问怎么上手', hint: '指给他「快速上手」', path: 'my/quickstart' },
+        { label: '我管公司里的 AI 服务', hint: '从「接入管理」开始', path: 'team/providers' },
+        { label: '我负责系统和账号', hint: '从「账号管理」开始', path: 'system/accounts' },
         { label: '遇到问题了', hint: '常见问题与报错排查', path: 'faq' }
       ]
 )
@@ -302,10 +298,8 @@ async function loadContent() {
   }
 }
 
-/** 语言变化 → 重载内容并同步 URL。
- *  触发来源有两个：左侧「中 / EN」单选器（写回全局）、顶栏语言按钮（改全局）。
- *  两者都落到这个 watch，因此不存在「一处切了另一处没跟」的情况。
- *  不依赖 el-radio-group 的 @change（实测部分场景不可靠），统一由 watch 兜底。
+/** 全局语言变化 → 重载内容并同步 URL。
+ *  唯一触发来源是顶栏语言按钮（帮助中心已移除独立的「中 / EN」控件）。
  *  双语目录结构对称，path 一般可直接平移；万一目标语言没有该页则回落首页。 */
 watch(lang, (newLang, oldLang) => {
   if (newLang === oldLang) return

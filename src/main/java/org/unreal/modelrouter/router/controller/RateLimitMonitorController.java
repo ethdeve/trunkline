@@ -18,7 +18,6 @@ import java.util.Map;
  * 提供限流器状态和指标的查询接口
  *
  * @author JAiRouter Team
- * @since v2.10.0
  * @modified Trunkline Team
  */
 @Slf4j

@@ -20,7 +20,6 @@ import reactor.core.publisher.Mono;
  * - 与 AdapterErrorHandler 协作：AdapterErrorHandler 负责分类，本组件负责构建
  *
  * @author JAiRouter Team
- * @since v2.28.0
  */
 @Component
 public final class ErrorResponseBuilder {

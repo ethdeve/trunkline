@@ -11,7 +11,6 @@ import java.util.Map;
  * 定义采样决策的方法，支持基于不同条件的采样策略
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 public interface SamplingStrategy {
     

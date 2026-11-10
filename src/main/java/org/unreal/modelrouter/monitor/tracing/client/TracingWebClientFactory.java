@@ -19,7 +19,6 @@ import org.unreal.modelrouter.router.http.WebClientPool;
  * - 复用底层 TCP 连接，减少创建开销
  *
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Component

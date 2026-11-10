@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# JAiRouter Docker 运行脚本
+# Trunkline Docker 运行脚本
 # Usage: ./scripts/build/docker-run.sh [Environment] [Version] [Image type]
 # Image type：standard（standard）, optimized（optimized，推荐）
 
@@ -70,7 +70,7 @@ if [[ ! "$IMAGE_TYPE" =~ ^(optimized|standard)$ ]]; then
     show_usage
 fi
 
-log_info "Starting JAiRouter Docker container"
+log_info "Starting Trunkline Docker container"
 log_info "Environment：$ENVIRONMENT"
 log_info "Version：$VERSION"
 log_info "Image type：$IMAGE_TYPE"
@@ -109,13 +109,13 @@ fi
 if [[ "$ENVIRONMENT" == "dev" ]]; then
     PORTS="-p 8080:8080 -p 5005:5005"
     JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
-    SECURITY_CONFIG="-e JAIROUTER_SECURITY_JWT_ENABLED=false"
+    SECURITY_CONFIG="-e TRUNKLINE_SECURITY_JWT_ENABLED=false"
 else
     PORTS="-p 8080:8080"
     JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
     # 生产Environment需要配置 JWT 密钥
-    log_warning "生产Environment请确保设置 JAIROUTER_SECURITY_JWT_SECRET Environment变量"
-    SECURITY_CONFIG="-e JAIROUTER_SECURITY_ENABLED=true -e JAIROUTER_SECURITY_JWT_ENABLED=true"
+    log_warning "生产Environment请确保设置 TRUNKLINE_SECURITY_JWT_SECRET Environment变量"
+    SECURITY_CONFIG="-e TRUNKLINE_SECURITY_ENABLED=true -e TRUNKLINE_SECURITY_JWT_ENABLED=true"
 fi
 
 # Checking if image exists

@@ -3,7 +3,7 @@
     <template #title>
       <div class="page-heading">
         <h2>{{ t('pool.title') }}</h2>
-        <p class="page-heading__sub">{{ menuSubtitle('/model-pools') }}</p>
+        <p class="page-heading__sub">{{ t(menuSubtitle('/model-pools')) }}</p>
       </div>
     </template>
     <template #actions>
@@ -28,7 +28,7 @@
             <div class="vm-name__sub" v-if="row.name && row.name !== row.poolName">model-name: {{ row.poolName }}</div>
           </template>
         </el-table-column>
-        <el-table-column :label="t('pool.backingModels')" min-width="280">
+        <el-table-column :label="t('pool.backingModels')" min-width="420">
           <template #default="{ row }">
             <div class="vm-members">
               <span
@@ -1100,7 +1100,7 @@ onMounted(() => {
 
 /* ==================== P0-F：成员 chip 价格标签 ==================== */
 .model-chip__name {
-  max-width: 140px;
+  max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

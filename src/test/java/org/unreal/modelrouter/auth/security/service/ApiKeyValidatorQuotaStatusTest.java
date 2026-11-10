@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import org.junit.jupiter.api.DisplayName;
@@ -11,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * API Key 校验链上限流/配额类失败必须透出 429，认证类失败保持 401。
  * 注：{@code FullValidationResult.toException()} 是「返回异常对象」而非抛出，
  * 由调用方决定何时抛出（与 ApiKeyService 校验链用法一致）。
+ * @author Trunkline Team
  */
 @DisplayName("#404 摘取: 限流/配额失败 → 429，认证失败 → 401")
 class ApiKeyValidatorQuotaStatusTest {

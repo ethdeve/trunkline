@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.controller;
 
 import lombok.RequiredArgsConstructor;
@@ -29,6 +33,7 @@ import java.util.Map;
  *
  * <p>供应商层 REST 面：CRUD、启停、换 Key 级联、发现模型、批量添加模型。
  * 权限与实例配置同级（{@code /api/config/**} 段规则，见固定角色矩阵 FixedRoleAccessPolicy）。
+ * @author Trunkline Team
  */
 @Slf4j
 @RestController

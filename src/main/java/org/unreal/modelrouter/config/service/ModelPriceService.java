@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.service;
 
 import lombok.RequiredArgsConstructor;
@@ -38,8 +42,7 @@ import java.util.Map;
  * 用量落在 {@code token_usage.instance_name}，按该名查本表单价。
  * 单价默认 {@code 0}：未配置价格的模型按 ¥0 计入，前端账单页给空态提示。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Slf4j
 @Service

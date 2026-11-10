@@ -38,7 +38,6 @@ import java.time.Duration;
  * 探测失败只告警，既不影响启动，也不改变任何校验行为。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.1
  * @modified Trunkline Team
  */
 @Slf4j

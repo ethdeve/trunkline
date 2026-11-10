@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import java.util.Collections;
@@ -23,8 +27,7 @@ import java.util.Set;
  *       {@code permissions}（以及 {@code roles}），改由角色/权限码权威来源重算后写入。</li>
  * </ul>
  *
- * @author JAiRouter Team
- * @since 3.3.1
+ * @author Trunkline Team
  */
 public final class JwtRefreshClaimResolver {
 

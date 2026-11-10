@@ -12,7 +12,6 @@ import java.time.Duration;
  * 默认全部关闭/保守值，缓存为纯增量 opt-in 能力，不改变任何默认行为。
  *
  * @author JAiRouter Team
- * @since 2.9.9
  * @modified Trunkline Team
  */
 @Data

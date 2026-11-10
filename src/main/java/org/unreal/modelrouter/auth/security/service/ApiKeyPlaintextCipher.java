@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import lombok.extern.slf4j.Slf4j;
@@ -33,8 +37,7 @@ import java.util.Base64;
  *
  * <p>密文格式：Base64(IV(12B) || AES-GCM 密文(含 16B 认证标签))，与
  * {@code ConfigurationEncryptionService} 相同的线格式。</p>
- *
- * @since 3.5.2
+ * @author Trunkline Team
  */
 @Slf4j
 @Service

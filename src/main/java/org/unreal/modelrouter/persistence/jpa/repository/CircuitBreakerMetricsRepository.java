@@ -14,7 +14,6 @@ import org.unreal.modelrouter.persistence.jpa.entity.CircuitBreakerMetricsEntity
  * 熔断器统计数据 Repository
  * 
  * @author JAiRouter Team
- * @since v2.6.12
  */
 @Repository
 public interface CircuitBreakerMetricsRepository extends JpaRepository<CircuitBreakerMetricsEntity, Long> {

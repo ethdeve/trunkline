@@ -20,7 +20,6 @@ package org.unreal.modelrouter.router.ratelimit;
  * </pre>
  *
  * @author JAiRouter Team
- * @since 2.9.10
  */
 public final class ServiceRateLimitHolder {
 

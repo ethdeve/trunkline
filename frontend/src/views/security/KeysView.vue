@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 /**
@@ -16,7 +21,7 @@ provide('skeletonEmbedded', true)
 
 <template>
   <div>
-    <PageHeader :title="t('shell.keys.title')" :subtitle="menuSubtitle('/all-keys')" />
+    <PageHeader :title="t('shell.keys.title')" :subtitle="t(menuSubtitle('/all-keys'))" />
     <el-card shadow="never">
       <ApiKeyManagement />
     </el-card>

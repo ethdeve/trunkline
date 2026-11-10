@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * P0-K 一致性巡检：路由 meta.permissions ↔ 菜单 permission ↔ 菜单 path ↔ 路由 path
  *
  * 验收标准（按方案要求）：**一致性巡检 100% 通过**。

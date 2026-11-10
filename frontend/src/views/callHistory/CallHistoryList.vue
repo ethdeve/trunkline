@@ -55,7 +55,7 @@
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="csv">CSV（Excel 可直接打开）</el-dropdown-item>
+              <el-dropdown-item command="csv">{{ t('v.ov.t010') }}</el-dropdown-item>
               <el-dropdown-item command="json">JSON</el-dropdown-item>
             </el-dropdown-menu>
           </template>

@@ -12,7 +12,6 @@ import java.util.Map;
  * 根据预定义的规则决定是否采样，支持基于属性的条件判断
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 public class RuleBasedSamplingStrategy implements SamplingStrategy {
     

@@ -11,7 +11,6 @@ import type {
 
 /**
  * 异常管理 API 接口封装
- * @since 1.9.3
  */
 
 /**

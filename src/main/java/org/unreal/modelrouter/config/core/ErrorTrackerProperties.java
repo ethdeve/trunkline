@@ -12,7 +12,6 @@ import java.util.List;
  * 配置错误追踪功能的各种参数。
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Data

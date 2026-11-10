@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.dependency;
 
 import lombok.extern.slf4j.Slf4j;
@@ -44,8 +48,7 @@ import java.util.Set;
  * {@code persistence} / {@code router.pool} / {@code auth.security}，不反向依赖
  * {@code config.core} 与 {@code config.service}，避免与既有注入关系形成包级循环。</p>
  *
- * @author JAiRouter Team
- * @since 3.3.2
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 @Slf4j

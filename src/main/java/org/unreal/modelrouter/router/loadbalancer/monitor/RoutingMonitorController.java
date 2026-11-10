@@ -23,7 +23,6 @@ import java.util.Map;
  * 提供监控数据查询、配置调整、暂停/恢复等功能
  *
  * @author JAiRouter Team
- * @since 2.7.0
  */
 @Slf4j
 @RestController

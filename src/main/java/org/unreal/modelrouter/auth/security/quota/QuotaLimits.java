@@ -18,7 +18,6 @@ import org.unreal.modelrouter.common.exception.ApiException;
  * {@code min}/{@code max} 需与此保持一致。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.2
  */
 public final class QuotaLimits {
 

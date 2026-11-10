@@ -27,8 +27,6 @@ import java.util.Map;
  * Gemini API 端点:
  * - 生成内容: POST /v1beta/models/{model}:generateContent
  * - 流式生成: POST /v1beta/models/{model}:streamGenerateContent
- *
- * @since v2.8.3
  */
 @Slf4j
 public class GeminiAdapter extends BaseAdapter {

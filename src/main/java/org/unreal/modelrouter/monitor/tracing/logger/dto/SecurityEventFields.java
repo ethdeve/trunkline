@@ -40,7 +40,6 @@ import java.util.Map;
  * - details: 详细信息（可选）
  *
  * @author JAiRouter Team
- * @since v2.16.4
  */
 @Data
 @Builder

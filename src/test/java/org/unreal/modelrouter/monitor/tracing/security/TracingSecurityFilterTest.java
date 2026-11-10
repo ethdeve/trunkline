@@ -21,7 +21,6 @@ import static org.mockito.Mockito.*;
  * TracingSecurityFilter 单元测试
  *
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @DisplayName("TracingSecurityFilter 测试")
 class TracingSecurityFilterTest {

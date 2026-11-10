@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.common.config;
 
 import org.junit.jupiter.api.AfterEach;
@@ -21,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  * <p>验证三件事：旧前缀点分键映射、旧前缀环境变量映射、新前缀显式配置优先。
  *
  * @author Trunkline Team
- * @since 0.1.0
  */
 class JairouterLegacyPropertyMapperTest {
 

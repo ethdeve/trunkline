@@ -18,7 +18,6 @@ import org.unreal.modelrouter.router.model.ModelServiceRegistry;
  * - 避免主请求路径中的阻塞健康检查
  *
  * @author AI Assistant
- * @since v2.2.4
  */
 @Component
 public class InstanceSelector {

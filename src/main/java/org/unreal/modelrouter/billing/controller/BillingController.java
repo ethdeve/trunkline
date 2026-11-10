@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.billing.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,8 +31,7 @@ import java.util.List;
  * <p>当前仅暴露「我的账单」聚合端点：按登录用户 + 月份，聚合 token × 价格。
  * 归属用户由服务端从 {@link Authentication#getName()} 解析，不信任前端传参，避免越权查看他人账单。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Slf4j
 @RestController

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.persistence.jpa.entity;
 
 import jakarta.persistence.Column;
@@ -27,6 +31,7 @@ import java.time.LocalDateTime;
  *
  * <p>与实例的既有约定保持一致：状态值大写（ACTIVE / INACTIVE）；apiKey 明文存储与
  * {@code service_instance.headers} 中 Authorization 同级（既有方案即明文 JSON，不引入新的加密面）。
+ * @author Trunkline Team
  */
 @Data
 @Builder

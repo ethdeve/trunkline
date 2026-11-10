@@ -22,7 +22,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * - 与追踪上下文的集成
  *
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 public final class ErrorTracker {

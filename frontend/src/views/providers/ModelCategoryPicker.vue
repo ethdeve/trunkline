@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <template>
   <div class="mcp">
     <div v-if="models.length === 0" class="mcp__empty">没有可选模型</div>

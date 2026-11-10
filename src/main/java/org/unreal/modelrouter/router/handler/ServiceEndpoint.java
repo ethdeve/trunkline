@@ -27,7 +27,6 @@ import org.unreal.modelrouter.router.model.ModelServiceRegistry.ServiceType;
  * 用于统一管理和路由各种AI模型服务请求。
  *
  * @author JAiRouter Team
- * @since 2.10.0
  */
 @Getter
 @AllArgsConstructor

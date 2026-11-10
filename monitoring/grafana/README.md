@@ -1,11 +1,11 @@
-# JAiRouter Grafana 仪表板配置
+# Trunkline Grafana 仪表板配置
 
-本目录包含了JAiRouter项目的Grafana仪表板配置文件，提供全面的监控可视化界面。
+本目录包含了 Trunkline 项目的 Grafana 仪表板配置文件，提供全面的监控可视化界面。
 
 ## 仪表板概览
 
 ### 1. 系统概览 (system-overview.json)
-- **用途**: 提供JAiRouter系统的整体运行状态概览
+- **用途**: 提供 Trunkline 系统的整体运行状态概览
 - **主要指标**:
   - 请求总览（总请求率、成功请求率、错误请求率）
   - 错误率统计
@@ -76,7 +76,7 @@ monitoring/grafana/
 
 ```bash
 # 启动监控栈
-docker-compose -f docker-compose-monitoring.yml up -d
+docker-compose -f docker-compose.monitoring.yml up -d
 
 # 访问Grafana
 # URL: http://localhost:3000
@@ -102,16 +102,16 @@ docker-compose -f docker-compose-monitoring.yml up -d
 ## 指标说明
 
 ### 核心指标前缀
-所有JAiRouter相关指标都以`jairouter_`为前缀：
+所有 Trunkline 相关指标都以 `trunkline_` 为前缀：
 
-- `jairouter_requests_total`: 请求总数计数器
-- `jairouter_request_duration_seconds`: 请求响应时间直方图
-- `jairouter_backend_calls_total`: 后端调用总数计数器
-- `jairouter_backend_call_duration_seconds`: 后端调用时间直方图
-- `jairouter_backend_health`: 后端服务健康状态
-- `jairouter_rate_limit_tokens`: 限流器可用令牌数
-- `jairouter_circuit_breaker_state`: 熔断器状态
-- `jairouter_loadbalancer_selections_total`: 负载均衡选择计数
+- `trunkline_requests_total`: 请求总数计数器
+- `trunkline_request_duration_seconds`: 请求响应时间直方图
+- `trunkline_backend_calls_total`: 后端调用总数计数器
+- `trunkline_backend_call_duration_seconds`: 后端调用时间直方图
+- `trunkline_backend_health`: 后端服务健康状态
+- `trunkline_rate_limit_tokens`: 限流器可用令牌数
+- `trunkline_circuit_breaker_state`: 熔断器状态
+- `trunkline_loadbalancer_selections_total`: 负载均衡选择计数
 
 ### 标签说明
 - `service`: 服务类型（chat、embedding、rerank等）
@@ -145,8 +145,8 @@ docker-compose -f docker-compose-monitoring.yml up -d
 
 1. **仪表板显示"No data"**
    - 检查Prometheus数据源配置
-   - 确认JAiRouter应用正在运行并暴露指标
-   - 验证Prometheus能够抓取到JAiRouter的指标
+   - 确认 Trunkline 应用正在运行并暴露指标
+   - 验证Prometheus能够抓取到 Trunkline 的指标
 
 2. **指标数据不准确**
    - 检查时间同步
@@ -166,7 +166,7 @@ docker logs grafana
 # 检查Prometheus日志
 docker logs prometheus
 
-# 检查JAiRouter指标端点
+# 检查 Trunkline 指标端点
 curl http://localhost:8080/actuator/prometheus
 ```
 

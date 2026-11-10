@@ -45,7 +45,6 @@ import java.util.function.Consumer;
  * 再判一次，命中链路本地 / 云元数据网段即拒绝连接，堵住 DNS 重绑定绕过面。</p>
  *
  * @author JAiRouter Team
- * @since 2.7.0
  * @modified Trunkline Team
  */
 @Component

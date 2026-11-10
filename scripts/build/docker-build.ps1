@@ -1,4 +1,4 @@
-# JAiRouter Docker Build Script (PowerShell)
+# Trunkline Docker Build Script (PowerShell)
 # This script builds the Docker image using native Docker commands
 
 param(
@@ -56,7 +56,7 @@ if ([string]::IsNullOrEmpty($Version)) {
     }
 }
 
-Write-Info "Starting JAiRouter Docker build (Version: $Version)..."
+Write-Info "Starting Trunkline Docker build (Version: $Version)..."
 Write-Info "Environment: $Environment"
 
 # Check if Docker is installed

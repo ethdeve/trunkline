@@ -25,7 +25,6 @@ import java.util.Set;
  * {@code ratio} 并告警 —— 采样配置写错不该让服务起不来，静默全采/全不采同样不可接受。</p>
  *
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Slf4j

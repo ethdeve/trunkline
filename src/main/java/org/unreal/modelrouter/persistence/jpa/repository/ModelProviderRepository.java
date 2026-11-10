@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.persistence.jpa.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,6 +13,7 @@ import java.util.Optional;
 
 /**
  * 模型供应商仓库（v2.11.0 新增）
+ * @author Trunkline Team
  */
 @Repository
 public interface ModelProviderRepository extends JpaRepository<ModelProviderEntity, Long> {

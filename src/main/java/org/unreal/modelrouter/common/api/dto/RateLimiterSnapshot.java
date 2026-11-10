@@ -9,8 +9,6 @@ import java.util.Map;
  *
  * <p>此 DTO 用于模块间通信，persistence 模块只存储此快照，
  * 不感知 RateLimiter 业务组件。
- *
- * @since v2.8.0
  */
 public final class RateLimiterSnapshot implements Serializable {
 

@@ -1,8 +1,13 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <template>
   <div>
     <PageHeader
-      title="全局配置"
-      :subtitle="menuSubtitle('/settings/global')"
+      :title="t('nav.globalConfig.title')"
+      :subtitle="t(menuSubtitle('/settings/global'))"
       help-link="/docs?path=system/global"
     />
 

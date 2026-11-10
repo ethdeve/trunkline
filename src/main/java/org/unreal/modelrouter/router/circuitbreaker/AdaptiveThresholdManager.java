@@ -26,7 +26,6 @@ import lombok.RequiredArgsConstructor;
  * - 高失败率：收紧阈值
  * 
  * @author JAiRouter Team
- * @since v2.6.12
  */
 @Service
 @RequiredArgsConstructor

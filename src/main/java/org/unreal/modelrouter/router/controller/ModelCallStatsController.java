@@ -36,7 +36,6 @@ import java.util.Map;
  * - 健康状态监控
  * 
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @RestController
 @RequestMapping("/api/model-stats")

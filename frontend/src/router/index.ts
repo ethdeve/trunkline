@@ -4,10 +4,15 @@
  * - 一期真实页面 2 个（总览/快速开始占位），其余 8 项 comingSoon 占位，
  *   菜单树一次写全（config/menu.ts），二期起只增组件不改配置
  * - 守卫逻辑收编自旧台：认证 → token 过期 → 权限码（meta.permissions 需全部拥有，ADMIN 恒通过）
+ * - 【2026-11-10 全站双语】meta.title 一律为 i18n key（locales 下各语言的 nav.json）。
+ *   ConsoleLayout 面包屑与浏览器标题都经 t() 解析，后者额外监听全局 locale，
+ *   保证只切语言、不跳路由时浏览器标签标题也会跟着变。
  */
+import { watch } from 'vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { menuGroups, flattenMenuItems } from '@/config/menu'
+import { menuGroups, flattenMenuItems, type LogicalRole } from '@/config/menu'
+import { i18n } from '@/i18n'
 import ConsoleLayout from '@/layouts/ConsoleLayout.vue'
 import BlankLayout from '@/layouts/BlankLayout.vue'
 
@@ -72,59 +77,63 @@ export const routes: RouteRecordRaw[] = [
         path: 'model-categories',
         name: 'model-categories',
         component: () => import('@/views/config/ServiceManagement.vue'),
-        meta: { title: '模型分类' }
+        meta: { title: 'nav.pages.modelCategories' }
       },
       {
         path: 'model-pools',
         name: 'model-pools',
         component: () => import('@/views/config/pools/PoolManagement.vue'),
-        meta: { title: '虚拟模型' }
+        meta: { title: 'nav.modelPools.title' }
       },
       {
         // 傻瓜式快速接入向导：选服务商 → 填密钥 → 导入模型 → 自动建分组+测试密钥+复制 curl
         path: 'quick-start',
         name: 'quick-start',
         component: () => import('@/views/tools/QuickStartWizard.vue'),
-        meta: { title: '快速接入' }
+        // 向导会写入供应商 / 模型分组 / 调用密钥，属运维配置动作：仅运维与管理员可用。
+        // USER 直访由 beforeEach 按 meta.roles 拦到 /403（与内置帮助文档同一套口径）。
+        meta: { title: 'nav.pages.quickStartWizard', roles: ['ops', 'admin'] as LogicalRole[] }
       },
       {
         path: 'protocol-adapters',
         name: 'protocol-adapters',
         component: () => import('@/views/config/AdapterManagement.vue'),
-        meta: { title: '模型适配器' }
+        meta: { title: 'nav.pages.protocolAdapters' }
       },
       {
         path: 'playground',
         name: 'playground',
         component: () => import('@/views/playground/PlaygroundView.vue'),
-        meta: { title: '测试场' }
+        meta: { title: 'nav.playground.title' }
       },
       {
         path: 'keys',
         name: 'keys',
         component: () => import('@/views/security/KeysView.vue'),
-        meta: { title: '密钥管理' }
+        meta: { title: 'nav.pages.keyManagement' }
       },
       {
         // 接入指南不占菜单（定稿）：顶栏帮助图标 + 向导第 3 步两处入口
         path: 'guide',
         name: 'guide',
         component: () => import('@/views/tools/GuideView.vue'),
-        meta: { public: false, title: '接入指南' }
+        meta: { public: false, title: 'nav.pages.integrationGuide' }
       },
       {
         // 内置帮助文档（后端 resources/docs 提供 md 原文，前端渲染）
+        // 【2026-11-10 用户决策】仅运维/管理员可见；普通用户的上手路径是 /guide（接入指南）
+        // 与「快速上手」菜单页。roles 由下方守卫对非菜单路由统一判定，越权跳 403。
         path: 'docs',
         name: 'docs',
         component: () => import('@/views/docs/DocView.vue'),
-        meta: { public: false, title: '帮助文档' }
+        meta: { public: false, title: 'nav.pages.helpDocs', roles: ['ops', 'admin'] as LogicalRole[] }
       },
       // ---- 三期观测 ----
       {
         path: 'observe',
         name: 'observe',
         component: () => import('@/views/observe/ObserveView.vue'),
-        meta: { title: '观测中心' }
+        meta: { title: 'nav.pages.observeCenter' }
       },
       {
         // 【2026-11-05】「调用详情」菜单已下线，内容并入「调用观测」(/observability)：
@@ -152,13 +161,13 @@ export const routes: RouteRecordRaw[] = [
         path: 'strategy',
         name: 'strategy',
         component: () => import('@/views/strategy/StrategyView.vue'),
-        meta: { title: '路由规则' }
+        meta: { title: 'nav.routingRules.title' }
       },
       {
         path: 'quota',
         name: 'quota',
         component: () => import('@/views/strategy/QuotaView.vue'),
-        meta: { title: '用量配额' }
+        meta: { title: 'nav.pages.usageQuota' }
       },
       {
         // 旧入口 /settings → 按深度链参数重定向到对应分组路径（menu.ts 已拆 4 个菜单项）
@@ -190,25 +199,25 @@ export const routes: RouteRecordRaw[] = [
         path: 'settings/accounts',
         name: 'settings-accounts',
         component: () => import('@/views/settings/SettingsView.vue'),
-        meta: { title: '账号管理', defaultGroup: 'access' }
+        meta: { title: 'nav.accounts.title', defaultGroup: 'access' }
       },
       {
         path: 'settings/model-config',
         name: 'settings-model-config',
         component: () => import('@/views/settings/SettingsView.vue'),
-        meta: { title: '模型配置', defaultGroup: 'modelConfig' }
+        meta: { title: 'nav.modelConfig.title', defaultGroup: 'modelConfig' }
       },
       {
         path: 'settings/audit-versions',
         name: 'settings-audit-versions',
         component: () => import('@/views/settings/SettingsView.vue'),
-        meta: { title: '审计与版本', defaultGroup: 'auditVersions' }
+        meta: { title: 'nav.auditVersions.title', defaultGroup: 'auditVersions' }
       },
       {
         path: 'settings/monitoring',
         name: 'settings-monitoring',
         component: () => import('@/views/settings/SettingsView.vue'),
-        meta: { title: '状态监控', defaultGroup: 'monitoring' }
+        meta: { title: 'nav.statusMonitoring.title', defaultGroup: 'monitoring' }
       },
       {
         // v3.5 Trunkline：网关级默认配置的集中入口
@@ -216,7 +225,7 @@ export const routes: RouteRecordRaw[] = [
         path: 'settings/global',
         name: 'settings-global',
         component: () => import('@/views/settings/GlobalSettingsView.vue'),
-        meta: { title: '全局配置' }
+        meta: { title: 'nav.globalConfig.title' }
       },
       // ---- v3.5 四组菜单新增路由 ----
       {
@@ -225,52 +234,52 @@ export const routes: RouteRecordRaw[] = [
         path: 'my-quota',
         name: 'my-quota',
         component: () => import('@/views/my/MyQuotaView.vue'),
-        meta: { title: '我的额度' }
+        meta: { title: 'nav.myQuota.title' }
       },
       {
         path: 'my-keys',
         name: 'my-keys',
         component: () => import('@/views/my/MyKeysView.vue'),
-        meta: { title: '我的密钥' }
+        meta: { title: 'nav.myKeys.title' }
       },
       {
         path: 'my-bills',
         name: 'my-bills',
         component: () => import('@/views/my/MyBillsView.vue'),
-        meta: { title: '我的账单' }
+        meta: { title: 'nav.myBills.title' }
       },
       {
         path: 'team',
         name: 'team',
         component: () => import('@/views/team/TeamUsageView.vue'),
-        meta: { title: '团队用量' }
+        meta: { title: 'nav.teamUsage.title' }
       },
       {
         path: 'quickstart',
         name: 'quickstart',
         component: () => import('@/views/my/QuickstartView.vue'),
-        meta: { title: '快速上手' }
+        meta: { title: 'nav.quickstart.title' }
       },
       {
         // 接入管理：接厂商 + 价格与额度（v3.5 原型化）
         path: 'providers',
         name: 'providers',
         component: () => import('@/views/providers/ProviderConsoleView.vue'),
-        meta: { title: '接入管理' }
+        meta: { title: 'nav.providers.title' }
       },
       {
         // 全部密钥：复用既有密钥管理视图（管理员视角）
         path: 'all-keys',
         name: 'all-keys',
         component: () => import('@/views/security/KeysView.vue'),
-        meta: { title: '全部密钥' }
+        meta: { title: 'nav.allKeys.title' }
       },
       {
         // 调用观测：复用既有观测中心（后续瘦身为「仅调用历史列表」）
         path: 'observability',
         name: 'observability',
         component: () => import('@/views/observe/ObserveView.vue'),
-        meta: { title: '调用观测' }
+        meta: { title: 'nav.observability.title' }
       },
       {
         // P0-B 撞墙页：无权限访问时落地这里。
@@ -279,7 +288,7 @@ export const routes: RouteRecordRaw[] = [
         path: '403',
         name: 'forbidden',
         component: () => import('@/views/system/ForbiddenView.vue'),
-        meta: { title: '无权访问' }
+        meta: { title: 'nav.pages.forbidden' }
       }
     ]
   },
@@ -366,7 +375,7 @@ router.beforeEach((to) => {
     return true
   }
 
-  // 非菜单路由（旧台遗留 / 工具页）：沿用 meta.permissions 粒度判定
+  // 非菜单路由（旧台遗留 / 工具页 / 内置帮助文档）：沿用 meta.permissions 粒度判定
   const required = to.meta.permissions as string[] | undefined
   if (required && required.length > 0 && !required.every(code => userStore.hasPermission(code))) {
     // P0-B：同样跳 403 页，并把缺失的权限码全部带上（用户可能同时缺多个）
@@ -374,12 +383,38 @@ router.beforeEach((to) => {
     return { path: '/403', query: { from: to.path, missing: missing.join(',') } }
   }
 
+  // 【2026-11-10】非菜单路由也支持 roles 逻辑角色（内置帮助文档 /docs 用）。
+  // 此前守卫只对「命中菜单项」的路由判 roles，工具页写 roles 会被静默忽略；
+  // 这里补齐后，roles 成为菜单路由与非菜单路由统一的角色口径。
+  const requiredRoles = to.meta.roles as LogicalRole[] | undefined
+  if (requiredRoles && requiredRoles.length > 0 && !userStore.hasLogicalRoleOneOf(requiredRoles)) {
+    return { path: '/403', query: { from: to.path, role: requiredRoles.join(',') } }
+  }
+
   return true
 })
 
-router.afterEach((to) => {
-  const title = to.meta.title as string | undefined
-  document.title = title ? `${title} · Trunkline 控制台` : 'Trunkline 控制台'
-})
+/**
+ * 浏览器标签标题：meta.title 是 i18n key，经全局 t() 解析。
+ * 语言切换不改变路由，afterEach 不会触发，因此额外监听 i18n 的全局 locale，
+ * 让用户点顶栏语言按钮后标签标题也立即跟着变。
+ *
+ * vue-i18n 的 Composer 泛型签名极深，直接访问 i18n.global.t / locale 会触发
+ * TS2589（类型实例化过深）；这里通过 any 只取运行时需要的两个成员并显式标注类型。
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const i18nGlobal = (i18n as any).global as {
+  t: (key: string) => string
+  locale: { value: string }
+}
+
+function syncDocumentTitle() {
+  const key = router.currentRoute.value.meta.title as string | undefined
+  const suffix = i18nGlobal.t('app.consoleTitle')
+  document.title = key ? `${i18nGlobal.t(key)} · ${suffix}` : suffix
+}
+
+router.afterEach(syncDocumentTitle)
+watch(() => i18nGlobal.locale.value, syncDocumentTitle)
 
 export default router

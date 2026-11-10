@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * 注意：使用临时目录进行实际文件测试
  *
  * @author JAiRouter Team
- * @since 2.4.7
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("FileStatePersistenceService Tests")

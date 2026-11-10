@@ -12,7 +12,6 @@ import reactor.core.publisher.Flux;
  * 也不应为它引入 Redis 依赖。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.4
  * @modified Trunkline Team
  */
 @Slf4j

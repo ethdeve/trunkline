@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import org.junit.jupiter.api.DisplayName;
@@ -38,6 +42,7 @@ import static org.mockito.Mockito.when;
  *       对哈希返回 true、对 jti 返回 false——即"撤销（按哈希）→ 重放（按哈希查）"必然命中。</li>
  * </ol>
  * 两条契约同时成立，即"撤销 → 立即重放 → 401"在命名空间层面闭环。
+ * @author Trunkline Team
  */
 @DisplayName("C2 黑名单键命名空间拆分契约测试")
 class C2BlacklistNamespaceContractTest {

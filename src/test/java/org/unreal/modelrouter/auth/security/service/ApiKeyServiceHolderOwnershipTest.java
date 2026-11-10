@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p><b>期望</b>：归属一律以<b>有效持有人</b>（{@code holder || createdBy}）为准，
  * 与「全部密钥」页「持有人」列、调用观测「员工」列完全一致。</p>
+ * @author Trunkline Team
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

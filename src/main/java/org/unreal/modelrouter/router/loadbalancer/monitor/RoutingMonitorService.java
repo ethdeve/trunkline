@@ -13,7 +13,6 @@ import java.util.List;
  * 在负载均衡选择实例后调用 recordSelection 进行埋点
  *
  * @author JAiRouter Team
- * @since 2.7.0
  */
 @Slf4j
 @Service

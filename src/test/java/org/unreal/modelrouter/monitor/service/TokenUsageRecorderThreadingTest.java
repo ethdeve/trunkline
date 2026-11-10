@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * （仅捕获执行线程），不使用 Mockito；异步补写使用有界 {@link CountDownLatch} 等待。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 @DisplayName("TokenUsageRecorder 落库线程语义（issue #115）")
 class TokenUsageRecorderThreadingTest {

@@ -12,7 +12,6 @@ import java.util.Map;
  * 提供统一的状态持久化 API，用于熔断器、负载均衡器等组件的状态存储。
  * 
  * @author JAiRouter Team
- * @since 2.4.4
  */
 public interface StatePersistenceService {
 

@@ -16,7 +16,6 @@ import org.springframework.stereotype.Component;
  * - 状态变更的日志记录
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 @Component

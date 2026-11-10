@@ -17,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * SimpleExpiringCache 单元测试
  *
  * @author JAiRouter Team
- * @since 2.7.3
  */
 class SimpleExpiringCacheTest {
 

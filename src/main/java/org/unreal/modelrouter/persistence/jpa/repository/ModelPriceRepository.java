@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.persistence.jpa.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,8 +16,7 @@ import java.util.Optional;
  *
  * <p>查询已启用的价格行，按 model_name 合并；未配置价格的模型按 ¥0 计入。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Repository
 public interface ModelPriceRepository extends JpaRepository<ModelPriceEntity, Long> {

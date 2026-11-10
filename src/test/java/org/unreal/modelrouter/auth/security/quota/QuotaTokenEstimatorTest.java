@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * {@link QuotaTokenEstimator} 请求侧估算测试（v3.1 PR-2）。
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 @DisplayName("QuotaTokenEstimator 请求侧估算测试")
 class QuotaTokenEstimatorTest {

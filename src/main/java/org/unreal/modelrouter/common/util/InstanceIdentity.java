@@ -6,7 +6,7 @@ import java.lang.management.ManagementFactory;
  * 本**应用副本**（进程）的标识。
  *
  * <p>注意与 {@link InstanceIdUtils} 区分：后者解析的是**下游 AI 服务实例**的 ID（业务配置里的
- * {@code instanceId}），本类解析的是**当前运行的这个 JAiRouter 副本自身**的标识。</p>
+ * {@code instanceId}），本类解析的是**当前运行的这个 Trunkline 副本自身**的标识。</p>
  *
  * <p>取值顺序：{@code INSTANCE_ID} 环境变量 → {@code POD_NAME}（Kubernetes downward API 注入）
  * → {@code HOSTNAME} → 进程 PID 兜底。结果会被规范化为可安全用作文件名与 Redis key 的 token
@@ -16,7 +16,6 @@ import java.lang.management.ManagementFactory;
  * 避免多个副本写同一个文件名造成内容交错）。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.3
  */
 public final class InstanceIdentity {
 

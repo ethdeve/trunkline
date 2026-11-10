@@ -10,7 +10,9 @@
  *   可见性映射的键（config/permissionMatrix.ts），后端授权由固定角色矩阵按角色裁决。
  * - 「我的密钥」「我的账单」对普通用户(user/ops)可见、admin 不可见（用户决策 #3）。
  * - 「审计与版本」维持现状（旧皮肤、旧菜单位置，不搬进新视觉改造，用户决策 #4）。
- * - 标题为字面中文（'menu.' 前缀视为 i18n key，ConsoleLayout 渲染时走 t()）。
+ * - 【2026-11-10 全站双语】title / subtitle 一律为 i18n key（locales 下各语言的 nav.json）。
+ *   渲染层（ConsoleLayout、PageHeader 调用方、命令面板、403 页）统一走 t()，
+ *   因此顶栏切换语言时菜单、面包屑、页头会即时重渲染，不再有「永远中文」的死角。
  */
 
 /** 逻辑角色（规格三角色模型，与 JWT 角色重映射，见 stores/user.ts） */
@@ -19,7 +21,7 @@ export type LogicalRole = 'user' | 'ops' | 'admin'
 export interface MenuItem {
   /** 路由路径 */
   path: string
-  /** 菜单标题（字面中文；'menu.' 前缀视为 i18n key） */
+  /** 菜单标题的 i18n key（nav.*.title）；渲染方必须经 t() 解析 */
   title: string
   /** 权限码；缺省表示所有已登录用户可见 */
   permission?: string
@@ -27,7 +29,7 @@ export interface MenuItem {
   roles?: LogicalRole[]
   /** Element Plus 图标 kebab-case 名 */
   icon?: string
-  /** 页内副标题（承载技术术语） */
+  /** 页内副标题的 i18n key（nav.*.subtitle）；渲染方必须经 t() 解析 */
   subtitle?: string
   /**
    * P0-B：置灰可见（灰条但可点）。
@@ -60,7 +62,7 @@ export interface MenuItem {
 export interface MenuGroup {
   /** 组标识 */
   index: string
-  /** 组标题 */
+  /** 组标题的 i18n key（nav.groups.*）；渲染方必须经 t() 解析 */
   title: string
   icon: string
   children: MenuItem[]
@@ -75,157 +77,157 @@ export interface MenuGroup {
 export const menuGroups: MenuGroup[] = [
   {
     index: 'my',
-    title: '我的',
+    title: 'nav.groups.my',
     icon: 'user',
     children: [
       {
         // v3.5 Trunkline：员工版额度首页（按原型实现）
         path: '/my-quota',
-        title: '我的额度',
+        title: 'nav.myQuota.title',
         icon: 'odometer',
-        subtitle: '本月花了多少、还剩多少'
+        subtitle: 'nav.myQuota.subtitle'
       },
       {
         path: '/my-keys',
-        title: '我的密钥',
+        title: 'nav.myKeys.title',
         // 原型 data-roles="user,ops,admin"——管理员也有自己的密钥与账单，
         // 原先漏了 admin，管理员访问这两页会被路由守卫踢走
         roles: ['user', 'ops', 'admin'],
         icon: 'key',
-        subtitle: '你名下的密钥和能用的模型'
+        subtitle: 'nav.myKeys.subtitle'
       },
       {
         path: '/quickstart',
-        title: '快速上手',
+        title: 'nav.quickstart.title',
         permission: 'ai:playground:use',
         icon: 'magic-stick',
-        subtitle: '三步把密钥装进你常用的 AI 工具'
+        subtitle: 'nav.quickstart.subtitle'
       },
       {
         path: '/playground',
-        title: '测试场',
+        title: 'nav.playground.title',
         permission: 'ai:playground:use',
         icon: 'chat-dot-round',
-        subtitle: '先在这里试一句，确认能用再去工具里配'
+        subtitle: 'nav.playground.subtitle'
       },
       {
         path: '/my-bills',
-        title: '我的账单',
+        title: 'nav.myBills.title',
         roles: ['user', 'ops', 'admin'],
         icon: 'money',
-        subtitle: '按月看自己花了多少钱'
+        subtitle: 'nav.myBills.subtitle'
       }
     ]
   },
   {
     index: 'team',
-    title: '团队',
+    title: 'nav.groups.team',
     icon: 'office-building',
     children: [
       {
         path: '/team',
-        title: '团队用量',
+        title: 'nav.teamUsage.title',
         permission: 'monitoring:tokenusage:read',
         roles: ['ops', 'admin'],
         icon: 'data-analysis',
-        subtitle: '全公司花了多少、谁在用'
+        subtitle: 'nav.teamUsage.subtitle'
       },
       {
         path: '/providers',
-        title: '接入管理',
+        title: 'nav.providers.title',
         permission: 'config:instances:read',
         roles: ['ops', 'admin'],
         icon: 'connection',
-        subtitle: '接新厂商、配模型与价格'
+        subtitle: 'nav.providers.subtitle'
       },
       {
         path: '/model-pools',
-        title: '虚拟模型',
+        title: 'nav.modelPools.title',
         permission: 'config:instances:read',
         roles: ['ops', 'admin'],
         icon: 'collection-tag',
-        subtitle: '员工用的模型名，背后可以挂多个厂商模型'
+        subtitle: 'nav.modelPools.subtitle'
       },
       {
         // 【2026-11-05】原「策略」分组只有这一项（策略中心，页面仅剩路由规则一个 tab），
         // 单项成组浪费一层菜单层级 → 并入「团队」分组，更名「路由规则」如实描述页面内容。
         // 路由路径 /strategy 不变，旧链接与 ?tab= 深链均不受影响。
         path: '/strategy',
-        title: '路由规则',
+        title: 'nav.routingRules.title',
         permission: 'config:rules:read',
         roles: ['ops', 'admin'],
         icon: 'set-up',
-        subtitle: '按条件把请求转给不同的模型'
+        subtitle: 'nav.routingRules.subtitle'
       },
       {
         path: '/all-keys',
-        title: '全部密钥',
+        title: 'nav.allKeys.title',
         // P0-K：此前缺 permission —— 同一页面还有一条 /keys 路由声明了
         // security:apikeys:manage，两条路径权限不一致（其中一条等于没保护）。
         // 菜单的 permission 是唯一权威，两条路由都会自动派生到这里。
         permission: 'security:apikeys:manage',
         roles: ['ops', 'admin'],
         icon: 'stamp',
-        subtitle: '员工手上的所有密钥'
+        subtitle: 'nav.allKeys.subtitle'
       },
       {
         // 【2026-11-05】原「调用详情」(/tracing) 菜单已并入本页：
         // 调用历史点 Trace ID 即可打开追踪详情抽屉；调用分析/高级查询收编为本页 tab，
         // 旧深链 /tracing 由路由重定向承接。
         path: '/observability',
-        title: '调用观测',
+        title: 'nav.observability.title',
         permission: 'monitoring:tokenusage:read',
         roles: ['ops', 'admin'],
         icon: 'document',
-        subtitle: '谁在什么时候调了什么、链路追踪与分析'
+        subtitle: 'nav.observability.subtitle'
       },
       {
         path: '/settings/monitoring',
-        title: '状态监控',
+        title: 'nav.statusMonitoring.title',
         permission: 'monitoring:tokenusage:read',
         roles: ['ops', 'admin'],
         icon: 'monitor',
-        subtitle: '现在有什么坏了、哪些模型被暂时停用'
+        subtitle: 'nav.statusMonitoring.subtitle'
       }
     ]
   },
   {
     index: 'system',
-    title: '系统',
+    title: 'nav.groups.system',
     icon: 'setting',
     children: [
       {
         path: '/settings/accounts',
-        title: '账号管理',
+        title: 'nav.accounts.title',
         permission: 'system:accounts:manage',
         roles: ['admin'],
         icon: 'user',
-        subtitle: '员工的账号和权限'
+        subtitle: 'nav.accounts.subtitle'
       },
       {
         path: '/settings/model-config',
-        title: '模型配置',
+        title: 'nav.modelConfig.title',
         permission: 'system:accounts:manage',
         roles: ['admin'],
         // P0-B：ops 也常需要看供应商模板 / 分类 / 适配器 → 置灰可见，点击进 403 页
         greyFor: ['ops'],
         icon: 'box',
-        subtitle: '厂商预设 / 模型分类 / 自定义接入协议'
+        subtitle: 'nav.modelConfig.subtitle'
       },
       {
         // 保留项（用户决策 #4）：维持现状皮肤与位置，不搬进新视觉改造
         path: '/settings/audit-versions',
-        title: '审计与版本',
+        title: 'nav.auditVersions.title',
         permission: 'system:accounts:manage',
         roles: ['admin'],
         icon: 'document',
-        subtitle: '审计日志 / 配置版本'
+        subtitle: 'nav.auditVersions.subtitle'
       },
       {
         // v3.5 Trunkline：网关级默认配置的集中入口
         // （记录治理 / 负载均衡默认策略 / 熔断阈值 / 用量配额）
         path: '/settings/global',
-        title: '全局配置',
+        title: 'nav.globalConfig.title',
         permission: 'system:accounts:manage',
         roles: ['admin'],
         // P0-B：ops 排查问题时常需要看网关级默认设置 → 置灰可见，点击进 403 页
@@ -233,7 +235,7 @@ export const menuGroups: MenuGroup[] = [
         icon: 'setting',
         // P0-G：原文案全是内部术语（记录治理 / 负载均衡 / 熔断阈值 / 用量配额），
         // 改为运维管理员能直接理解的说法（tab 内的详细说明见 GlobalSettingsView）。
-        subtitle: '网关级的统一默认设置，可单独调某个模型'
+        subtitle: 'nav.globalConfig.subtitle'
       }
     ]
   }
@@ -245,18 +247,22 @@ export function flattenMenuItems(): MenuItem[] {
 }
 
 /**
- * 取某个菜单项的副标题（页面目标说明的单一文案源）。
+ * 取某个菜单项的副标题 i18n key（页面目标说明的单一文案源）。
  *
  * P0-I：此前说明文案有 4 种平行实现（page-tip / page-heading__sub /
  * PageHeader prop / menu.ts 死数据），必然「有的页面有、有的没有、风格不一」。
  * 统一后：menu.ts 的 subtitle 是唯一文案源，页面通过本函数取用，
  * 侧边栏 tooltip 也用同一份值 —— 菜单与页面永远说同一句话。
  *
+ * 【2026-11-10 全站双语】返回值是 i18n key 而非文案本身，调用方必须
+ * `t(menuSubtitle(path))`。这样语言切换时 vue-i18n 会触发组件重渲染；
+ * 若在这里直接返回文案，页面副标题就会永远停在首次渲染时的语言。
+ *
  * 注意：menu.ts 是纯配置模块（不 import 组件 / router / stores），
  * 页面 import 它不会形成循环依赖。
  *
  * @param path 菜单项的路由路径（如 '/providers'）
- * @returns 副标题文案；未匹配到菜单项时返回空串（调用方自行决定兜底）
+ * @returns 副标题的 i18n key；未匹配到菜单项时返回空串（调用方自行决定兜底）
  */
 export function menuSubtitle(path: string): string {
   return flattenMenuItems().find(i => i.path === path)?.subtitle ?? ''

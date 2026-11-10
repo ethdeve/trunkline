@@ -40,7 +40,6 @@ import static org.mockito.Mockito.*;
  * <p>测试追踪过滤器功能</p>
  *
  * @version v2.10.0
- * @since 2026-05-24
  */
 @DisplayName("TracingWebFilter 追踪过滤器测试")
 @ExtendWith(MockitoExtension.class)

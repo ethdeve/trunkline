@@ -41,7 +41,6 @@ import java.util.ArrayList;
  * - POST /api/state-persistence/sync - 手动同步状态 (v2.4.5)
  *
  * @author JAiRouter Team
- * @since 2.4.4
  */
 @RestController
 @RequestMapping("/api/state-persistence")

@@ -26,7 +26,6 @@ import static org.mockito.ArgumentMatchers.eq;
  * v2.4.7: 测试 H2 数据库状态持久化实现
  *
  * @author JAiRouter Team
- * @since 2.4.7
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("H2StatePersistenceService Tests")

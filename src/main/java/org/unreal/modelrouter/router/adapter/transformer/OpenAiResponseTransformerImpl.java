@@ -10,8 +10,6 @@ import org.springframework.stereotype.Component;
 /**
  * OpenAI响应转换器实现
  * 将后端响应转换为标准格式
- *
- * @since v2.7.24
  */
 @Slf4j
 @Component

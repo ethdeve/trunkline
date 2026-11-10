@@ -61,12 +61,12 @@ public class ExcludedPathsConfig {
         );
 
         // 认证排除路径模式
+        // 【2026-11-10 收紧】原 /docs-res/** 匿名放行已移除：该静态映射直接暴露
+        // classpath:/docs/ 下的全部 zh/en .md 正文，普通用户无需任何权限即可绕过
+        // /api/docs/content 的 OPS 鉴权读取帮助文档。帮助文档正文统一走鉴权接口。
         AUTH_EXCLUDED_PATTERNS = List.of(
             "/actuator/**",
-            "/admin/**",
-            // 内置帮助文档静态资源（docs md 配图/附件）：由前端 <img>/<a> 直接加载，
-            // 浏览器无法携带认证头，与 /admin/** 同级免认证；文档正文仍经 /api/docs/content 认证读取。
-            "/docs-res/**"
+            "/admin/**"
         );
         
         // 数据脱敏排除路径（ResponseSanitizationFilter 网关响应过滤器）

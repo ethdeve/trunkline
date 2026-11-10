@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.common.gateway;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,8 +26,7 @@ import org.unreal.modelrouter.common.controller.response.RouterResponse;
  * 部署形态字段对员工侧无意义（前端不展示），但保留在同一次响应里，
  * 便于运维用同一条 curl 排障。</p>
  *
- * @author JAiRouter Team
- * @since 3.5.0
+ * @author Trunkline Team
  */
 @RestController
 @RequestMapping("/api/gateway")

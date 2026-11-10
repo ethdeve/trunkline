@@ -25,7 +25,6 @@ import java.util.function.Consumer;
  * - 背压保护
  *
  * @author JAiRouter Team
- * @since 2.7.4
  */
 public final class BatchStatsProcessor implements Consumer<StatsUpdateEvent> {
 

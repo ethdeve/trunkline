@@ -22,7 +22,6 @@ import java.time.LocalDateTime;
  * 记录每次 AI 模型调用的 token 使用情况
  *
  * @author JAiRouter Team
- * @since 1.9.5
  * @modified Trunkline Team
  */
 @Data

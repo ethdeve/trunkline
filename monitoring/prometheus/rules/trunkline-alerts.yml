@@ -460,7 +460,7 @@ groups:
         annotations:
           summary: "Trunkline外部API调用超时频繁"
           description: "外部API调用超时频率为 {{ $value | humanize }} 次/秒，可能存在网络或服务问题"
-  # Trunkline 异常管理告警（v1.9.4 新增）
+  # Trunkline 异常管理告警
   - name: trunkline.exception
     interval: 30s
     rules:

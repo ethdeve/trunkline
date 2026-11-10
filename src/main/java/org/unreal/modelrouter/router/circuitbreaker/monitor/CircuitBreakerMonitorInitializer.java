@@ -12,7 +12,6 @@ import org.unreal.modelrouter.router.circuitbreaker.CircuitBreakerManager;
  * 在应用启动完成后注入监控服务，避免循环依赖
  *
  * @author JAiRouter Team
- * @since 2.7.0
  */
 @Slf4j
 @Component

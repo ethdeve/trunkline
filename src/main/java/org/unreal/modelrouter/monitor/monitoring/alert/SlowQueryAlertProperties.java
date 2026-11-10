@@ -13,7 +13,6 @@ import java.util.Set;
  * 定义慢查询告警系统的配置参数，支持从配置文件中读取。
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Data

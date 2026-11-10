@@ -27,7 +27,6 @@ import static org.mockito.Mockito.*;
  * 测试轮询算法的正确性和权重支持
  *
  * @author JAiRouter Team
- * @since 2.4.2
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RoundRobinLoadBalancer 单元测试")

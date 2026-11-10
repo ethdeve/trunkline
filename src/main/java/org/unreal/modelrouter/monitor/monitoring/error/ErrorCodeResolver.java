@@ -16,7 +16,6 @@ import java.util.Map;
  * 负责从异常对象中提取错误代码和错误分类信息，用于异常的 categorization 和统计。
  * 
  * @author JAiRouter Team
- * @since 1.9.1
  */
 @Component
 public class ErrorCodeResolver {

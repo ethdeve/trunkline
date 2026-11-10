@@ -31,7 +31,6 @@ import java.util.Optional;
  * reserve/settle 同步签名）在调用处带超时阻塞等待，见该类的设计说明。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 public interface QuotaCounterBackend {

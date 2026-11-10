@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.persistence.jpa;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -44,8 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 替身（动态代理实现接口，避免为 JpaRepository 的数十个方法编写样板代码，
  * 模式同 {@code InMemoryQuotaLedgerRepository}）。</p>
  *
- * @author JAiRouter Team
- * @since 3.6.0
+ * @author Trunkline Team
  */
 @DisplayName("JpaStoreManager 当前配置/版本快照分离（E1 整改）")
 class JpaStoreManagerCurrentVersionSeparationTest {

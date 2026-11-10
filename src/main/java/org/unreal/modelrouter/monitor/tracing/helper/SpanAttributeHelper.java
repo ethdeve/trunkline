@@ -20,7 +20,6 @@ import java.util.Map;
  * - 请求属性提取
  *
  * @author JAiRouter Team
- * @since 2.27.0
  */
 @Slf4j
 @Component

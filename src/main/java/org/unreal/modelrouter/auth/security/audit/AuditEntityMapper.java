@@ -19,8 +19,6 @@ import java.util.UUID;
 /**
  * 审计实体转换器
  * 负责Entity和DTO之间的转换
- *
- * @since v2.7.19
  */
 @Slf4j
 @Component

@@ -25,7 +25,6 @@ import java.util.function.Function;
  * - 支持最大容量限制
  *
  * @author JAiRouter Team
- * @since 2.7.3
  */
 public final class SimpleExpiringCache<K, V> {
 

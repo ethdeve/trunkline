@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * ECharts 按需注册统一入口。
  *
  * <p>全量 `import * as echarts from 'echarts'` 会把全部图表类型打进产物（~1.1MB）。

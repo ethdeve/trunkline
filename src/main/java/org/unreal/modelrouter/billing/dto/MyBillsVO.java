@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.billing.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -15,8 +19,7 @@ import java.util.List;
  * <p>月度汇总 + 按厂商模型明细。金额 = {@code Σ(promptTokens × priceInput + completionTokens × priceOutput)}
  * （单价按 ¥ / 千 token，故除以 1000）。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Data
 @Builder

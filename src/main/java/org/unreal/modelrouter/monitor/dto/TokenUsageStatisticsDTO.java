@@ -14,7 +14,6 @@ import java.util.List;
  * 用于 Token 使用量统计 API 的数据传输
  *
  * @author JAiRouter Team
- * @since 1.9.5
  */
 @Data
 @Builder

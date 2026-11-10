@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
  * API 调用历史查询请求 DTO
  *
  * @author JAiRouter Team
- * @since 2.7.8
  * @modified Trunkline Team
  */
 @Data

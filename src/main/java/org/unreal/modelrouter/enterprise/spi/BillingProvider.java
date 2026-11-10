@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.spi;
 
 import java.math.BigDecimal;
@@ -8,6 +12,7 @@ import java.math.BigDecimal;
  * <p>注意与 {@code org.unreal.modelrouter.billing.service.BillingService}
  * （社区版账单聚合，读 token_usage 出报表）区分：本接口是「扣费/限额」的商业实现入口，
  * 社区版由 {@code NoopBillingService} 提供——只记账不扣费，配额仍走既有 quota 体系。
+ * @author Trunkline Team
  */
 public interface BillingProvider {
 

@@ -20,7 +20,6 @@ import java.util.Map;
  * 负责处理 HTTP 请求的构建和发送，包括非流式和流式请求。
  *
  * @author JAiRouter Team
- * @since v2.3.1.1
  */
 @Component
 public class HttpRequestProcessor {

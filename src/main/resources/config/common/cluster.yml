@@ -13,7 +13,7 @@ trunkline:
     #   1 = 显式单副本，跳过共享态检查
     #  >1 = 多副本，触发共享态检查
     # K8s 下建议由 Downward API 注入真实副本数，避免依赖环境探测。
-    replicas: ${JAIROUTER_REPLICAS:0}
+    replicas: ${TRUNKLINE_REPLICAS:0}
 
     # 跨副本实时事件广播（#164）。
     #
@@ -26,7 +26,7 @@ trunkline:
     # - **不含健康状态 SSE**：它的数据来自共享数据库且有 5 秒定时快照，各副本看到的本就是同一份
     #   数据，广播只会带来重复推送
     events:
-      enabled: ${JAIROUTER_CLUSTER_EVENTS:false}
+      enabled: ${TRUNKLINE_CLUSTER_EVENTS:false}
 
     shared-state-check:
       # 是否启用自检
@@ -35,7 +35,7 @@ trunkline:
       # OFF  = 不检查
       # WARN = 多副本且共享态开关缺失时启动告警（默认，不改变 /actuator/health 状态）
       # FAIL = 多副本且共享态开关缺失时 fail-fast，应用启动失败
-      mode: ${JAIROUTER_SHARED_STATE_MODE:WARN}
+      mode: ${TRUNKLINE_SHARED_STATE_MODE:WARN}
 
       # WARN 模式下是否同时把 /actuator/health 置为 DOWN。
       #
@@ -44,4 +44,4 @@ trunkline:
       # 而重启并不能修复配置缺口。需要让编排层感知时再显式打开本项。
       # （K8s 探针用的是 /actuator/health/liveness 与 /actuator/health/readiness，
       #   自定义健康指标不在这两个分组内，因此不受影响。）
-      fail-health: ${JAIROUTER_SHARED_STATE_FAIL_HEALTH:false}
+      fail-health: ${TRUNKLINE_SHARED_STATE_FAIL_HEALTH:false}

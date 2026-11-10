@@ -20,9 +20,6 @@ import org.unreal.modelrouter.config.sync.service.InstanceConfigUpdateService;
  * Config sync event listener.
  *
  * Handles config sync events (REFRESH, ROLLBACK, INSTANCE_UPDATE, MIGRATE).
- *
- * @since v2.12.0
- * @since v2.6.12 Added push, update, and migration services
  */
 @Component
 @Slf4j

@@ -32,7 +32,6 @@ import java.util.Map;
  * - 记录性能指标和错误统计
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Component
 public final class BackendCallTracingInterceptor implements ExchangeFilterFunction {

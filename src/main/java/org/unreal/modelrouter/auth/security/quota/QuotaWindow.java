@@ -15,7 +15,6 @@ import java.util.Optional;
  * <p>窗口名称同时作为 {@code quota_ledger.window_type} 列的值（见 {@link #name()}）。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 public enum QuotaWindow {
 

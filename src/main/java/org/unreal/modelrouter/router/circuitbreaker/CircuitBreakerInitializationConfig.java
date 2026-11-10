@@ -16,7 +16,6 @@ import lombok.RequiredArgsConstructor;
  * 在应用启动后初始化熔断器管理器和自适应阈值管理器的依赖关系
  * 
  * @author JAiRouter Team
- * @since v2.6.12
  */
 @Configuration
 @RequiredArgsConstructor

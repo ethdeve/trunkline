@@ -24,7 +24,6 @@ import java.util.List;
  * - 导出器配置验证
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 @Component

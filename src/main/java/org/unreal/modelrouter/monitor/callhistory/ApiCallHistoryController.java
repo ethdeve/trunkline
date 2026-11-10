@@ -42,7 +42,6 @@ import org.unreal.modelrouter.common.exception.ApiException;
  * 提供调用历史的记录、查询、统计和清理 REST API
  *
  * @author JAiRouter Team
- * @since 2.7.8
  * @modified Trunkline Team
  */
 @Slf4j

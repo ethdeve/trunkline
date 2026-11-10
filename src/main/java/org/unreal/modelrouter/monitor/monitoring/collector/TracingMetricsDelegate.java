@@ -20,7 +20,6 @@ import java.util.concurrent.atomic.AtomicReference;
  * 不是 Spring Bean，由 collector 直接实例化。
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 final class TracingMetricsDelegate {
 

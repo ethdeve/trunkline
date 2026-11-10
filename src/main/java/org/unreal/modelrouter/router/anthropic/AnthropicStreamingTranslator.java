@@ -92,7 +92,6 @@ import java.util.UUID;
  * 由 {@link AnthropicRequestTranslator} 负责，本类不消费请求。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  */
 @Slf4j
 @Component

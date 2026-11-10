@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.dto;
 
 import lombok.AllArgsConstructor;
@@ -13,8 +17,7 @@ import java.math.BigDecimal;
  * <p>按 {@code modelName} upsert：存在则更新，不存在则新建。
  * 单价口径 ¥ / 千 token；null 视为「不修改该字段」。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Data
 @Builder

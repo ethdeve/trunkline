@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>本测试不依赖 Mockito，直接构造真实对象与手写的 catalog 桩，
  * 避免沙箱环境 self-attach 限制。</p>
+ * @author Trunkline Team
  */
 class ApiKeyWhitelistValidatorTest {
 

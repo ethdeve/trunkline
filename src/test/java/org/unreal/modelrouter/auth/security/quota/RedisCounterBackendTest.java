@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code REDIS_TEST=true} 时验证。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 @DisplayName("RedisCounterBackend 分布式计数测试")

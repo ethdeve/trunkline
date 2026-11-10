@@ -35,7 +35,6 @@ import java.util.List;
  * @param totalTokens    total token 使用量（后端未提供时为 null）
  * @param finishReason   完成原因（如 {@code stop}、{@code length}，未获取时为 null）
  * @author JAiRouter Team
- * @since 2.9.10
  */
 public record CachedStreamingResponse(
         List<String> chunks,

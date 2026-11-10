@@ -138,7 +138,7 @@ function instanceList() {
   console.log('\n===== BODY HTML (前600字) =====')
   console.log(await page.evaluate(() => document.body.innerHTML.slice(0, 600)))
   await measure('A. mock 后直接加载 /models?tab=instances')
-  await page.screenshot({ path: 'D:/wdx/wjy/jairouter-console/diag-a-direct.png' })
+  await page.screenshot({ path: 'D:/wdx/wjy/trunkline-console/diag-a-direct.png' })
 
   // 真实流程：总览 → 点左栏「上游模型」
   await page.goto(`${BASE}/overview`, { waitUntil: 'networkidle', timeout: 30000 }).catch(() => {})
@@ -146,7 +146,7 @@ function instanceList() {
   await page.locator('.nav-menu .el-menu-item', { hasText: '上游模型' }).first().click().catch(e => logs.push('click nav: ' + e.message.slice(0, 100)))
   await page.waitForTimeout(3500)
   await measure('B. 点击左栏「上游模型」后')
-  await page.screenshot({ path: 'D:/wdx/wjy/jairouter-console/diag-b-navclick.png' })
+  await page.screenshot({ path: 'D:/wdx/wjy/trunkline-console/diag-b-navclick.png' })
 
   console.log('\n===== INTERCEPTED API URLS =====')
   console.log(intercepted.slice(0, 25).join('\n') || '(none)')

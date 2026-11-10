@@ -30,7 +30,6 @@ import static org.mockito.Mockito.*;
  * ExceptionManagementService 单元测试
  * 
  * @author JAiRouter Team
- * @since 1.9.2
  */
 @DisplayName("ExceptionManagementService 单元测试")
 @ExtendWith(MockitoExtension.class)

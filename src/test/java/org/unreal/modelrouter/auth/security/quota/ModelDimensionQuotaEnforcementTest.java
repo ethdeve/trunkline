@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.quota;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -41,8 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>全部用真实对象 + 动态代理替身（不依赖 Mockito）：账本用
  * {@link InMemoryQuotaLedgerRepository}，价格表用手写的 {@link ModelPriceRepository} 代理。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @DisplayName("厂商模型维度额度与限速执行测试")
 class ModelDimensionQuotaEnforcementTest {

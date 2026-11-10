@@ -19,7 +19,6 @@ import java.util.Map;
  * 从JwtTokenPersistenceServiceImpl中提取的索引管理功能。
  *
  * @author JAiRouter Team
- * @since 2.7.25
  */
 @Slf4j
 @Component

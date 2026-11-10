@@ -16,7 +16,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * ServiceConfigValidator 单元测试
  *
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @DisplayName("ServiceConfigValidator 测试")
 class ServiceConfigValidatorTest {

@@ -21,7 +21,6 @@ import java.nio.charset.StandardCharsets;
  * 负责处理响应数据的转换和映射，包括非流式和流式响应的处理。
  *
  * @author JAiRouter Team
- * @since v2.3.1.2
  */
 @Component("adapterResponseMapper")
 public class ResponseMapper {

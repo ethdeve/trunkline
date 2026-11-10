@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.common.gateway;
 
 import org.junit.jupiter.api.DisplayName;
@@ -22,8 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 环境用 Spring 自带 {@link MockEnvironment}，请求上下文用
  * {@link MockServerWebExchange}，均为真实实现。</p>
  *
- * @author JAiRouter Team
- * @since 3.5.0
+ * @author Trunkline Team
  */
 @DisplayName("网关运行形态解析（GET /api/gateway/info）")
 class GatewayInfoServiceTest {

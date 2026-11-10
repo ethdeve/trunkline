@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * CapabilityChecker 单元测试
  *
  * @author JAiRouter Team
- * @since v2.2.7
  */
 class CapabilityCheckerTest {
 

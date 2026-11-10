@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.config;
 
 import org.springframework.beans.factory.ObjectProvider;
@@ -27,6 +31,7 @@ import org.unreal.modelrouter.enterprise.spi.TenantContext;
  * 即「classpath 有 enterprise jar 且 license 校验通过 → 覆盖默认实现」。
  *
  * <p>全部 Bean 无状态、零 IO，对社区版运行时无可观测影响。
+ * @author Trunkline Team
  */
 @AutoConfiguration
 public class TrunklineEnterpriseAutoConfiguration {

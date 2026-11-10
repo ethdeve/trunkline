@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.access;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +18,7 @@ import org.unreal.modelrouter.auth.controller.ApiKeyManagementController;
 import org.unreal.modelrouter.auth.controller.JwtTokenController;
 import org.unreal.modelrouter.auth.security.model.ApiKeyAuthentication;
 import org.unreal.modelrouter.auth.security.model.JwtAuthentication;
+import org.unreal.modelrouter.docs.controller.DocsController;
 import reactor.core.publisher.Mono;
 
 import java.lang.reflect.Method;
@@ -23,6 +28,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -30,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>行为契约：命中矩阵按级别裁决；未登记且未豁免 fail-closed（仅 ADMIN）；
  * 豁免清单按「已认证」放行；API-Key 主体（ROLE_&lt;SERVICE&gt;）不满足任何管理级别。</p>
+ * @author Trunkline Team
  */
 @DisplayName("固定角色授权管理器")
 class FixedRoleAuthorizationManagerTest {
@@ -133,6 +140,19 @@ class FixedRoleAuthorizationManagerTest {
                 assertTrue(decide(jwt("ADMIN"), "GET", path).isGranted(), path);
             }
         }
+
+        @Test
+        @DisplayName("内置帮助文档正文 → USER 拒绝，OPERATOR 与 ADMIN 放行（2026-11-10 用户决策）")
+        void docsContentOpsOnly() {
+            // 帮助中心按控制台菜单组织，面向运维/管理员；普通用户的上手入口是
+            // 顶栏问号「接入指南」(/guide) 与「快速上手」(/quickstart)。
+            // 回归点：此前 /api/docs/content 在豁免清单里按「已认证即放行」，
+            // USER 也能读；现在必须从豁免清单移除并显式登记为 OPS，
+            // 否则 USER 依旧在 URL 层被放行（方法级注解拦不住已放行的请求）。
+            assertFalse(decide(jwt("USER"), "GET", "/api/docs/content").isGranted());
+            assertTrue(decide(jwt("OPERATOR"), "GET", "/api/docs/content").isGranted());
+            assertTrue(decide(jwt("ADMIN"), "GET", "/api/docs/content").isGranted());
+        }
     }
 
     @Nested
@@ -162,14 +182,6 @@ class FixedRoleAuthorizationManagerTest {
         @DisplayName("豁免端点（Token 用量上报）→ 已认证即放行")
         void exemptEndpointsAuthenticatedOnly() {
             assertTrue(decide(jwt("USER"), "POST", "/api/token-usage/record").isGranted());
-        }
-
-        @Test
-        @DisplayName("内置帮助文档正文 → 所有已登录角色放行（回归：未登记时非 ADMIN 403）")
-        void docsContentExemptForAllRoles() {
-            assertTrue(decide(jwt("USER"), "GET", "/api/docs/content").isGranted());
-            assertTrue(decide(jwt("OPERATOR"), "GET", "/api/docs/content").isGranted());
-            assertTrue(decide(jwt("ADMIN"), "GET", "/api/docs/content").isGranted());
         }
     }
 
@@ -265,6 +277,24 @@ class FixedRoleAuthorizationManagerTest {
                     .orElseThrow();
             final String expr = getTokens.getAnnotation(PreAuthorize.class).value();
             assertTrue(expr.contains("OPERATOR"), "注解=" + expr);
+        }
+
+        @Test
+        @DisplayName("帮助文档控制器：同步 ResponseEntity 端点禁止挂 @PreAuthorize（会 500），鉴权交给 URL 层 OPS")
+        void docsControllerReliesOnUrlPolicyOnly() {
+            final Method getContent = Arrays.stream(DocsController.class.getDeclaredMethods())
+                    .filter(m -> m.getName().equals("getContent"))
+                    .findFirst()
+                    .orElseThrow();
+            // 本项目开启 @EnableReactiveMethodSecurity，方法级 @PreAuthorize 仅对返回
+            // Publisher 的方法生效；DocsController 是同步 ResponseEntity，加了会在真实请求
+            // 抛 500（Reactor Context 错误）。角色校验由 /api/docs/content = OPS 的矩阵规则承担。
+            assertNull(getContent.getAnnotation(PreAuthorize.class),
+                    "同步返回端点不得加方法级注解，否则运维/管理员打开帮助中心会 500");
+            assertTrue(new FixedRoleAccessPolicy()
+                    .findRule(org.springframework.http.HttpMethod.GET, "/api/docs/content")
+                    .orElseThrow().level() == AccessLevel.OPS,
+                    "URL 层必须登记为 OPS，否则 OPERATOR 会落回 fail-closed 403");
         }
     }
 }

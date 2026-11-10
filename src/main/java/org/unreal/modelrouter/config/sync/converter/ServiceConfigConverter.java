@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
  * 负责 DTO 与领域对象之间的转换。
  *
  * @author JAiRouter Team
- * @since v2.2.6
  */
 @Component
 public class ServiceConfigConverter {

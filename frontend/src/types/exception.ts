@@ -2,7 +2,6 @@ import type { RouterResponse } from '@/types'
 
 /**
  * 异常事件类型定义
- * @since 1.9.3
  */
 
 // 异常事件 DTO

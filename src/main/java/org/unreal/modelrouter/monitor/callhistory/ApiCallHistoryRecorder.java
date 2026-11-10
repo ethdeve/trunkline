@@ -22,7 +22,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * 使用有界队列和批量写入，避免阻塞请求处理线程
  *
  * @author JAiRouter Team
- * @since 2.7.8
  * @modified Trunkline Team
  */
 @Slf4j

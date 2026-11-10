@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.injection;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -28,8 +32,7 @@ import static org.mockito.Mockito.when;
 /**
  * {@link InjectionDetectionFilter} 单元测试：BLOCK/LOG 分流、路径与开关、fail-open。
  *
- * @author wjy-gateway Extensions
- * @since 3.3.1
+ * @author Trunkline Team
  */
 class InjectionDetectionFilterTest {
 

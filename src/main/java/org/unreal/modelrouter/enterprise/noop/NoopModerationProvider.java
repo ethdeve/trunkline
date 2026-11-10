@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.noop;
 
 import org.unreal.modelrouter.enterprise.spi.ModerationProvider;
@@ -7,6 +11,7 @@ import org.unreal.modelrouter.enterprise.spi.ModerationProvider;
  *
  * <p>不做任何审核，全部放行——社区版不部署审核链路，
  * 请求延迟不受本实现影响（无 IO、无拷贝）。
+ * @author Trunkline Team
  */
 public class NoopModerationProvider implements ModerationProvider {
 

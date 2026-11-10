@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.persistence.jpa;
 
 import org.junit.jupiter.api.DisplayName;
@@ -30,8 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li>{@code rateLimited} —— 限流标记（与 isSuccess 正交：限流时 isSuccess 仍为 true）。</li>
  * </ul>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

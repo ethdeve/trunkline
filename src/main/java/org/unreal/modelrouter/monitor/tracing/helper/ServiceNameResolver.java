@@ -14,7 +14,6 @@ import org.unreal.modelrouter.monitor.tracing.config.TracingConfiguration;
  * - 其他请求返回配置的默认服务名称
  *
  * @author JAiRouter Team
- * @since 2.27.0
  */
 @Component
 @RequiredArgsConstructor

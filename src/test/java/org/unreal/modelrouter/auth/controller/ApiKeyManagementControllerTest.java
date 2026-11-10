@@ -33,7 +33,6 @@ import static org.mockito.Mockito.*;
  * <p>使用 StepVerifier 测试响应式 API</p>
  *
  * @version v2.7.6
- * @since 2025-01-17
  */
 @DisplayName("ApiKeyManagementController RESTful 接口测试")
 @ExtendWith(MockitoExtension.class)

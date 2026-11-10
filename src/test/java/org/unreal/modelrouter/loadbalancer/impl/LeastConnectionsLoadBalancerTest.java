@@ -27,7 +27,6 @@ import static org.mockito.Mockito.*;
  * 测试最少连接数算法的正确性和权重支持
  *
  * @author JAiRouter Team
- * @since 2.4.2
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("LeastConnectionsLoadBalancer 单元测试")

@@ -31,7 +31,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * 负责将异常事件持久化到数据库，并提供小时级别的聚合统计功能。
  * 
  * @author JAiRouter Team
- * @since 1.9.1
  */
 @Slf4j
 @Service

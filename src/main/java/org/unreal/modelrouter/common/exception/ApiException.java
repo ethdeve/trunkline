@@ -25,7 +25,6 @@ import org.springframework.http.HttpStatus;
  * </p>
  *
  * @author JAiRouter Team
- * @since 3.2.2
  */
 public class ApiException extends RuntimeException {
 

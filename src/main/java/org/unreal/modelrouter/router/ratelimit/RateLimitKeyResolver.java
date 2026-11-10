@@ -7,7 +7,6 @@ package org.unreal.modelrouter.router.ratelimit;
  * 这些组合是限流最容易出错的地方。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.4
  */
 public final class RateLimitKeyResolver {
 

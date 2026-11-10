@@ -7,8 +7,6 @@ import java.util.Map;
  * 配置同步事件
  *
  * 用于通知配置需要同步到其他服务或组件。
- *
- * @since v2.12.0
  */
 public record ConfigSyncEvent(
     /** 同步类型: "REFRESH", "ROLLBACK", "MIGRATE", "INSTANCE_UPDATE" */

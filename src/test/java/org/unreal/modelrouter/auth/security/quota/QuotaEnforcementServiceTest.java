@@ -39,7 +39,6 @@ import static org.mockito.Mockito.when;
  * 并返回真实 {@link HashMap} 作为缓存与索引。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

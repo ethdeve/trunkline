@@ -39,7 +39,6 @@ import org.unreal.modelrouter.common.exception.ApiException;
  * - 安全审计查询
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 @RestController

@@ -48,7 +48,6 @@ import java.util.Map;
  * {@code source}）仍不会被读取，因此天然免疫未知字段。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  */
 public final class AnthropicContentDeserializer
         extends JsonDeserializer<List<AnthropicMessagesRequest.ContentBlock>> {

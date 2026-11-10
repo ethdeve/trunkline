@@ -37,7 +37,6 @@ import static org.mockito.Mockito.*;
  * <p>测试覆盖版本管理、配置回滚等核心功能</p>
  *
  * @version v2.7.6
- * @since 2025-01-17
  */
 @DisplayName("ConfigurationVersionController RESTful 接口测试")
 @ExtendWith(MockitoExtension.class)

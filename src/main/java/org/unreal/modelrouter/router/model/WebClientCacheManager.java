@@ -12,8 +12,6 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * WebClient 缓存管理器
  * 负责 WebClient 实例的创建和缓存
- *
- * @since v2.7.20
  */
 @Component
 public class WebClientCacheManager {

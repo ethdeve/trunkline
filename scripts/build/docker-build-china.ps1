@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 
-# JAiRouter Docker Build Script (China Optimized)
+# Trunkline Docker Build Script (China Optimized)
 # 使用阿里云Maven镜像加速构建
 
 $ErrorActionPreference = "Stop"
@@ -19,7 +19,7 @@ $IMAGE_NAME = "trunkline/trunkline"
 # Get version from pom.xml
 $VERSION = (Select-Xml -Path "pom.xml" -XPath "//project/version" | Select-Object -First 1).Node.InnerText
 
-Write-Host "${YELLOW}Starting JAiRouter Docker build (China Optimized, Version: ${VERSION})...${NC}"
+Write-Host "${YELLOW}Starting Trunkline Docker build (China Optimized, Version: ${VERSION})...${NC}"
 Write-Host "${BLUE}使用阿里云Maven镜像加速构建${NC}"
 
 # Check if settings-china.xml exists

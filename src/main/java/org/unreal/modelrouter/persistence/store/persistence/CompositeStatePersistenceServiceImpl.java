@@ -23,7 +23,6 @@ import java.util.stream.Collectors;
  * 3. Tier 3 (File): 兜底方案，极端情况下使用文件存储
  * 
  * @author JAiRouter Team
- * @since 2.4.4
  */
 @Service
 @Primary

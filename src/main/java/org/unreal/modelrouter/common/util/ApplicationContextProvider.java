@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
  * 提供静态方法访问Spring应用上下文，用于在非Spring管理的类中获取Bean
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Component
 public class ApplicationContextProvider implements ApplicationContextAware {

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.quota;
 
 /**
@@ -24,8 +28,7 @@ package org.unreal.modelrouter.auth.security.quota;
  * @param dayTokens      每日 token 上限（{@code ApiKey.dailyTokenLimit}）
  * @param monthRequests  每月请求数上限（{@code ApiKey.monthlyRequestLimit}）
  * @param monthTokens    每月 token 上限（{@code ApiKey.monthlyTokenLimit}）
- * @author JAiRouter Team
- * @since 3.4.0
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 public record QuotaLimitSet(long minuteRequests,

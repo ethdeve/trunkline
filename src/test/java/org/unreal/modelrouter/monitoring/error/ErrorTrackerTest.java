@@ -42,7 +42,6 @@ import org.unreal.modelrouter.monitor.tracing.logger.StructuredLogger;
  * - 与其他组件的集成
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

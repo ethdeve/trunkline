@@ -26,8 +26,6 @@ import static org.mockito.Mockito.*;
 
 /**
  * ConfigSyncEventListener 单元测试.
- *
- * @since v2.6.12
  */
 @DisplayName("ConfigSyncEventListener 测试")
 @ExtendWith(MockitoExtension.class)

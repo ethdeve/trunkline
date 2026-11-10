@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.common.util;
 
 import java.util.HashMap;
@@ -13,6 +17,7 @@ import java.util.Map;
  *
  * <p>判定口径与项目既有 tracing 日志脱敏一致（子串匹配、忽略大小写），
  * 命中则值置 {@code "***"}（掩码而非剔除，保持 header 的存在性，避免前端行为变化）。</p>
+ * @author Trunkline Team
  */
 public final class SensitiveHeaderSanitizer {
 

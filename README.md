@@ -183,7 +183,6 @@ Trunkline is a **production-grade AI model gateway** for teams running their own
 | **Zhipu (GLM)** | `adapter-definitions: zhipu: type: openai-compatible` |
 | **Moonshot** | `adapter-definitions: moonshot: type: openai-compatible` |
 | **Qwen** | `adapter-definitions: qwen: type: openai-compatible` |
-| **Baichuan** | `adapter-definitions: baichuan: type: openai-compatible` |
 | **Minimax** | `adapter-definitions: minimax: type: openai-compatible` |
 
 > 📖 See the [Adapter configuration guide](https://trunkline.com/configuration/adapter-config/)
@@ -211,7 +210,7 @@ Trunkline is a **production-grade AI model gateway** for teams running their own
 
 **Current version: 0.1.0** (version number frozen — will bump once the community edition matures; see the [iteration plan](docs/product/Trunkline-产品迭代计划.md))
 
-0.1.0 inherits all capabilities of upstream JAiRouter v3.1.2 and adds the Trunkline brand system with a smooth compatibility layer (legacy config prefixes / Redis keys / config store keys migrate automatically).
+0.1.0 inherits all capabilities of upstream JAiRouter and adds the Trunkline brand system with a smooth compatibility layer (legacy config prefixes / Redis keys / config store keys migrate automatically).
 
 **Community edition stages** (stage names, not release versions):
 

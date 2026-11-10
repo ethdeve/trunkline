@@ -39,7 +39,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 直接调用控制器方法验证行为。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 @DisplayName("QuotaConfigController 配额运行时配置测试")

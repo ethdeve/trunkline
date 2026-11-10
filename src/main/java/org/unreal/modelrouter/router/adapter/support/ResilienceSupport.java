@@ -11,8 +11,6 @@ import org.unreal.modelrouter.router.adapter.tracing.AdapterTracingManager;
 /**
  * ResilienceSupport - 弹性支持组件
  * 聚合容错、重试、监控相关的依赖，减少 BaseAdapter 构造函数参数。
- *
- * @since v2.28.0
  */
 @Component
 public final class ResilienceSupport {

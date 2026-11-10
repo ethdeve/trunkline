@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.config;
 
 import org.junit.jupiter.api.AfterEach;
@@ -11,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * TenantKeyBuilder 单测（S2 任务 37 预埋）：
  * 社区版 key 零变化、多租户自动分段、default 租户不产生带段 key。
+ * @author Trunkline Team
  */
 class TenantKeyBuilderTest {
 

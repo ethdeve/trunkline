@@ -18,7 +18,6 @@ import java.util.Map;
  * - 安全事件的审计日志
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 public interface StructuredLogger {
     

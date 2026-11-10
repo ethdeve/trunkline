@@ -12,7 +12,6 @@ import java.util.stream.Collectors;
  * 统一管理服务类型常量，避免魔法字符串。
  * 
  * @author JAiRouter Team
- * @since v2.1.0
  */
 public final class ServiceTypeConstants {
 

@@ -19,7 +19,6 @@ import static org.mockito.Mockito.when;
  * ServiceNameResolver 单元测试
  *
  * @author JAiRouter Team
- * @since 2.27.0
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ServiceNameResolver 单元测试")

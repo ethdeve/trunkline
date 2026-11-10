@@ -52,8 +52,6 @@ import java.util.function.Function;
 /**
  * 流式请求处理器
  * 负责 SSE (Server-Sent Events) 格式的流式请求处理
- *
- * @since v2.15.0
  */
 @Component
 public class StreamingRequestProcessor {

@@ -11,7 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@link InstanceIdentity} 测试：本副本标识必须可直接用作文件名与 Redis key。
  *
  * @author JAiRouter Team
- * @since 3.2.3
  */
 @DisplayName("本副本标识测试")
 class InstanceIdentityTest {

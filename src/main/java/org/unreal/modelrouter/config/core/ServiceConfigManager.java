@@ -37,7 +37,6 @@ import java.util.stream.Collectors;
  * 同时保留 JPA 数据库操作以支持现有 API。
  *
  * @author JAiRouter Team
- * @since v2.2.6
  * @modified Trunkline Team
  */
 @Slf4j

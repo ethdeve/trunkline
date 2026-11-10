@@ -19,7 +19,6 @@ import java.util.Map;
  * 提供服务配置和实例配置的校验功能
  * 
  * @author AI Assistant
- * @since v2.2.0
  */
 @Component
 public class ConfigValidator {

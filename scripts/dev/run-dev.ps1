@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 
-# 快速构建并运行 JAiRouter 应用
+# 快速构建并运行 Trunkline 应用
 # 适用于 Windows PowerShell 环境
 
 param(
@@ -8,7 +8,7 @@ param(
     [string]$Profile = "fast"
 )
 
-Write-Host "🚀 开始构建 JAiRouter 应用..." -ForegroundColor Green
+Write-Host "🚀 开始构建 Trunkline 应用..." -ForegroundColor Green
 
 # 检查 Maven 是否安装
 try {

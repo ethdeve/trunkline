@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * </ul>
  *
  * @author JAiRouter Team
- * @since 2.9.8
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

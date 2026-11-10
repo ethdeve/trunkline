@@ -27,7 +27,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * - 限流触发详情
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 public final class RateLimiterTracingWrapper implements RateLimiter {

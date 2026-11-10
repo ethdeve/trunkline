@@ -22,8 +22,6 @@ import static org.mockito.Mockito.*;
 
 /**
  * DefaultConfigMigrationService 单元测试.
- *
- * @since v2.6.12
  */
 @DisplayName("DefaultConfigMigrationService 测试")
 @ExtendWith(MockitoExtension.class)

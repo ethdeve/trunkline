@@ -10,7 +10,6 @@ import java.util.List;
  * 用于安全地进行权重计算，避免整数溢出
  * 
  * @author JAiRouter Team
- * @since 2.4.0
  */
 public class WeightCalculator {
     /** Private constructor to prevent instantiation. */

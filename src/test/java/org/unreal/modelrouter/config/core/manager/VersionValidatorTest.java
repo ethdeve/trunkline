@@ -19,7 +19,6 @@ import static org.mockito.Mockito.*;
  * VersionValidator 单元测试
  *
  * @author JAiRouter Team
- * @since 2.0.0
  */
 @DisplayName("VersionValidator 测试")
 class VersionValidatorTest {

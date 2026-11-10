@@ -31,7 +31,6 @@ import static org.mockito.Mockito.*;
  * <p>登录和刷新令牌测试请参见 {@link JwtAuthControllerTest}</p>
  *
  * @version v2.7.4
- * @since 2025-01-17
  */
 @DisplayName("JwtTokenController RESTful 接口测试")
 @ExtendWith(MockitoExtension.class)

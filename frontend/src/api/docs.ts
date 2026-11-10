@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
 import axios, { type AxiosInstance } from 'axios'
 import { i18n } from '@/i18n'
 

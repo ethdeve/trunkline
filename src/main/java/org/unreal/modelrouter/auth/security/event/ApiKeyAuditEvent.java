@@ -7,8 +7,6 @@ import java.time.Instant;
  *
  * 用于异步记录 API Key 相关操作的审计日志，
  * 解耦审计逻辑与业务逻辑，提升性能。
- *
- * @since v2.14.3
  */
 public record ApiKeyAuditEvent(
     /** 事件类型 */

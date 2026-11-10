@@ -20,7 +20,6 @@ import java.util.Map;
  * 提供 Token 使用量的记录、查询和统计功能
  *
  * @author JAiRouter Team
- * @since 1.9.5
  * @modified Trunkline Team
  */
 @Slf4j

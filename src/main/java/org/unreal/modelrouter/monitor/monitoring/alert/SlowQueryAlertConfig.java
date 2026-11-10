@@ -11,7 +11,6 @@ import java.util.Set;
  * 定义慢查询告警的各种配置参数，包括告警阈值、频率控制、严重程度等。
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Data
 @Builder

@@ -13,7 +13,6 @@ import java.util.regex.Pattern;
  * 负责对异常堆栈信息进行脱敏处理，保护敏感信息不被泄露。
  *
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 public class StackTraceSanitizer {

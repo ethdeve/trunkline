@@ -5,7 +5,6 @@ package org.unreal.modelrouter.monitor.callhistory.config;
  * 控制 API 调用历史中请求/响应体的记录方式
  *
  * @author JAiRouter Team
- * @since 2.9.2
  */
 public enum RecordLevel {
 

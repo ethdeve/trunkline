@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.router.pool;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,8 +20,7 @@ import java.util.Optional;
  * <p>把 {@link PoolDefinition} 上配置的限额字段打包为 {@link QuotaLimitSet}，供配额执行层
  * 在请求预留时按池维度独立判定。属于“分组”维度，故以 {@code @Qualifier("group")} 注入执行层。</p>
  *
- * @author JAiRouter Team
- * @since 3.4.0
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 @Component

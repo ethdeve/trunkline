@@ -20,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * ErrorCodeResolver 单元测试
  * 
  * @author JAiRouter Team
- * @since 1.9.1
  */
 @DisplayName("ErrorCodeResolver 单元测试")
 class ErrorCodeResolverTest {

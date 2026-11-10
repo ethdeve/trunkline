@@ -13,7 +13,6 @@ import java.util.concurrent.locks.ReentrantLock;
  * - 使用细粒度锁而非 synchronized
  *
  * @author JAiRouter Team
- * @since 2.7.2
  */
 public final class CircularTimeBuffer {
 

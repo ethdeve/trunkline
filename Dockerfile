@@ -1,4 +1,4 @@
-# JAiRouter 优化版 Dockerfile
+# Trunkline 优化版 Dockerfile
 # 多阶段构建 + Spring Boot 分层 JAR + 多架构支持 (amd64/arm64)
 # 镜像大小: ~320MB
 
@@ -21,9 +21,9 @@ RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination 
 FROM eclipse-temurin:17-jre
 
 # 设置元数据
-LABEL maintainer="JAiRouter Team"
-LABEL description="JAiRouter - AI Model Service Routing and Load Balancing Gateway"
-LABEL version="3.1.1"
+LABEL maintainer="Trunkline Team"
+LABEL description="Trunkline - AI Governance Gateway"
+LABEL version="0.1.0"
 
 # 安装必要工具（curl 用于健康检查，tzdata 用于时区支持）
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -56,12 +56,12 @@ ENV SPRING_PROFILES_ACTIVE=prod
 ENV SERVER_PORT=8080
 
 # 安全功能配置
-ENV JAIROUTER_SECURITY_ENABLED=true
-ENV JAIROUTER_SECURITY_API_KEY_ENABLED=true
-ENV JAIROUTER_SECURITY_JWT_ENABLED=true
-ENV JAIROUTER_SECURITY_SANITIZATION_REQUEST_ENABLED=true
-ENV JAIROUTER_SECURITY_SANITIZATION_RESPONSE_ENABLED=true
-ENV JAIROUTER_SECURITY_AUDIT_ENABLED=true
+ENV TRUNKLINE_SECURITY_ENABLED=true
+ENV TRUNKLINE_SECURITY_API_KEY_ENABLED=true
+ENV TRUNKLINE_SECURITY_JWT_ENABLED=true
+ENV TRUNKLINE_SECURITY_SANITIZATION_REQUEST_ENABLED=true
+ENV TRUNKLINE_SECURITY_SANITIZATION_RESPONSE_ENABLED=true
+ENV TRUNKLINE_SECURITY_AUDIT_ENABLED=true
 
 # API Key 配置
 ENV ADMIN_API_KEY=""

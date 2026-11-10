@@ -17,7 +17,6 @@ import java.util.Optional;
  * 异常事件仓库接口
  *
  * @author JAiRouter Team
- * @since 1.9.1
  */
 @Repository
 public interface ExceptionEventRepository extends JpaRepository<ExceptionEventEntity, Long> {

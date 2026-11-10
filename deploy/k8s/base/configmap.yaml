@@ -13,7 +13,7 @@ data:
   REDIS_ENABLED: "true"
   # 多副本共享态自检（见 部署文档（多副本章节））：
   # WARN = 启动告警但不改 /actuator/health；确认要让编排层感知时改为 FAIL。
-  JAIROUTER_SHARED_STATE_MODE: "WARN"
+  TRUNKLINE_SHARED_STATE_MODE: "WARN"
 ---
 apiVersion: v1
 kind: ConfigMap

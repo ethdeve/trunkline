@@ -36,7 +36,6 @@ import static org.mockito.Mockito.*;
  * 3. FULL 级别记录触发 FULL_CONTENT_ACCESS 审计事件
  *
  * @author JAiRouter Team
- * @since 2.9.2
  * @modified Trunkline Team
  */
 @ExtendWith(MockitoExtension.class)

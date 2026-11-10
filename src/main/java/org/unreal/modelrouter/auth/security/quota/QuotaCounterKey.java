@@ -15,7 +15,6 @@ import java.util.Objects;
  * @param window      窗口类型，不能为 {@code null}
  * @param windowStart 窗口起点，不能为 {@code null}
  * @author JAiRouter Team
- * @since 3.1.0
  */
 public record QuotaCounterKey(QuotaDimension dimension, QuotaWindow window, LocalDateTime windowStart) {
 

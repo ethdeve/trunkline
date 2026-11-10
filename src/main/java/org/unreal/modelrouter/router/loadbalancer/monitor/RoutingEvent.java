@@ -17,7 +17,6 @@ import java.time.Instant;
  * @param selectionTimeMs 选择耗时(毫秒)
  *
  * @author JAiRouter Team
- * @since 2.7.0
  */
 public record RoutingEvent(
     Instant timestamp,

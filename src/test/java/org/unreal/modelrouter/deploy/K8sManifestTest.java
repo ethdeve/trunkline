@@ -30,7 +30,6 @@ import static org.junit.jupiter.api.Assertions.fail;
  * 不在此处重复——这里只解析未渲染的纯 YAML 源文件。</p>
  *
  * @author Trunkline Team
- * @since 3.2.4
  * @modified Trunkline Team
  */
 class K8sManifestTest {

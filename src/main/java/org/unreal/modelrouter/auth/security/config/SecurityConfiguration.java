@@ -137,11 +137,11 @@ public class SecurityConfiguration {
                 // 必须精确匹配 "/" 而非 "/**" —— 否则所有路径都绕过认证。
                 .pathMatchers("/").permitAll()
                 // Web管理界面静态资源允许匿名访问（前端会处理认证）
+                // 【2026-11-10 收紧】原 /docs-res/** permitAll 已移除：它把 classpath:/docs/
+                // 下的帮助文档 .md 正文匿名暴露，任何人可绕过 /api/docs/content 的 OPS 鉴权
+                // 直接下载全文（实测 /docs-res/zh/index.md 返回 200）。帮助文档 38 篇均为纯文本、
+                // 0 配图，正文统一经 /api/docs/content（OPS）读取，不再提供静态直读通道。
                 .pathMatchers("/admin/**").permitAll()
-                // 内置帮助文档静态资源（docs md 配图/附件，由前端 <img>/<a> 直接加载，
-                // 浏览器无法携带自定义认证头）——与 /admin/** 同级匿名放行；
-                // 文档正文 md 仍经 /api/docs/content 认证后读取
-                .pathMatchers("/docs-res/**").permitAll()
                 // favicon.ico 允许匿名访问
                 .pathMatchers("/favicon.ico").permitAll()
                 // 健康状态 SSE / 监控 WebSocket：均需认证

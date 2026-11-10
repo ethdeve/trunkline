@@ -3,7 +3,7 @@ const { chromium } = require('playwright-core')
 const fs = require('fs')
 
 const BASE = 'http://localhost:3102'
-const OUT = 'D:/wdx/wjy/jairouter-console/diag-pages'
+const OUT = 'D:/wdx/wjy/trunkline-console/diag-pages'
 fs.mkdirSync(OUT, { recursive: true })
 
 const envelope = data => ({ success: true, message: 'ok', data, timestamp: '2026-10-16 00:00:00' })

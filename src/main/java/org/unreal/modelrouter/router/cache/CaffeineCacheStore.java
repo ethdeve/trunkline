@@ -26,7 +26,6 @@ import java.util.concurrent.ThreadLocalRandom;
  * </ul>
  *
  * @author JAiRouter Team
- * @since 2.9.9
  */
 @Component
 public final class CaffeineCacheStore implements CacheStore {

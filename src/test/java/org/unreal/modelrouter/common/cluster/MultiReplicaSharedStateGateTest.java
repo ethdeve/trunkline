@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * （会产生无意义告警），以及<b>单副本环境永不告警</b>（共享态开关在单机下关闭本就是正常状态）。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.3
  * @modified Trunkline Team
  */
 class MultiReplicaSharedStateGateTest {

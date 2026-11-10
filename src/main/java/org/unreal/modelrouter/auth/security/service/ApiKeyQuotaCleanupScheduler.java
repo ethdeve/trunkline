@@ -9,8 +9,6 @@ import org.springframework.stereotype.Component;
 /**
  * API Key 每日使用量历史数据清理调度器
  * 定期清理超过 30 天的 dailyUsage 记录，防止内存膨胀
- *
- * @since v2.7.6
  */
 @Slf4j
 @Component

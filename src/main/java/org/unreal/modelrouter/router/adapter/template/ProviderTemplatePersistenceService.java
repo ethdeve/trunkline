@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.router.adapter.template;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 模型供应商模板持久化服务
  * 使用 StoreManager 持久化用户自定义的供应商模板（与 adapter_definitions 同机制，无需 SQL 迁移）；
  * 内置 13 个模板由 AdapterTemplateService 硬编码，不落存储，但「用户隐藏的内置模板」在此持久化。
+ * @author Trunkline Team
  */
 @Service
 public class ProviderTemplatePersistenceService {

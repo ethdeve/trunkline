@@ -31,7 +31,6 @@ import java.util.List;
  * 未设置时为空策略（不信任任何对端），与既有默认行为一致——不得为了让文档好看而放宽默认值。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.6
  */
 public final class ClientIpResolver {
 

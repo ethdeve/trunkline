@@ -15,7 +15,6 @@ import java.util.Map;
  * 用于异常统计 API 的数据传输
  *
  * @author JAiRouter Team
- * @since 1.9.2
  */
 @Data
 @Builder

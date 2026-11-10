@@ -30,7 +30,7 @@ webclient:
 trunkline:
   webclient:
     # 覆盖方式：Spring Boot 宽松绑定，环境变量即可，无需占位符。
-    # 例：JAIROUTER_WEBClient_CONNECTTIMEOUTMS=5000（或 --trunkline.webclient.connect-timeout-ms=5000）。
+    # 例：TRUNKLINE_WEBCLIENT_CONNECTTIMEOUTMS=5000（或 --trunkline.webclient.connect-timeout-ms=5000）。
     #
     # 连接超时（毫秒）。
     # 注意：外部化之前代码里声明了 10000 但从未使用（没有 ChannelOption.CONNECT_TIMEOUT_MILLIS），

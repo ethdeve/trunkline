@@ -23,8 +23,6 @@ import java.util.stream.Collectors;
 /**
  * API Key 配额管理服务
  * 提供配额查询、重置、告警等管理功能
- *
- * @since v2.7.6
  */
 @Slf4j
 @Service

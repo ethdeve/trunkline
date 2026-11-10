@@ -24,7 +24,6 @@ import org.springframework.core.env.Environment;
  * - 复合导出器（多个导出器组合）
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Slf4j

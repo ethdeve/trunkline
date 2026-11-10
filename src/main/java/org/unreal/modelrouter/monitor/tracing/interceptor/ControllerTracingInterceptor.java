@@ -30,7 +30,6 @@ import java.util.function.Supplier;
  * - 响应处理和返回
  *
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 @Component

@@ -11,7 +11,6 @@ import java.util.Locale;
  * {@link #API_KEY} 或 {@link #TENANT} 维度。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.4
  */
 public enum RateLimitKeyDimension {
 

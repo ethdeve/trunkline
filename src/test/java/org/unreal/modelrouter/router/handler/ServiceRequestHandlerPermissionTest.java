@@ -45,7 +45,6 @@ import static org.mockito.Mockito.*;
  * <p>验证 API Key 服务类型权限检查的大小写一致性问题。
  *
  * @author JAiRouter Team
- * @since 2.10.0
  */
 @DisplayName("ServiceRequestHandler 权限检查测试")
 class ServiceRequestHandlerPermissionTest {

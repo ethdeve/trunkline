@@ -20,7 +20,6 @@ import java.util.Optional;
  * <p>与 {@code StartupSecurityGate} 同一约定：核心判定做成静态纯函数，便于单元测试。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.3
  * @modified Trunkline Team
  */
 public final class MultiReplicaSharedStateGate {

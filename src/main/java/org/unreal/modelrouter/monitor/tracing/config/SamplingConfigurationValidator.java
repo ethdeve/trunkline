@@ -14,7 +14,6 @@ import java.util.Map;
  * 提供采样配置的完整验证功能，确保配置参数的有效性
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 @Component

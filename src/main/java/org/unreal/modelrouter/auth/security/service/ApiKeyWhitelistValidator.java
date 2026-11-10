@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import lombok.extern.slf4j.Slf4j;
@@ -52,8 +56,7 @@ import java.util.TreeSet;
  * <p><b>ADMIN 语义：</b>permissions 含 {@code admin}（旧权限格式）时，
  * 运行时 {@code hasServicePermission} 直接放行所有分类，不做白名单分类校验。</p>
  *
- * @author JAiRouter Team
- * @since 3.3.2
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 @Slf4j

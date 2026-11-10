@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.quota;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -46,8 +50,7 @@ import static org.mockito.Mockito.when;
  *   <li>预留凭据同时挂载多个维度，结算按维度逐条冲正。</li>
  * </ul>
  *
- * @author JAiRouter Team
- * @since 3.4.0
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 @ExtendWith(MockitoExtension.class)

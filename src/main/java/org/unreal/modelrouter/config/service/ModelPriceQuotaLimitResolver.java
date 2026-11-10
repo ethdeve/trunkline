@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,8 +30,7 @@ import java.util.Optional;
  * {@link ModelPriceService}，而 {@code auth.security.quota} 包不反向依赖
  * {@code config.service}，因此不会形成包依赖环。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Component
 @Qualifier("model")

@@ -10,8 +10,6 @@ import java.util.Optional;
 
 /**
  * Repository for ConfigVersionHistoryEntity.
- *
- * @since v2.6.12
  */
 @Repository
 public interface ConfigVersionHistoryRepository extends JpaRepository<ConfigVersionHistoryEntity, Long> {

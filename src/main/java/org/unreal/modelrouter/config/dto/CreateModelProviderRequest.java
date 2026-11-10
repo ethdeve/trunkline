@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.dto;
 
 import lombok.AllArgsConstructor;
@@ -12,6 +16,7 @@ import java.util.List;
  *
  * <p>更新语义：字段为 null 表示不修改；{@code apiKey} 为 null/空白表示保持原 Key 不变
  * （换 Key 是显式动作，见专用接口）。
+ * @author Trunkline Team
  */
 @Data
 @Builder

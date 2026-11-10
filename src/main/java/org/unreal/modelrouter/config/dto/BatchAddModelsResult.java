@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.dto;
 
 import lombok.AllArgsConstructor;
@@ -12,6 +16,7 @@ import java.util.List;
  *
  * <p>除创建数量外，携带被跳过模型的原因明细——同名实例在模型分类内全局唯一，
  * 「发现了模型却添加不上」多数情况是同名实例已由其他供应商接入，须让前端能逐条提示。
+ * @author Trunkline Team
  */
 @Data
 @Builder

@@ -13,7 +13,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * 根据系统负载和请求频率动态调整采样率
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 public class AdaptiveSamplingStrategy implements SamplingStrategy {
     

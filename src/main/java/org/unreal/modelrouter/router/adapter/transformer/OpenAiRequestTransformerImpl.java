@@ -18,8 +18,6 @@ import java.util.Map;
 /**
  * OpenAI请求转换器实现
  * 将各种请求类型转换为标准OpenAI API格式
- *
- * @since v2.7.17
  */
 @Slf4j
 @Component

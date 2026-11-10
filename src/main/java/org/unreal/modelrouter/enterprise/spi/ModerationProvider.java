@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.spi;
 
 /**
@@ -5,6 +9,7 @@ package org.unreal.modelrouter.enterprise.spi;
  *
  * <p>在请求转发到上游模型前对企业敏感内容做审核；社区版由
  * {@code NoopModerationProvider} 放行全部请求。
+ * @author Trunkline Team
  */
 public interface ModerationProvider {
 

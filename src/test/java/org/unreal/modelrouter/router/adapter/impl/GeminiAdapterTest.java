@@ -32,8 +32,6 @@ import static org.mockito.Mockito.*;
 /**
  * GeminiAdapter 单元测试
  * 验证 Gemini API 适配器的请求/响应转换逻辑
- *
- * @since v2.8.3
  */
 @ExtendWith(MockitoExtension.class)
 class GeminiAdapterTest {

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.controller;
 
 import org.junit.jupiter.api.DisplayName;
@@ -35,8 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
  * <p>修复后控制器只保留<b>单个</b> {@code onErrorResume}，在内部按类型显式分派。
  * 本测试逐条锁定各异常类型的正确状态码。</p>
  *
- * @author JAiRouter Team
- * @since 3.3.2
+ * @author Trunkline Team
  */
 @DisplayName("ApiKeyManagementController.updateApiKey 异常映射测试")
 class ApiKeyManagementControllerUpdateErrorMappingTest {

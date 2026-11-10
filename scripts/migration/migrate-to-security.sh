@@ -286,14 +286,14 @@ EOF
 # 复制此文件为 .env 并设置实际的密钥值
 
 # 安全功能开关
-JAIROUTER_SECURITY_ENABLED=true
+TRUNKLINE_SECURITY_ENABLED=true
 
 # API Key 配置
 ADMIN_API_KEY=your-admin-api-key-here-please-change-this
 USER_API_KEY=your-user-api-key-here-please-change-this
 
 # JWT 配置 (可选)
-JAIROUTER_SECURITY_JWT_ENABLED=false
+TRUNKLINE_SECURITY_JWT_ENABLED=false
 JWT_SECRET=your-jwt-secret-key-here-please-change-this
 
 # Redis 配置 (可选)
@@ -405,7 +405,7 @@ step_by_step_migration() {
 # Trunkline 安全功能环境变量
 # 由迁移脚本自动生成于 $(date)
 
-JAIROUTER_SECURITY_ENABLED=true
+TRUNKLINE_SECURITY_ENABLED=true
 ADMIN_API_KEY=$admin_key
 USER_API_KEY=$user_key
 EOF

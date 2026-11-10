@@ -37,7 +37,6 @@ import java.util.Map;
  * - 采样器配置
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Slf4j

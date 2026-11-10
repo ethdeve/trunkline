@@ -23,7 +23,6 @@ import java.util.Set;
  * - 性能优化配置
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  * @modified Trunkline Team
  */
 @Data

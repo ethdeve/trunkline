@@ -14,7 +14,6 @@ import org.unreal.modelrouter.common.util.TrustedProxyPolicy;
  * 一部分按新策略」的窗口，比不支持热更新更危险。</p>
  *
  * @author JAiRouter Team
- * @since 3.2.6
  * @modified Trunkline Team
  */
 @Slf4j

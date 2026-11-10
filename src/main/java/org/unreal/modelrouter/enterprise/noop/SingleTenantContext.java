@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.enterprise.noop;
 
 import org.unreal.modelrouter.enterprise.spi.TenantContext;
@@ -7,6 +11,7 @@ import org.unreal.modelrouter.enterprise.spi.TenantContext;
  *
  * <p>社区版 = 商业版在 {@code maxTenants=1} 时的特例：
  * 所有租户相关读写都落到 {@code default} 租户。
+ * @author Trunkline Team
  */
 public class SingleTenantContext implements TenantContext {
 

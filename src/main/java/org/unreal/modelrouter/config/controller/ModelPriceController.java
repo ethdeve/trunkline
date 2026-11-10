@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,8 +36,7 @@ import java.util.List;
  *
  * <p>虚拟模型（模型分组）的额度与限速独立配置，落在分组定义（池）上，不在本表。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Slf4j
 @RestController

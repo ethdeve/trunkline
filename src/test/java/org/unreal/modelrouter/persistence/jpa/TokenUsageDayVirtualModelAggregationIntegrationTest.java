@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.persistence.jpa;
 
 import org.junit.jupiter.api.DisplayName;
@@ -30,8 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>同时验证「分组维度（虚拟模型）与计价维度（厂商模型）分离」这一关键设计：
  * 同一虚拟模型背后挂着两个厂商模型时，应聚合到<b>同一个虚拟模型</b>下但保留各自的厂商模型行。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

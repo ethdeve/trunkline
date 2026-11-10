@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.auth.security.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,8 +32,7 @@ import static org.mockito.Mockito.when;
  * <p>覆盖：持有 VIEWER 的账户被迁移为 USER；不含 VIEWER 的账户不被写库（幂等）；
  * 多角色账户保留其它角色；脏 JSON 跳过不抛错。</p>
  *
- * @author JAiRouter Team
- * @since 3.6.0
+ * @author Trunkline Team
  */
 @DisplayName("JwtAccountRoleMigration 测试")
 @ExtendWith(MockitoExtension.class)

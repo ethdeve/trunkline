@@ -31,7 +31,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * - 降级切换 < 1s
  *
  * @author JAiRouter Team
- * @since 2.4.6
  */
 @Tag("performance")
 public class StatePersistencePerformanceTest {

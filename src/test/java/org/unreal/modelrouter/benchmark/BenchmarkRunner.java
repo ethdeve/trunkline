@@ -14,7 +14,6 @@ import org.openjdk.jmh.runner.options.TimeValue;
  * 2. 直接运行: java -jar target/benchmarks.jar
  *
  * @author JAiRouter Team
- * @since v2.7.13
  */
 public class BenchmarkRunner {
 

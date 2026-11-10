@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+  @author Trunkline Team
+-->
+
 <template>
   <el-card class="record-governance-card" shadow="never" v-loading="configLoading">
     <template #header>

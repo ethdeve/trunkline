@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * 规则条件/动作的「人话版」文案工具。
  *
  * <p>原型要求策略中心用大白话描述规则（"满足什么条件 → 做什么动作"），

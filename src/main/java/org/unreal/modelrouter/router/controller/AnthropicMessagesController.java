@@ -76,7 +76,6 @@ import java.util.Map;
  * 依赖实例级 headers 配置。{@code anthropic-version} / {@code anthropic-beta} 头仅接收不校验。</p>
  *
  * @author JAiRouter Team
- * @since v3.1
  */
 @Slf4j
 @RestController

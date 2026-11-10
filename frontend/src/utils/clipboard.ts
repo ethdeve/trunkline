@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ * @author Trunkline Team
+ */
+
+/**
  * 剪贴板工具
  *
  * <p><b>为什么单独抽一个文件</b>：P0-B 的 403 撞墙页与 P0-J 的「申请密钥 / 续期」

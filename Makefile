@@ -1,4 +1,4 @@
-# JAiRouter Makefile
+# Trunkline Makefile
 # 提供便捷的构建和部署命令
 
 # 变量定义
@@ -13,7 +13,7 @@ DOCKER_IMAGE := $(PROJECT_NAME)/$(ARTIFACT_ID)
 # 帮助信息
 .PHONY: help
 help: ## 显示帮助信息
-	@echo "JAiRouter 构建和部署工具"
+	@echo "Trunkline 构建和部署工具"
 	@echo ""
 	@echo "可用命令:"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -217,25 +217,25 @@ docker-clean: ## 清理 Docker 资源
 	docker system prune -f
 
 # ========================================
-# 监控栈相关命令 (v1.9.5)
+# 监控栈相关命令
 # ========================================
 
 # 启动监控栈
 .PHONY: monitoring-start
 monitoring-start: ## 启动完整监控栈（Prometheus + Grafana + Loki + Tempo）
-	@echo "启动 JAiRouter 监控栈..."
+	@echo "启动 Trunkline 监控栈..."
 	@bash scripts/monitoring-stack.sh start
 
 # 停止监控栈
 .PHONY: monitoring-stop
 monitoring-stop: ## 停止监控栈
-	@echo "停止 JAiRouter 监控栈..."
+	@echo "停止 Trunkline 监控栈..."
 	@bash scripts/monitoring-stack.sh stop
 
 # 重启监控栈
 .PHONY: monitoring-restart
 monitoring-restart: ## 重启监控栈
-	@echo "重启 JAiRouter 监控栈..."
+	@echo "重启 Trunkline 监控栈..."
 	@bash scripts/monitoring-stack.sh restart
 
 # 查看监控栈日志
@@ -270,7 +270,7 @@ monitoring-lite: ## 仅启动基础监控（Prometheus + Grafana）
 monitoring-info: ## 显示监控访问信息
 	@echo ""
 	@echo "=========================================="
-	@echo "   JAiRouter 监控栈访问信息"
+	@echo "   Trunkline 监控栈访问信息"
 	@echo "=========================================="
 	@echo ""
 	@echo "  Prometheus:     http://localhost:9090"
@@ -287,5 +287,5 @@ monitoring-info: ## 显示监控访问信息
 	@echo "  - 性能分析：performance-analysis.json"
 	@echo "  - 业务指标：business-metrics.json"
 	@echo "  - 告警概览：alerts-overview.json"
-	@echo "  - 异常管理：exception-management.json (v1.9.4)"
+	@echo "  - 异常管理：exception-management.json"
 	@echo ""

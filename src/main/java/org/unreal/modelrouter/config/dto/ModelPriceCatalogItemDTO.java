@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.dto;
 
 import lombok.AllArgsConstructor;
@@ -17,8 +21,7 @@ import java.math.BigDecimal;
  * <p>计价口径：账单按<b>厂商模型名</b>计价（{@code token_usage.instance_name}），
  * 本条目的 {@code modelName} 即厂商模型名，与 {@code model_price} 表主键一致。</p>
  *
- * @author JAiRouter Team
- * @since 3.5
+ * @author Trunkline Team
  */
 @Data
 @Builder

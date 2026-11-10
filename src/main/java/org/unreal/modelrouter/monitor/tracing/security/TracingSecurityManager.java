@@ -34,7 +34,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * - 敏感追踪信息的访问限制
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 @Slf4j
 @Service

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.docs.controller;
 
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +28,7 @@ import java.util.regex.Pattern;
  *
  * <p>路径安全：{@code path} 仅允许 {@code [a-zA-Z0-9_./-]} 且不得包含
  * {@code ..} 段，杜绝路径穿越读取 classpath 内其他文件。</p>
+ * @author Trunkline Team
  */
 @Slf4j
 @RestController
@@ -44,6 +49,12 @@ public class DocsController {
      * @return 文档 markdown 原文；路径非法或文件不存在返回 error 响应
      */
     @GetMapping("/content")
+    // 【2026-11-10 用户决策】帮助文档只对运维/管理员开放，普通用户用「接入指南」(/guide)。
+    // 鉴权由 FixedRoleAccessPolicy 的 /api/docs/content = OPS 规则承担。
+    // 【不要加 @PreAuthorize】本项目开启 @EnableReactiveMethodSecurity，方法级注解仅对
+    // 返回 Publisher（Mono/Flux）的方法生效；本方法是同步 ResponseEntity，加了会在真实
+    // 请求时抛 500（"must return an instance of Publisher ... to support Reactor Context"）。
+    // 同 ApiCallHistoryController / MyServiceInstanceController 的既有约定。
     public ResponseEntity<RouterResponse<String>> getContent(
             @RequestParam(name = "lang", defaultValue = "zh") final String lang,
             @RequestParam(name = "path") final String path) {

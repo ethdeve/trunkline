@@ -30,7 +30,6 @@ import java.util.Base64;
  * <p>密文格式：Base64(IV[12] || ciphertext || authTag[16])
  *
  * @author JAiRouter Team
- * @since 2.9.2
  * @modified Trunkline Team
  */
 @Slf4j

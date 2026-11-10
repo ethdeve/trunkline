@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
+ */
+
 package org.unreal.modelrouter.config.service;
 
 import lombok.extern.slf4j.Slf4j;
@@ -39,8 +43,7 @@ import java.util.Set;
  * 因为后者会对每个实例做 provider/config/限流/熔断的 N+1 查询，而这里只需要
  * 「名字 → 分类」这一列数据。</p>
  *
- * @author JAiRouter Team
- * @since 3.3.2
+ * @author Trunkline Team
  * @modified Trunkline Team
  */
 @Slf4j

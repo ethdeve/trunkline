@@ -10,7 +10,6 @@ package org.unreal.modelrouter.monitor.tracing;
  * - 标签值常量
  * 
  * @author JAiRouter Team
- * @since 1.0.0
  */
 public final class TracingConstants {
     

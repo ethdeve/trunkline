@@ -15,7 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>关闭开关时的默认值必须与 PR-1/PR-2 完全一致（零行为变更），因此逐个断言默认值与钳制规则。</p>
  *
  * @author JAiRouter Team
- * @since 3.1.0
  * @modified Trunkline Team
  */
 @DisplayName("QuotaProperties 分布式计数配置测试")
