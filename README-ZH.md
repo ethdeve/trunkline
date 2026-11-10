@@ -184,7 +184,7 @@ Trunkline 是在 [JAiRouter](https://github.com/Lincoln-cn/JAiRouter) 的基础�
 
 拿不准发哪里？先发 Discussions，如果确认是缺陷，我们会帮您转到 Issues。
 
-想自己编译：把仓库下载下来，运行 `./mvnw clean package -DskipTests`，然后用 `java -jar target/trunkline-0.1.0.jar` 启动。
+想自己编译：准备 **Java 17 或以上**，把仓库下载下来，运行 `./mvnw clean package -DskipTests`，然后用 `java -jar target/trunkline-0.1.0.jar` 启动。
 
 ---
 

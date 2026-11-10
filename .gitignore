@@ -263,3 +263,11 @@ frontend/.e2e_shots_*/
 
 # 退役代码归档（保留本地参考，不进 git）
 frontend/src/views/_attic/
+
+# 一次性诊断脚本与浏览器快照（生成后不进 git）
+/wizard-*.yaml
+frontend/diag/
+frontend/diag-pages/
+
+# GitHub 平台配置（本地保留，不进 git）
+.github/

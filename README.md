@@ -182,7 +182,7 @@ Released under the [Apache 2.0 License](LICENSE) — free to use, modify, and sh
 
 Not sure? Start with Discussions — if it turns out to be a reproducible bug, we will move it to Issues for you.
 
-To build from source: clone the repository, run `./mvnw clean package -DskipTests`, then start it with `java -jar target/trunkline-0.1.0.jar`.
+To build from source: install **Java 17 or newer**, clone the repository, run `./mvnw clean package -DskipTests`, then start it with `java -jar target/trunkline-0.1.0.jar`.
 
 ---
 

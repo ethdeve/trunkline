@@ -34,7 +34,8 @@ public class ApiKeyBatchImportResult {
     private int failureCount;
 
     /**
-     * 成功导入的密钥（包含原始 keyValue，仅此一次显示）
+     * 成功导入的密钥。仅当操作者本人即持有人时才回传原始 keyValue（且只显示一次）；
+     * 否则 keyValue 为 null，响应通过 warning 引导持有人到「我的密钥」查看。
      */
     private List<ApiKeyCreationVO> importedKeys;
 

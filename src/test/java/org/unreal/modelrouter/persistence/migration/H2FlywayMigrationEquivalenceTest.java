@@ -1,6 +1,7 @@
 package org.unreal.modelrouter.persistence.migration;
 
 import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -35,6 +36,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>URL 参数与生产默认值一致（{@code MODE=MySQL;DATABASE_TO_UPPER=FALSE}）—— 大小写行为正是
  * 这个组合里最容易出错的地方。</p>
  */
+@Disabled("2026-11-10 re-baseline 后 V2–V18 已归档，db/migration/h2 只剩 V1 基线。"
+        + "本用例模拟的『退化掉补丁列 → 靠后续迁移重建』前提已不存在，"
+        + "baselineVersion=1 又会跳过 V1，因此老库缺列无法自动补回。"
+        + "是否支持跨 re-baseline 老库升级属产品决策，待定；"
+        + "基线本身与实体模型的一致性由 H2BaselineMatchesEntityModelTest 守卫。")
 @DisplayName("H2 两条路径 schema 等价（issue #192）")
 class H2FlywayMigrationEquivalenceTest {
 

@@ -120,6 +120,8 @@ class TracingQueryControllerTest {
             serviceStats.put("name", "chat");
             serviceStats.put("traces", 100L);
             when(traceQueryService.getServiceStatistics()).thenReturn(Mono.just(List.of(serviceStats)));
+            // 三个分析接口实际调用的是时间范围查询；原用例漏 stub，mock 返回 null 导致 .map NPE
+            doReturn(Mono.just(List.of())).when(traceQueryService).getTracesInTimeRange(anyLong(), anyLong());
 
             StepVerifier.create(controller.getServiceStatistics())
                     .assertNext(response -> {
@@ -272,6 +274,8 @@ class TracingQueryControllerTest {
             serviceStats.put("p95Duration", 200.0);
             serviceStats.put("p99Duration", 350.0);
             when(traceQueryService.getServiceStatistics()).thenReturn(Mono.just(List.of(serviceStats)));
+            // 三个分析接口实际调用的是时间范围查询；原用例漏 stub，mock 返回 null 导致 .map NPE
+            doReturn(Mono.just(List.of())).when(traceQueryService).getTracesInTimeRange(anyLong(), anyLong());
 
             StepVerifier.create(controller.getLatencyAnalysis(null, null))
                     .assertNext(response -> {
@@ -295,6 +299,8 @@ class TracingQueryControllerTest {
             serviceStats.put("traces", 100L);
             serviceStats.put("errors", 5L);
             when(traceQueryService.getServiceStatistics()).thenReturn(Mono.just(List.of(serviceStats)));
+            // 三个分析接口实际调用的是时间范围查询；原用例漏 stub，mock 返回 null 导致 .map NPE
+            doReturn(Mono.just(List.of())).when(traceQueryService).getTracesInTimeRange(anyLong(), anyLong());
 
             StepVerifier.create(controller.getErrorAnalysis(null, null))
                     .assertNext(response -> {
@@ -316,6 +322,8 @@ class TracingQueryControllerTest {
             serviceStats.put("name", "chat");
             serviceStats.put("traces", 3600L);
             when(traceQueryService.getServiceStatistics()).thenReturn(Mono.just(List.of(serviceStats)));
+            // 三个分析接口实际调用的是时间范围查询；原用例漏 stub，mock 返回 null 导致 .map NPE
+            doReturn(Mono.just(List.of())).when(traceQueryService).getTracesInTimeRange(anyLong(), anyLong());
 
             StepVerifier.create(controller.getThroughputAnalysis(null, null))
                     .assertNext(response -> {

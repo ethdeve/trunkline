@@ -71,6 +71,9 @@ class ApiKeyServiceTest {
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
+    @Mock
+    private ApiKeyPlaintextCipher plaintextCipher;
+
     private ApiKeyService apiKeyService;
 
     private ApiKey testApiKey;
@@ -100,6 +103,15 @@ class ApiKeyServiceTest {
         Field eventField = ApiKeyService.class.getDeclaredField("eventPublisher");
         eventField.setAccessible(true);
         eventField.set(apiKeyService, eventPublisher);
+
+        // 生产代码新增明文加密组件（创建密钥时写 keyEncrypted），反射注入以免 NPE
+        Field cipherField = ApiKeyService.class.getDeclaredField("plaintextCipher");
+        cipherField.setAccessible(true);
+        cipherField.set(apiKeyService, plaintextCipher);
+        when(plaintextCipher.encrypt(anyString()))
+                .thenAnswer(inv -> "enc:" + inv.getArgument(0, String.class));
+        when(plaintextCipher.decrypt(anyString()))
+                .thenAnswer(inv -> String.valueOf(inv.getArgument(0)).replaceFirst("^enc:", ""));
 
         // 2026-10-24: 注入白名单校验器（catalog 为空 → 无法判定分类 → 全部放行，
         // 与「无实例目录」的生产场景行为一致，不干扰本用例的既有断言）

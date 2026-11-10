@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.lenient;
 
@@ -43,6 +44,9 @@ class ApiKeyBatchServiceTest {
     @Mock
     private ApiKeyPersistenceService persistenceService;
 
+    @Mock
+    private ApiKeyPlaintextCipher plaintextCipher;
+
     private ApiKeyBatchService batchService;
     private Map<String, ApiKey> apiKeyCache;
     private Map<String, String> keyIdIndex;
@@ -56,12 +60,19 @@ class ApiKeyBatchServiceTest {
         // 2026-10-24: 注入白名单校验器（catalog 为空 → 无法判定分类 → 全部放行，
         // 与「无实例目录」的生产场景行为一致，不干扰本用例的导入断言）
         injectField(batchService, "whitelistValidator", new ApiKeyWhitelistValidator(nullCatalogProvider()));
+        // 生产代码新增了明文加密组件（导入/轮换时写入 keyEncrypted），单元测试必须补齐注入，
+        // 否则 cipher 为 null，导入会被计入失败、轮换直接 NPE。
+        injectField(batchService, "plaintextCipher", plaintextCipher);
 
         apiKeyCache = new ConcurrentHashMap<>();
         keyIdIndex = new ConcurrentHashMap<>();
 
         lenient().when(extendedAuditService.auditSecurityEvent(any(), any(), any(), any()))
                 .thenReturn(reactor.core.publisher.Mono.empty());
+        lenient().when(plaintextCipher.encrypt(anyString()))
+                .thenAnswer(inv -> "enc:" + inv.getArgument(0, String.class));
+        lenient().when(plaintextCipher.decrypt(anyString()))
+                .thenAnswer(inv -> String.valueOf(inv.getArgument(0)).replaceFirst("^enc:", ""));
     }
 
     /** 空 catalog 的 ObjectProvider：查不到任何名字 → 校验器一律放行 */
@@ -158,13 +169,21 @@ class ApiKeyBatchServiceTest {
                         assertEquals(0, result.getFailureCount());
                         assertEquals(1, result.getImportedKeys().size());
                         assertEquals("new-key-001", result.getImportedKeys().get(0).getKeyId());
-                        assertNotNull(result.getImportedKeys().get(0).getKeyValue());
+                        // 2026-11 安全加固 C6：导入者 admin ≠ 持有人（本请求未指定）时不回传明文，
+                        // 只在响应里提示持有人到「我的密钥」查看；明文仅以加密串形式落库。
+                        assertNull(result.getImportedKeys().get(0).getKeyValue());
+                        assertNotNull(result.getImportedKeys().get(0).getWarning());
+                        assertTrue(result.getImportedKeys().get(0).getWarning().contains("持有人"));
                     })
                     .verifyComplete();
 
-            // 验证缓存已更新
+            // 验证缓存已更新，且实体只保留加密串/脱敏串，不留明文
             assertEquals(1, apiKeyCache.size());
             assertTrue(keyIdIndex.containsKey("new-key-001"));
+            ApiKey imported = apiKeyCache.get(keyIdIndex.get("new-key-001"));
+            assertNotNull(imported.getKeyEncrypted());
+            assertNotNull(imported.getKeyMasked());
+            assertNull(imported.getKeyValue());
         }
 
         @Test
@@ -295,9 +314,10 @@ class ApiKeyBatchServiceTest {
             StepVerifier.create(batchService.forceRotateKey("force-rotate-key", apiKeyCache, keyIdIndex, "admin"))
                     .assertNext(result -> {
                         assertEquals("force-rotate-key", result.getKeyId());
-                        assertNotNull(result.getKeyValue());
-                        assertTrue(result.getKeyValue().startsWith("sk-"));
+                        // 2026-11 安全加固 C6：操作者 admin ≠ 持有人（测试密钥未指定）时不回传明文
+                        assertNull(result.getKeyValue());
                         assertNotNull(result.getWarning());
+                        assertTrue(result.getWarning().contains("持有人"));
                     })
                     .verifyComplete();
 
@@ -306,6 +326,32 @@ class ApiKeyBatchServiceTest {
             String newHash = keyIdIndex.get("force-rotate-key");
             assertNotNull(newHash);
             assertNotEquals(oldHash, newHash);
+        }
+
+        @Test
+        @DisplayName("持有人本人强制轮换时回传新的明文密钥")
+        void testForceRotateKey_selfHeld_returnsPlaintext() {
+            ApiKey key = ApiKey.builder()
+                    .keyId("self-rotate-key")
+                    .keyHash("hash-self-rotate-key")
+                    .keyPrefix("sk-")
+                    .holder("admin")
+                    .description("Self Rotate")
+                    .enabled(true)
+                    .createdAt(LocalDateTime.now())
+                    .usage(UsageStatistics.builder().totalRequests(0L).build())
+                    .build();
+            apiKeyCache.put(key.getKeyHash(), key);
+            keyIdIndex.put("self-rotate-key", key.getKeyHash());
+
+            StepVerifier.create(batchService.forceRotateKey("self-rotate-key", apiKeyCache, keyIdIndex, "admin"))
+                    .assertNext(result -> {
+                        assertEquals("self-rotate-key", result.getKeyId());
+                        assertNotNull(result.getKeyValue());
+                        assertTrue(result.getKeyValue().startsWith("sk-"));
+                        assertTrue(result.getWarning().contains("仅显示一次"));
+                    })
+                    .verifyComplete();
         }
 
         @Test
