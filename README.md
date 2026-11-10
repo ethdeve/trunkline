@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>A simple, easy-to-use, secure and trustworthy intelligent model router</strong>
+  <strong>A simple, easy-to-use, secure and trustworthy intelligent routing model gateway</strong>
 </p>
 
 <p align="center">
@@ -65,6 +65,31 @@ Trunkline is not a concept demo. Everything below is **already usable in version
 - A three-step setup wizard with no default username or password — you create the admin account yourself, so there is no ready-made entry point for someone else.
 - The console speaks human and is split into "My workspace / Team / System": staff see their own things, operators manage the team, admins manage everything.
 - Configuration changes take effect immediately, without a restart; light/dark themes and Chinese/English are both built in.
+
+## What it looks like
+
+Enough talk — here is the actual 0.1.0 console.
+
+**13 built-in provider templates, one click to add** (OpenAI, Google Gemini, DeepSeek, Zhipu, Moonshot and more are visible below):
+
+<p align="center">
+  <img src="images/screenshots/06a-model-config-intl.png" alt="Provider templates" width="900">
+</p>
+
+**Staff get a key and start calling in three steps**; operators add a provider, build a virtual model, then hand it to staff:
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="images/screenshots/07-quickstart.png" alt="Quick start" width="100%"><br><sub>Staff quick start: get a key → wait for access → copy the config</sub></td>
+    <td width="50%" align="center"><img src="images/screenshots/02-providers.png" alt="Provider onboarding" width="100%"><br><sub>Operator onboarding: pick a provider → add a key → build a model → assign to staff</sub></td>
+  </tr>
+</table>
+
+**One playground to try chat, semantic search, reranking, speech and images**:
+
+<p align="center">
+  <img src="images/screenshots/03-playground.png" alt="Playground" width="900">
+</p>
 
 ## Product blueprint
 

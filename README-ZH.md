@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>简单易用、安全可信的智能模型路由</strong>
+  <strong>简单易用、安全可信的智能路由模型网关</strong>
 </p>
 
 <p align="center">
@@ -65,6 +65,31 @@ Trunkline 不是概念演示。下面这些能力在 **0.1.0 版本里已经可�
 - 三步初始化向导，没有默认账号、默认密码，装完自己设，别人拿不到现成入口。
 - 控制台说人话，分「我的 / 团队 / 系统」三块：员工看自己的，运维管团队，管理员管全局。
 - 改配置即时生效，不用重启服务；界面支持亮色/暗色和中英双语。
+
+## 界面长这样
+
+话不多说，直接看控制台。下面都是 0.1.0 真实界面：
+
+**内置 13 家服务商模板，点一下就能加**（下图可见 OpenAI、Google Gemini，以及 DeepSeek、智谱、月之暗面等）：
+
+<p align="center">
+  <img src="images/screenshots/06a-model-config-intl.png" alt="供应商模板列表" width="900">
+</p>
+
+**员工三步就能拿到密钥、开始调用**；运维配厂商时，也是先接供应商、再造虚拟模型、最后发给员工：
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="images/screenshots/07-quickstart.png" alt="快速上手" width="100%"><br><sub>员工快速上手：领密钥 → 等开通 → 复制配置</sub></td>
+    <td width="50%" align="center"><img src="images/screenshots/02-providers.png" alt="接入管理" width="100%"><br><sub>运维接入管理：选厂商 → 填密钥 → 造模型 → 发员工</sub></td>
+  </tr>
+</table>
+
+**一个测试场，对话、语义搜索、重排序、语音、图像都能试**：
+
+<p align="center">
+  <img src="images/screenshots/03-playground.png" alt="测试场" width="900">
+</p>
 
 ## 产品蓝图
 
