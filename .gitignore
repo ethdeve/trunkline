@@ -147,8 +147,6 @@ site/
 
 # Capture/screenshots directory (root level only)
 /capture/
-# Keep docs/capture/ for documentation screenshots
-!docs/capture/
 
 # Frontend build output — generated at build time (pom copies frontend/dist → static/admin).
 # Never commit these: stale copies silently shadow real builds and can ship the SPA at the
@@ -224,8 +222,7 @@ jdeps/
 !config/*.yml.example
 !config/suppressions.xml
 
-# Keep documentation assets
-!docs/
+# Keep branding assets
 !logo/
 
 # Keep scripts (organized by function)

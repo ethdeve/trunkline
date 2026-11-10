@@ -69,7 +69,7 @@ export const useUserStore = defineStore('user', () => {
   })
 
   /**
-   * v3.5 三角色逻辑模型（docs/Trunkline-UI设计规格.md §2）：
+   * v3.5 三角色逻辑模型（早期 UI 设计规格，已归档）：
    * 把工程 JWT 角色（VIEWER/USER/OPERATOR/ADMIN）重映射为规格的 user/ops/admin。
    * - ADMIN → admin
    * - OPERATOR → ops

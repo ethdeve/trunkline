@@ -37,7 +37,7 @@ spec:
           # PostgreSQL 与 H2 各有一套脚本（见 src/main/resources/db/migration/{postgres,h2}，
           # 由 FlywayDialectEnvironmentPostProcessor 按数据源方言自动启用，issue #191 / #192）。
           #
-          # 该模式下仍会跑生产安全前置检查（JWT_SECRET / INITIAL_ADMIN_PASSWORD 强度）——
+          # 该模式下仍会跑生产安全前置检查（JWT_SECRET 强度）——
           # 与应用 Pod 同一套判据：配置不合格时 Job 也会失败，这是有意的（失败早于上线）。
           args:
             - "--spring.main.banner-mode=off"

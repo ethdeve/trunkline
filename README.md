@@ -1,264 +1,193 @@
 # Trunkline
 
 <p align="center">
-  <img src="logo/brand-mark.svg" alt="Trunkline — Enterprise AI Governance Gateway" width="180">
-</p>
-
-> **Trunkline** is an enterprise AI governance gateway built on top of [JAiRouter](https://github.com/Lincoln-cn/JAiRouter) (Apache License 2.0). It is distributed under the [Apache License 2.0](LICENSE) with upstream copyright notices preserved in [NOTICE](NOTICE). Many thanks to the original author [Lincoln-cn](https://github.com/Lincoln-cn).
-
-<p align="center">
-  <strong>Bring all your LLM backends behind one OpenAI-compatible endpoint.</strong>
+  <img src="logo/brand-mark.svg" alt="Trunkline" width="180">
 </p>
 
 <p align="center">
-  Ollama · vLLM · GPUStack · Xinference · OpenAI · Claude · Gemini<br>
-  Unified Routing · Load Balancing · Rate Limiting · Circuit Breaking · Failover · Web Console
+  <strong>A simple, easy-to-use, secure and trustworthy intelligent model router</strong>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-0.1.0-blue?style=flat-square" alt="Version 0.1.0">
-  <img src="https://img.shields.io/badge/upstream-JAiRouter%20%7C%20Apache--2.0-green?style=flat-square" alt="Based on JAiRouter">
-  <img src="https://img.shields.io/badge/license-Apache--2.0-green?style=flat-square" alt="License">
+  <img src="https://img.shields.io/badge/license-Apache--2.0-green?style=flat-square" alt="Apache 2.0">
 </p>
 
 <p align="center">
   <a href="README-ZH.md">简体中文</a> •
-  <a href="https://trunkline.com">Docs</a> •
-  <a href="https://github.com/Lincoln-cn/trunkline/issues">Issues</a> •
-  <a href="https://github.com/Lincoln-cn/trunkline/discussions">Discussions</a>
+  <a href="https://github.com/Lincoln-cn/trunkline/issues">Report a bug</a> •
+  <a href="https://github.com/Lincoln-cn/trunkline/discussions">Ideas &amp; discussions</a>
 </p>
 
-- **One endpoint for all models** — unify direct calls to Ollama, vLLM, GPUStack, OpenAI, Claude, and Gemini behind a single OpenAI-compatible `base_url`. Existing OpenAI SDK, LangChain, and LlamaIndex code switches over with zero changes.
-- **Built for local inference clusters** — multi-instance load balancing (latency-aware, tag-based routing), circuit breaking, and per-request failover that **automatically retries on a healthy instance**.
-- **Built for enterprise teams** — hot-reload web console, config versioning & rollback, RBAC, audit logging, encrypted call records, and full observability. Route changes need no restart.
-- **Designed for non-technical users** — three role-based views (end user / ops / admin) and a minimal-config wizard. The console speaks human; technical details stay in advanced sections.
+---
 
-## Quick Start in 3 Minutes
+## In plain words: what problem does Trunkline solve?
+
+If your team uses several AI models at once — some running on your own machines, others from cloud services like OpenAI or Claude — you have probably run into these headaches:
+
+| Headache | Without Trunkline | With Trunkline |
+|----------|-------------------|----------------|
+| Too many models | Every model has its own way of calling, so switching means rewriting code | Connect once, switch models without touching your code |
+| A model goes down | Someone has to manually change the settings | Traffic automatically moves to a model that still works |
+| Unclear costs | Who used what, and how much did it cost? Nobody knows | Spend per model and usage per person, all in one place |
+| Weak safety | Sensitive data may leave with a question, with no record afterwards | Sensitive content is masked automatically, every call is logged |
+| Staff can't set it up | Every change needs a technical person | The console speaks human — staff can do it themselves |
+
+**Trunkline sits between your application and all your AI models, like a traffic controller.** Your app talks only to Trunkline; Trunkline decides which model to use, how to recover from failures, who gets access, and how much each person uses.
+
+Three words sum up what we aim for:
+
+- **Simple** — easy to get started; pick a few options and you are up and running.
+- **Intelligent** — it picks models for you, saves money, and saves time.
+- **Secure** — permissions, masking, and audit trails come built in, so enterprises can adopt it with confidence.
+
+## Working today (v0.1.0)
+
+Trunkline is not a concept demo. Everything below is **already usable in version 0.1.0**:
+
+**One entry point for everyday calls**
+- Whether a model runs on your own machines or in the cloud, your app talks to one address. If your code already calls models the OpenAI way, just change the connection address — your existing code mostly stays as it is.
+- Models already supported: Ollama, vLLM, GPUStack, Xinference and LocalAI on your own infrastructure; OpenAI, Claude and Gemini in the cloud. DeepSeek, Zhipu, Moonshot, Qwen and Minimax can be added right from the console.
+- More than chat: embeddings, reranking, speech-to-text, text-to-speech and image generation all go through the same entry point.
+
+**When something breaks, no firefighting**
+- If a model stalls or goes down, traffic automatically moves to one that still works; a failed request is retried on a healthy instance, almost unnoticed by the user.
+- Sudden traffic spikes are throttled automatically so your backends are not overwhelmed.
+- Route by conditions such as model name, request source, or instance tags.
+
+**See who uses what, and stay in control**
+- Two kinds of credentials — user accounts and access keys — with role-based permissions, so not everyone can touch every model.
+- Sensitive data is masked on the way in and out. Call records can be summary-only or encrypted; every call is logged so you can investigate later.
+- Usage and quotas are tracked per person, per model and per time window, with automatic limits when you run over.
+- Spend, success rates and response times come with ready-made charts — no separate monitoring stack needed.
+
+**Easy from the moment you install it**
+- A three-step setup wizard with no default username or password — you create the admin account yourself, so there is no ready-made entry point for someone else.
+- The console speaks human and is split into "My workspace / Team / System": staff see their own things, operators manage the team, admins manage everything.
+- Configuration changes take effect immediately, without a restart; light/dark themes and Chinese/English are both built in.
+
+## Product blueprint
+
+<p align="center">
+  <img src="logo/product-blueprint.png" alt="Trunkline blueprint: Simplicity, Intelligence, Security, Trust &amp; Ecosystem" width="1000">
+</p>
+
+The blueprint below is the full picture. Many items are already available in 0.1.0 (see above); ones marked "pending" or "planned" are what later releases will add. It has four layers, each solving a different class of problem. Security is not a separate box — it runs through every layer. Creating a model with one click automatically adds masking and usage limits, and intelligent routing treats compliance and output safety as conditions to meet.
+
+### 1 · Simplicity — set up fast
+
+| Capability | What it means in practice | Where it stands |
+|------------|---------------------------|-----------------|
+| One-click virtual models | Pick a purpose (say "customer support") and the system builds the model pool and routing rules for you | Wizard exists; auto-configuration pending |
+| Capability profiles | A clear guide to what each mainstream model is good at, so you don't have to try them all | Pending |
+| Smarter onboarding | Paste a key and the system figures out which provider it belongs to | Pending |
+| Configuration templates | Common scenarios are pre-set — apply one with a single click | Pending |
+| Video / multimodal support | Not just text: images, audio and video too | Planned |
+
+### 2 · Intelligence — route well
+
+| Capability | What it means in practice | Where it stands |
+|------------|---------------------------|-----------------|
+| Semantic-aware routing | Looks at the content and length of the question to pick a suitable model | Planned |
+| Best cost / latency | Picks the fast, economical option within your budget | Planned |
+| Semantic caching | If a similar question was answered before, reuse that answer and save money | Planned |
+| Smart fallback chain | If one model fails, automatically switch to a backup | Basic routing in place |
+| A/B canary tuning | Run old and new models together, then shift more traffic to the better one | Planned |
+
+### 3 · Security — stay safe
+
+| Capability | What it means in practice | Where it stands |
+|------------|---------------------------|-----------------|
+| Security posture center | One screen to see your overall security health and what needs attention | Pending |
+| Identity &amp; fine-grained access | Control exactly who can use which models, and how much | Foundations in place |
+| Data &amp; content protection | Sensitive information is masked on the way in and on the way out | In place |
+| Output safety scanning | Catch and block things a model should not say | Pending |
+| Full audit trail | Every call is recorded so you can investigate and prove what happened | In place |
+
+### 4 · Trust &amp; ecosystem — see clearly, grow freely
+
+| Capability | What it means in practice | Where it stands |
+|------------|---------------------------|-----------------|
+| Cost visibility | See exactly what each model costs | In place |
+| Evaluation bench | Let models run the same tests and compare results with data | Pending |
+| Smart alert diagnostics | Not just "it broke" — it tells you why | Foundations in place |
+| MCP / tool gateway | Bring all kinds of tool capabilities through one door | Pending |
+| Multi-language SDK / open API | Easy to connect from any programming language | Planned |
+
+> "Where it stands" reflects version 0.1.0 and will be updated as releases go out.
+
+## Get started in three steps
+
+**Step 1: Launch**
 
 ```bash
-# Start the gateway — dev profile, no key required (built-in dev key)
-docker run -d --name trunkline -p 8080:8080 \
-  -e SPRING_PROFILES_ACTIVE=dev \
-  trunkline/trunkline:latest
-
-# Web console: http://localhost:8080/admin
-# Default account: admin / ChangeMeOnFirstStartup123456
+docker run -d --name trunkline -p 8080:8080 trunkline/trunkline:latest
 ```
 
-For production, use the default `prod` profile and supply your own secret — prod deliberately ships no default key:
+**Step 2: Open your browser and set it up**
 
-```bash
-docker run -d --name trunkline -p 8080:8080 \
-  -e JWT_SECRET="<at-least-32-chars>" \
-  trunkline/trunkline:latest
-```
+Visit `http://localhost:8080/init` (or `/admin/init` when running from the packaged jar) and follow three prompts:
 
-Any OpenAI-compatible client works out of the box:
+1. Choose where data is stored — pick **local** if you are just getting started;
+2. If you chose a remote database, enter its details and restart once;
+3. Create an admin username and password (12+ characters — avoid anything guessable like `123456`).
 
-```python
-from openai import OpenAI
+**Trunkline ships with no default username and no default password.** You create the admin account the first time you open the page, so there is no ready-made entry point for someone else to find.
 
-client = OpenAI(
-    base_url="http://localhost:8080/v1",             # OpenAI-native face (JSON / SSE)
-    api_key="not-needed",                            # Authorization header is forwarded downstream
-    default_headers={"X-API-Key": "<your API key>"}  # Gateway auth (API Key created in the console)
-)
+**Step 3: Sign in and add your models**
 
-response = client.chat.completions.create(
-    model="llama3.2",  # any configured backend model
-    messages=[{"role": "user", "content": "Hello!"}]
-)
-print(response.choices[0].message.content)
-```
+Log in with the account you just created, then add your models in the console. From then on, staff only need the "key" the console issues to start calling them.
 
-Add your own backends — Ollama, vLLM, GPUStack, or any cloud provider — in the console's instance management. Hot-reload applies instantly, no restart.
+> Before serving real traffic, also set your own secret key (environment variable `JWT_SECRET`, at least 32 characters). Never use the sample value in production.
 
-<details>
-<summary><b>Upgrading from an older version?</b></summary>
+If your application already calls models the OpenAI way, just change the connection address to switch to Trunkline — your existing code mostly stays as it is.
 
-Trunkline no longer ships the legacy runtime compatibility layer. Migrate manually before upgrading:
+## Who is it for?
 
-- Use the `trunkline.*` configuration prefix; legacy environment variable names are no longer mapped.
-- Move quota counters to `trunkline:quota:*`; legacy counters are not merged automatically.
-- Use `trunkline-config` as the config store key; legacy keys are no longer read as a fallback.
-- Send the `Trunkline_Token` authentication header.
-- Place the call-history encryption key at `~/.trunkline/call-history.key`, or set `TRUNKLINE_CALL_HISTORY_KEY`; the legacy key directory is no longer copied automatically.
+- Teams running their own AI models (Ollama, vLLM, GPUStack, and others)
+- Teams using several cloud models who want one place to manage them
+- Anyone who needs to know who used what, what it cost, and whether sensitive data leaked
+- Teams that want non-technical colleagues to connect models without digging into technical details
 
-</details>
+## What's next
 
-<p align="center">
-  <img src="screenshots/dashboard-zh-CN-light.png" alt="Trunkline console" width="720">
-  <br/>
-  <em>Admin console — live service / instance / system metrics</em>
-</p>
+We work in monthly cycles. This is a rough outline, not a fixed promise — community feedback shapes it.
 
-<details>
-<summary><b>More screenshots</b></summary>
+| When | Version | Focus |
+|------|---------|-------|
+| 2026-11 | v0.1.0 | Laying the foundation: first-run wizard, no default admin, legacy cleanup, brand unification (released) |
+| 2026-12 | v0.2.0 | Faster setup: model capability profiles, one-click virtual models |
+| 2027-01 | v0.3.0 | Security you can see: security posture center, one-screen health check |
+| 2027-02 | v0.4.0 | Better choices: semantic routing, cost / latency optimization, semantic caching |
+| 2027-03 | v0.5.0 | Stronger guardrails: content safety, injection and privilege-abuse protection, SSO |
+| 2027-04 | v0.6.0 | Smarter recovery: automatic fallback chains, A/B canary tuning |
+| 2027-05 | v1.0.0 | More open: evaluation bench, tool gateway, multi-language SDK |
 
-<p align="center">
-  <img src="screenshots/service-management-zh-CN-light.png" alt="Service management" width="720">
-  <br/>
-  <em>Service management — per-service adapter and load-balancing policy</em>
-</p>
+A **commercial edition** is also planned for teams that need SSO, tamper-proof auditing, and high-availability delivery.
 
-<p align="center">
-  <img src="screenshots/rule-management-zh-CN-light.png" alt="Routing rules" width="720">
-  <br/>
-  <em>Visual routing rules — hit stats, drag-to-prioritize, scenario templates</em>
-</p>
+## About JAiRouter
 
-<p align="center">
-  <img src="screenshots/call-history-dashboard-zh-CN-light.png" alt="Call history analytics" width="720">
-  <br/>
-  <em>Call history analytics — success rate, latency, and token usage trends</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/playground-chat-zh-CN-light.png" alt="AI playground" width="720">
-  <br/>
-  <em>AI playground — chat / embedding / rerank / TTS / STT / image testing</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/dashboard-zh-CN-dark.png" alt="Dashboard (dark theme)" width="720">
-  <br/>
-  <em>Dark theme built in — light/dark switch and bilingual UI</em>
-</p>
-
-</details>
-
-## What is Trunkline?
-
-Trunkline is a **production-grade AI model gateway** for teams running their own inference infrastructure (Ollama, vLLM, GPUStack, Xinference) alongside cloud models. It collapses every backend into one OpenAI-compatible API and adds the resilience and governance you would otherwise build yourself: load balancing, rate limiting, circuit breaking, failover, RBAC, audit logging, and observability.
-
-| Problem | Trunkline answer |
-|---------|------------------|
-| Too many model endpoints to manage | One unified API entry |
-| Manual switching when a service fails | Automatic circuit breaking & failover |
-| Auth implemented per service | Built-in JWT + API Key |
-| Scattered logs and metrics | Unified observability |
-| Config changes require restarts | Hot-reload web console |
-| Employees can't configure models | Role-based views + minimal-config UI |
-
-### Core Features
-
-- **🔌 OpenAI-compatible API** — drop-in for OpenAI SDK, LangChain, LlamaIndex (plus a native Anthropic `/v1/messages` face)
-- **🔧 Configurable adapters** — add new AI providers (DeepSeek, Zhipu, etc.) via config or the web UI, no code
-- **⚖️ Smart load balancing** — round robin, weighted, least connections, IP Hash, consistent hashing, EWMA latency-aware
-- **🎯 Rule engine & tag routing** — visual conditional routing (model, service type, headers, source IP, weight, instance tags)
-- **🛡️ Traffic control** — token bucket, leaky bucket, sliding window
-- **🔥 Circuit breaking** — automatic failover with configurable thresholds, plus per-request failover (retry on healthy instances)
-- **🔐 Auth & RBAC** — JWT + API Key dual auth, audit logging, data-driven RBAC (permission codes + role templates + menu/URL permissions)
-- **📊 Observability** — Prometheus metrics, OpenTelemetry tracing, live dashboards, call history analytics
-- **🔒 Record governance** — three levels (metadata only / redacted summary / AES-256-GCM encrypted full text)
-- **💰 Quota ledger** — multi-dimensional, multi-window token quotas (MINUTE/HOUR/DAY/MONTH) with Redis distributed counting and automatic degradation
-- **⚡ Response caching** — deterministic requests served from cache (optional, tenant-isolated keys)
-- **💾 State persistence** — Redis / H2 / file storage for distributed deployments
-- **🎛️ Web console** — visual management, versioning, rollback, light/dark themes, bilingual UI
-
-## Supported AI Backends
-
-<details>
-<summary><b>Built-in adapters</b> — Chat / Embedding / Rerank / TTS / STT / Image matrix</summary>
-
-| Backend | Chat | Embedding | Rerank | TTS | STT | Image | Notes |
-|---------|:----:|:---------:|:------:|:---:|:---:|:-----:|-------|
-| **Ollama** | ✅ | ✅ | - | - | - | - | Local inference |
-| **vLLM** | ✅ | ✅ | - | - | - | - | High throughput |
-| **GPUStack** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Full coverage |
-| **Xinference** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Multi-model |
-| **LocalAI** | ✅ | ✅ | - | ✅ | ✅ | ✅ | OpenAI-compatible |
-| **OpenAI** | ✅ | ✅ | - | ✅ | ✅ | ✅ | Cloud fallback |
-| **Anthropic Claude** | ✅ | - | - | - | - | - | Native Claude API |
-| **Google Gemini** | ✅ | - | - | - | - | - | Native Gemini API |
-
-</details>
-
-<details>
-<summary><b>Configurable adapters</b> — any OpenAI-compatible provider, no code</summary>
-
-| Provider | Configuration |
-|----------|---------------|
-| **DeepSeek** | `adapter-definitions: deepseek: type: openai-compatible` |
-| **Zhipu (GLM)** | `adapter-definitions: zhipu: type: openai-compatible` |
-| **Moonshot** | `adapter-definitions: moonshot: type: openai-compatible` |
-| **Qwen** | `adapter-definitions: qwen: type: openai-compatible` |
-| **Minimax** | `adapter-definitions: minimax: type: openai-compatible` |
-
-> 📖 See the [Adapter configuration guide](https://trunkline.com/configuration/adapter-config/)
-
-</details>
-
-## Why Trunkline?
-
-- **Versus direct backend calls** — no unified resilience, no centralized keys, no call visibility. Trunkline gives you one entry, automatic failover, and a complete audit trail.
-- **Versus One-API / new-api** — they focus on API key distribution and billing (good for account sharing / reselling); Trunkline targets **self-hosted inference clusters** as a governance gateway: multi-instance load balancing, circuit breaking, rule routing, RBAC, and observability. The two can complement each other.
-- **Versus Nginx** — Nginx is a general-purpose web server; Trunkline is **purpose-built for AI/LLM workloads** with OpenAI-compatible routing, circuit breaking, and model-aware load balancing.
-- **Versus LangChain** — LangChain is an application framework; Trunkline is the **infrastructure layer beneath it**.
-
-## Documentation
-
-| Resource | Link |
-|----------|------|
-| Full docs | https://trunkline.com |
-| Deployment | https://trunkline.com/deployment/ |
-| Configuration | https://trunkline.com/configuration/ |
-| Monitoring | https://trunkline.com/monitoring/ |
-| API reference | http://localhost:8080/swagger-ui |
-
-## Roadmap
-
-**Current version: 0.1.0** (version number frozen — will bump once the community edition matures; see the [iteration plan](docs/product/Trunkline-产品迭代计划.md))
-
-0.1.0 inherits all capabilities of upstream JAiRouter and adds the Trunkline brand system. The legacy runtime compatibility layer has been removed; see "Upgrading from an older version?" for the manual migration checklist.
-
-**Community edition stages** (stage names, not release versions):
-
-- **S1 Brand & baseline** — full brand-prefix cleanup + legacy compat mapping, NOTICE/license attribution, green test baseline
-- **S2 Debt & stability** — code cleanup, load testing, security audit
-- **S3 Production-ready** — deployment experience, TTV (deploy-to-first-response) measurement, docs site revamp
-- **S4 Config reduction & user activation** — wizard-based onboarding, table slimming, human-friendly employee-side UI
-
-**Commercial edition (planned)** — SSO, content safety, tamper-proof auditing, K8s HA delivery; boundary defined in the [editions page](docs/product/editions.md).
-
-## Contributing
-
-Contributions are welcome — see the [contributing guide](https://trunkline.com/development/contributing/).
-
-```bash
-git clone https://github.com/Lincoln-cn/trunkline.git
-cd trunkline
-./mvnw clean package -DskipTests
-java -jar target/trunkline-*.jar
-```
-
-## Support
-
-- **Docs**: https://trunkline.com
-
-### Issue or Discussion — where should it go?
-
-The two GitHub entry points are deliberately separated so no feedback falls through the cracks. Choose by **what you have in hand**:
-
-| What you have | Where it goes | What happens |
-|---------------|---------------|--------------|
-| **Reproducible bug** — crash, wrong result, regression, doc error | [**Issues**](https://github.com/Lincoln-cn/trunkline/issues) | **Fast triage** — confirmed bugs get fixed or scheduled |
-| **Feature or idea** — new feature, new adapter, design talk, usage question | [**Discussions**](https://github.com/Lincoln-cn/trunkline/discussions) | **Curated regularly** — summarized, voted on, folded into the [roadmap](#roadmap) |
-
-**In short**: bugs → **Issues**, ideas & questions → **Discussions**.
-
-> Not sure? Start with Discussions — if it turns out to be a reproducible bug, we'll move it to Issues.
+Trunkline continues the work started in [JAiRouter](https://github.com/Lincoln-cn/JAiRouter). Thanks to the original author, Lincoln-cn, for the excellent foundation. The upstream copyright notices are preserved in full in [NOTICE](NOTICE).
 
 ## License
 
-This project is open-sourced under the [Apache 2.0 License](LICENSE), forked from [JAiRouter](https://github.com/Lincoln-cn/JAiRouter) (original author Lincoln-cn, also Apache-2.0). Upstream copyright notices are fully preserved in [NOTICE](NOTICE).
+Released under the [Apache 2.0 License](LICENSE) — free to use, modify, and ship commercially, provided the original notices are kept.
+
+## Contribute &amp; give feedback
+
+| What you have | Where to send it |
+|---------------|------------------|
+| A reproducible bug: crash, wrong result, doc error | [Issues](https://github.com/Lincoln-cn/trunkline/issues) |
+| An idea, a feature request, a question, or a discussion | [Discussions](https://github.com/Lincoln-cn/trunkline/discussions) |
+
+Not sure? Start with Discussions — if it turns out to be a reproducible bug, we will move it to Issues for you.
+
+To build from source: clone the repository, run `./mvnw clean package -DskipTests`, then start it with `java -jar target/trunkline-0.1.0.jar`.
 
 ---
 
 <p align="center">
-  <strong>If Trunkline helps you, please give it a <a href="https://github.com/Lincoln-cn/trunkline/stargazers">Star</a> ⭐</strong>
-  <br/>
-  <em>Found a bug? Open an Issue. Have an idea? Start a Discussion.</em>
+  If Trunkline helps you, please give it a <a href="https://github.com/Lincoln-cn/trunkline/stargazers">Star</a> ⭐
 </p>
 
 <p align="center">

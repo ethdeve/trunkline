@@ -1,10 +1,10 @@
 /**
  * Trunkline Console 菜单配置（v3.5 UI 改造：四组菜单）
  *
- * 设计决策（docs/ui-restyle-plan.md §1 + 用户确认）：
+ * 设计决策（早期 UI 改造方案 + 用户确认；原方案已归档到项目外资料库）：
  * - 菜单重组成三组：我的（员工）/ 团队（运维·管理员）/ 系统（仅管理员）。
  *   【2026-11-05】原「策略」组仅剩路由规则一项，并入「团队」组（更名「路由规则」）。
- * - 三角色模型（user / ops / admin）来自 docs/Trunkline-UI设计规格.md §2，与工程现有
+ * - 三角色模型（user / ops / admin）来自早期 UI 设计规格（已归档），与工程现有
  *   JWT 角色（USER/OPERATOR/ADMIN）重映射（见 stores/user.ts 的 logicalRoles）。
  *   社区版权权已固定化（无可配置 RBAC）：`permission` 字段只是「码 → 最低逻辑角色」
  *   可见性映射的键（config/permissionMatrix.ts），后端授权由固定角色矩阵按角色裁决。

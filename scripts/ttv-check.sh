@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
-# Trunkline TTV 自检脚本（社区版完善规划 §三 v0.2 追加任务）
+# Trunkline TTV 自检脚本
 # 度量：部署 → 登录 → 发出第一把密钥 → 第一句对话 的各步耗时与总 TTV
+# 前置：管理员账号须通过首次启动向导 /init（jar 部署为 /admin/init）创建
 # 用法：
-#   ./scripts/ttv-check.sh                          # 默认 http://localhost:8080
-#   BASE_URL=http://host:8080 ./scripts/ttv-check.sh
-#   TTV_MODEL=deepseek-chat ./scripts/ttv-check.sh  # 指定推理用的模型名
+#   TTV_PASSWORD=<你的管理员密码> ./scripts/ttv-check.sh
+#   BASE_URL=http://host:8080 TTV_USERNAME=ops TTV_PASSWORD=xxx ./scripts/ttv-check.sh
+#   TTV_MODEL=deepseek-chat TTV_PASSWORD=xxx ./scripts/ttv-check.sh  # 指定推理模型
 # 退出码：0=全通过；1=硬步骤失败（健康/登录/建密钥）；2=推理步骤未打通（管道通但无可用上游）
 set -uo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:8080}"
 USERNAME="${TTV_USERNAME:-admin}"
-PASSWORD="${TTV_PASSWORD:-ChangeMeOnFirstStartup123456}"
+if [[ -z "${TTV_PASSWORD:-}" ]]; then
+  printf '请通过 TTV_PASSWORD 指定管理员密码（系统已取消默认账号，首次启动需访问 /init 创建）\n' >&2
+  exit 1
+fi
+PASSWORD="${TTV_PASSWORD}"
 MODEL="${TTV_MODEL:-}"
 CURL="${CURL:-curl}"
 FAIL=0
@@ -46,14 +51,14 @@ TOKEN=$(printf '%s' "$LOGIN_JSON" | python -c 'import sys,json;d=json.load(sys.s
 if [ -n "${TOKEN:-}" ] && [ "$TOKEN" != "None" ]; then
   ok "登录成功，JWT 已获取" "$D"
 else
-  bad "登录失败——检查用户名/密码（prod 模式需先设置 INITIAL_ADMIN_PASSWORD）"; exit 1
+  bad "登录失败——检查用户名/密码；未初始化请先访问 /admin/init 创建管理员"; exit 1
 fi
 
 # ---------- 步骤 3：创建第一把 API Key ----------
 step "3/4 创建 API 密钥"
 T=$(now)
 KEY_JSON=$($CURL -s -m 10 -X POST "$BASE_URL/api/auth/api-keys" \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -H "Trunkline_Token: $TOKEN" -H 'Content-Type: application/json' \
   -d '{"description":"ttv-check 首把密钥（脚本自动创建）","enabled":true}')
 D=$(ms $T)
 APIKEY=$(printf '%s' "$KEY_JSON" | python -c 'import sys,json;d=json.load(sys.stdin);print(d["data"]["keyValue"])' 2>/dev/null)

@@ -70,8 +70,7 @@ node_modules/
 README.md
 README-ZH.md
 
-# Documentation
-docs/
+# Documentation (project docs live outside the repo; markdown not needed in image)
 *.md
 
 # Test files

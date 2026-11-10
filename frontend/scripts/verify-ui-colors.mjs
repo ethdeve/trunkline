@@ -2,7 +2,7 @@
 /**
  * UI 颜色门禁（verify-ui-colors）
  *
- * <p>对应 docs/product/Trunkline-控制台说人话改造方案.md §六-补2 U1 的可执行验收：
+ * <p>对应「控制台说人话」改造方案（已归档到项目外资料库）的颜色验收项：
  * views/components 内禁止出现 var() 之外的裸 hex 色值——裸色不随亮/暗主题切换，
  * 是暗色模式「漏白」的根因。颜色一律走 styles/tokens.css 的 --ja-* 令牌或
  * Element 的 --el-* 变量（回退值写在 var() 内属合法）。</p>

@@ -1,310 +1,197 @@
 # Trunkline
 
 <p align="center">
-  <img src="logo/brand-mark.svg" alt="Trunkline — 企业 AI 治理网关" width="180">
-</p>
-
-> **Trunkline** 是一个面向企业团队的 **AI 治理网关**，基于 [JAiRouter](https://github.com/Lincoln-cn/JAiRouter)（Apache License 2.0）二次开发。遵循 [Apache License 2.0](LICENSE) 发布，保留上游 [JAiRouter](https://github.com/Lincoln-cn/JAiRouter) 项目的版权声明与署名，感谢原作者 [Lincoln-cn](https://github.com/Lincoln-cn) 的杰出工作。
-
-<p align="center">
-  <strong>把您的所有 LLM 后端，收敛到一个 OpenAI 兼容入口。</strong>
+  <img src="logo/brand-mark.svg" alt="Trunkline" width="180">
 </p>
 
 <p align="center">
-  Ollama · vLLM · GPUStack · Xinference · OpenAI · Claude · Gemini<br>
-  统一路由 · 负载均衡 · 限流 · 熔断 · 故障转移 · 可视化控制台
+  <strong>简单易用、安全可信的智能模型路由</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.0-blue?style=flat-square" alt="版本 0.1.0">
-  <img src="https://img.shields.io/badge/upstream-JAiRouter%20%7C%20Apache--2.0-green?style=flat-square" alt="基于 JAiRouter">
-  <img src="https://img.shields.io/badge/license-Apache--2.0-green?style=flat-square" alt="License">
+  <img src="https://img.shields.io/badge/当前版本-0.1.0-blue?style=flat-square" alt="版本 0.1.0">
+  <img src="https://img.shields.io/badge/开源协议-Apache--2.0-green?style=flat-square" alt="Apache 2.0">
 </p>
 
 <p align="center">
-  <a href="README-ZH.md">简体中文</a> •
-  <a href="https://trunkline.com">文档</a> •
+  <a href="README.md">English</a> •
   <a href="https://github.com/Lincoln-cn/trunkline/issues">问题反馈</a> •
-  <a href="https://github.com/Lincoln-cn/trunkline/discussions">讨论</a>
+  <a href="https://github.com/Lincoln-cn/trunkline/discussions">想法与讨论</a>
 </p>
 
-- **一个入口调用所有模型** —— 把对 Ollama、vLLM、GPUStack、OpenAI、Claude、Gemini 的直接调用统一为一个 OpenAI 兼容 `base_url`，现有 OpenAI SDK、LangChain、LlamaIndex 代码零改造即可切换。
-- **为本地推理集群而生** —— 多实例负载均衡（含延迟感知、标签路由）、熔断降级，以及实例故障时**自动换到健康实例重试**的请求级故障转移。
-- **为企业团队打造** —— Web 控制台热更新、配置版本管理与回滚、RBAC、审计日志、加密调用记录与完整可观测性。调整路由无需重启服务。
-- **为非技术用户设计** —— 三角色视图（使用者 / 运维 / 管理员）+ 极简配置向导，控制台说人话，技术细节收进高级项。
+---
 
-## 3 分钟快速体验
+## 先说人话：Trunkline 解决什么问题？
+
+如果您所在的公司同时用好几个 AI 模型——有的自己部署，有的用 OpenAI、Claude 这类云端服务——多半遇到过这些麻烦：
+
+| 麻烦 | 没有 Trunkline | 有了 Trunkline |
+|------|---------------|---------------|
+| 模型太多 | 每个模型一套调用方式，换个模型就改一次代码 | 只对接一个地方，换模型不用改代码 |
+| 模型故障 | 某个模型挂了，要人工去改配置 | 自动切到还能用的模型 |
+| 费用不清 | 谁在用、用了多少、花了多少钱，说不清 | 每个模型的花费、每个人的用量一目了然 |
+| 安全没底 | 敏感信息可能随着提问发出去，事后查不到 | 敏感内容自动打码，每次调用都留记录 |
+| 员工不会配 | 每次都要找技术人员帮忙 | 界面说人话，员工自己就能上手 |
+
+**Trunkline 就是放在您的应用和各种 AI 模型之间的「总调度台」。** 您的应用只跟它说话，至于用哪个模型、出问题怎么切换、谁能用、用了多少，交给它管。
+
+三个词概括我们的追求：
+
+- **简单易用** —— 上手门槛低，选一选、点一点就能用起来；
+- **智能** —— 自动帮您挑模型、省钱、省时间；
+- **安全** —— 权限、脱敏、留痕都在，让企业放心用。
+
+## 现在已经能用（v0.1.0）
+
+Trunkline 不是概念演示。下面这些能力在 **0.1.0 版本里已经可以实际使用**：
+
+**日常调用，一个入口就够了**
+- 不管模型在您自己的机器上还是云端，应用只认一个地址；已经用 OpenAI 方式写好的程序，把连接地址换成 Trunkline 就能跑，原来的代码基本不用动。
+- 已经接好的模型：本地的 Ollama、vLLM、GPUStack、Xinference、LocalAI，云端的 OpenAI、Claude、Gemini。DeepSeek、智谱、月之暗面、通义千问、Minimax 这类，在控制台里填一下就能加进来。
+- 不只是聊天：文字向量、重排序、语音转写、语音合成、图片生成，都能走同一套入口。
+
+**出了问题，不用人工救火**
+- 某个模型卡住或挂了，自动换到还能用的模型；单次请求失败也会自动换实例重试，使用者几乎没感觉。
+- 访问量突然变大时会自动限流，不会把后端压垮。
+- 可以按条件分流：比如按模型名、请求来源、实例标签，决定走哪条路。
+
+**用多少、谁在用、有没有泄露，都看得见**
+- 登录账号和调用密钥两种凭证，按角色分配权限，不是谁都能碰所有模型。
+- 敏感信息发出去和返回来时自动打码；调用记录可以选择只留摘要或加密保存，每一次调用都留痕，出事能查。
+- 用量和额度按人、按模型、按时间统计，超了就自动限制。
+- 花费、成功率、响应速度都有现成图表，不用自己再搭一套监控。
+
+**装完就能上手**
+- 三步初始化向导，没有默认账号、默认密码，装完自己设，别人拿不到现成入口。
+- 控制台说人话，分「我的 / 团队 / 系统」三块：员工看自己的，运维管团队，管理员管全局。
+- 改配置即时生效，不用重启服务；界面支持亮色/暗色和中英双语。
+
+## 产品蓝图
+
+<p align="center">
+  <img src="logo/product-blueprint.png" alt="Trunkline 产品蓝图：易用层、智能层、安全层、信任与生态层" width="1000">
+</p>
+
+下面是完整蓝图。其中不少能力在 0.1.0 已经可用（见上一节）；标着「待补 / 待建 / 规划中」的，是后续版本要补齐的部分。
+
+蓝图分四层，一层解决一类问题。安全不单独占一格——它贯穿在所有层里面：一键建模型会自动带上脱敏和用量限制，智能调度也会把合规和输出安全当成条件。
+
+### 一、易用层：配得快
+
+| 能力 | 说的是什么 | 目前进度 |
+|------|-----------|---------|
+| 一键创建虚拟模型 | 选一个用途（比如「客服问答」），系统自动配好背后用哪些模型、怎么分配 | 向导已有，自动配策略待补 |
+| 能力画像库 | 主流模型各自擅长什么，写清楚给您看，不用自己一个个试 | 待补 |
+| 接入向导增强 | 贴一个密钥进去，自动认出这是哪家的模型 | 待补 |
+| 配置模板市场 | 常见场景都预设好了，一键套用 | 待补 |
+| 视频 / 多模态补齐 | 不只是文字，图片、语音、视频也能走 | 规划中 |
+
+### 二、智能层：选得准
+
+| 能力 | 说的是什么 | 目前进度 |
+|------|-----------|---------|
+| 语义感知路由 | 看问题本身的内容和长短，自动挑合适的模型 | 规划中 |
+| 成本 / 延迟最优 | 在预算范围内，自动选又快又划算的 | 规划中 |
+| 语义缓存 | 差不多的问题问过一次，直接复用之前的答案，省钱 | 规划中 |
+| 智能降级链 | 一个模型挂了，自动切到备用的 | 基础调度能力已有 |
+| A/B 灰度自动调权 | 新旧模型一起跑，自动把更多流量给效果更好的 | 规划中 |
+
+### 三、安全层：守得牢
+
+| 能力 | 说的是什么 | 目前进度 |
+|------|-----------|---------|
+| 安全态势中心 | 一屏看清整体安全状况，有哪些风险要处理 | 待建 |
+| 身份与细粒度授权 | 谁能用哪些模型、能用多少，管得很细 | 已有基础 |
+| 数据与内容防护 | 发出去和返回来的敏感信息自动打码 | 已有 |
+| 输出安全扫描 | 模型说不该说的话，自动拦下来 | 待建 |
+| 全量审计 · 可自证 | 每次调用都留痕，出事能查、能交代 | 已有 |
+
+### 四、信任与生态层：看得清、扩得开
+
+| 能力 | 说的是什么 | 目前进度 |
+|------|-----------|---------|
+| 成本可观测 | 每个模型花了多少钱，明明白白 | 已有 |
+| 效果评测台 | 让模型们自动跑分比一比，用数据说话 | 待建 |
+| 智能告警诊断 | 不只告诉您「坏了」，还说清楚为什么坏 | 已有基础 |
+| MCP / 工具网关 | 把各种工具能力统一接进来 | 待建 |
+| 多语言 SDK / 开放 API | 各种编程语言都能方便地接入 | 规划中 |
+
+> 以上「目前进度」是 0.1.0 版本的实际状况，会随版本更新。
+
+## 三步用起来
+
+**第一步：启动**
 
 ```bash
-# 启动网关 —— dev 方式启动，无需配置密钥（内置开发密钥）
-docker run -d --name trunkline -p 8080:8080 \
-  -e SPRING_PROFILES_ACTIVE=dev \
-  trunkline/trunkline:latest
-
-# Web 控制台：http://localhost:8080/admin
-# 默认账号：admin / ChangeMeOnFirstStartup123456
+docker run -d --name trunkline -p 8080:8080 trunkline/trunkline:latest
 ```
 
-生产环境请改用默认的 `prod` 方式启动，并配置你自己的密钥 —— prod 模式刻意不内置默认密钥：
+**第二步：打开浏览器做初始化**
 
-```bash
-docker run -d --name trunkline -p 8080:8080 \
-  -e JWT_SECRET="<至少32字符的密钥>" \
-  trunkline/trunkline:latest
-```
+访问 `http://localhost:8080/init`（如果用安装包方式运行，地址是 `/admin/init`），按提示走三步：
 
-任意 OpenAI 兼容客户端即可接入：
+1. 选数据存在哪里——第一次用，选「本地」就行；
+2. 如果选了远程数据库，填好信息后重启一次；
+3. 设一个管理员账号和密码（至少 12 位，别用 `123456` 这种好猜的）。
 
-```python
-from openai import OpenAI
+**Trunkline 没有默认账号、没有默认密码。** 账号是您第一次打开页面时自己设的，这样别人拿不到现成的入口。
 
-client = OpenAI(
-    base_url="http://localhost:8080/v1",             # OpenAI 原生面（原生 JSON / SSE）
-    api_key="not-needed",                            # Authorization 头会透传给下游
-    default_headers={"X-API-Key": "<你的API密钥>"}     # 网关鉴权（管理台创建的 API Key）
-)
+**第三步：登录控制台，把您的模型加进去**
 
-response = client.chat.completions.create(
-    model="llama3.2",  # 任意已配置的后端模型
-    messages=[{"role": "user", "content": "你好！"}]
-)
-print(response.choices[0].message.content)
-```
+用刚设的账号登录，在控制台里添加模型。以后员工只需要用控制台发的「钥匙」，就能调用了。
 
-在控制台「实例管理」中添加您自己的后端——Ollama、vLLM、GPUStack 或任意云端提供商。配置热更新即时生效，无需重启。
+> 正式对外提供服务前，请再设一个自己的安全密钥（环境变量 `JWT_SECRET`，至少 32 位）。示例里的值不能用于正式环境。
 
-<details>
-<summary><b>从旧版本升级？</b></summary>
+如果您原来的程序已经在用 OpenAI 的方式调用模型，改一下连接地址就能切到 Trunkline，原来的代码基本不用动。
 
-Trunkline 已移除旧版本运行时兼容层。升级前请手工完成以下迁移：
+## 谁适合用 Trunkline？
 
-- 配置前缀统一为 `trunkline.*`，旧环境变量名不再映射；
-- Redis 配额计数 key 统一为 `trunkline:quota:*`，旧计数不会自动并入；
-- 主配置存储 key 统一为 `trunkline-config`，旧 key 不再回落读取；
-- 认证请求头统一为 `Trunkline_Token`；
-- 调用记录加密密钥放置到 `~/.trunkline/call-history.key`，或设置 `TRUNKLINE_CALL_HISTORY_KEY`；旧密钥目录不再自动复制。
+- 公司自己部署了 AI 模型（比如 Ollama、vLLM、GPUStack）
+- 同时用好几个云端模型，想统一管理
+- 需要知道员工用了多少、花了多少钱、有没有把敏感信息发出去
+- 希望普通同事不用懂技术细节，也能自己接入模型
 
-</details>
+## 以后的安排
 
-<p align="center">
-  <img src="screenshots/dashboard-zh-CN-light.png" alt="Trunkline 控制台" width="720">
-  <br/>
-  <em>管理控制台 — 服务/实例/系统指标实时总览</em>
-</p>
+按月推进，下面是大致节奏（不是死板承诺，会听社区反馈调整）：
 
-<details>
-<summary><b>更多截图</b></summary>
+| 时间 | 版本 | 重点 |
+|------|------|------|
+| 2026-11 | v0.1.0 | 打好底子：首启向导、去掉默认管理员、清理旧东西、统一品牌（已完成） |
+| 2026-12 | v0.2.0 | 配得更快：模型能力画像、一键创建虚拟模型 |
+| 2027-01 | v0.3.0 | 安全看得见：安全态势中心，一屏体检 |
+| 2027-02 | v0.4.0 | 选得更准：语义路由、省钱省时、问题缓存 |
+| 2027-03 | v0.5.0 | 守得更牢：内容护栏、防注入、防越权、单点登录 |
+| 2027-04 | v0.6.0 | 更聪明：故障自动降级、新旧模型自动调流量 |
+| 2027-05 | v1.0.0 | 更开放：效果评测台、工具网关、多语言 SDK |
 
-<p align="center">
-  <img src="screenshots/service-management-zh-CN-light.png" alt="服务管理" width="720">
-  <br/>
-  <em>服务管理 — 按服务配置适配器与负载均衡策略</em>
-</p>
+以后还计划推出**商业版**，面向需要单点登录、不可篡改审计、高可用部署的团队。
 
-<p align="center">
-  <img src="screenshots/instance-management-zh-CN-light.png" alt="实例管理" width="720">
-  <img src="screenshots/adapter-management-zh-CN-light.png" alt="适配器管理" width="720">
-  <br/>
-  <em>实例管理与适配器管理</em>
-</p>
+## 关于 JAiRouter
 
-<p align="center">
-  <img src="screenshots/rule-management-zh-CN-light.png" alt="路由规则" width="720">
-  <br/>
-  <em>可视化路由规则 — 命中统计、优先级拖拽与场景模板</em>
-</p>
+Trunkline 是在 [JAiRouter](https://github.com/Lincoln-cn/JAiRouter) 的基础上继续开发的。感谢原作者 Lincoln-cn 的出色工作。我们完整保留了原项目的版权声明，详见 [NOTICE](NOTICE)。
 
-<p align="center">
-  <img src="screenshots/call-history-dashboard-zh-CN-light.png" alt="调用历史分析" width="720">
-  <br/>
-  <em>调用历史分析 — 成功率、延迟与 Token 用量趋势</em>
-</p>
+## 开源协议
 
-<p align="center">
-  <img src="screenshots/playground-chat-zh-CN-light.png" alt="AI 试验场" width="720">
-  <br/>
-  <em>AI 试验场 — 对话/向量/重排序/语音/图像 五类能力在线调试</em>
-</p>
+本项目遵循 [Apache 2.0 协议](LICENSE)：可以自由使用、修改、商用，只需保留原作者的声明。
 
-<p align="center">
-  <img src="screenshots/quota-monitoring-zh-CN-light.png" alt="配额用量监控" width="720">
-  <br/>
-  <em>配额用量监控 — 后端类型/降级状态卡片 + 多维筛选（租户/Key/用户/服务/模型 × 窗口）</em>
-</p>
+## 参与和反馈
 
-<p align="center">
-  <img src="screenshots/dashboard-zh-CN-dark.png" alt="仪表板（暗色主题）" width="720">
-  <br/>
-  <em>内置暗色主题 — 管理台支持亮/暗切换与中英双语</em>
-</p>
+| 您手上的东西 | 发到哪里 |
+|-------------|---------|
+| 遇到了缺陷：崩溃、结果不对、文档写错 | [Issues](https://github.com/Lincoln-cn/trunkline/issues) |
+| 有想法、想加功能、想提问、想讨论 | [Discussions](https://github.com/Lincoln-cn/trunkline/discussions) |
 
-</details>
+拿不准发哪里？先发 Discussions，如果确认是缺陷，我们会帮您转到 Issues。
 
-## Trunkline 是什么？
-
-Trunkline 是一个 **生产级 AI 模型网关**，面向自建推理基础设施（Ollama、vLLM、GPUStack、Xinference）并与云端模型混用的团队。它把全部后端收敛为一个统一的 OpenAI 兼容 API，并补齐您本需自行搭建的弹性与治理能力：负载均衡、限流、熔断、故障转移、RBAC、审计日志与可观测性。
-
-| 问题 | Trunkline 解决方案 |
-|------|-------------------|
-| 多个模型端点需要管理 | 统一的 API 入口 |
-| 服务故障时手动切换 | 自动熔断故障转移 |
-| 每个服务单独实现认证 | 内置 JWT + API Key |
-| 分散的日志和监控指标 | 统一可观测性 |
-| 修改配置需重启服务 | Web 控制台热更新 |
-| 员工不会配模型 | 三角色视图 + 极简配置界面 |
-
-### 核心功能
-
-- **🔌 OpenAI 兼容 API** — 直接替换 OpenAI SDK、LangChain、LlamaIndex（另提供 Anthropic `/v1/messages` 原生面）
-- **🔧 可配置 Adapter** — 通过配置或 Web 页面添加新 AI 提供商（DeepSeek、智谱等），无需编码
-- **⚖️ 智能负载均衡** — 轮询、加权、最少连接、IP Hash、一致性哈希、EWMA 延迟感知
-- **🎯 规则引擎与标签路由** — 可视化条件路由（模型名、服务类型、请求头、来源 IP、权重、实例标签）
-- **🛡️ 流量控制** — 令牌桶、漏桶、滑动窗口算法
-- **🔥 熔断降级** — 自动故障转移、可配置阈值与恢复策略，支持请求级故障转移（换健康实例重试）
-- **🔐 认证与 RBAC** — JWT + API Key 双重认证 + 审计日志 + 数据驱动 RBAC（权限码 + 角色模板 + 菜单与 URL 权限）
-- **📊 可观测性** — Prometheus 指标、OpenTelemetry 追踪、实时仪表盘、调用历史分析
-- **🔒 记录治理** — 三档记录级别（仅元数据 / 脱敏摘要 / AES-256-GCM 加密全文）
-- **💰 配额账本** — Token 配额多维多窗管理（MINUTE/HOUR/DAY/MONTH）、Redis 分布式计数与断连自动降级
-- **⚡ 响应缓存** — 确定性请求直接复用下游响应、跳过后端（可选开启，租户隔离键）
-- **💾 状态持久化** — Redis / H2 / 文件存储，支持分布式部署
-- **🎛️ Web 控制台** — 可视化管理、版本控制、配置回滚、亮/暗主题、中英双语
-
-## 支持的 AI 后端
-
-<details>
-<summary><b>内置 Adapter</b> — Chat / Embedding / Rerank / TTS / STT / Image 能力一览</summary>
-
-| 后端 | Chat | Embedding | Rerank | TTS | STT | Image | 说明 |
-|------|:----:|:---------:|:------:|:---:|:---:|:-----:|------|
-| **Ollama** | ✅ | ✅ | - | - | - | - | 本地推理 |
-| **vLLM** | ✅ | ✅ | - | - | - | - | 高吞吐量 |
-| **GPUStack** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 功能完整 |
-| **Xinference** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 多模型支持 |
-| **LocalAI** | ✅ | ✅ | - | ✅ | ✅ | ✅ | OpenAI 兼容 |
-| **OpenAI** | ✅ | ✅ | - | ✅ | ✅ | ✅ | 云端兜底 |
-| **Anthropic Claude** | ✅ | - | - | - | - | - | 原生 Claude API |
-| **Google Gemini** | ✅ | - | - | - | - | - | 原生 Gemini API |
-
-</details>
-
-<details>
-<summary><b>可配置 Adapter</b> — 任意 OpenAI 兼容提供商，无需编码</summary>
-
-| 提供商 | 配置方式 |
-|--------|----------|
-| **DeepSeek** | `adapter-definitions: deepseek: type: openai-compatible` |
-| **智谱 (GLM)** | `adapter-definitions: zhipu: type: openai-compatible` |
-| **月之暗面** | `adapter-definitions: moonshot: type: openai-compatible` |
-| **通义千问** | `adapter-definitions: qwen: type: openai-compatible` |
-| **Minimax** | `adapter-definitions: minimax: type: openai-compatible` |
-
-> 📖 详见 [Adapter 配置指南](https://trunkline.com/configuration/adapter-config/)
-
-</details>
-
-## 为什么选择 Trunkline？
-
-- **对比直连后端** —— 没有统一弹性、没有集中密钥、没有调用可见性。Trunkline 提供单一入口、自动故障转移与完整审计链路。
-- **对比 One-API / new-api** —— 它们侧重 API Key 的分发与计费（适合账号共享/中转服务）；Trunkline 定位在**自建本地推理集群**的企业治理网关：多实例负载均衡、熔断、规则路由、RBAC 与可观测性，两者可以互补。
-- **对比 Nginx** —— Nginx 是通用 Web 服务器；Trunkline **专为 AI/LLM 工作负载设计**，提供 OpenAI 兼容路由、熔断与模型感知的负载均衡。
-- **对比 LangChain** —— LangChain 是应用框架；Trunkline 是**其下的基础设施层**，提供路由、故障转移与监控。
-
-## 系统架构
-
-<details>
-<summary><b>请求在网关中的流转</b></summary>
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                           您的应用                               │
-│                 (OpenAI SDK / LangChain / LlamaIndex)           │
-└─────────────────────────────────┬───────────────────────────────┘
-                                  │
-                                  ▼ OpenAI 兼容 API
-┌─────────────────────────────────────────────────────────────────┐
-│                       Trunkline 网关                             │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐   │
-│  │  路由   │ │负载均衡 │ │  限流   │ │  熔断   │ │  认证   │   │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                  可观测性与持久化                         │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────┬───────────────────────────────┘
-                                  │
-       ┌──────────────┬───────────┼───────────┬──────────────┐
-       ▼              ▼           ▼           ▼              ▼
-   ┌───────┐     ┌───────┐   ┌───────┐   ┌──────────┐   ┌───────┐
-   │Ollama │     │ vLLM  │   │GPUStack│  │Xinference│   │ OpenAI │
-   └───────┘     └───────┘   └───────┘   └──────────┘   └───────┘
-```
-
-</details>
-
-## 文档资源
-
-| 资源 | 链接 |
-|------|------|
-| 完整文档 | https://trunkline.com |
-| 部署指南 | https://trunkline.com/deployment/ |
-| 配置说明 | https://trunkline.com/configuration/ |
-| 监控配置 | https://trunkline.com/monitoring/ |
-| API 参考 | http://localhost:8080/swagger-ui |
-
-## 发展路线
-
-**当前版本：0.1.0**（版本号冻结中——社区版完善后一次性升版，见[迭代计划](docs/product/Trunkline-产品迭代计划.md)）
-
-0.1.0 继承了上游 JAiRouter 的全部能力，并新增 Trunkline 品牌体系。当前版本已移除旧版本运行时兼容层，升级需按「从旧版本升级」章节手工迁移。
-
-**社区版阶段计划**（阶段名不代表发布版本号）：
-
-- **S1 品牌与基线** —— 品牌前缀全量清理 + 旧前缀兼容映射、NOTICE/许可证归属、测试绿基线
-- **S2 清债与稳定** —— 代码清理（孤儿页面归档、配置收敛）、压测报告、安全审计
-- **S3 生产就绪** —— 部署体验优化、TTV（部署到首句对话）度量、文档站重构
-- **S4 配置减负与员工激活** —— 接入向导化、表格瘦身、员工侧术语人话化
-
-**商业版（规划中）** —— SSO 单点登录、内容安全、不可篡改审计、K8s 高可用交付等，边界见[版本对照表](docs/product/editions.md)。
-
-## 参与贡献
-
-欢迎参与贡献，请查看 [贡献指南](https://trunkline.com/development/contributing/)。
-
-```bash
-git clone https://github.com/Lincoln-cn/trunkline.git
-cd trunkline
-./mvnw clean package -DskipTests
-java -jar target/trunkline-*.jar
-```
-
-## 获取支持
-
-- **文档**：https://trunkline.com
-
-### Issues 还是 Discussions —— 我该发哪里？
-
-GitHub 提供了两个入口，我们刻意把它们分开，让每一条反馈都不会石沉大海。请按**你手上有什么**来选，而不是按习惯选：
-
-| 你手上的东西 | 发到哪里 | 我们怎么处理 |
-|--------------|----------|--------------|
-| **可复现的缺陷** —— 崩溃、结果错误、回归、文档错误 | [**Issues**](https://github.com/Lincoln-cn/trunkline/issues) | **快速跟进** —— 尽快分诊与回复，确认的缺陷会修复或排期 |
-| **需求或想法** —— 新功能、新适配器、方案讨论、使用提问、反馈建议 | [**Discussions**](https://github.com/Lincoln-cn/trunkline/discussions) | **定期整理** —— 归纳、投票，并纳入[发展路线](#发展路线) |
-
-**一句话**：缺陷发 **Issues**，需求或提问发 **Discussions**。
-
-> 拿不准发哪里？先发 Discussions —— 若确认是可复现的缺陷，我们会帮你转到 Issues。
-
-## 许可证
-
-本项目基于 [Apache 2.0 License](LICENSE) 开源，二次开发自 [JAiRouter](https://github.com/Lincoln-cn/JAiRouter)（原作者 Lincoln-cn，同样遵循 Apache-2.0）。上游项目的版权声明已在 [NOTICE](NOTICE) 中完整保留。
+想自己编译：把仓库下载下来，运行 `./mvnw clean package -DskipTests`，然后用 `java -jar target/trunkline-0.1.0.jar` 启动。
 
 ---
 
 <p align="center">
-  <strong>如果 Trunkline 帮到了您，欢迎在 GitHub 上点个 <a href="https://github.com/Lincoln-cn/trunkline/stargazers">Star</a> ⭐</strong>
-  <br/>
-  <em>遇到缺陷？提 Issue。有需求或想法？发 Discussion —— 我们都会跟进。</em>
+  如果 Trunkline 帮到了您，欢迎点个 <a href="https://github.com/Lincoln-cn/trunkline/stargazers">Star</a> ⭐
 </p>
 
 <p align="center">
-  Trunkline Team · 基于 JAiRouter 二次开发 · Apache-2.0
+  Trunkline Team · 基于 JAiRouter · Apache-2.0
 </p>

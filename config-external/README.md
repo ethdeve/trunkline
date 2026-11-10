@@ -29,7 +29,7 @@ scp -r config-external/ production-server:/path/to/trunkline/config
 # 必须配置的环境变量
 JWT_SECRET=your-very-secure-jwt-secret-key-at-least-32-characters-long
 GPUSTACK_API_TOKEN=your-gpustack-api-token
-INITIAL_ADMIN_PASSWORD=your-initial-admin-password
+# 管理员账号不再来自环境变量：首次启动访问 /init（jar 部署为 /admin/init）走向导创建
 ```
 
 ### 3. Docker Compose 挂载
@@ -60,7 +60,7 @@ volumes:
 | 配置项 | 环境变量 | 说明 |
 |--------|----------|------|
 | JWT 密钥 | `JWT_SECRET` | ≥32 字符，不能硬编码 |
-| 管理员密码 | `INITIAL_ADMIN_PASSWORD` | 初始化密码 |
+| 管理员账号 | — | 首次启动访问 `/init` 向导创建，不从环境变量读取 |
 | API Token | `GPUSTACK_API_TOKEN` | 第三方服务 Token |
 | Redis 密码 | `REDIS_PASSWORD` | Redis 连接密码 |
 
@@ -82,7 +82,7 @@ trunkline:
 应用启动时会自动校验：
 
 - JWT_SECRET 必须存在且 ≥32 字符
-- INITIAL_ADMIN_PASSWORD 必须存在（首次启动）
+- 管理员账号由 `/init` 首次启动向导创建（无需环境变量）
 - 服务实例 URL 必须有效（如果配置了实例）
 
 ## 配置热更新
@@ -119,4 +119,4 @@ tar -czf config-backup-$(date +%Y%m%d).tar.gz config/
 3. 敏感配置迁移到环境变量
 4. 测试启动验证配置正确性
 
-详见：`docs/configuration-migration-guide.md`
+详见：本文件「从旧版本迁移配置」小节；模块配置目录见 `../src/main/resources/config/`。
