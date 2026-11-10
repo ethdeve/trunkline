@@ -47,7 +47,7 @@ Trunkline is not a concept demo. Everything below is **already usable in version
 
 **One entry point for everyday calls**
 - Whether a model runs on your own machines or in the cloud, your app talks to one address. If your code already calls models the OpenAI way, just change the connection address — your existing code mostly stays as it is.
-- Models already supported: Ollama, vLLM, GPUStack, Xinference and LocalAI on your own infrastructure; OpenAI, Claude and Gemini in the cloud. DeepSeek, Zhipu, Moonshot, Qwen and Minimax can be added right from the console.
+- Models already supported: Ollama, vLLM, GPUStack, Xinference and LocalAI on your own infrastructure; OpenAI, Claude and Gemini in the cloud. The console also ships one-click templates for 13 common providers (DeepSeek, Zhipu, Moonshot, Qwen, Minimax and others). Providers with a different protocol, such as Claude, can still be connected through a custom adapter.
 - More than chat: embeddings, reranking, speech-to-text, text-to-speech and image generation all go through the same entry point.
 
 **When something breaks, no firefighting**
@@ -151,17 +151,17 @@ If your application already calls models the OpenAI way, just change the connect
 
 ## What's next
 
-We work in monthly cycles. This is a rough outline, not a fixed promise — community feedback shapes it.
+We move forward one release at a time. This is a rough outline, not a fixed promise — community feedback shapes it.
 
-| When | Version | Focus |
-|------|---------|-------|
-| 2026-11 | v0.1.0 | Laying the foundation: first-run wizard, no default admin, legacy cleanup, brand unification (released) |
-| 2026-12 | v0.2.0 | Faster setup: model capability profiles, one-click virtual models |
-| 2027-01 | v0.3.0 | Security you can see: security posture center, one-screen health check |
-| 2027-02 | v0.4.0 | Better choices: semantic routing, cost / latency optimization, semantic caching |
-| 2027-03 | v0.5.0 | Stronger guardrails: content safety, injection and privilege-abuse protection, SSO |
-| 2027-04 | v0.6.0 | Smarter recovery: automatic fallback chains, A/B canary tuning |
-| 2027-05 | v1.0.0 | More open: evaluation bench, tool gateway, multi-language SDK |
+| Version | Focus |
+|---------|-------|
+| v0.1.0 | Laying the foundation: first-run wizard, no default admin, legacy cleanup, brand unification (released) |
+| v0.2.0 | Faster setup: model capability profiles, one-click virtual models |
+| v0.3.0 | Security you can see: security posture center, one-screen health check |
+| v0.4.0 | Better choices: semantic routing, cost / latency optimization, semantic caching |
+| v0.5.0 | Stronger guardrails: content safety, injection and privilege-abuse protection, SSO |
+| v0.6.0 | Smarter recovery: automatic fallback chains, A/B canary tuning |
+| v1.0.0 | More open: evaluation bench, tool gateway, multi-language SDK |
 
 A **commercial edition** is also planned for teams that need SSO, tamper-proof auditing, and high-availability delivery.
 

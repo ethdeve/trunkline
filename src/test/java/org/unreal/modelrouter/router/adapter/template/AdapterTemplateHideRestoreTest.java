@@ -84,10 +84,10 @@ class AdapterTemplateHideRestoreTest {
     }
 
     @Test
-    @DisplayName("HR-001: 新实例默认 11 个模板，无隐藏")
+    @DisplayName("HR-001: 新实例默认 13 个模板，无隐藏")
     void testDefaultNoHidden() {
         AdapterTemplateService svc = newService();
-        assertEquals(11, svc.getAllTemplates().size());
+        assertEquals(13, svc.getAllTemplates().size());
         assertTrue(svc.getHiddenTemplates().isEmpty());
     }
 
@@ -96,7 +96,7 @@ class AdapterTemplateHideRestoreTest {
     void testHide_builtin_removedFromList() {
         AdapterTemplateService svc = newService();
         svc.hideTemplate("groq");
-        assertEquals(10, svc.getAllTemplates().size());
+        assertEquals(12, svc.getAllTemplates().size());
         assertTrue(svc.getAllTemplates().stream().noneMatch(t -> t.getId().equals("groq")));
 
         List<AdapterTemplate> hidden = svc.getHiddenTemplates();
@@ -113,7 +113,7 @@ class AdapterTemplateHideRestoreTest {
 
         // 共享同一 backing store，模拟重启后重新加载
         AdapterTemplateService svc2 = newService();
-        assertEquals(9, svc2.getAllTemplates().size());
+        assertEquals(11, svc2.getAllTemplates().size());
         assertEquals(2, svc2.getHiddenTemplates().size());
     }
 
@@ -129,10 +129,10 @@ class AdapterTemplateHideRestoreTest {
     void testRestore_builtin_backToList() {
         AdapterTemplateService svc = newService();
         svc.hideTemplate("groq");
-        assertEquals(10, svc.getAllTemplates().size());
+        assertEquals(12, svc.getAllTemplates().size());
 
         svc.restoreTemplate("groq");
-        assertEquals(11, svc.getAllTemplates().size());
+        assertEquals(13, svc.getAllTemplates().size());
         assertTrue(svc.getAllTemplates().stream().anyMatch(t -> t.getId().equals("groq")));
         assertTrue(svc.getHiddenTemplates().isEmpty());
     }
@@ -144,6 +144,6 @@ class AdapterTemplateHideRestoreTest {
         svc.hideTemplate("groq");
         svc.hideTemplate("groq");
         assertEquals(1, svc.getHiddenTemplates().size());
-        assertEquals(10, svc.getAllTemplates().size());
+        assertEquals(12, svc.getAllTemplates().size());
     }
 }

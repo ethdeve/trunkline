@@ -34,7 +34,8 @@ const ADAPTER_BY_TYPE: Record<string, string> = {
 /** 由 baseUrl 推断补全路径：模板 baseUrl 已含版本段时用 /chat/completions，否则补 /v1 */
 function inferPath(baseUrl: string): string {
   if (!baseUrl) return '/v1/chat/completions'
-  return /\/(v\d+|compatible-mode\/v\d+|openai\/v\d+|api\/v\d+)$/.test(baseUrl)
+  // Gemini 官方兼容端点形如 /v1beta/openai，本身已是完整前缀，不能再补 /v1
+  return /\/(v\d+|v\d+beta\/openai|compatible-mode\/v\d+|openai\/v\d+|api\/v\d+)$/.test(baseUrl)
     ? '/chat/completions'
     : '/v1/chat/completions'
 }
@@ -73,7 +74,8 @@ export function templateToPreset(t: {
 
 /**
  * 系统设置「模型供应商模板」的自定义模板（source=custom）→ 预设目录项。
- * 接入模型预设目录 = 内置 13 家 + 后端自定义模板实时合并；uid 以 tpl- 前缀幂等。
+ * 接入模型预设目录 = 内置 13 家（国内 7 / 国际 5 / 本地 1）+ 后端自定义模板实时合并；
+ * uid 以 tpl- 前缀幂等。
  */
 export function customTemplateToPreset(t: {
   id: string
@@ -107,6 +109,9 @@ const TEMPLATE_SOURCES: TemplateSource[] = [
   { uid: 'stepfun', label: '阶跃星辰', category: 'domestic', baseUrl: 'https://api.stepfun.com/v1', type: 'openai-compatible', models: ['step-1-8k', 'step-1-32k', 'step-1-128k'] },
   { uid: 'siliconflow', label: '硅基流动', category: 'domestic', baseUrl: 'https://api.siliconflow.cn/v1', type: 'openai-compatible', models: ['deepseek-ai/DeepSeek-V3', 'Qwen/Qwen2.5-7B-Instruct'] },
   // ---- 国际 ----
+  { uid: 'openai', label: 'OpenAI', category: 'international', baseUrl: 'https://api.openai.com/v1', type: 'openai-compatible', models: ['gpt-4o', 'gpt-4o-mini', 'text-embedding-3-small'] },
+  // Gemini 官方兼容端点已含 /v1beta/openai，inferPath 不会再补 /v1
+  { uid: 'gemini', label: 'Google Gemini', category: 'international', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', type: 'openai-compatible', models: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'] },
   { uid: 'groq', label: 'Groq', category: 'international', baseUrl: 'https://api.groq.com/openai/v1', type: 'openai-compatible', models: ['llama-3.3-70b-versatile', 'mixtral-8x7b-32768'] },
   { uid: 'openrouter', label: 'OpenRouter', category: 'international', baseUrl: 'https://openrouter.ai/api/v1', type: 'openai-compatible', models: ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet'] },
   { uid: 'together', label: 'Together AI', category: 'international', baseUrl: 'https://api.together.xyz/v1', type: 'openai-compatible', models: ['meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo'] },

@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 
 /**
  * 适配器模板服务
- * 管理常见 AI 供应商的预配置模板（内置 11 个硬编码预置；2026-11-10 移除百川智能）
+ * 管理常见 AI 供应商的预配置模板（内置 13 个硬编码预置；2026-11-10 新增 OpenAI、Gemini，移除百川智能）
  * + 用户自定义模板（系统设置 → 模型供应商管理 维护，经 StoreManager 持久化）
  */
 @Service
@@ -309,6 +309,29 @@ public class AdapterTemplateService {
         ));
 
         // 国际供应商
+        // OpenAI 官方 API 本身就是 OpenAI 标准协议，可用兼容模板直接一键接入
+        templates.add(createTemplate(
+                "openai", "OpenAI", "OpenAI 官方 API",
+                "international", "openai-compatible",
+                "https://api.openai.com/v1",
+                true, true, false, false, false, false, false, true,
+                "Authorization", "Bearer ",
+                List.of("gpt-4o", "gpt-4o-mini", "text-embedding-3-small"),
+                95
+        ));
+
+        // Gemini 官方提供 OpenAI 兼容端点，认证同样走 Authorization: Bearer；
+        // 原生 Gemini 协议请走「自定义适配器 → gemini」，不要在这里塞 x-goog-api-key 模板。
+        templates.add(createTemplate(
+                "gemini", "Google Gemini", "Gemini 官方 OpenAI 兼容接口",
+                "international", "openai-compatible",
+                "https://generativelanguage.googleapis.com/v1beta/openai",
+                true, false, false, false, false, false, false, true,
+                "Authorization", "Bearer ",
+                List.of("gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"),
+                96
+        ));
+
         templates.add(createTemplate(
                 "groq", "Groq", "Groq 高速推理平台",
                 "international", "openai-compatible",

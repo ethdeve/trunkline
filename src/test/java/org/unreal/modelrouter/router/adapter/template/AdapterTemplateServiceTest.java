@@ -37,14 +37,15 @@ class AdapterTemplateServiceTest {
     class GetAllTemplatesTests {
 
         @Test
-        @DisplayName("TMPL-001: 获取全部模板数量正确（11个）")
-        void testGetAllTemplates_returns11Templates() {
+        @DisplayName("TMPL-001: 获取全部模板数量正确（13个）")
+        void testGetAllTemplates_returns13Templates() {
             // When
             List<AdapterTemplate> templates = templateService.getAllTemplates();
 
             // Then
             assertNotNull(templates);
-            assertEquals(11, templates.size(), "应返回 11 个预置模板（零一万物 2026-10-26 停服移除、百川智能 2026-11-10 移除）");
+            assertEquals(13, templates.size(), "应返回 13 个预置模板（国内 7 + 国际 5 + 本地 1；"
+                    + "零一万物 2026-10-26 停服移除、百川智能 2026-11-10 移除、OpenAI/Gemini 2026-11-10 新增）");
         }
 
         @Test
@@ -125,8 +126,10 @@ class AdapterTemplateServiceTest {
 
             // Then
             assertNotNull(templates);
-            assertEquals(3, templates.size(), "国际供应商模板应有 3 个");
+            assertEquals(5, templates.size(), "国际供应商模板应有 5 个（含 2026-11-10 新增 OpenAI、Gemini）");
             List<String> ids = templates.stream().map(AdapterTemplate::getId).toList();
+            assertTrue(ids.contains("openai"));
+            assertTrue(ids.contains("gemini"));
             assertTrue(ids.contains("groq"));
             assertTrue(ids.contains("openrouter"));
             assertTrue(ids.contains("together"));
@@ -271,6 +274,38 @@ class AdapterTemplateServiceTest {
         }
 
         @Test
+        @DisplayName("TMPL-021: OpenAI 与 Gemini 模板配置正确（均可走 OpenAI 兼容协议）")
+        void testOpenAiAndGeminiTemplate_config() {
+            // When
+            AdapterTemplate openai = templateService.getTemplateById("openai");
+            AdapterTemplate gemini = templateService.getTemplateById("gemini");
+
+            // Then: OpenAI 官方即 OpenAI 标准协议，默认带上向量能力
+            assertNotNull(openai, "OpenAI 模板应存在");
+            assertEquals("international", openai.getCategory());
+            assertEquals("openai-compatible", openai.getType());
+            assertEquals("https://api.openai.com/v1", openai.getDefaultBaseUrl());
+            assertEquals("Authorization", openai.getAuth().getHeaderName());
+            assertEquals("Bearer ", openai.getAuth().getHeaderPrefix());
+            assertTrue(openai.getCapabilities().isChat());
+            assertTrue(openai.getCapabilities().isEmbedding());
+            assertTrue(openai.getCapabilities().isStreaming());
+
+            // Then: Gemini 用官方 OpenAI 兼容端点，认证仍是 Bearer，不是 x-goog-api-key
+            assertNotNull(gemini, "Gemini 模板应存在");
+            assertEquals("international", gemini.getCategory());
+            assertEquals("openai-compatible", gemini.getType());
+            assertEquals("https://generativelanguage.googleapis.com/v1beta/openai",
+                    gemini.getDefaultBaseUrl());
+            assertEquals("Authorization", gemini.getAuth().getHeaderName());
+            assertEquals("Bearer ", gemini.getAuth().getHeaderPrefix());
+            assertTrue(gemini.getCapabilities().isChat());
+            assertTrue(gemini.getCapabilities().isStreaming());
+            assertFalse(gemini.getCapabilities().isEmbedding(),
+                    "兼容层仅保证对话能力，不要预设向量能力");
+        }
+
+        @Test
         @DisplayName("TMPL-015: 本地 Ollama 模板无需认证")
         void testLocalOllamaTemplate_noAuth() {
             // When
@@ -317,7 +352,7 @@ class AdapterTemplateServiceTest {
             assertEquals("custom", created.getSource(), "新增模板应标记为 custom");
             AdapterTemplate loaded = templateService.getTemplateById("my-tpl");
             assertNotNull(loaded, "新增模板应可查询");
-            assertEquals(12, templateService.getAllTemplates().size(), "总数应为 11 内置 + 1 自定义");
+            assertEquals(14, templateService.getAllTemplates().size(), "总数应为 13 内置 + 1 自定义");
         }
 
         @Test
