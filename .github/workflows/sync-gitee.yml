@@ -1,0 +1,24 @@
+name: Sync Gitee to GitHub
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 载入SSH私钥
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.GITEE_SSH_KEY }}
+
+      - name: 同步master分支
+        run: |
+          git config --global user.name "github-action"
+          git config --global user.email "action@github.com"
+          # 预先添加gitee和github主机密钥，解决Host key verification failed
+          ssh-keyscan gitee.com >> ~/.ssh/known_hosts
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          git clone --mirror git@gitee.com:wjy2025/trunkline.git src.git
+          cd src.git
+          git push git@github.com:wjy2027/trunkline.git master:master
