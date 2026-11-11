@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
+import org.unreal.modelrouter.common.util.LogSanitizer;
 import org.unreal.modelrouter.monitor.tracing.encryption.TracingEncryptionService;
 import org.unreal.modelrouter.monitor.tracing.sanitization.TracingSanitizationService;
 import org.unreal.modelrouter.monitor.tracing.security.TracingSecurityManager;
@@ -85,10 +86,10 @@ public class TracingSecurityController {
     public ResponseEntity<RouterResponse<Void>> addTracingSensitiveField(@RequestParam final String field) {
         try {
             tracingSanitizationService.addTracingSensitiveField(field);
-            log.info("成功添加追踪敏感字段: {}", field);
+            log.info("成功添加追踪敏感字段: {}", LogSanitizer.sanitize(field));
             return ResponseEntity.ok(RouterResponse.success(null, "添加追踪敏感字段成功"));
         } catch (Exception e) {
-            log.error("添加追踪敏感字段失败: {}", field, e);
+            log.error("添加追踪敏感字段失败: {}", LogSanitizer.sanitize(field), e);
             return ResponseEntity.internalServerError()
                     .body(RouterResponse.error("添加追踪敏感字段失败: " + e.getMessage()));
         }
@@ -103,10 +104,10 @@ public class TracingSecurityController {
     public ResponseEntity<RouterResponse<Void>> removeTracingSensitiveField(@RequestParam final String field) {
         try {
             tracingSanitizationService.removeTracingSensitiveField(field);
-            log.info("成功移除追踪敏感字段: {}", field);
+            log.info("成功移除追踪敏感字段: {}", LogSanitizer.sanitize(field));
             return ResponseEntity.ok(RouterResponse.success(null, "移除追踪敏感字段成功"));
         } catch (Exception e) {
-            log.error("移除追踪敏感字段失败: {}", field, e);
+            log.error("移除追踪敏感字段失败: {}", LogSanitizer.sanitize(field), e);
             return ResponseEntity.internalServerError()
                     .body(RouterResponse.error("移除追踪敏感字段失败: " + e.getMessage()));
         }
@@ -127,10 +128,10 @@ public class TracingSecurityController {
         try {
             List<TracingSecurityManager.TraceAccessRecord> history = 
                     tracingSecurityManager.getUserTraceAccessHistory(username);
-            log.info("成功获取用户追踪访问历史: {}, 记录数量: {}", username, history.size());
+            log.info("成功获取用户追踪访问历史: {}, 记录数量: {}", LogSanitizer.sanitize(username), history.size());
             return ResponseEntity.ok(RouterResponse.success(history, "获取追踪访问历史成功"));
         } catch (Exception e) {
-            log.error("获取用户追踪访问历史失败: {}", username, e);
+            log.error("获取用户追踪访问历史失败: {}", LogSanitizer.sanitize(username), e);
             return ResponseEntity.internalServerError()
                     .body(RouterResponse.error("获取追踪访问历史失败: " + e.getMessage()));
         }
@@ -146,10 +147,10 @@ public class TracingSecurityController {
             @PathVariable("username") final String username) {
         try {
             tracingSecurityManager.clearUserPermissionCache(username);
-            log.info("成功清理用户权限缓存: {}", username);
+            log.info("成功清理用户权限缓存: {}", LogSanitizer.sanitize(username));
             return ResponseEntity.ok(RouterResponse.success(null, "清理用户权限缓存成功"));
         } catch (Exception e) {
-            log.error("清理用户权限缓存失败: {}", username, e);
+            log.error("清理用户权限缓存失败: {}", LogSanitizer.sanitize(username), e);
             return ResponseEntity.internalServerError()
                     .body(RouterResponse.error("清理用户权限缓存失败: " + e.getMessage()));
         }
@@ -194,10 +195,10 @@ public class TracingSecurityController {
                 .subscribeOn(Schedulers.boundedElastic())
                 .map(result -> {
                     if (Boolean.TRUE.equals(result)) {
-                        log.info("成功轮换加密密钥: {}", traceId);
+                        log.info("成功轮换加密密钥: {}", LogSanitizer.sanitize(traceId));
                         return ResponseEntity.ok(RouterResponse.success(result, "轮换加密密钥成功"));
                     } else {
-                        log.warn("轮换加密密钥失败: {}", traceId);
+                        log.warn("轮换加密密钥失败: {}", LogSanitizer.sanitize(traceId));
                         return ResponseEntity.status(ApiException.resolveStatus("INTERNAL_ERROR"))
                                 .body(RouterResponse.<Boolean>error("轮换加密密钥失败"));
                     }
@@ -205,7 +206,7 @@ public class TracingSecurityController {
                 .defaultIfEmpty(ResponseEntity.status(ApiException.resolveStatus("INTERNAL_ERROR"))
                         .body(RouterResponse.<Boolean>error("轮换加密密钥失败")))
                 .onErrorResume(e -> {
-                    log.error("轮换加密密钥异常: {}", traceId, e);
+                    log.error("轮换加密密钥异常: {}", LogSanitizer.sanitize(traceId), e);
                     return Mono.just(ResponseEntity.internalServerError()
                             .body(RouterResponse.<Boolean>error("轮换加密密钥异常: " + e.getMessage())));
                 });
@@ -243,11 +244,11 @@ public class TracingSecurityController {
         return Mono.defer(() -> tracingEncryptionService.secureCleanupTraceData(traceId))
                 .subscribeOn(Schedulers.boundedElastic())
                 .then(Mono.fromCallable(() -> {
-                    log.info("成功安全清理追踪数据: {}", traceId);
+                    log.info("成功安全清理追踪数据: {}", LogSanitizer.sanitize(traceId));
                     return ResponseEntity.ok(RouterResponse.<Void>success(null, "安全清理追踪数据成功"));
                 }))
                 .onErrorResume(e -> {
-                    log.error("安全清理追踪数据失败: {}", traceId, e);
+                    log.error("安全清理追踪数据失败: {}", LogSanitizer.sanitize(traceId), e);
                     return Mono.just(ResponseEntity.internalServerError()
                             .body(RouterResponse.<Void>error("安全清理追踪数据失败: " + e.getMessage())));
                 });

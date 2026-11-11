@@ -15,6 +15,6 @@ public final class TokenValidationRequest {
     }
 
     public String toString() {
-        return "TokenValidationRequest(token=" + this.getToken() + ")";
+        return "TokenValidationRequest(token=***)";
     }
 }

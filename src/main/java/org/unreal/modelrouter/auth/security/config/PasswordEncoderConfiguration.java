@@ -12,16 +12,19 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 public class PasswordEncoderConfiguration {
 
     /**
-     * 配置密码编码器
-     * 使用DelegatingPasswordEncoder支持多种加密算法
+     * 配置密码编码器。
+     *
+     * <p>只注册 bcrypt 一种算法：库内账户口令均为 {@code $2a$} bcrypt 哈希，
+     * 保留 {@code noop} 映射会让手工写入 {@code {noop}xxx} 的明文口令被直接比对通过，
+     * 属于不必要的残留能力，故移除。DelegatingPasswordEncoder 仍会按前缀分派，
+     * 历史无前缀哈希按默认 bcrypt 处理，不影响已有账户登录。</p>
      */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new org.springframework.security.crypto.password.DelegatingPasswordEncoder(
-                "bcrypt", 
+                "bcrypt",
                 java.util.Map.of(
-                        "bcrypt", new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(),
-                        "noop", org.springframework.security.crypto.password.NoOpPasswordEncoder.getInstance()
+                        "bcrypt", new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder()
                 )
         );
     }

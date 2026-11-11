@@ -75,6 +75,11 @@ public class ApiKeyRotationScheduler {
 
         log.info("开始执行每日密钥轮换状态检查任务");
 
+        // 轮换本身只由带跨副本锁的 checkRotationNeeded() 执行（见上方 hourly 任务）。
+        // 此处若再调用一次 rotateExpiredKeys()，既可能在单实例内与 3:00 的 hourly 任务重叠，
+        // 又完全绕开 taskLock —— 多副本下先发出的新 keyValue 会被另一副本立即作废。
+        // 每日任务因此只保留统计与告警职责。
+
         // 获取需要轮换的密钥统计
         apiKeyService.getRotationStats()
                 .subscribe(
@@ -86,13 +91,6 @@ public class ApiKeyRotationScheduler {
                                     stats.getRotatedToday());
                         },
                         error -> log.error("获取密钥轮换统计失败", error)
-                );
-
-        // 执行轮换
-        apiKeyService.rotateExpiredKeys()
-                .subscribe(
-                        count -> log.info("每日密钥轮换检查完成，共轮换了 {} 个密钥", count),
-                        error -> log.error("每日密钥轮换检查任务执行失败", error)
                 );
     }
 }

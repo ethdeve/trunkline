@@ -4,8 +4,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,6 +45,7 @@ import java.util.stream.Collectors;
  * @author JAiRouter Team
  */
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/api/tracing/query")
 @Tag(name = "追踪查询", description = "追踪数据查询和分析API")
@@ -185,9 +189,13 @@ public class TracingQueryController {
     @Operation(summary = "清理过期追踪", description = "清理指定时间之前的追踪数据")
     @ApiResponse(responseCode = "200", description = "成功清理数据")
     public Mono<ResponseEntity<Map<String, Object>>> cleanupExpiredTraces(
-            @Parameter(description = "保留小时数") @RequestParam(defaultValue = "24") final int retentionHours) {
-        
-        long maxAgeMillis = retentionHours * 60 * 60 * 1000L;
+            @Parameter(description = "保留小时数")
+            @RequestParam(defaultValue = "24") @Min(1) @Max(8760) final int retentionHours) {
+
+        // 必须用 long 起步：int 相乘在 retentionHours > 596523 时溢出为负数，
+        // 会让 cutoff 落到未来、removeIf 清空全部追踪数据。@Min/@Max 是第一道闸，
+        // 这里的显式 long 转换是第二道（防止校验被绕过时仍能兜住）。
+        long maxAgeMillis = (long) retentionHours * 60 * 60 * 1000L;
         
         return traceQueryService.cleanupExpiredTraces(maxAgeMillis)
             .map(removedCount -> {
@@ -428,7 +436,8 @@ public class TracingQueryController {
                     .toInstant()
                     .toEpochMilli();
             } catch (Exception ex) {
-                log.warn("无法解析时间字符串: {}, 使用当前时间", timeStr);
+                log.warn("无法解析时间字符串: {}, 使用当前时间",
+                        org.unreal.modelrouter.common.util.LogSanitizer.sanitize(timeStr));
                 return System.currentTimeMillis();
             }
         }
@@ -440,6 +449,17 @@ public class TracingQueryController {
     private long[] resolveTimeRange(final Long startTime, final Long endTime) {
         long end = endTime != null ? endTime : System.currentTimeMillis();
         long start = startTime != null ? startTime : end - 24 * 3600000L;
+        // 防止 startTime > endTime 或超大区间让 bucketTracesByHour 逐小时造出亿万级 ArrayList
+        if (start > end) {
+            long swap = start;
+            start = end;
+            end = swap;
+        }
+        final long maxRangeMillis = 31L * 24 * 3600 * 1000;
+        long span = end - start;
+        if (span > maxRangeMillis || span < 0) {
+            start = end - maxRangeMillis;
+        }
         return new long[]{start, end};
     }
 

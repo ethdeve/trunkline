@@ -154,8 +154,10 @@ public class StartupSecretKeyChecker implements CommandLineRunner {
         }
 
         if (jwtSecret == null || jwtSecret.isEmpty()) {
-            log.warn("⚠️  未设置 JWT_SECRET 环境变量，将使用默认配置（仅限开发环境）");
-            log.warn("   生产环境必须设置 JWT_SECRET 环境变量！");
+            // 与 JwtSecretEnvironmentPostProcessor 对齐：配置文件不再内置可用默认密钥，
+            // 未显式注入时由启动期处理器生成本地随机密钥（dev），生产由下方门闩 fail-fast。
+            log.warn("⚠️  未显式设置 JWT_SECRET 环境变量；非生产环境将使用启动期生成并持久化的随机密钥");
+            log.warn("   生产环境必须显式设置 JWT_SECRET 环境变量！");
             // R4-P1：生产缺密钥 → 失败
             return StartupSecurityGate.jwtSecretOk(isProductionEnvironment(), null);
         }

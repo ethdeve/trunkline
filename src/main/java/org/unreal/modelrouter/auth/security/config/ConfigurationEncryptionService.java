@@ -40,11 +40,11 @@ public class ConfigurationEncryptionService {
                     Base64.getDecoder().decode(encryptionKeyString), ALGORITHM);
             log.info("使用配置的加密密钥");
         } else {
-            // 生成新的密钥
+            // 生成临时密钥。绝不把密钥内容写入日志：日志常被采集到第三方系统，
+            // 明文密钥落日志等同于把加密数据连同钥匙一起交出去。
             this.encryptionKey = generateKey();
-            log.warn("未配置加密密钥，使用临时生成的密钥。重启后将无法解密现有数据！");
-            log.info("生成的加密密钥（请保存到配置中）: {}", 
-                    Base64.getEncoder().encodeToString(encryptionKey.getEncoded()));
+            log.warn("未配置加密密钥，本次使用临时生成的密钥；重启后将无法解密现有数据。"
+                    + "请通过 trunkline.security.encryption.key 注入持久密钥（不要写入日志或代码仓库）。");
         }
     }
 

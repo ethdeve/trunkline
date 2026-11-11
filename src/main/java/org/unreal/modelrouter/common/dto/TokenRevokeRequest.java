@@ -34,6 +34,6 @@ public final class TokenRevokeRequest {
     }
 
     public String toString() {
-        return "TokenRevokeRequest(token=" + this.getToken() + ", userId=" + this.getUserId() + ", reason=" + this.getReason() + ")";
+        return "TokenRevokeRequest(token=***, userId=" + this.getUserId() + ", reason=" + this.getReason() + ")";
     }
 }

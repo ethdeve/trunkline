@@ -63,10 +63,16 @@ public class CachedWeightedSelector {
      * 清理过期的缓存（实例下线时调用）
      */
     public void invalidate(final String instanceId) {
-        selectorCache.entrySet().removeIf(entry -> {
-            SelectorState state = entry.getValue();
-            for (int i = 0; i < state.probability.length; i++) {
-                if (state.probability[i] > 0 && state.alias[i] >= 0) {
+        if (instanceId == null || instanceId.isEmpty()) {
+            LOGGER.debug("Ignore empty instanceId on invalidate");
+            return;
+        }
+        // 只失效包含该 instanceId 的缓存项，而不是清空全部（清单 m-09）。
+        // 缓存键由 generateCacheKey 拼成 "id:weight,..."，用边界匹配避免 "svc-1" 误命中 "svc-10"。
+        final String token = instanceId + ":";
+        selectorCache.keySet().removeIf(cacheKey -> {
+            for (String segment : cacheKey.split(",")) {
+                if (segment.startsWith(token)) {
                     return true;
                 }
             }

@@ -15,6 +15,6 @@ public final class TokenRefreshRequest {
     }
 
     public String toString() {
-        return "TokenRefreshRequest(token=" + this.getToken() + ")";
+        return "TokenRefreshRequest(token=***)";
     }
 }

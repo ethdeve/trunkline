@@ -70,7 +70,7 @@ public class RoundRobinLoadBalancer implements LoadBalancer {
             // 无权重场景：简单轮询
             String key = generateInstancesKey(instances);
             AtomicInteger counter = counters.computeIfAbsent(key, k -> new AtomicInteger(0));
-            int index = Math.abs(counter.getAndIncrement() % instances.size());
+            int index = Math.floorMod(counter.getAndIncrement(), instances.size());
             selected = instances.get(index);
         }
 

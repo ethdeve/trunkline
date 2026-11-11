@@ -86,7 +86,9 @@ public class TraceQueryService {
             int total = allTraces.size();
             int page = Math.max(1, criteria.getPage());
             int size = Math.max(1, Math.min(100, criteria.getSize()));
-            int offset = (page - 1) * size;
+            // 用 long 计算跳过量：page/size 即使被夹到 int 上限，(page-1)*size 仍可能溢出为负，
+            // 导致 Stream.skip(负) 抛 IllegalArgumentException（清单 m-11）。
+            long offset = (long) (page - 1) * size;
             List<TraceSummary> pageTraces = allTraces.stream()
                 .skip(offset).limit(size).map(this::createTraceSummary).collect(Collectors.toList());
             Map<String, Object> result = new HashMap<>();
@@ -182,6 +184,12 @@ public class TraceQueryService {
     }
 
     public Mono<Long> cleanupExpiredTraces(final long maxAgeMillis) {
+        // 兜底：非正数会让 Instant.now().minusMillis(负) 把 cutoff 推到未来，
+        // 进而 removeIf 清空 traceStore/recentTraces。宁可不清理，也绝不误删全量数据。
+        if (maxAgeMillis <= 0) {
+            log.warn("拒绝非法的追踪清理窗口 maxAgeMillis={}，本次不清理任何数据", maxAgeMillis);
+            return Mono.just(0L);
+        }
         return Mono.fromCallable(() -> {
             Instant cutoff = Instant.now().minusMillis(maxAgeMillis);
             long removedCount = traceStore.entrySet().stream()
@@ -190,7 +198,7 @@ public class TraceQueryService {
             recentTraces.removeIf(trace -> trace.getCreatedAt().isBefore(cutoff));
             log.info("清理过期追踪数据: 移除 {} 条记录", removedCount);
             return removedCount;
-        });
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     private boolean matchesCriteria(final TraceRecord trace, final TraceSearchCriteria criteria) {

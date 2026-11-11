@@ -95,14 +95,16 @@ public class JwtBlacklistCacheManager {
         
         // 首先检查本地缓存
         TokenBlacklistEntry localEntry = localCache.get(tokenHash);
-        if (localEntry != null) {
-            if (isEntryExpired(localEntry)) {
-                localCache.remove(tokenHash);
-                return Mono.just(false);
-            }
+        if (localEntry != null && !isEntryExpired(localEntry)) {
             return Mono.just(true);
         }
-        
+        // 清单 m-13：本地 L1 条目过期时不能直接判定"未拉黑"——Redis L2 的条目
+        // TTL（24h）可能仍有效。移除过期的本地条目后继续回源 Redis，避免已拉黑令牌
+        // 因本地缓存过期被短暂放行（fail-open）。
+        if (localEntry != null) {
+            localCache.remove(tokenHash);
+        }
+
         // 检查Redis缓存
         return checkRedisCache(tokenHash)
             .doOnNext(isBlacklisted -> {

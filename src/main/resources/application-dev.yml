@@ -79,7 +79,9 @@ trunkline:
     
     jwt:
       enabled: true
-      secret: "${JWT_SECRET:${DEV_JWT_SECRET:dev-secret-key-for-testing-only-32-characters-minimum}}"
+      # 与 config/auth/jwt.yml 同一口径：不内置任何可用的默认密钥。
+      # 未设置 JWT_SECRET / DEV_JWT_SECRET 时由启动期处理器生成并持久化随机密钥。
+      secret: "${JWT_SECRET:${DEV_JWT_SECRET:}}"
 
       # 开发环境同样不提供默认管理员；首次启动访问 /init 完成初始化。
       accounts: []
@@ -96,11 +98,8 @@ trunkline:
       response:
         enabled: false
 
-# WebClient 配置（开发环境宽松超时）
-webclient:
-  connection-timeout: 5s
-  read-timeout: 15s
-  write-timeout: 15s
+# 历史 webclient.* 覆盖块已移除（无消费者，见 config/common/webclient.yml 说明）。
+# 开发环境如需调整出站超时，用 TRUNKLINE_WEBCLIENT_* 或 trunkline.webclient.*（实际生效项）。
 
 # 调试模式
 debug: false

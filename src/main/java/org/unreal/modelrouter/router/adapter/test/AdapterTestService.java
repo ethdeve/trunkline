@@ -2,6 +2,7 @@ package org.unreal.modelrouter.router.adapter.test;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -31,10 +32,23 @@ public class AdapterTestService {
     private final WebClient.Builder webClientBuilder;
     private final AdapterRegistry adapterRegistry;
 
+    /**
+     * 适配器测试端点的 baseUrl 完全来自请求方输入，因此默认禁止把请求打向回环/私网。
+     * 需要连通性测试内网服务时，由运维显式开启（仅影响测试端点，不影响已登记供应商的正常转发）。
+     * 用字段注入而非改构造参数，避免破坏既有的构造器注入测试。
+     */
+    @Value("${trunkline.security.adapter-test.allow-private-network:false}")
+    private boolean allowPrivateNetwork;
+
     public AdapterTestService(final WebClient.Builder webClientBuilder,
                               final AdapterRegistry adapterRegistry) {
         this.webClientBuilder = webClientBuilder;
         this.adapterRegistry = adapterRegistry;
+    }
+
+    /** 测试端点统一走严格口径；开关打开时退回常规口径。 */
+    private String validateAdapterTestUrl(final String baseUrl) {
+        return UrlSecurityValidator.validateOutboundBaseUrl(baseUrl, !allowPrivateNetwork);
     }
 
     /**
@@ -47,7 +61,7 @@ public class AdapterTestService {
         long startTime = System.currentTimeMillis();
         final String safeBaseUrl;
         try {
-            safeBaseUrl = UrlSecurityValidator.validateOutboundBaseUrl(baseUrl);
+            safeBaseUrl = validateAdapterTestUrl(baseUrl);
         } catch (SecurityException ex) {
             return Mono.just(AdapterTestResult.error("Base URL 不合法: " + ex.getMessage()));
         }
@@ -111,7 +125,7 @@ public class AdapterTestService {
 
         final String safeBaseUrl;
         try {
-            safeBaseUrl = UrlSecurityValidator.validateOutboundBaseUrl(baseUrl);
+            safeBaseUrl = validateAdapterTestUrl(baseUrl);
         } catch (SecurityException ex) {
             return Mono.just(AdapterTestResult.error("Base URL 不合法: " + ex.getMessage()));
         }
@@ -178,17 +192,17 @@ public class AdapterTestService {
             throw new IllegalArgumentException("适配器不存在: " + adapterName);
         }
 
-        String effectiveBaseUrl = baseUrl;
+        final String effectiveBaseUrl = baseUrl;
 
-        // 如果没有提供 baseUrl，尝试从适配器配置获取
+        // 注册表不承载 baseUrl；此前的 localhost:8080 fallback 会让「测试已注册适配器」
+        // 变成一次对本机端口的探测，既无业务意义也是 SSRF 入口。改为明确要求调用方提供地址。
         if (effectiveBaseUrl == null || effectiveBaseUrl.isBlank()) {
-            // 默认使用 localhost 作为 fallback
-            effectiveBaseUrl = "http://localhost:8080";
+            return Mono.just(AdapterTestResult.error("测试已注册适配器需要提供 Base URL"));
         }
 
         final String safeBaseUrl;
         try {
-            safeBaseUrl = UrlSecurityValidator.validateOutboundBaseUrl(effectiveBaseUrl);
+            safeBaseUrl = validateAdapterTestUrl(effectiveBaseUrl);
         } catch (SecurityException ex) {
             return Mono.just(AdapterTestResult.error("Base URL 不合法: " + ex.getMessage()));
         }
@@ -212,7 +226,7 @@ public class AdapterTestService {
                                                 final String model) {
         final String safeBaseUrl;
         try {
-            safeBaseUrl = UrlSecurityValidator.validateOutboundBaseUrl(baseUrl);
+            safeBaseUrl = validateAdapterTestUrl(baseUrl);
         } catch (SecurityException ex) {
             return Mono.just(AdapterTestResult.error("Base URL 不合法: " + ex.getMessage()));
         }

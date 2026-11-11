@@ -309,9 +309,12 @@ public class StorageHealthServiceImpl implements StorageHealthService {
             .then(redisTemplate.opsForValue().get(HEALTH_CHECK_KEY))
             .timeout(REDIS_TIMEOUT)
             .map(value -> testValue.equals(value))
-            .then(redisTemplate.delete(HEALTH_CHECK_KEY))
-            .timeout(REDIS_TIMEOUT)
-            .map(deleted -> true)
+            // 清理探针键只是收尾动作，不能拿 delete 的结果冒充健康检查结论。
+            // 旧实现 .then(delete).map(deleted -> true) 会无条件返回 true，
+            // 即使读回的值不匹配也报健康。这里保留读写比对结果作为最终结论。
+            .flatMap(matched -> redisTemplate.delete(HEALTH_CHECK_KEY)
+                    .timeout(REDIS_TIMEOUT)
+                    .thenReturn(matched))
             .onErrorReturn(false)
             .doOnNext(healthy -> {
                 if (healthy) {

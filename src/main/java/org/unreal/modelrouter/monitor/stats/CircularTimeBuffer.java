@@ -102,8 +102,12 @@ public final class CircularTimeBuffer {
         try {
             TimeSlot slot = slots[slotIndex];
 
-            // 如果时间戳过期，重置槽
+            // 如果时间戳过期，重置槽（清单 M-10：reset 前必须从 totalCount 回扣旧值，
+            // 否则复用同一槽时旧计数永久滞留在 totalCount，QPS 只增不减）。
             if (currentTime - slot.timestamp >= slotSizeMs) {
+                if (slot.count > 0) {
+                    totalCount.addAndGet(-slot.count);
+                }
                 slot.reset(currentTime);
             }
 

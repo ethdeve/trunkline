@@ -9,8 +9,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
 import org.unreal.modelrouter.auth.security.service.JwtBlacklistService;
 import org.unreal.modelrouter.common.dto.TokenBlacklistEntry;
+import org.unreal.modelrouter.common.util.JacksonHelper;
 import reactor.core.publisher.Mono;
 
 import java.lang.reflect.Field;
@@ -116,6 +118,39 @@ class JwtBlacklistCacheManagerTest {
 
         assertFalse(localCache.containsKey("hash-expired"), "过期条目应在本地清理");
         verify(redisTemplate, never()).hasKey(anyString());
+    }
+
+    @Test
+    @DisplayName("m-13: 本地条目过期但 Redis 仍有效时回源命中，不误判为未拉黑")
+    @SuppressWarnings("unchecked")
+    void expiredLocalEntryFallsBackToRedis() throws Exception {
+        localCache.put("hash-expired", expiredEntry("hash-expired"));
+
+        ReactiveValueOperations<String, String> valueOps = org.mockito.Mockito.mock(ReactiveValueOperations.class);
+        String json = JacksonHelper.getObjectMapper().writeValueAsString(liveEntry("hash-expired"));
+        when(redisTemplate.hasKey(anyString())).thenReturn(Mono.just(true));
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        when(valueOps.get(anyString())).thenReturn(Mono.just(json));
+
+        Boolean inBlacklist = manager.isInBlacklistCache("hash-expired").block();
+
+        assertTrue(Boolean.TRUE.equals(inBlacklist),
+                "本地过期但 Redis 条目仍有效时，应回源判定为仍在黑名单（避免已拉黑令牌被放行）");
+        TokenBlacklistEntry refreshed = localCache.get("hash-expired");
+        assertTrue(refreshed == null || refreshed.getExpiresAt().isAfter(LocalDateTime.now()),
+                "过期条目要么被移除、要么被 Redis 未过期条目回填，不应残留过期值");
+    }
+
+    @Test
+    @DisplayName("m-13: 本地条目过期且 Redis 无此条目时判定为未拉黑")
+    @SuppressWarnings("unchecked")
+    void expiredLocalEntryRedisMissReturnsFalse() {
+        localCache.put("hash-expired", expiredEntry("hash-expired"));
+
+        when(redisTemplate.hasKey(anyString())).thenReturn(Mono.just(false));
+
+        Boolean inBlacklist = manager.isInBlacklistCache("hash-expired").block();
+        assertFalse(Boolean.TRUE.equals(inBlacklist));
     }
 
     private static TokenBlacklistEntry liveEntry(String tokenHash) {

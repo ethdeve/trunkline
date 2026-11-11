@@ -3,9 +3,12 @@ package org.unreal.modelrouter.router.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -39,6 +42,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/model-stats")
+@Validated
 @CrossOrigin(origins = "*")
 @Tag(name = "模型调用统计", description = "提供模型调用统计分析功能")
 public class ModelCallStatsController {
@@ -77,8 +81,8 @@ public class ModelCallStatsController {
     @ApiResponse(responseCode = "500", description = "服务器内部错误")
     public Mono<ResponseEntity<RouterResponse<Map<String, Object>>>> getAllModelStats(
             @RequestParam(required = false) final String serviceType,
-            @RequestParam(defaultValue = "1") final int page,
-            @RequestParam(defaultValue = "20") final int size,
+            @RequestParam(defaultValue = "1") @Min(1) final int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) final int size,
             @RequestParam(defaultValue = "totalCalls") final String sortBy,
             @RequestParam(defaultValue = "false") final boolean ascending) {
         try {

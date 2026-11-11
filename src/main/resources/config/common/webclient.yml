@@ -4,22 +4,10 @@
 # 此文件包含 WebClient HTTP 客户端配置
 # 位置：org.unreal.modelrouter.common
 
-# ⚠️ 注意（#182 勘察结论）：下面这组 webclient.* 目前**没有任何代码消费**——
-# 全仓库既无 @ConfigurationProperties(prefix="webclient")，也无 ${webclient...} 引用。
-# 改它们不会对出站请求产生任何影响。
-# 出站 WebClient 实际生效的超时与连接池参数见文件末尾的 trunkline.webclient.*。
-webclient:
-  # 连接超时时间
-  connection-timeout: 15s
-  
-  # 读取超时时间
-  read-timeout: 60s
-  
-  # 写入超时时间
-  write-timeout: 60s
-  
-  # 内存中最大数据大小
-  max-in-memory-size: 10MB
+# 历史 webclient.* 块（connection-timeout / read-timeout / write-timeout / max-in-memory-size）
+# 已移除：全仓无 @ConfigurationProperties(prefix="webclient")、无 ${webclient...} 引用，
+# 改那些键不会对出站请求产生任何影响（清单 m-17 配置漂移）。
+# 出站 WebClient 实际生效的超时与连接池参数见下方 trunkline.webclient.*。
 
 # ========================================
 # 出站 WebClient 连接参数（#182，实际生效）

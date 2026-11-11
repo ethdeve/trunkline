@@ -16,9 +16,11 @@ trunkline:
       # JWT 令牌头名称
       jwt-header: "Trunkline_Token"
       
-      # JWT 密钥（必须使用环境变量，长度 >= 32 字符；禁止使用出厂默认值）
-      # R2-P0-01：默认占位仅用于本地开发；SecurityConfigurationValidator 会拒绝已知默认密钥
-      secret: "${JWT_SECRET:ThisIsADefaultSecretKeyForDevOnly12345678}"
+      # JWT 密钥（长度 >= 32 字符；禁止使用出厂默认值）
+      # 安全说明：不在此处提供任何可用的默认密钥。未显式设置 JWT_SECRET / DEV_JWT_SECRET 时，
+      # JwtSecretEnvironmentPostProcessor 会在启动期生成随机密钥并持久化到 data/jwt-secret
+      # （重启复用、源码中无法预测），离线伪造令牌的前提因此不成立。
+      secret: "${JWT_SECRET:${DEV_JWT_SECRET:}}"
       
       # JWT 算法
       algorithm: "HS256"

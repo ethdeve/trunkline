@@ -147,19 +147,28 @@ public class ModelCallAnalyzer {
         }
         allStats.sort(comparator);
 
-        // 分页
+        // 分页（清单 m-11）：防御性夹逼，非法入参不抛异常。
+        // 正常值（page>=1、1<=size<=100）行为完全不变；Controller 层另有 @Min/@Max 校验。
         int total = allStats.size();
-        int fromIndex = (page - 1) * size;
-        int toIndex = Math.min(fromIndex + size, total);
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, Math.min(100, size));
+        long fromIndexLong = (long) (safePage - 1) * safeSize;
 
-        List<ModelCallStats> pagedStats = fromIndex < total ? allStats.subList(fromIndex, toIndex) : new ArrayList<>();
+        List<ModelCallStats> pagedStats;
+        if (fromIndexLong >= total) {
+            pagedStats = new ArrayList<>();
+        } else {
+            int fromIndex = (int) fromIndexLong; // 已确保 < total <= Integer.MAX_VALUE
+            int toIndex = Math.min(fromIndex + safeSize, total);
+            pagedStats = allStats.subList(fromIndex, toIndex);
+        }
 
         Map<String, Object> result = new HashMap<>();
         result.put("content", pagedStats);
         result.put("total", total);
-        result.put("page", page);
-        result.put("size", size);
-        result.put("totalPages", (total + size - 1) / size);
+        result.put("page", safePage);
+        result.put("size", safeSize);
+        result.put("totalPages", (int) ((total + (long) safeSize - 1) / safeSize));
         result.put("timestamp", System.currentTimeMillis());
 
         return result;

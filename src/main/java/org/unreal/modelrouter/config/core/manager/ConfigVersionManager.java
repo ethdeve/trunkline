@@ -3,8 +3,11 @@ package org.unreal.modelrouter.config.core.manager;
 import org.unreal.modelrouter.persistence.store.ConfigKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.unreal.modelrouter.config.core.ConfigMergeService;
+import org.unreal.modelrouter.config.event.ConfigSyncEvent;
 import org.unreal.modelrouter.config.version.ConfigMetadata;
 import org.unreal.modelrouter.config.version.VersionInfo;
 import org.unreal.modelrouter.persistence.store.StoreManager;
@@ -42,6 +45,14 @@ public class ConfigVersionManager {
 
     // 版本创建锁 - 使用 ReentrantLock 提升并发性能
     private final ReentrantLock versionCreationLock = new ReentrantLock();
+
+    /**
+     * 运行时配置同步事件的发布入口。用可选字段注入而非构造参数：
+     * InstanceConfigService 依赖本类，直接注入会形成循环依赖；事件由
+     * ConfigSyncEventListener 异步消费，不影响本方法的数据库事务语义。
+     */
+    @Autowired(required = false)
+    private ApplicationEventPublisher eventPublisher;
 
     // 记录最近版本创建的时间，用于检测短时间内的重复创建
     private volatile long lastVersionCreationTime = 0;
@@ -215,11 +226,23 @@ public class ConfigVersionManager {
      * @param version 版本号
      */
     public void applyVersion(final int version) {
+        // saveAsNewVersion 与 applyVersion 都会 getActualCurrentVersion()+1，
+        // 并发时可能算出同一个版本号并互相覆盖快照/指针，因此复用同一把锁。
+        versionCreationLock.lock();
+        try {
+            applyVersionInternal(version);
+        } finally {
+            versionCreationLock.unlock();
+        }
+    }
+
+    private void applyVersionInternal(final int version) {
         logger.info("开始应用配置版本：{}", version);
 
         try {
             // 1. 获取元数据和版本列表
             ConfigMetadata metadata = metadataManager.getMetadata(CURRENT_KEY);
+            final int previousVersion = metadata.getCurrentVersion();
             List<Integer> allVersions = getAllVersions();
 
             // 2. 验证版本存在性（委托给 VersionValidator）
@@ -257,8 +280,30 @@ public class ConfigVersionManager {
 
                 logger.info("成功应用配置版本 {}（作为新版本 {} 生效）", version, appliedVersion);
 
+                // 数据库已生效，再通知运行时同步；事件发布失败只告警，不重复回滚数据库
+                publishRollbackEvent(config);
+
             } catch (Exception e) {
                 logger.error("应用配置版本 {} 时发生错误，尝试恢复", version, e);
+
+                // 删除本轮刚追加的快照，避免留下一个「应用失败」的幽灵版本
+                if (appliedVersion != version) {
+                    try {
+                        storeManager.deleteConfigVersion(CURRENT_KEY, appliedVersion);
+                        logger.info("已删除应用失败产生的快照版本 {}", appliedVersion);
+                    } catch (Exception cleanupException) {
+                        logger.error("删除失败快照版本 {} 时出错", appliedVersion, cleanupException);
+                    }
+                }
+
+                // 把版本指针复位到应用之前，否则元数据会指向一个不存在的版本
+                try {
+                    metadataManager.updateCurrentVersion(CURRENT_KEY, previousVersion,
+                            SecurityUtils.getCurrentUserId());
+                    logger.info("已复位版本指针到 {}", previousVersion);
+                } catch (Exception pointerException) {
+                    logger.error("复位版本指针失败", pointerException);
+                }
 
                 // 尝试恢复到备份配置
                 if (backupConfig != null) {
@@ -280,6 +325,20 @@ public class ConfigVersionManager {
             logger.error("应用配置版本 {} 时发生未预期的错误", version, e);
             throw new RuntimeException(
                     String.format("应用配置版本 %d 时发生系统错误：%s", version, e.getMessage()), e);
+        }
+    }
+
+    /** 回滚写库成功后，把同一份配置广播给运行时（ConfigSyncEventListener 异步消费）。 */
+    private void publishRollbackEvent(final Map<String, Object> config) {
+        if (eventPublisher == null) {
+            return;
+        }
+        try {
+            eventPublisher.publishEvent(ConfigSyncEvent.rollback(config, null));
+            logger.debug("已发布版本回滚的运行时同步事件");
+        } catch (Exception e) {
+            // 事件是增强链路：数据库已生效，此处失败不应把「成功」误报成失败并触发重复回滚
+            logger.warn("发布版本回滚同步事件失败：{}", e.getMessage());
         }
     }
 

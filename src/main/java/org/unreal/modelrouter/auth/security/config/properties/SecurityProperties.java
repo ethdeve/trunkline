@@ -120,7 +120,14 @@ public class SecurityProperties {
     }
 
     public String toString() {
-        return "SecurityProperties(enabled=" + this.isEnabled() + ", apiKey=" + this.getApiKey() + ", jwt=" + this.getJwt() + ", sanitization=" + this.getSanitization() + ", audit=" + this.getAudit() + ", cache=" + this.getCache() + ")";
+        // 子配置里含 JWT 密钥与 API Key 列表，整体拼接会让凭据出现在任意日志语句中。
+        // 只保留结构信息，不输出任何值。
+        return "SecurityProperties(enabled=" + this.isEnabled()
+                + ", apiKeyConfigured=" + (this.getApiKey() != null)
+                + ", jwtConfigured=" + (this.getJwt() != null)
+                + ", sanitizationConfigured=" + (this.getSanitization() != null)
+                + ", auditConfigured=" + (this.getAudit() != null)
+                + ", cacheConfigured=" + (this.getCache() != null) + ")";
     }
 
 }

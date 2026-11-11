@@ -2,7 +2,9 @@
 # 配额账本（Quota Ledger）配置模板
 # ========================================
 # 对应 @ConfigurationProperties(prefix = "trunkline.quota") 的 QuotaProperties。
-# 默认 enabled=false：不累加、不查库、不落库，行为与 v3.0.x 完全一致（零行为变更）。
+# 本基线默认 enabled=true：按 Key/分组/模型三维度记账，「虚拟模型」页的本月调用、
+# 分组配额用量等依赖该账本；未配置限额（0=不限）时只记账不拦截。
+# 若要回到 v3.0.x 的零记账行为，显式置 enabled=false。
 #
 # 保留期语法：Nmo / Nd / Nh / Nm / Ns（mo=月、d=天、h=小时、m=分钟、s=秒，
 # 无单位按天解释），数值非法或为 0 时兜底为 1，避免误配 0 导致整表被清理。

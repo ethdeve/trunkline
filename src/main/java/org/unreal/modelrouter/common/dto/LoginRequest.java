@@ -24,6 +24,6 @@ public final class LoginRequest {
     }
 
     public String toString() {
-        return "LoginRequest(username=" + this.getUsername() + ", password=" + this.getPassword() + ")";
+        return "LoginRequest(username=" + this.getUsername() + ", password=***)";
     }
 }

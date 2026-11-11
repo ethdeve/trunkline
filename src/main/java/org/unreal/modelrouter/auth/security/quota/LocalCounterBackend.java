@@ -476,11 +476,11 @@ public final class LocalCounterBackend implements QuotaCounterBackend {
         /** 待补写 Redis 的 token 增量 */
         private final LongAdder pendingTokens = new LongAdder();
 
-        /** 最近一次已落库的请求数（只由快照线程写入） */
-        private long publishedRequests;
+        /** 最近一次已落库的请求数（快照线程写，其它线程读，需保证跨线程可见性） */
+        private volatile long publishedRequests;
 
-        /** 最近一次已落库的 token 数（只由快照线程写入） */
-        private long publishedTokens;
+        /** 最近一次已落库的 token 数（快照线程写，其它线程读，需保证跨线程可见性） */
+        private volatile long publishedTokens;
     }
 
     /**

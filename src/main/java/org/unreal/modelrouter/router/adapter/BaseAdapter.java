@@ -281,11 +281,31 @@ public abstract class BaseAdapter implements ServiceCapability {
                 errorContext.put("provider", adapterType);
                 errorTracker.trackError(throwable, adapterType + ".fallback", errorContext);
             }
-            return fallbackStrategy.fallback((Exception) throwable) != null
-                ? Mono.just(fallbackStrategy.fallback((Exception) throwable))
-                : Mono.error(new org.springframework.web.server.ResponseStatusException(
-                        org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "服务降级且无缓存"));
+            return resolveFallbackResponse(throwable, fallbackStrategy);
         });
+    }
+
+    /**
+     * 将一次降级求值封装为响应 Mono（问题清单 m-09 / M-19）。
+     *
+     * <p>原实现用三元式 {@code fallback(x) != null ? Mono.just(fallback(x)) : ...}，
+     * 同一异常会把 {@code fallback()} 连调两遍（有副作用/缓存读取时结果可能不一致）；
+     * 且把 {@code Throwable} 直接强转为 {@code Exception}，遇到 {@code Error} 会抛 ClassCastException。
+     *
+     * @param throwable       触发降级的错误
+     * @param fallbackStrategy 降级策略
+     * @return 降级响应；无可用降级时返回 503 错误 Mono
+     */
+    static Mono<ResponseEntity<?>> resolveFallbackResponse(
+            final Throwable throwable, final FallbackStrategy<ResponseEntity<?>> fallbackStrategy) {
+        Exception cause = throwable instanceof Exception
+            ? (Exception) throwable
+            : new IllegalStateException("请求失败", throwable);
+        ResponseEntity<?> fallbackResponse = fallbackStrategy.fallback(cause); // 只求值一次
+        return fallbackResponse != null
+            ? Mono.just(fallbackResponse)
+            : Mono.error(new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "服务降级且无缓存"));
     }
 
     // ==================== 非流式请求处理 ====================

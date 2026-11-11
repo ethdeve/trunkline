@@ -48,14 +48,20 @@ public class WarmUpRateLimiter implements RateLimiter {
     @Override
     public boolean tryAcquire(final RateLimitContext context) {
         refill();
-        long current = tokens.get();
-        boolean allowed;
-        if (current < context.getTokens()) {
-            allowed = false;
-        } else {
-            allowed = tokens.compareAndSet(current, current - context.getTokens());
+        // 清单 M-18：CAS 失败只代表并发下 tokens 被别的线程改过，不应直接判为限流。
+        // 循环重试直到令牌不足（真正拒绝）或 CAS 成功（放行）。
+        boolean allowed = false;
+        while (true) {
+            long current = tokens.get();
+            if (current < context.getTokens()) {
+                break; // 令牌确实不足，拒绝
+            }
+            if (tokens.compareAndSet(current, current - context.getTokens())) {
+                allowed = true;
+                break;
+            }
         }
-        
+
         // 记录限流指标
         recordRateLimitMetrics(context, allowed);
         return allowed;

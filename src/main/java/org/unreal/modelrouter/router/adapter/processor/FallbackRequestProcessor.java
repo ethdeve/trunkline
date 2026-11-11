@@ -63,7 +63,12 @@ public class FallbackRequestProcessor {
         try {
             logger.debug("执行降级策略: strategy={}", fallbackStrategy.getClass().getSimpleName());
 
-            ResponseEntity<?> fallbackResponse = fallbackStrategy.fallback((Exception) throwable);
+            // 清单 M-19：不要把 Throwable 直接强转为 Exception——遇到 Error 会抛
+            // ClassCastException（被下方 catch 吞成误导性的降级失败）。包装后交给策略。
+            Exception cause = throwable instanceof Exception
+                ? (Exception) throwable
+                : new IllegalStateException("请求失败", throwable);
+            ResponseEntity<?> fallbackResponse = fallbackStrategy.fallback(cause);
 
             if (fallbackResponse == null || fallbackResponse.getBody() == null) {
                 logger.warn("降级响应为空");

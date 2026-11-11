@@ -149,13 +149,25 @@ public class RetryPolicy {
      * @return 是否可重试
      */
     public boolean isRetryable(final Throwable error) {
-        // 不可重试的错误类型
-        if (error instanceof org.springframework.web.client.HttpClientErrorException) {
-            logger.debug("客户端错误，不重试：{}", error.getMessage());
+        if (error == null) {
             return false;
         }
 
-        // 可重试的错误类型
+        // 明确的 HTTP 4xx（400/401/403/404 ...）属于请求本身的问题，重试只会重复生成、
+        // 重复计费，且会对上游造成无意义的压力。仅 408（超时）与 429（限流）可重试。
+        // 旧实现只排除 RestTemplate 的 HttpClientErrorException，WebFlux 的
+        // WebClientResponseException / ResponseStatusException 全部落到「默认重试」。
+        if (error instanceof org.springframework.web.reactive.function.client.WebClientResponseException ex) {
+            return isRetryableStatus(ex.getStatusCode().value());
+        }
+        if (error instanceof org.springframework.web.server.ResponseStatusException ex) {
+            return isRetryableStatus(ex.getStatusCode().value());
+        }
+        if (error instanceof org.springframework.web.client.HttpClientErrorException ex) {
+            return isRetryableStatus(ex.getStatusCode().value());
+        }
+
+        // 瞬时网络故障保持原有重试行为
         if (error instanceof java.util.concurrent.TimeoutException
             || error instanceof java.net.ConnectException
             || error instanceof java.net.SocketTimeoutException
@@ -164,9 +176,16 @@ public class RetryPolicy {
             return true;
         }
 
-        // 默认重试所有错误
+        // 其余未知异常沿用原有容错语义（默认重试），不削弱既有故障转移能力
         logger.debug("重试错误：{}", error.getClass().getSimpleName());
         return true;
+    }
+
+    private static boolean isRetryableStatus(final int status) {
+        if (status == 408 || status == 429) {
+            return true;
+        }
+        return status < 400 || status >= 500;
     }
 
     /**

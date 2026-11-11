@@ -31,14 +31,10 @@ trunkline:
       cache-refresh-enabled: true
       cache-refresh-interval-seconds: 60
 
-      # API Key 列表（仅用于开发环境测试）
-      # 生产环境应通过 API 管理或环境变量配置
-      keys:
-        - key-id: "test-key-001"
-          key-value: "sk-test-api-key-12345678"
-          description: "测试用 API Key"
-          permissions: "read,write"
-          enabled: true
+      # API Key 列表：内置配置一律为空，避免出厂测试 Key 被 dev/prod 继承。
+      # 需要预置 Key 时，通过外部挂载 /app/config/auth/api-key.yml 或 API 管理接口创建；
+      # 非 dev 环境若出现 sk-test- 前缀的 Key，StartupSecurityGuard 会拒绝启动。
+      keys: []
 
     # API Key 配额管理配置
     quota:

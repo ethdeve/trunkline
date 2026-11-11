@@ -42,14 +42,20 @@ public class LeakyBucketRateLimiter implements RateLimiter {
     @Override
     public boolean tryAcquire(final RateLimitContext context) {
         leak();
-        long current = water.get();
-        boolean allowed;
-        if (current + context.getTokens() > config.getCapacity()) {
-            allowed = false;
-        } else {
-            allowed = water.compareAndSet(current, current + context.getTokens());
+        // 清单 M-18：CAS 失败只代表并发下水量被别的线程改过，不应直接判为限流。
+        // 循环重试直到容量确实不足（真正拒绝）或 CAS 成功（放行）。
+        boolean allowed = false;
+        while (true) {
+            long current = water.get();
+            if (current + context.getTokens() > config.getCapacity()) {
+                break; // 容量确实不足，拒绝
+            }
+            if (water.compareAndSet(current, current + context.getTokens())) {
+                allowed = true;
+                break;
+            }
         }
-        
+
         // 记录限流指标
         recordRateLimitMetrics(context, allowed);
         return allowed;

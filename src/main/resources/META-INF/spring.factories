@@ -1,3 +1,4 @@
 org.springframework.boot.env.EnvironmentPostProcessor=\
+org.unreal.modelrouter.setup.StartupSecurityEnvironmentPostProcessor,\
 org.unreal.modelrouter.setup.SetupEnvironmentPostProcessor,\
 org.unreal.modelrouter.persistence.migration.FlywayDialectEnvironmentPostProcessor

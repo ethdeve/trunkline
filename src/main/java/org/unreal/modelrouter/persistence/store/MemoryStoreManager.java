@@ -3,13 +3,15 @@ package org.unreal.modelrouter.persistence.store;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 基于内存的配置存储实现 主要用于测试或临时存储场景
  */
 public class MemoryStoreManager extends BaseStoreManager {
 
-    private final Map<String, Map<String, Object>> storage = new HashMap<>();
+    /** 承载共享态：可能被并发读写，用并发容器避免 HashMap 扩容/可见性问题（清单 m-04）。 */
+    private final Map<String, Map<String, Object>> storage = new ConcurrentHashMap<>();
 
     /**
      * 保存配置信息

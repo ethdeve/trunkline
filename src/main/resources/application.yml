@@ -69,6 +69,7 @@ spring:
       # Docker 部署时挂载到 /app/config/
       - optional:file:/app/config/application.yml
       - optional:file:/app/config/auth/jwt.yml
+      - optional:file:/app/config/auth/api-key.yml
       - optional:file:/app/config/router/services.yml
 
 # ========================================

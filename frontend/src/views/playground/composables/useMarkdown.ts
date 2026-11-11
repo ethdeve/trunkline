@@ -1,12 +1,44 @@
 import { computed } from 'vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
+import createDOMPurify from 'dompurify'
+
+// DOMPurify 3.x 的默认导出是工厂函数：不显式传 window 时，它会用模块加载瞬间的
+// 全局 window 判定 isSupported。一旦注入时机偏晚就返回 false，sanitize() 会原样
+// 返回脏 HTML（静默放行 XSS）。这里显式绑定，并对「不支持」的情形做安全降级。
+const DOMPurify = createDOMPurify(typeof window === 'undefined' ? undefined : window)
 
 // 配置 marked
 marked.setOptions({
   gfm: true,
   breaks: true
 })
+
+/**
+ * LLM 输出（以及会话历史中持久化下来的内容）属于不可信输入，marked.parse 的结果
+ * 绝不能直接交给 v-html。这里统一净化：只保留 HTML 文本标签，禁止脚本载体、
+ * 事件属性与内联样式；highlight.js 依赖的 class 属性不在禁用之列，代码高亮不受影响。
+ */
+const sanitizeHtml = (html: string): string => {
+  // isSupported=false 时 DOMPurify.sanitize 会原样返回脏 HTML —— 绝不能把这种结果交给 v-html
+  if (!DOMPurify.isSupported) {
+    return escapeHtml(html)
+  }
+  return DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ['style', 'iframe', 'object', 'embed', 'form', 'input', 'link', 'meta', 'base'],
+    FORBID_ATTR: ['style', 'srcset', 'formaction'],
+    ALLOW_DATA_ATTR: false
+  })
+}
+
+/** 渲染链路异常时的兜底：按纯文本转义，绝不把原始内容交给 v-html。 */
+const escapeHtml = (text: string): string => text
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;')
 
 export function useMarkdown() {
   /**
@@ -43,9 +75,9 @@ export function useMarkdown() {
         }
       )
 
-      return html
+      return sanitizeHtml(html)
     } catch {
-      return text
+      return escapeHtml(text)
     }
   }
 
@@ -69,14 +101,15 @@ export function useMarkdown() {
    * 高亮代码
    */
   const highlightCode = (code: string, language?: string): string => {
+    // CodeBlock.vue 同样把结果交给 v-html，因此这里也必须走同一套净化
     if (language && hljs.getLanguage(language)) {
       try {
-        return hljs.highlight(code, { language }).value
+        return sanitizeHtml(hljs.highlight(code, { language }).value)
       } catch {
         // ignore
       }
     }
-    return hljs.highlightAuto(code).value
+    return sanitizeHtml(hljs.highlightAuto(code).value)
   }
 
   return {

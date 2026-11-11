@@ -34,6 +34,10 @@ public class LockFreeCircuitBreaker implements CircuitBreaker {
     // 使用 AtomicLong 记录时间戳
     private final AtomicLong lastFailureTime;
 
+    // 清单 M-18：HALF_OPEN 并发探针令牌。进入半开时置为 successThreshold，
+    // canExecute 每放行一个探针 CAS 减一，避免半开瞬间全量放行打垮刚恢复的下游。
+    private final AtomicInteger halfOpenPermits;
+
     @Autowired(required = false)
     private MetricsCollector metricsCollector;
 
@@ -47,6 +51,7 @@ public class LockFreeCircuitBreaker implements CircuitBreaker {
         this.failureCount = new AtomicInteger(0);
         this.successCount = new AtomicInteger(0);
         this.lastFailureTime = new AtomicLong(0);
+        this.halfOpenPermits = new AtomicInteger(0);
     }
 
     @Override
@@ -64,7 +69,11 @@ public class LockFreeCircuitBreaker implements CircuitBreaker {
                     // CAS 操作尝试转为半开状态
                     if (stateRef.compareAndSet(State.OPEN, State.HALF_OPEN)) {
                         successCount.set(0);
-                        logger.debug("熔断器转为半开状态：instanceId={}, elapsed={}ms", instanceId, elapsed);
+                        // 半开期最多放行 successThreshold 个并发探针（至少 1 个）。
+                        // 本次 canExecute 的探针本身占一个，故剩余令牌 = 上限 - 1。
+                        halfOpenPermits.set(Math.max(1, successThreshold) - 1);
+                        logger.debug("熔断器转为半开状态：instanceId={}, elapsed={}ms, remainingPermits={}",
+                                instanceId, elapsed, halfOpenPermits.get());
                         return true;
                     }
                     // CAS 失败说明状态已被其他线程修改，递归调用重新检查
@@ -73,8 +82,17 @@ public class LockFreeCircuitBreaker implements CircuitBreaker {
                 return false;
                 
             case HALF_OPEN:
-                return true;
-                
+                // 清单 M-18：只在探针令牌未耗尽时放行，CAS 循环避免竞态下误放行/误拒绝。
+                while (true) {
+                    int permits = halfOpenPermits.get();
+                    if (permits <= 0) {
+                        return false;
+                    }
+                    if (halfOpenPermits.compareAndSet(permits, permits - 1)) {
+                        return true;
+                    }
+                }
+
             default:
                 return true;
         }
