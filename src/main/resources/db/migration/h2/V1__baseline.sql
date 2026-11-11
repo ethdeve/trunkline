@@ -4,6 +4,8 @@
 -- 合并基线（2026-11-09）：在原始 V1（issue #191）的基础上，纳入了原 V2–V18
 --   的全部演进，使本文件即「项目当前完善表结构」的单文件表达（与 postgres 侧同源，
 --   仅物理类型不同：H2 用 json / TEXT / enum，PostgreSQL 用 jsonb / TEXT / varchar+check）。
+--   2026-11-11 补充：model_price 缓存单价列 price_cache 并入本基线
+--   （原为 V2__model_price_cache.sql，因尚未发版而直接收进 V1，不留增量脚本）。
 --   原 V2–V18 增量脚本已移出扫描目录（见仓库 db-migration-archive/），
 --   自此新增 schema 变更请直接新增 V2__… / V3__… 增量脚本。
 --
@@ -266,6 +268,7 @@
         enabled boolean not null,
         price_input DECIMAL(12,6) not null,
         price_output DECIMAL(12,6) not null,
+        price_cache DECIMAL(12,6) not null default 0,
         quota_alert_threshold float(53),
         rate_limit_per_minute integer,
         created_at timestamp(6),

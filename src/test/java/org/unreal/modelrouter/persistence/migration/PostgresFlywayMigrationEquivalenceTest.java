@@ -22,29 +22,31 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Flyway 两条路径的 schema 等价性（issue #192）。
+ * Flyway 单一基线下两条路径的 schema 等价性（issue #192）。
  *
- * <p>要证明的是这件事：<b>空库从头建</b>与<b>老库经版本化迁移收敛</b>最终落在**同一套 schema**上。
- * 这是把「启动期条件式补丁」转成「确定序列脚本」后唯一真正的验证 —— 转错了就会出现
- * 「新库对、老库缺列」，而两者各自的单测都发现不了。</p>
- *
- * <p>三个 schema 各自跑一遍真实 Flyway（用 {@code classpath:db/migration/postgres} 里的生产脚本）：</p>
+ * <p>2026-11-11 起 {@code db/migration/{h2,postgres}} 各只剩单一 {@code V1__baseline.sql}：
+ * 缓存单价列 {@code price_cache} 原为 {@code V2__model_price_cache.sql}，因项目尚未发版，
+ * 直接并入 V1 基线，不留增量脚本。本测试守两件事：</p>
  * <ol>
- *   <li>{@code fresh}：空 schema，Flyway 从 V1 建起</li>
- *   <li>{@code legacy_missing}：先手工用 V1 建好，再删掉五个补丁列并把 {@code expires_at}
- *       改回 NOT NULL —— 即「≤v2.9.1 升级上来的库」的形态</li>
- *   <li>{@code legacy_divergent}：在上一类基础上，把 {@code tags} / {@code headers} 造成
- *       {@code text} —— 即 issue #190 说的「早期补成 TEXT」的类型分歧形态</li>
+ *   <li>同一份 V1 基线经两条路径建立后 schema 完全一致 —— {@code fresh} 由 Flyway 从头执行 V1
+ *       （历史记 {@code 1|SQL}），{@code legacy_v1} 先手工按 V1 建库再让 baseline-on-migrate 记为
+ *       基线 1（历史记 {@code 1|BASELINE}，V1 不重放）；</li>
+ *   <li>两条路径的 {@code model_price} 都带 {@code price_cache} 列 —— 守住缓存单价确实进了 V1 基线，
+ *       防止它被误留成独立增量脚本或在基线里漏建。</li>
  * </ol>
  *
- * <p>后两者是非空 schema 且无历史表，正对应生产里的 {@code baseline-on-migrate=true} 路径：
- * Flyway 记一条基线 1、不重放 V1，然后执行 V2 收敛。</p>
+ * <p>与 {@code H2FlywayMigrationEquivalenceTest} 的区别：后者模拟「老库缺补丁列→靠后续迁移补回」，
+ * re-baseline 后该前提已不存在，故保持 {@code @Disabled}；本测试验证的是「单一基线、无增量」场景的
+ * 两路径一致性，前提仍成立，故继续保留。跨 re-baseline 老库升级仍属产品决策，另行评估。</p>
+ *
+ * <p>基线脚本与实体模型的一致性由 PG 启动期 {@code ddl-auto: validate} 兜底（见
+ * {@code H2BaselineMatchesEntityModelTest} 类注释），本测试不重复该职责。</p>
  *
  * <p>门控与仓库既有的 {@code PostgresCompatibilityIntegrationTest} 一致（{@code PG_TEST=true}），
  * CI 里由 {@code java-tests.yml} 的「校验门控测试未被跳过」一并看住。</p>
  */
 @EnabledIfEnvironmentVariable(named = "PG_TEST", matches = "true")
-@DisplayName("Flyway 两条路径 schema 等价（PG_TEST=true 时执行，issue #192）")
+@DisplayName("Flyway 单一 V1 基线两路径 schema 一致（PG_TEST=true 时执行，issue #192）")
 class PostgresFlywayMigrationEquivalenceTest {
 
     private static final String URL =
@@ -53,90 +55,53 @@ class PostgresFlywayMigrationEquivalenceTest {
     private static final String PASSWORD = env("PG_TEST_PASSWORD", "postgres");
 
     private static final String FRESH = "flyway_probe_fresh";
-    private static final String LEGACY_MISSING = "flyway_probe_legacy_missing";
-    private static final String LEGACY_DIVERGENT = "flyway_probe_legacy_divergent";
+    private static final String LEGACY_V1 = "flyway_probe_legacy_v1";
     private static final String HISTORY_TABLE = "flyway_schema_history";
 
-    /** 「≤v2.9.1 升级上来的库」：五个补丁列缺失、expires_at 仍是 NOT NULL */
-    private static final String UN_CONVERGE_MISSING = """
-            ALTER TABLE api_call_history DROP COLUMN IF EXISTS record_level;
-            ALTER TABLE api_call_history DROP COLUMN IF EXISTS request_body_encrypted;
-            ALTER TABLE api_call_history DROP COLUMN IF EXISTS response_body_encrypted;
-            ALTER TABLE service_instance DROP COLUMN IF EXISTS tags;
-            ALTER TABLE service_instance DROP COLUMN IF EXISTS headers;
-            ALTER TABLE security_blacklist ALTER COLUMN expires_at SET NOT NULL;
-            -- V16（多租户预埋，S2 任务 35）：租户列同样属于「老库没有的补丁列」
-            ALTER TABLE jwt_accounts DROP COLUMN IF EXISTS tenant_id;
-            ALTER TABLE token_usage DROP COLUMN IF EXISTS tenant_id;
-            ALTER TABLE api_call_history DROP COLUMN IF EXISTS tenant_id;
-            ALTER TABLE security_audit DROP COLUMN IF EXISTS tenant_id;
-            ALTER TABLE model_provider DROP COLUMN IF EXISTS tenant_id;
-            ALTER TABLE config_data DROP COLUMN IF EXISTS tenant_id;
-            ALTER TABLE service_config DROP COLUMN IF EXISTS tenant_id;
-            """;
-
-    /** 同上，且 tags / headers 是早期补成的 text（类型分歧形态，issue #190） */
-    private static final String UN_CONVERGE_DIVERGENT = """
-            ALTER TABLE api_call_history DROP COLUMN IF EXISTS record_level;
-            ALTER TABLE api_call_history DROP COLUMN IF EXISTS request_body_encrypted;
-            ALTER TABLE api_call_history DROP COLUMN IF EXISTS response_body_encrypted;
-            ALTER TABLE service_instance DROP COLUMN IF EXISTS tags;
-            ALTER TABLE service_instance ADD COLUMN tags text;
-            ALTER TABLE service_instance ALTER COLUMN headers TYPE text USING headers::text;
-            ALTER TABLE security_blacklist ALTER COLUMN expires_at SET NOT NULL;
-            ALTER TABLE security_blacklist ALTER COLUMN expires_at SET NOT NULL;
-            -- V16（多租户预埋，S2 任务 35）：租户列同样属于「老库没有的补丁列」
-            ALTER TABLE jwt_accounts DROP COLUMN IF EXISTS tenant_id;
-            ALTER TABLE token_usage DROP COLUMN IF EXISTS tenant_id;
-            ALTER TABLE api_call_history DROP COLUMN IF EXISTS tenant_id;
-            ALTER TABLE security_audit DROP COLUMN IF EXISTS tenant_id;
-            ALTER TABLE model_provider DROP COLUMN IF EXISTS tenant_id;
-            ALTER TABLE config_data DROP COLUMN IF EXISTS tenant_id;
-            ALTER TABLE service_config DROP COLUMN IF EXISTS tenant_id;
-            """;
-
     @Test
-    @DisplayName("空库与两类老库经 Flyway 收敛后 schema 完全一致")
+    @DisplayName("空库 Flyway 建库 与 手工按 V1 建库后 baseline，schema 完全一致")
     void bothPathsConvergeToTheSameSchema() throws SQLException {
         try (Connection connection = DriverManager.getConnection(URL, USERNAME, PASSWORD)) {
             dropSchema(connection, FRESH);
-            dropSchema(connection, LEGACY_MISSING);
-            dropSchema(connection, LEGACY_DIVERGENT);
+            dropSchema(connection, LEGACY_V1);
 
             migrateEmptySchema(connection, FRESH);
-            migrateLegacySchema(connection, LEGACY_MISSING, UN_CONVERGE_MISSING);
-            migrateLegacySchema(connection, LEGACY_DIVERGENT, UN_CONVERGE_DIVERGENT);
+            migrateLegacySchema(connection, LEGACY_V1);
 
             Map<String, List<String>> fresh = snapshot(connection, FRESH);
-            for (String legacy : List.of(LEGACY_MISSING, LEGACY_DIVERGENT)) {
-                Map<String, List<String>> other = snapshot(connection, legacy);
-                for (String section : fresh.keySet()) {
-                    assertEquals(fresh.get(section), other.get(section),
-                            "「" + FRESH + "」与「" + legacy + "」的 " + section + " 不一致");
-                }
-                // 反向也断言一次，避免只有一边为空时的假等价
-                assertEquals(fresh.keySet(), other.keySet(), "快照分节不同");
+            Map<String, List<String>> legacy = snapshot(connection, LEGACY_V1);
+            for (String section : fresh.keySet()) {
+                assertEquals(fresh.get(section), legacy.get(section),
+                        "「" + FRESH + "」与「" + LEGACY_V1 + "」的 " + section + " 不一致");
             }
+            // 反向也断言一次，避免只有一边为空时的假等价
+            assertEquals(fresh.keySet(), legacy.keySet(), "快照分节不同");
 
-            // 迁移历史：空库 = V1 + V2 都是 SQL；老库 = 基线 1 + V2
-            assertEquals(List.of("1|SQL|true", "2|SQL|true"), history(connection, FRESH),
-                    "空库应顺序执行 V1、V2");
-            for (String legacy : List.of(LEGACY_MISSING, LEGACY_DIVERGENT)) {
-                assertEquals(List.of("1|BASELINE|true", "2|SQL|true"), history(connection, legacy),
-                        "老库应记为基线 1 且不重放 V1，再执行 V2");
-            }
+            // 两条路径的 model_price 都必须带缓存单价列 —— 守住 price_cache 确实并入了 V1 基线
+            assertTrue(fresh.get("columns").stream()
+                            .anyMatch(c -> c.startsWith("model_price.price_cache ")),
+                    "空库执行 V1 后应含 model_price.price_cache（已并入基线）");
+            assertTrue(legacy.get("columns").stream()
+                            .anyMatch(c -> c.startsWith("model_price.price_cache ")),
+                    "手工按 V1 建库后应含 model_price.price_cache（已并入基线）");
+
+            // 迁移历史：单一基线 —— 空库记 1|SQL；老库记基线 1（V1 不重放），无后续增量
+            assertEquals(List.of("1|SQL|true"), history(connection, FRESH),
+                    "空库应只执行 V1（单一基线）");
+            assertEquals(List.of("1|BASELINE|true"), history(connection, LEGACY_V1),
+                    "老库应记为基线 1 且不重放 V1（单一基线，无增量可执行）");
         }
     }
 
     /**
-     * 退出时必须清掉三个探针 schema，这不只是整洁问题：它们各自包含一套与 {@code public}
+     * 退出时必须清掉探针 schema，这不只是整洁问题：它们各自包含一套与 {@code public}
      * 同名的表，留下影子表会让同一库上运行的其它门控测试（如 {@code PostgresCompatibilityIntegrationTest}）
      * 读到不该读的对象而失败 —— 这是 issue #216 当时暴露出来的教训，清理仍是必须的。
      */
     @AfterAll
     static void dropProbeSchemas() throws SQLException {
         try (Connection connection = DriverManager.getConnection(URL, USERNAME, PASSWORD)) {
-            for (String schema : List.of(FRESH, LEGACY_MISSING, LEGACY_DIVERGENT)) {
+            for (String schema : List.of(FRESH, LEGACY_V1)) {
                 dropSchema(connection, schema);
             }
         }
@@ -144,21 +109,20 @@ class PostgresFlywayMigrationEquivalenceTest {
 
     // ==================== 迁移执行 ====================
 
-    /** 空 schema：Flyway 从 V1 建起（对应生产里连到全新数据库） */
+    /** 空 schema：Flyway 从 V1 建起（对应全新数据库，历史记 1|SQL） */
     private static void migrateEmptySchema(final Connection connection, final String schema)
             throws SQLException {
         createSchema(connection, schema);
         flyway(schema).migrate();
     }
 
-    /** 老库：先手工用 V1 建好并「退化」成改造前的形态，再让 Flyway 走 baseline-on-migrate */
-    private static void migrateLegacySchema(final Connection connection, final String schema,
-                                            final String unConvergeSql) throws SQLException {
+    /** 老库：先手工按 V1 建好（无历史表），再让 Flyway 走 baseline-on-migrate 记为基线 1 */
+    private static void migrateLegacySchema(final Connection connection, final String schema)
+            throws SQLException {
         createSchema(connection, schema);
         try (Statement statement = connection.createStatement()) {
             statement.execute("SET search_path TO " + schema);
             statement.execute(baselineScript());
-            statement.execute(unConvergeSql);
         } finally {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("SET search_path TO public");

@@ -20,7 +20,7 @@ Adding a new AI vendor happens here. "Providers" connects the vendor and discove
 | First time setup wizard | Four steps: pick a vendor, enter its key, create a virtual model, give employees their keys |
 | Connected providers | Name, address, discovered model count, status (connected / error / not connected) |
 | Add provider | Pick a preset, enter a name and the vendor API key, then discover models |
-| Model Management | Model name, vendor, status, circuit breaker / rate limits, input and output prices, quota |
+| Model Management | Model name, vendor, status, circuit breaker / rate limits, three-tier prices (input / output / cache), quota |
 
 ## Common tasks
 
@@ -35,8 +35,10 @@ Adding a new AI vendor happens here. "Providers" connects the vendor and discove
 **Set prices**
 
 1. Switch to Model Management
-2. Fill in input / output prices for the model
+2. Fill in the input / output prices; if the vendor offers a discounted rate for cache hits, you can also fill the Cache field
 3. Save; bills and team usage then show real amounts
+
+> Note: The Cache price records the discounted rate for cache-hit calls. Bills are still calculated from input / output prices for now; the cache price is saved up front and will apply automatically once cache-token metering is added. Entering it today does not change or break your current amounts.
 
 **Rotate a key**
 

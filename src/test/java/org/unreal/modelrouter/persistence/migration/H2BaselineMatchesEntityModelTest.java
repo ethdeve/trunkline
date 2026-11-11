@@ -83,7 +83,7 @@ class H2BaselineMatchesEntityModelTest {
         for (String section : fromEntityModel.keySet()) {
             assertEquals(fromEntityModel.get(section), fromBaseline.get(section),
                     section + " 不一致：Hibernate 由实体建出的 schema 与 h2/V1__baseline.sql 有差异。"
-                            + "补 V2 增量脚本（不可改已发布的 V1，Flyway 按校验和判定）。");
+                            + "若基线已发布请补增量脚本；未发版则直接修正 V1（两侧 db/migration 需同步）。");
         }
     }
 

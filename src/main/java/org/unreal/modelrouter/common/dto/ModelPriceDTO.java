@@ -39,6 +39,9 @@ public final class ModelPriceDTO {
     /** 输出单价（¥ / 千 token） */
     private BigDecimal priceOutput;
 
+    /** 缓存单价（¥ / 千 token），未配置为 0 */
+    private BigDecimal priceCache;
+
     /** 币种（默认 CNY） */
     private String currency;
 

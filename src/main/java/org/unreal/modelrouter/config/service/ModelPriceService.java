@@ -94,6 +94,7 @@ public class ModelPriceService {
                         .modelName(name)
                         .priceInput(BigDecimal.ZERO)
                         .priceOutput(BigDecimal.ZERO)
+                        .priceCache(BigDecimal.ZERO)
                         .currency("CNY")
                         .enabled(Boolean.TRUE)
                         .build());
@@ -106,6 +107,9 @@ public class ModelPriceService {
         }
         if (request.getPriceOutput() != null) {
             entity.setPriceOutput(nonNegative(request.getPriceOutput()));
+        }
+        if (request.getPriceCache() != null) {
+            entity.setPriceCache(nonNegative(request.getPriceCache()));
         }
         if (request.getCurrency() != null && !request.getCurrency().trim().isEmpty()) {
             entity.setCurrency(request.getCurrency().trim().toUpperCase());
@@ -148,9 +152,9 @@ public class ModelPriceService {
         final ModelPriceEntity saved = modelPriceRepository.save(entity);
         // 限额缓存就地更新：改额度后无需等缓存失效即可生效
         cacheQuotaLimit(saved.getModelName(), saved.toQuotaLimitSet());
-        log.info("Upserted model price/quota: {} (in={}, out={}, rateLimitPerMinute={})",
+        log.info("Upserted model price/quota: {} (in={}, out={}, cache={}, rateLimitPerMinute={})",
                 saved.getModelName(), saved.getPriceInput(), saved.getPriceOutput(),
-                saved.getRateLimitPerMinute());
+                saved.getPriceCache(), saved.getRateLimitPerMinute());
         return toDTO(saved);
     }
 
@@ -352,6 +356,8 @@ public class ModelPriceService {
                         ? price.getPriceInput() : BigDecimal.ZERO)
                 .priceOutput(price != null && price.getPriceOutput() != null
                         ? price.getPriceOutput() : BigDecimal.ZERO)
+                .priceCache(price != null && price.getPriceCache() != null
+                        ? price.getPriceCache() : BigDecimal.ZERO)
                 .currency(price != null && price.getCurrency() != null ? price.getCurrency() : "CNY")
                 .enabled(price != null && price.getEnabled() != null ? price.getEnabled() : Boolean.TRUE)
                 .description(price != null ? price.getDescription() : null)
@@ -385,6 +391,7 @@ public class ModelPriceService {
                 .serviceType(entity.getServiceType())
                 .priceInput(entity.getPriceInput())
                 .priceOutput(entity.getPriceOutput())
+                .priceCache(entity.getPriceCache())
                 .currency(entity.getCurrency())
                 .enabled(entity.getEnabled())
                 .description(entity.getDescription())

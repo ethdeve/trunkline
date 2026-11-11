@@ -73,6 +73,9 @@ public final class ModelPriceCatalogItemDTO {
     /** 输出单价（¥ / 千 token）；未配置为 0 */
     private BigDecimal priceOutput;
 
+    /** 缓存单价（¥ / 千 token）；未配置为 0（账单暂不使用，仅登记口径） */
+    private BigDecimal priceCache;
+
     /** 币种（默认 CNY） */
     private String currency;
 

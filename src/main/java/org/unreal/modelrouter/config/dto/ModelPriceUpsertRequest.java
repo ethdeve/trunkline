@@ -34,6 +34,9 @@ public final class ModelPriceUpsertRequest {
     /** 输出单价（¥ / 千 token） */
     private BigDecimal priceOutput;
 
+    /** 缓存单价（¥ / 千 token），命中缓存的 token 单独计价时使用 */
+    private BigDecimal priceCache;
+
     /** 币种（缺省 CNY） */
     private String currency;
 

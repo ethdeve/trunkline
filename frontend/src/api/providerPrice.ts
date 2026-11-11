@@ -37,6 +37,8 @@ export interface ModelPriceCatalogItem {
   priceInput: number
   /** 输出单价（¥ / 千 token） */
   priceOutput: number
+  /** 缓存单价（¥ / 千 token），命中缓存的 token 单独计价时使用；未配置为 0 */
+  priceCache: number
   /** 币种 */
   currency: string
   /** 是否启用 */
@@ -65,6 +67,7 @@ export interface ModelPriceUpsertRequest {
   serviceType?: string
   priceInput?: number
   priceOutput?: number
+  priceCache?: number
   currency?: string
   enabled?: boolean
   description?: string

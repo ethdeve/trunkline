@@ -212,9 +212,10 @@
         </template>
       </el-table-column>
 
-      <!-- 单价：输入 / 输出 竖排。改完即存（el-input-number 的 change 在值变化并失焦时触发一次），
-           不再单列「保存价格」按钮 —— 少一个要找的按钮。 -->
-      <el-table-column :label="t('modelConfig.columnPrice')" width="168" align="right">
+      <!-- 单价：输入 / 输出 / 缓存 竖排。改完即存（el-input-number 的 change 在值变化并失焦时触发一次），
+           不再单列「保存价格」按钮 —— 少一个要找的按钮。
+           列宽给足（210px）：既容纳「输入/输出/缓存」完整标签，又让 6 位小数的单价不被截断。 -->
+      <el-table-column :label="t('modelConfig.columnPrice')" width="210" align="right">
         <template #default="scope">
           <div class="price-stack">
             <div class="price-row">
@@ -235,6 +236,20 @@
               <span class="price-label">{{ t('modelConfig.priceOutputShort') }}</span>
               <el-input-number
                 v-model="scope.row.priceOutput"
+                :min="0"
+                :precision="6"
+                :step="0.1"
+                :controls="false"
+                :disabled="!canWrite"
+                size="small"
+                class="price-input"
+                @change="onPriceChanged(scope.row)"
+              />
+            </div>
+            <div class="price-row">
+              <span class="price-label">{{ t('modelConfig.priceCacheShort') }}</span>
+              <el-input-number
+                v-model="scope.row.priceCache"
                 :min="0"
                 :precision="6"
                 :step="0.1"
@@ -586,6 +601,8 @@ interface ModelRow {
   // ---- 价格 / 额度（来自 model_price，按实例名 join） ----
   priceInput: number
   priceOutput: number
+  /** 缓存单价（命中缓存的 token 单独计价） */
+  priceCache: number
   currency: string
   /** 计价开关：false → 该模型不参与账单计价（¥0） */
   priceEnabled: boolean
@@ -784,13 +801,14 @@ const fetchPools = async () => {
 /** 空价格行（实例尚未配置价格时的默认值） */
 const emptyPriceOf = (): Pick<
   ModelRow,
-  | 'priceInput' | 'priceOutput' | 'currency' | 'priceEnabled'
+  | 'priceInput' | 'priceOutput' | 'priceCache' | 'currency' | 'priceEnabled'
   | 'rateLimitPerMinute' | 'hourlyRequestLimit' | 'hourlyTokenLimit'
   | 'dailyRequestLimit' | 'dailyTokenLimit' | 'monthlyRequestLimit' | 'monthlyTokenLimit'
   | 'quotaAlertThreshold'
 > => ({
   priceInput: 0,
   priceOutput: 0,
+  priceCache: 0,
   currency: 'CNY',
   priceEnabled: true,
   rateLimitPerMinute: 0,
@@ -874,6 +892,7 @@ const load = async () => {
             ? {
                 priceInput: Number(price.priceInput ?? 0),
                 priceOutput: Number(price.priceOutput ?? 0),
+                priceCache: Number(price.priceCache ?? 0),
                 currency: price.currency || 'CNY',
                 priceEnabled: price.enabled !== false,
                 rateLimitPerMinute: Number(price.rateLimitPerMinute ?? 0),
@@ -929,6 +948,7 @@ const savePrice = async (row: ModelRow) => {
       serviceType: row.serviceType,
       priceInput: row.priceInput,
       priceOutput: row.priceOutput,
+      priceCache: row.priceCache,
       currency: row.currency || 'CNY',
       enabled: row.priceEnabled
     })
@@ -1396,6 +1416,7 @@ const handleExport = () => {
       { header: t('instance.exportColumnCircuit'), value: r => circuitStateOf(r) || 'CLOSED' },
       { header: t('modelConfig.columnPriceInput'), value: r => r.priceInput },
       { header: t('modelConfig.columnPriceOutput'), value: r => r.priceOutput },
+      { header: t('modelConfig.columnPriceCache'), value: r => r.priceCache },
       { header: t('modelConfig.columnBilling'), value: r => (r.priceEnabled ? 'Y' : 'N') },
       { header: t('circuitBreakerConfig.title'), value: r => (r.circuitBreakerEnabled ? 'Y' : 'N') },
       { header: t('rateLimitConfig.title'), value: r => (r.rateLimitEnabled ? 'Y' : 'N') },
@@ -1658,7 +1679,7 @@ onMounted(async () => {
   gap: 6px;
 }
 
-/* ---- 单价：输入 / 输出 竖排 ---- */
+/* ---- 单价：输入 / 输出 / 缓存 竖排 ---- */
 .price-stack {
   display: flex;
   flex-direction: column;
@@ -1676,7 +1697,9 @@ onMounted(async () => {
 .price-label {
   font-size: 12px;
   color: var(--ja-text-secondary);
-  min-width: 26px;
+  /* 「输入」「输出」「缓存」均为两字，给足宽度避免被挤成单字或换行 */
+  min-width: 30px;
+  white-space: nowrap;
   text-align: right;
 }
 

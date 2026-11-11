@@ -29,8 +29,11 @@ import java.time.LocalDateTime;
  * {@code service_instance.instance_name}，接入厂商时实例名直接取上游模型 ID）。
  * 该行同时承载两类配置：</p>
  * <ul>
- *   <li><b>价格</b>：输入 / 输出单价（¥ / 千 token），供账单聚合
- *       {@code Σ(tokens × price)}。价格来源一期手工配置（用户决策 #2）。</li>
+ *   <li><b>价格</b>：输入 / 输出 / 缓存三档单价（¥ / 千 token），供账单聚合
+ *       {@code Σ(tokens × price)}。缓存单价用于命中缓存的 token 单独计价场景
+ *       （如 Anthropic Prompt Caching）。注意：{@code token_usage} 目前只记录输入/输出
+ *       token，尚无缓存 token 计量维度，故缓存单价本次仅做「可配置 / 可回显」，
+ *       账单计算暂不使用本列。价格来源一期手工配置（用户决策 #2）。</li>
  *   <li><b>额度与限速</b>：分钟 / 小时 / 日 / 月 四级窗口的请求数与 Token 上限，
  *       以及配额告警阈值。语义与 {@code PoolDefinition} 同构（0 = 不限制）。
  *       这一段是<b>针对厂商模型</b>的配置——虚拟模型（原模型分组）有自己的额度与限速配置，
@@ -39,8 +42,9 @@ import java.time.LocalDateTime;
  *
  * <p>单价默认 {@code 0}：未配置价格的模型按 ¥0 计入，前端账单页给空态提示。</p>
  *
- * <p>新表由迁移脚本创建（见 {@code src/main/resources/db/migration/<方言>/V9__model_price.sql}），
- * 额度/限速列由 {@code V11__model_price_quota.sql} 追加。</p>
+ * <p>全部列（含缓存单价 {@code price_cache}）均由合并基线 {@code V1__baseline.sql} 建成
+ * （见 {@code src/main/resources/db/migration/<方言>/}）；缓存单价列曾短暂以
+ * {@code V2__model_price_cache.sql} 增量脚本存在，因项目未发版已于 2026-11-11 并入 V1，不留增量。</p>
  *
  * @author Trunkline Team
  */
@@ -77,6 +81,11 @@ public class ModelPriceEntity {
     @Column(name = "price_output", nullable = false, columnDefinition = "DECIMAL(12,6)")
     @Builder.Default
     private BigDecimal priceOutput = BigDecimal.ZERO;
+
+    /** 缓存单价（¥ / 千 token），命中缓存的 token 单独计价时使用；未配置为 0 */
+    @Column(name = "price_cache", nullable = false, columnDefinition = "DECIMAL(12,6)")
+    @Builder.Default
+    private BigDecimal priceCache = BigDecimal.ZERO;
 
     /** 币种（默认 CNY） */
     @Column(name = "currency", nullable = false, length = 8)
