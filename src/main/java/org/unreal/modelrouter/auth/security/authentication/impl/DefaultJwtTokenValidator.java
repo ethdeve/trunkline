@@ -381,18 +381,26 @@ public class DefaultJwtTokenValidator implements JwtTokenValidator {
 
                 return redisTemplate.opsForValue()
                     .set(blacklistKey, "blacklisted", Duration.ofSeconds(ttlSeconds))
-                    .doOnNext(success -> {
-                        if (success) {
+                    .flatMap(success -> {
+                        if (Boolean.TRUE.equals(success)) {
                             log.info("令牌已通过Redis加入黑名单: jti={}, ttl={}s", finalJti, ttlSeconds);
-                        } else {
-                            log.error("通过Redis加入黑名单失败: jti={}", finalJti);
+                            return Mono.<Void>empty();
                         }
-                    })
-                    .then();
+                        // M-16：Redis 明确返回 false（写入未生效）时不得静默当作成功，
+                        // 否则 refreshToken 会据此继续签发新令牌，旧令牌仍有效 → 撤销被绕过。
+                        log.error("通过Redis加入黑名单失败(set=false): jti={}", finalJti);
+                        return Mono.<Void>error(new AuthenticationException(
+                                "令牌加入黑名单失败（存储写入未生效）", "JWT_BLACKLIST_WRITE_FAILED"));
+                    });
 
             } catch (Exception e) {
                 log.error("将JWT令牌加入黑名单时发生错误: {}", e.getMessage(), e);
-                return Mono.<Void>empty(); // 出错时静默失败
+                // M-16：不再静默失败。刷新链路（refreshToken）依赖本方法的完成信号来
+                // 决定是否签发新令牌；拉黑失败必须上抛以阻断"撤销失败仍签发新令牌"。
+                // 撤销链路（JwtTokenRefreshService.revokeToken）自身有 onErrorResume +
+                // 内存黑名单兜底，上抛不会破坏其最终语义。
+                return Mono.<Void>error(new AuthenticationException(
+                        "令牌加入黑名单失败: " + e.getMessage(), "JWT_BLACKLIST_ADD_FAILED"));
             }
         }).flatMap(mono -> mono);
     }

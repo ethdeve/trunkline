@@ -37,6 +37,17 @@ public class RedisJwtBlacklistServiceImpl implements JwtBlacklistService {
     private static final long CACHE_REFRESH_INTERVAL = 60000; // 1分钟缓存刷新间隔
 
     /**
+     * M-14/M-16：两级存储（Redis + 降级存储）读取均失败时是否 fail-closed。
+     * 复用 issue #118 的 {@code blacklistFailClosedWhenUnavailable} 语义；默认 false
+     * 保持历史可用性优先，由 JwtServiceConfiguration 在装配时按配置注入。
+     */
+    private volatile boolean failClosedOnReadFailure = false;
+
+    public void setFailClosedOnReadFailure(final boolean failClosedOnReadFailure) {
+        this.failClosedOnReadFailure = failClosedOnReadFailure;
+    }
+
+    /**
      * 构造函数 - 用于依赖注入
      */
     public RedisJwtBlacklistServiceImpl(
@@ -100,11 +111,19 @@ public class RedisJwtBlacklistServiceImpl implements JwtBlacklistService {
             return Mono.just(true);
         }
 
-        // 检查Redis
+        // 检查Redis；失败降级到 StoreManager；两级读取均失败时按 fail-closed 开关决策（M-14/M-16）。
+        // 关键：降级存储读取失败抛 BlacklistReadException，绝不伪装成"确定未拉黑"放行。
         return redisOperations.isBlacklisted(tokenHash)
-            .onErrorResume(error -> {
-                log.warn("Failed to check blacklist in Redis, falling back to StoreManager: {}", error.getMessage());
+            .onErrorResume(redisError -> {
+                log.warn("Failed to check blacklist in Redis, falling back to StoreManager: {}",
+                        redisError.getMessage());
                 return fallbackOperations.isBlacklisted(tokenHash);
+            })
+            .onErrorResume(FallbackBlacklistOperations.BlacklistReadException.class, readError -> {
+                log.error("Both Redis and fallback blacklist storage failed to read; "
+                        + "failClosed={} — token revocation status CANNOT be confirmed. error={}",
+                        failClosedOnReadFailure, readError.getMessage());
+                return Mono.just(failClosedOnReadFailure);
             })
             .doOnNext(isBlacklisted -> {
                 if (isBlacklisted) {

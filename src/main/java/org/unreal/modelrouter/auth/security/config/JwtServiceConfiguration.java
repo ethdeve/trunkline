@@ -1,11 +1,13 @@
 package org.unreal.modelrouter.auth.security.config;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.unreal.modelrouter.auth.security.config.properties.JwtConfig;
 import org.unreal.modelrouter.auth.security.service.JwtBlacklistService;
 import org.unreal.modelrouter.auth.security.service.JwtPersistenceService;
 import org.unreal.modelrouter.auth.security.service.impl.JwtBlacklistServiceImpl;
@@ -64,10 +66,16 @@ public class JwtServiceConfiguration {
     @ConditionalOnProperty(name = "trunkline.security.jwt.blacklist.redis.enabled", havingValue = "true")
     public JwtBlacklistService redisJwtBlacklistService(
             final ReactiveRedisTemplate<String, String> redisTemplate,
-            final StoreManager storeManager) {
-        
+            final StoreManager storeManager,
+            @Autowired(required = false) final JwtConfig jwtConfig) {
+
         log.info("Initializing Redis-based JWT blacklist service");
-        return new RedisJwtBlacklistServiceImpl(redisTemplate, storeManager);
+        RedisJwtBlacklistServiceImpl service = new RedisJwtBlacklistServiceImpl(redisTemplate, storeManager);
+        // M-14/M-16：把 issue #118 的统一开关下传到降级读失败决策（默认 false 保持可用性优先）。
+        if (jwtConfig != null) {
+            service.setFailClosedOnReadFailure(jwtConfig.isBlacklistFailClosedWhenUnavailable());
+        }
+        return service;
     }
     
     /**

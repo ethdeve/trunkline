@@ -2,9 +2,11 @@ package org.unreal.modelrouter.auth.security.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
+import org.unreal.modelrouter.auth.security.config.properties.JwtConfig;
 import org.unreal.modelrouter.common.dto.TokenBlacklistEntry;
 import org.unreal.modelrouter.auth.security.service.JwtBlacklistService;
 import org.unreal.modelrouter.auth.security.service.StorageHealthService;
@@ -30,8 +32,19 @@ public class CompositeJwtBlacklistServiceImpl implements JwtBlacklistService {
     private final JwtBlacklistService fallbackService;
     
     private final StorageHealthService storageHealthService;
-    
+
+    /**
+     * M-14/M-16：黑名单存储读取失败时是否 fail-closed，复用 issue #118 的
+     * {@code blacklistFailClosedWhenUnavailable} 语义（默认 false，可用性优先）。
+     */
+    @Autowired(required = false)
+    private JwtConfig jwtConfig;
+
     private static final long DEFAULT_TTL_SECONDS = 24 * 60 * 60; // 24h
+
+    private boolean failClosedOnReadFailure() {
+        return jwtConfig != null && jwtConfig.isBlacklistFailClosedWhenUnavailable();
+    }
 
     @Override
     public Mono<Void> addToBlacklist(final String tokenHash, final String reason, final String addedBy) {
@@ -80,6 +93,14 @@ public class CompositeJwtBlacklistServiceImpl implements JwtBlacklistService {
                     log.debug("Redis unhealthy, checking blacklist in StoreManager");
                     return fallbackService.isBlacklisted(tokenHash);
                 }
+            })
+            // M-14/M-16：任一级存储读失败都不得伪装成"确定未拉黑"放行。
+            // 按 issue #118 的统一开关决策；"无法确认"必须显式可见。
+            .onErrorResume(error -> {
+                log.error("Both blacklist storages failed/unavailable while checking token {}; "
+                        + "failClosed={} — revocation status CANNOT be confirmed. error={}",
+                        tokenHash, failClosedOnReadFailure(), error.getMessage());
+                return Mono.just(failClosedOnReadFailure());
             })
             .doOnNext(isBlacklisted -> log.debug("Token {} blacklist status: {}", tokenHash, isBlacklisted))
             .doOnError(error -> log.error("Failed to check blacklist status: {}", error.getMessage(), error));

@@ -123,6 +123,24 @@ class RetryPolicyTest {
     }
 
     @Test
+    @org.junit.jupiter.api.DisplayName("C-06: 按服务类型实际预算截断重试，与全局默认值解耦")
+    void testCanRetry_RespectsEffectiveBudget() {
+        // rerank 声明只重试 1 次：retryCount=0 可重试，retryCount>=1 停止，
+        // 即便策略实例的全局 maxRetries 仍是默认 3。
+        assertTrue(retryPolicy.canRetry(0, new Exception("t"), 1));
+        assertFalse(retryPolicy.canRetry(1, new Exception("t"), 1));
+        assertFalse(retryPolicy.canRetry(2, new Exception("t"), 1));
+
+        // 非正数预算：禁止任何重试
+        assertFalse(retryPolicy.canRetry(0, new Exception("t"), 0));
+        assertFalse(retryPolicy.canRetry(0, new Exception("t"), -1));
+
+        // chat 预算 2：0、1 可重试，2 停止
+        assertTrue(retryPolicy.canRetry(1, new Exception("t"), 2));
+        assertFalse(retryPolicy.canRetry(2, new Exception("t"), 2));
+    }
+
+    @Test
     void testIsRetryable_TimeoutException() {
         // Given
         TimeoutException exception = new TimeoutException("Timeout");

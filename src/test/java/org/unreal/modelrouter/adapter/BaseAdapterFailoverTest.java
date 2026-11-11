@@ -132,7 +132,8 @@ class BaseAdapterFailoverTest {
                 .thenReturn("/v1/chat/completions");
 
         // RetryPolicy: allow 1 retry (retryCount 0)
-        when(retryPolicy.canRetry(eq(0), any())).thenReturn(true);
+        // C-06: 生产改为三参 canRetry(retryCount, error, effectiveMaxRetries)
+        when(retryPolicy.canRetry(eq(0), any(), anyInt())).thenReturn(true);
         when(retryPolicy.isRetryable(any(ConnectException.class))).thenReturn(true);
 
         // tryReselectInstance calls registry.selectInstance(st, mn, null) -> B
@@ -177,8 +178,8 @@ class BaseAdapterFailoverTest {
         when(instanceSelector.getModelPath(any(), anyString()))
                 .thenReturn("/v1/chat/completions");
 
-        // canRetry: allow retryCount 0 and 1, reject 2
-        when(retryPolicy.canRetry(anyInt(), any()))
+        // canRetry: allow retryCount 0 and 1, reject 2（C-06 三参签名）
+        when(retryPolicy.canRetry(anyInt(), any(), anyInt()))
                 .thenAnswer(inv -> (int) inv.getArgument(0) < 2);
         when(retryPolicy.isRetryable(any(ConnectException.class))).thenReturn(true);
 
@@ -221,8 +222,8 @@ class BaseAdapterFailoverTest {
         when(instanceSelector.getModelPath(any(), anyString()))
                 .thenReturn("/v1/chat/completions");
 
-        // Allow retryCount 0 and 1, reject 2
-        when(retryPolicy.canRetry(anyInt(), any()))
+        // Allow retryCount 0 and 1, reject 2（C-06 三参签名）
+        when(retryPolicy.canRetry(anyInt(), any(), anyInt()))
                 .thenAnswer(inv -> (int) inv.getArgument(0) < 2);
         when(retryPolicy.isRetryable(any(ConnectException.class))).thenReturn(true);
 
@@ -269,8 +270,8 @@ class BaseAdapterFailoverTest {
         when(instanceSelector.getModelPath(any(), anyString()))
                 .thenReturn("/v1/chat/completions");
 
-        // canRetry returns true, but isRetryable returns false
-        when(retryPolicy.canRetry(eq(0), any())).thenReturn(true);
+        // canRetry returns true, but isRetryable returns false（C-06 三参签名）
+        when(retryPolicy.canRetry(eq(0), any(), anyInt())).thenReturn(true);
         when(retryPolicy.isRetryable(any(IllegalArgumentException.class))).thenReturn(false);
 
         BaseAdapter.RequestProcessor<Object> processor = (req, auth, client, path, instance, st) ->
@@ -299,8 +300,8 @@ class BaseAdapterFailoverTest {
         when(instanceSelector.getModelPath(any(), anyString()))
                 .thenReturn("/v1/chat/completions");
 
-        // Allow retryCount 0 and 1, reject 2
-        when(retryPolicy.canRetry(anyInt(), any()))
+        // Allow retryCount 0 and 1, reject 2（C-06 三参签名）
+        when(retryPolicy.canRetry(anyInt(), any(), anyInt()))
                 .thenAnswer(inv -> (int) inv.getArgument(0) < 2);
         when(retryPolicy.isRetryable(any(ConnectException.class))).thenReturn(true);
 

@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 
 /**
@@ -51,6 +52,14 @@ public abstract class BaseAdapter implements ServiceCapability {
     private final ResilienceSupport resilienceSupport;
     protected final ObjectMapper objectMapper;
     private final Logger logger = LoggerFactory.getLogger(BaseAdapter.class);
+
+    /**
+     * C-06：非幂等 POST 重试的幂等键，挂在 {@link ServerHttpRequest} 属性上。
+     * 同一逻辑请求（含其全部重试/实例故障转移）共用一个键，使下游可据此去重，
+     * 避免"实例切换/超时重发"导致同一笔模型调用被重复生成、重复计费。
+     * 键由 {@link #processRequest} 在入口处生成一次；未进入网关（httpRequest 为空）时不注入。
+     */
+    public static final String IDEMPOTENCY_KEY_ATTRIBUTE = "TRUNKLINE_IDEMPOTENCY_KEY";
 
     @Autowired
     private MultipartRequestHandler multipartRequestHandler;
@@ -113,10 +122,44 @@ public abstract class BaseAdapter implements ServiceCapability {
 
     // ==================== 请求处理模板方法 ====================
 
+    /**
+     * C-06：在同一逻辑请求上生成/复用幂等键（首次调用生成，其后的重试与实例故障转移复用）。
+     *
+     * <p>挂在 {@link ServerHttpRequest} 属性上，因为重试链（{@code processRequestWithRetry}
+     * 递归）与 processor lambda 捕获的是同一个 httpRequest 对象，键可跨重试保持稳定。
+     * 下游据此对"已处理但响应丢失"的重复投递去重，避免重复生成/重复计费。
+     * httpRequest 为空或未带属性表时静默跳过（保持既有可测性与容错）。</p>
+     *
+     * @param httpRequest 当前 HTTP 请求，可为 null
+     * @return 稳定的幂等键；无法挂载时返回 null
+     */
+    static String ensureIdempotencyKey(final ServerHttpRequest httpRequest) {
+        if (httpRequest == null) {
+            return null;
+        }
+        try {
+            Map<String, Object> attributes = httpRequest.getAttributes();
+            if (attributes == null) {
+                return null;
+            }
+            Object existing = attributes.get(IDEMPOTENCY_KEY_ATTRIBUTE);
+            if (existing instanceof String key && !key.isEmpty()) {
+                return key;
+            }
+            String key = UUID.randomUUID().toString();
+            attributes.put(IDEMPOTENCY_KEY_ATTRIBUTE, key);
+            return key;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     @SuppressWarnings("all")
     protected <T> Mono processRequest(final T request, final String authorization,
             final ServerHttpRequest httpRequest, final ModelServiceRegistry.ServiceType serviceType,
             final String modelName, final RequestProcessor<T> processor) {
+        // C-06：入口处生成一次幂等键，贯穿本次请求的所有重试/故障转移分支。
+        ensureIdempotencyKey(httpRequest);
         // 优先复用网关（ServiceRequestHandler）已选中的实例：每个请求只应发生一次实例选择，
         // 否则会重复推进负载均衡状态、重复扣减实例级限流令牌，并让路由监控一次请求 +多次计数。
         // 未经网关的调用（持有者为空）回退为自行选择，保持既有行为。
@@ -209,7 +252,10 @@ public abstract class BaseAdapter implements ServiceCapability {
                         metricsRecorder.recordCompleteCall(adapterType, instanceName, duration, false,
                                 errorCode, modelName, serviceType, selectedInstance);
                     }
-                    if (retryPolicy.canRetry(retryCount, throwable) && retryPolicy.isRetryable(throwable)) {
+                    // C-06：用按服务类型收敛后的实际预算（recordRetry 也用它），
+                    // 与 RetryPolicy 字段里的全局默认值解耦，避免"声明重试 1 次、实际重试 3 次"。
+                    if (retryPolicy.canRetry(retryCount, throwable, maxRetries)
+                            && retryPolicy.isRetryable(throwable)) {
                         resilienceSupport.getTracingManager()
                                 .recordRetry(adapterType, selectedInstance, retryCount + 1, maxRetries, throwable);
                         if (metricsRecorder != null) {
@@ -257,8 +303,19 @@ public abstract class BaseAdapter implements ServiceCapability {
         if (fallbackStrategy == null) {
             return processRequest(request, authorization, httpRequest, serviceType, modelName, processor);
         }
-        Mono<ResponseEntity<?>> requestMono = (Mono<ResponseEntity<?>>) (Mono) processRequest(
+        Mono<ResponseEntity<?>> rawMono = (Mono<ResponseEntity<?>>) (Mono) processRequest(
                 request, authorization, httpRequest, serviceType, modelName, processor);
+        // M-24：解析本次请求的降级键，写入侧(CacheFallbackStrategy.cacheResponse)与读取侧
+        // (fallback(cause, requestKey))共用同一权威来源，实现请求级隔离、杜绝跨请求串扰。
+        String requestKey = CacheFallbackStrategy.resolveRequestKey(serviceType, modelName, httpRequest);
+        // M-24：把写入桥接上——此前 BaseAdapter.cacheSuccessfulResponse 定义了却从未被调用，
+        // 导致 strategy:cache 的内置缓存恒空、降级永远 503（形同虚设）。仅在 2xx 成功且
+        // 策略确为缓存型时写入；写入键与读取键同为 requestKey，天然请求级隔离。
+        Mono<ResponseEntity<?>> requestMono = rawMono.doOnSuccess(response -> {
+            if (response != null && response.getStatusCode().is2xxSuccessful()) {
+                cacheSuccessfulResponse(serviceType, modelName, response, httpRequest);
+            }
+        });
         if (fallbackRequestProcessor != null) {
             return requestMono.onErrorResume(throwable -> {
                 if (errorTracker != null) {
@@ -269,7 +326,7 @@ public abstract class BaseAdapter implements ServiceCapability {
                     errorContext.put("provider", adapterType);
                     errorTracker.trackError(throwable, adapterType + ".fallback", errorContext);
                 }
-                return fallbackRequestProcessor.handleFallbackError(throwable, fallbackStrategy);
+                return fallbackRequestProcessor.handleFallbackError(throwable, fallbackStrategy, requestKey);
             });
         }
         return requestMono.onErrorResume(throwable -> {
@@ -281,7 +338,7 @@ public abstract class BaseAdapter implements ServiceCapability {
                 errorContext.put("provider", adapterType);
                 errorTracker.trackError(throwable, adapterType + ".fallback", errorContext);
             }
-            return resolveFallbackResponse(throwable, fallbackStrategy);
+            return resolveFallbackResponse(throwable, fallbackStrategy, requestKey);
         });
     }
 
@@ -298,10 +355,26 @@ public abstract class BaseAdapter implements ServiceCapability {
      */
     static Mono<ResponseEntity<?>> resolveFallbackResponse(
             final Throwable throwable, final FallbackStrategy<ResponseEntity<?>> fallbackStrategy) {
+        return resolveFallbackResponse(throwable, fallbackStrategy, null);
+    }
+
+    /**
+     * M-24：带请求键的降级求值——把请求维度传入策略，缓存降级只返回本次请求的缓存结果。
+     *
+     * <p>无状态策略（DefaultFallbackStrategy）走接口默认方法忽略 requestKey，行为不变；
+     * 缓存策略（CacheFallbackStrategy）据此精确命中，未命中返回 503 而非任意缓存。</p>
+     */
+    static Mono<ResponseEntity<?>> resolveFallbackResponse(
+            final Throwable throwable, final FallbackStrategy<ResponseEntity<?>> fallbackStrategy,
+            final String requestKey) {
         Exception cause = throwable instanceof Exception
             ? (Exception) throwable
             : new IllegalStateException("请求失败", throwable);
-        ResponseEntity<?> fallbackResponse = fallbackStrategy.fallback(cause); // 只求值一次
+        // requestKey 为空（无法定位请求维度/无状态策略/兼容旧调用）时走两参重载，
+        // 既保持既有降级语义，也兼容只 stub 了两参 fallback 的调用方与测试。
+        ResponseEntity<?> fallbackResponse = requestKey == null
+            ? fallbackStrategy.fallback(cause)
+            : fallbackStrategy.fallback(cause, requestKey); // 只求值一次
         return fallbackResponse != null
             ? Mono.just(fallbackResponse)
             : Mono.error(new org.springframework.web.server.ResponseStatusException(

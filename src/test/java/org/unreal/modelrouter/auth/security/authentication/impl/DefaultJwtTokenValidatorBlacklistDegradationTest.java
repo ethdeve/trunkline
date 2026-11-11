@@ -35,6 +35,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -114,6 +115,56 @@ class DefaultJwtTokenValidatorBlacklistDegradationTest {
                 .expectNext(false)
                 .verifyComplete();
             verifyNoInteractions(redisTemplate);
+        }
+    }
+
+    @Nested
+    @DisplayName("M-16: 拉黑写入失败必须上抛（阻断刷新链路签发新令牌）")
+    class BlacklistWriteFailureTests {
+
+        @SuppressWarnings("unchecked")
+        private org.springframework.data.redis.core.ReactiveValueOperations<String, String> valueOps() {
+            return mock(org.springframework.data.redis.core.ReactiveValueOperations.class);
+        }
+
+        @Test
+        @DisplayName("M-16: Redis set 返回 false → blacklistToken 报错，不再静默成功")
+        void setFalsePropagatesError() {
+            var valueOps = valueOps();
+            when(redisTemplate.opsForValue()).thenReturn(valueOps);
+            when(valueOps.set(anyString(), anyString(), any(Duration.class)))
+                    .thenReturn(Mono.just(false));
+
+            StepVerifier.create(validator.blacklistToken(newToken()))
+                .expectErrorMatches(t -> t instanceof org.unreal.modelrouter.common.exception.AuthenticationException
+                        && "JWT_BLACKLIST_WRITE_FAILED".equals(
+                                ((org.unreal.modelrouter.common.exception.AuthenticationException) t).getErrorCode()))
+                .verify();
+        }
+
+        @Test
+        @DisplayName("M-16: Redis set 抛异常 → blacklistToken 上抛，不再静默 empty")
+        void setErrorPropagates() {
+            var valueOps = valueOps();
+            when(redisTemplate.opsForValue()).thenReturn(valueOps);
+            when(valueOps.set(anyString(), anyString(), any(Duration.class)))
+                    .thenReturn(Mono.error(new IllegalStateException("Redis down")));
+
+            StepVerifier.create(validator.blacklistToken(newToken()))
+                .expectError()
+                .verify();
+        }
+
+        @Test
+        @DisplayName("M-16: Redis set 成功 → blacklistToken 正常完成")
+        void setSuccessCompletes() {
+            var valueOps = valueOps();
+            when(redisTemplate.opsForValue()).thenReturn(valueOps);
+            when(valueOps.set(anyString(), anyString(), any(Duration.class)))
+                    .thenReturn(Mono.just(true));
+
+            StepVerifier.create(validator.blacklistToken(newToken()))
+                .verifyComplete();
         }
     }
 

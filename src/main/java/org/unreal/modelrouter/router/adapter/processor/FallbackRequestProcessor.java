@@ -59,6 +59,20 @@ public class FallbackRequestProcessor {
     public Mono<? extends ResponseEntity<?>> handleFallbackError(
             final Throwable throwable,
             final FallbackStrategy<ResponseEntity<?>> fallbackStrategy) {
+        return handleFallbackError(throwable, fallbackStrategy, null);
+    }
+
+    /**
+     * 处理降级错误（M-24：带请求键，缓存降级只返回本次请求的缓存结果）。
+     *
+     * @param throwable        原始异常
+     * @param fallbackStrategy 降级策略
+     * @param requestKey       本次请求的降级键；为 null 时按无请求上下文降级处理
+     */
+    public Mono<? extends ResponseEntity<?>> handleFallbackError(
+            final Throwable throwable,
+            final FallbackStrategy<ResponseEntity<?>> fallbackStrategy,
+            final String requestKey) {
 
         try {
             logger.debug("执行降级策略: strategy={}", fallbackStrategy.getClass().getSimpleName());
@@ -68,7 +82,10 @@ public class FallbackRequestProcessor {
             Exception cause = throwable instanceof Exception
                 ? (Exception) throwable
                 : new IllegalStateException("请求失败", throwable);
-            ResponseEntity<?> fallbackResponse = fallbackStrategy.fallback(cause);
+            // requestKey 为空时走两参重载，保持无请求上下文的既有降级语义与兼容性。
+            ResponseEntity<?> fallbackResponse = requestKey == null
+                ? fallbackStrategy.fallback(cause)
+                : fallbackStrategy.fallback(cause, requestKey);
 
             if (fallbackResponse == null || fallbackResponse.getBody() == null) {
                 logger.warn("降级响应为空");

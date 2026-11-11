@@ -62,6 +62,22 @@ class BaseAdapterFallbackResolutionTest {
     }
 
     @Test
+    @DisplayName("M-24: 请求键透传给策略的 fallback(cause, requestKey)，且只求值一次")
+    void requestKeyIsPropagated() {
+        FallbackStrategy<ResponseEntity<?>> strategy = strategy();
+        doReturn(ResponseEntity.ok("scoped")).when(strategy).fallback(any(Exception.class), eq("req-key-42"));
+
+        StepVerifier.create(BaseAdapter.resolveFallbackResponse(
+                        new RuntimeException("boom"), strategy, "req-key-42"))
+                .assertNext(resp -> assertEquals("scoped", resp.getBody()))
+                .verifyComplete();
+
+        verify(strategy, times(1)).fallback(any(Exception.class), eq("req-key-42"));
+        // 两参旧方法不应被调用
+        verify(strategy, never()).fallback(any(Exception.class));
+    }
+
+    @Test
     @DisplayName("降级无缓存时返回 503，不抛异常")
     void noFallbackReturns503() {
         FallbackStrategy<ResponseEntity<?>> strategy = strategy();

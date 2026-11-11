@@ -94,19 +94,35 @@ public class RetryPolicy {
     }
 
     /**
-     * 判断是否可以重试
+     * 判断是否可以重试（使用本策略实例的全局 maxRetries）。
      *
      * @param retryCount 当前重试次数
      * @param error 异常
      * @return 是否可以重试
      */
     public boolean canRetry(final int retryCount, final Throwable error) {
-        if (retryCount >= maxRetries) {
-            logger.debug("达到最大重试次数：{}/{}", retryCount, maxRetries);
+        return canRetry(retryCount, error, maxRetries);
+    }
+
+    /**
+     * 判断是否可以重试（C-06：使用调用方传入的“本次请求实际重试预算”）。
+     *
+     * <p>网关按服务类型收敛重试次数（chat/embedding=2、rerank/tts/stt/imgGen=1），
+     * 而本策略实例的 {@code maxRetries} 是全局默认值（3）。旧实现 {@code canRetry}
+     * 只看字段值，导致 rerank 这类“注释声明只重试 1 次”的服务实际重试到 3 次——
+     * 预算口径分叉，且流式/大 body 服务重试会重复读取请求体、重复计费。
+     * 传入 {@code effectiveMaxRetries} 后，计数上限与记录上限（recordRetry）统一到同一来源。</p>
+     *
+     * @param retryCount         已经发生的重试次数
+     * @param error              触发重试的异常（保留参数以兼容扩展判断）
+     * @param effectiveMaxRetries 本次请求的实际重试预算；&lt;=0 表示禁止重试
+     * @return 是否可以重试
+     */
+    public boolean canRetry(final int retryCount, final Throwable error, final int effectiveMaxRetries) {
+        if (retryCount >= effectiveMaxRetries) {
+            logger.debug("达到最大重试次数：{}/{}", retryCount, effectiveMaxRetries);
             return false;
         }
-
-        // 默认所有错误都可以重试
         return true;
     }
 

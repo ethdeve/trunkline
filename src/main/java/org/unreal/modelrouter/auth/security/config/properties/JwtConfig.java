@@ -69,11 +69,15 @@ public class JwtConfig {
     private boolean blacklistEnabled = true;
 
     /**
-     * 黑名单存储不可用时是否 fail-closed（默认 false，可用性优先，与历史行为一致）。
+     * 黑名单存储不可用时是否 fail-closed（基础默认 false，可用性优先；prod profile 显式 true 收紧安全态）。
      *
-     * <p>false：存储不可用/降级短路期间放行（返回“不在黑名单”），已撤销/登出的令牌
+     * <p>false：存储不可用/降级短路期间放行（返回"不在黑名单"），已撤销/登出的令牌
      * 在存储恢复前不会被拦截——这是既有取舍（issue #76）。true：同一场景下按
-     * “在黑名单”处理并拒绝令牌（安全优先）。</p>
+     * "在黑名单"处理并拒绝令牌（安全优先，issue #118）。</p>
+     *
+     * <p><b>生产务必为 true</b>：{@code application-prod.yml} 已显式设为 true；基础模块
+     * {@code config/auth/jwt.yml} 与 dev profile 刻意保持 false（本地/开发可用性优先）。
+     * 若生产以非 prod profile 启动，须自行确保此值为 true，否则降级期仍为 fail-open。</p>
      */
     private boolean blacklistFailClosedWhenUnavailable = false;
 

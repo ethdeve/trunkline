@@ -176,6 +176,18 @@ public class NonStreamingRequestProcessor {
             }
         }
 
+        // C-06：非幂等 POST 重试去重——把网关在入口生成、贯穿重试/故障转移的稳定幂等键
+        // 透传给下游。多实例故障转移时下游可据此识别"已处理但响应丢失"的重复投递，
+        // 避免同一笔模型调用被重复生成、重复计费。JSON 与 multipart 两条分支都注入。
+        if (httpRequest != null) {
+            Object idemKey = httpRequest.getAttributes()
+                    .get(org.unreal.modelrouter.router.adapter.BaseAdapter.IDEMPOTENCY_KEY_ATTRIBUTE);
+            if (idemKey instanceof String key && !key.isEmpty()) {
+                requestSpec = requestSpec.header("Idempotency-Key", key);
+                logger.debug("注入幂等键用于下游重试去重");
+            }
+        }
+
         // 4. 根据响应类型处理
         // v3.1 PR-2: 失败/取消时回滚配额预留（成功路径由 token 落库点结算，凭据保证恰一次）
         Mono<? extends ResponseEntity<?>> result;
