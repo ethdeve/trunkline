@@ -105,7 +105,7 @@
       <el-table-column v-if="canWrite" type="selection" width="46" :reserve-selection="false" />
 
       <!-- 模型名：备注名 + 真实模型名 + 模型分类 + 未入组标记 -->
-      <el-table-column prop="name" :label="t('instance.columnModelName')" min-width="210">
+      <el-table-column prop="name" :label="t('instance.columnModelName')" min-width="210" header-align="center">
         <template #default="scope">
           <div class="cell-title">{{ scope.row.tags?.alias || scope.row.name }}</div>
           <div class="cell-sub">
@@ -123,7 +123,7 @@
       </el-table-column>
 
       <!-- 上游厂商 + 接入地址 -->
-      <el-table-column prop="baseUrl" :label="t('instance.columnVendorAddress')" min-width="200">
+      <el-table-column prop="baseUrl" :label="t('instance.columnVendorAddress')" min-width="200" header-align="center">
         <template #default="scope">
           <div class="cell-title">
             {{ providerLabelOf(scope.row) }}
@@ -215,7 +215,7 @@
       <!-- 单价：输入 / 输出 / 缓存 竖排。改完即存（el-input-number 的 change 在值变化并失焦时触发一次），
            不再单列「保存价格」按钮 —— 少一个要找的按钮。
            列宽给足（210px）：既容纳「输入/输出/缓存」完整标签，又让 6 位小数的单价不被截断。 -->
-      <el-table-column :label="t('modelConfig.columnPrice')" width="210" align="right">
+      <el-table-column :label="t('modelConfig.columnPrice')" width="210" align="right" header-align="center">
         <template #default="scope">
           <div class="price-stack">
             <div class="price-row">
@@ -278,7 +278,7 @@
       </el-table-column>
 
       <!-- 额度与限速（摘要 chips，明细在弹窗里改） -->
-      <el-table-column min-width="190">
+      <el-table-column min-width="190" header-align="center">
         <template #header>{{ t('modelConfig.columnQuota') }} <TermHelp term="rateLimit" /></template>
         <template #default="scope">
           <div class="limit-summary">
