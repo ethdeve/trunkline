@@ -1,4 +1,4 @@
-# Trunkline 监控栈一键部署脚本 (PowerShell版本)
+﻿# Trunkline 监控栈一键部署脚本 (PowerShell版本)
 # 该脚本用于快速部署完整的监控环境，包括Prometheus、Grafana、AlertManager等组件
 
 param(

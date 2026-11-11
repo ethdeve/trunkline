@@ -1,4 +1,4 @@
-# Trunkline Docker 运行脚本 (PowerShell)
+﻿# Trunkline Docker 运行脚本 (PowerShell)
 # 用法: .\scripts\docker-run.ps1 [环境] [版本]
 
 param(

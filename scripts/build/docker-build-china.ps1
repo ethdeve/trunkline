@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 
 # Trunkline Docker Build Script (China Optimized)
 # 使用阿里云Maven镜像加速构建

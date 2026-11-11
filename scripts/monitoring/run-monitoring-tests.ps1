@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 
 # 监控系统集成测试和性能测试运行脚本
 # 支持Windows PowerShell和跨平台PowerShell Core

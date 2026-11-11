@@ -8,10 +8,8 @@
 scripts/
 ├── build/          # 构建部署脚本
 ├── dev/            # 开发辅助脚本
-├── migration/      # 数据迁移脚本
 ├── monitoring/     # 监控部署脚本
-├── test/           # 测试脚本
-└── tools/          # 工具脚本
+└── test/           # 测试脚本
 ```
 
 ## 脚本分类说明
@@ -21,26 +19,22 @@ scripts/
 | 脚本 | 说明 |
 |------|------|
 | `build-and-deploy.sh` | 标准构建部署脚本，完整的构建部署流程 |
-| `deploy-security.sh/ps1` | 安全功能部署脚本 |
 | `docker-build.sh/ps1` | Docker 镜像构建 |
 | `docker-build-china.sh/ps1` | Docker 镜像构建（国内镜像加速） |
 | `docker-run.sh/ps1` | Docker 容器运行 |
+| `package-desktop-windows.ps1` | Windows 桌面便携版（app-image + zip，内置 JRE，双击 exe 即用）。**须以 UTF-8 BOM 保存**，否则 PowerShell 5.1 下中文 here-string 解析失败 |
+| `package-desktop-linux.sh` | Linux 桌面便携版（tar.gz，内置 JRE），支持 `--arch x64\|aarch64` |
+| `package-desktop-mac.sh` | macOS 桌面便携版（dmg + tar.gz，内置 JRE，start.command 启动），支持 `--arch arm64\|x64` |
+
+> 三平台桌面脚本统一思路：内置 jlink 宽模块 runtime（避 jpackage 自动裁剪漏 `java.naming`）+ 启动脚本，数据落解压目录的 `./data`（可写、免 root、不改 Java），自动开浏览器由 Java 层 `DesktopBrowserLauncher` 负责。runtime 架构跟随构建机 JDK，跨架构需在对应机器上构建。用法见各脚本头部注释或 `./scripts/build/package-desktop-linux.sh --help`。
 
 ### dev/ - 开发辅助
 
 | 脚本 | 说明 |
 |------|------|
-| `dev-start.sh` | 快速启动开发环境 |
-| `run-dev.sh/ps1` | 快速构建并运行应用 |
-| `quick-fix-assets.sh` | 快速修复静态资源版本问题 |
-| `quick-test-fixes.sh` | 快速测试 JWT 安全修复 |
-
-### migration/ - 数据迁移
-
-| 脚本 | 说明 |
-|------|------|
-| `migrate_database.sh` | 数据库迁移脚本 |
-| `migrate-to-security.sh/ps1` | 安全功能迁移脚本 |
+| `run-dev.sh/ps1` | 本地快速构建并前台运行（默认端口 31080，可用 `$1`/`-Port` 改），非 Docker 的轻量替代 |
+| `diagnose-db-lock.ps1` | 诊断并解除 H2 文件库被残留后端进程占用的启动失败（`-Kill` 结束占用进程） |
+| `start-test-instance.ps1` | 启动与 IDEA 完全隔离的测试实例（默认 8081 + 独立测试库），规避 H2 单 JVM 文件锁 |
 
 ### monitoring/ - 监控部署
 
@@ -54,15 +48,8 @@ scripts/
 | 脚本 | 说明 |
 |------|------|
 | `mock-model-server.mjs` | OpenAI 兼容的 mock 模型服务，供本地联调与路由/负载均衡测试使用（见下） |
-| `test-backward-compatibility.ps1` | 安全配置校验：确认 `TRUNKLINE_SECURITY_*` 环境变量与配置结构完整（旧前缀已不再映射） |
 
 > 说明：早期一批硬编码了已废弃凭据（`dev-admin-12345` API Key、过期 JWT、旧管理员弱密码）或内网测试机地址（`172.16.30.6`）的 E2E / 版本管理 / headers / 审计 / 追踪数据生成脚本已清理。这些脚本依赖的 `X-API-Key` 认证与旧配置文件 `config-dev/security.api-keys.json` 均已从项目移除；现行追踪接口 `/api/tracing/**` 改由 JWT + 角色矩阵（OPS/ADMIN）鉴权，如需验证请通过控制台登录态调用。
-
-### tools/ - 工具脚本
-
-| 脚本 | 说明 |
-|------|------|
-| `validate-jwt-persistence-config.sh` | JWT 持久化配置验证 |
 
 ## 常用脚本使用
 
@@ -95,11 +82,14 @@ scripts/
 ### 开发调试
 
 ```bash
-# 快速启动开发环境
-./scripts/dev/dev-start.sh
+# 本地快速构建并运行（前台，Ctrl+C 停止；默认 31080）
+./scripts/dev/run-dev.sh 8080
 
-# 快速修复静态资源问题
-./scripts/dev/quick-fix-assets.sh
+# 诊断/解除 H2 数据库文件锁（后端启动报 "Database may be already in use" 时）
+pwsh scripts/dev/diagnose-db-lock.ps1 -Kill
+
+# 启动隔离的测试实例（默认 8081 端口 + 独立测试库，避开 IDEA 实例的 H2 锁）
+pwsh scripts/dev/start-test-instance.ps1 -Reset
 ```
 
 ### 本地 mock 模型服务
@@ -170,15 +160,21 @@ curl -X DELETE http://127.0.0.1:8080/api/config/instance/chat/<instanceDbId> \
 
 ## 静态资源版本问题
 
-如果页面显示旧版本，这是因为 Maven 复制前端资源时不会自动清理旧文件。
+如果页面显示旧版本，通常是 Maven 复制前端资源时没清理旧文件，或 Vite 构建触发删除守卫。
 
-**解决方案**:
+**推荐做法**：构建前端前先把旧产物改名，让 Vite 写入全新目录（避开删除守卫导致的中断）：
+
 ```bash
-./scripts/dev/quick-fix-assets.sh
+cd frontend
+[ -d dist ] && mv dist "dist_prev_$(date +%s)"
+npm run build
 ```
 
-或手动清理:
+然后走标准构建部署：
+
 ```bash
-rm -rf target/classes/static/admin/assets/*
 ./scripts/build/build-and-deploy.sh -f
 ```
+
+> 兜底：若 `target/classes/static/admin/assets/` 残留旧 hash 文件，手动清理后再构建：
+> `rm -rf target/classes/static/admin/assets/* && ./scripts/build/build-and-deploy.sh -f`

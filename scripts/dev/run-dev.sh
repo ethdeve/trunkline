@@ -42,4 +42,4 @@ echo -e "\033[1;33m🏃 运行应用，端口: $PORT\033[0m"
 echo -e "\033[0;36m🔗 访问地址: http://localhost:$PORT\033[0m"
 echo -e "\033[0;36m⏹️  按 Ctrl+C 停止应用\033[0m"
 
-java -jar -Dserver.port=$PORT "$JAR_FILE"
+java -Dserver.port=$PORT -jar "$JAR_FILE"

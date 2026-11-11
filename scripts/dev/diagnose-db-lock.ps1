@@ -26,7 +26,7 @@
     pwsh scripts/dev/diagnose-db-lock.ps1 -Kill
 
 .NOTES
-    只匹配本项目的后端进程（classpath 含 wjy-ai-gateway 或主类为
+    只匹配本项目的后端进程（classpath 含 trunkline 或主类为
     ModelRouterApplication），不会误杀 IDEA 自身的 JPS 编译进程
     （它的主类是 org.jetbrains.jps.cmdline.Launcher）。
 #>

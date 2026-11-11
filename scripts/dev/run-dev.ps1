@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 
 # 快速构建并运行 Trunkline 应用
 # 适用于 Windows PowerShell 环境
@@ -45,4 +45,4 @@ Write-Host "🏃 运行应用，端口: $Port" -ForegroundColor Yellow
 Write-Host "🔗 访问地址: http://localhost:$Port" -ForegroundColor Cyan
 Write-Host "⏹️  按 Ctrl+C 停止应用" -ForegroundColor Cyan
 
-java -jar -Dserver.port=$Port "./target/$($jarFile.Name)"
+java -Dserver.port=$Port -jar "./target/$($jarFile.Name)"

@@ -193,6 +193,12 @@ $RECYCLE.BIN/
 *.backup
 *.orig
 
+# jpackage 桌面版打包暂存目录（宽模块 runtime 暂存以避开 mvn clean，用完移回 target/）
+# 结尾是 -bak 而非 .bak，不会被上面的 *.bak 命中，需显式声明
+.packager-runtime-bak/
+.build-stash/
+build-stash/
+
 # Archive files (usually downloaded dependencies)
 *.zip
 *.tar.gz
