@@ -9,6 +9,16 @@
 | 报告缺陷：崩溃、结果不对、文档写错 | Issues（先搜一下有没有重复） |
 | 提想法、问用法、讨论方向 | Discussions |
 | 报告安全漏洞 | 按 [SECURITY.md](SECURITY.md) 私有报告，**不要公开** |
+| 深入理解架构、加功能、改配置、动数据库 | [开发者文档 docs/dev/](docs/dev/README.md) |
+
+## 开发者文档
+
+准备深入改代码之前，先看 [docs/dev/](docs/dev/README.md)（基于 v0.1.0 真实代码）：
+
+- [架构速览](docs/dev/architecture.md) —— 模块职责、一次请求的完整链路、韧性四件套
+- [扩展指南](docs/dev/extending.md) —— 新增供应商模板/策略/端点/配置项的完整改动清单与守卫测试
+- [数据模型](docs/dev/data-model.md) —— 21 张表、H2/PG 双脚本与迁移约定
+- [配置参考](docs/dev/configuration.md) —— 23 个 yml、优先级、profile、易踩项
 
 ## 开发环境
 
