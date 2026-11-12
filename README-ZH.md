@@ -14,6 +14,10 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/wjy2027/trunkline/releases"><strong>下载安装包</strong>（Windows / Mac / Linux，无需装环境，双击即用）</a>
+</p>
+
+<p align="center">
   <a href="README.md">English</a> •
   <a href="https://github.com/wjy2027/trunkline/issues">问题反馈</a> •
   <a href="https://github.com/wjy2027/trunkline/discussions">想法与讨论</a>
@@ -143,29 +147,87 @@ Trunkline 不是概念演示。下面这些能力在 **0.1.0 版本里已经可�
 
 > 以上「目前进度」是 0.1.0 版本的实际状况，会随版本更新。
 
-## 三步用起来
+## 怎么装、怎么开始用
 
-**第一步：启动**
+Trunkline 有两种用法。**想直接跑起来用，选方式一；是运维或开发人员、要部署到服务器长期运行，选方式二。**
+
+| 您的情况 | 推荐方式 | 需要提前准备 |
+|---------|---------|-------------|
+| 普通用户，不想装环境、不想敲命令 | 方式一：下载安装包，双击即用 | 一个浏览器，别的都不用装 |
+| 运维 / 技术人员，部署到服务器 | 方式二：Docker 或 jar 包 | Docker，或 Java 17 及以上 |
+
+### 方式一：下载安装包，双击就能用（普通用户推荐）
+
+Windows、macOS、Linux 都有现成安装包，**运行需要的环境已经打包进去，您不用安装 Java，也不用装 Docker**。到 [Releases 页面](https://github.com/wjy2027/trunkline/releases) 下载对应您电脑系统的那一个：
+
+| 您的电脑 | 下载这个文件 | 怎么打开 |
+|---------|-------------|---------|
+| Windows（多数台式机 / 笔记本，x64） | `Trunkline-0.1.0-win-x64-portable.zip` | 解压后双击 `Trunkline.exe` |
+| Windows（骁龙 Copilot+ PC、Surface 等 ARM 机型） | `Trunkline-0.1.0-win-arm64-portable.zip` | 解压后双击 `启动.bat` |
+| Mac（Apple 芯片 M1/M2/M3/M4） | `Trunkline-0.1.0-macos-arm64.tar.gz` | 解压后双击 `start.command` |
+| Mac（Intel 芯片） | `Trunkline-0.1.0-macos-x64.tar.gz` | 解压后双击 `start.command` |
+| Linux（x64） | `Trunkline-0.1.0-linux-x64.tar.gz` | 解压后运行 `./start.sh` |
+| Linux（ARM / aarch64） | `Trunkline-0.1.0-linux-aarch64.tar.gz` | 解压后运行 `./start.sh` |
+
+> **不知道自己电脑是哪种？** Windows 打开「设置 → 系统 → 关于」看"系统类型"；Mac 点左上角苹果图标 →「关于本机」，Apple 芯片会写明是 M 系列。
+
+启动后会自动打开浏览器；如果没有，手动打开 `http://localhost:8080/admin/`。第一次进入会引导您做初始化（见下方"第一次打开，照着做三步"）。**用完想关闭，把启动时弹出的黑框 / 终端窗口关掉就行。**
+
+<details>
+<summary>系统弹出安全提示 / 打不开怎么办？（点开看）</summary>
+
+- **Windows** 提示"Windows 已保护你的电脑"：点「更多信息」→「仍要运行」。
+- **Mac** 提示"身份不明开发者"：在「终端」执行 `xattr -dr com.apple.quarantine "/安装包路径"`，再重新双击打开。
+- **Linux** 提示权限不足：先执行 `chmod +x start.sh runtime/bin/java` 再运行。
+- **8080 端口被占用**：用文本编辑器打开启动脚本，把 `--server.port=8080` 改成别的端口，如 `8081`。
+
+</details>
+
+### 方式二：Docker 或 jar 部署（技术人员）
+
+这一节给运维和开发人员，用于把 Trunkline 部署到服务器长期运行。普通用户用上面的安装包即可，可跳过本节。
+
+**Docker（最省事）**
 
 ```bash
-docker run -d --name trunkline -p 8080:8080 trunkline/trunkline:latest
+docker run -d --name trunkline -p 8080:8080 \
+  -v trunkline-data:/app/data \
+  -e JWT_SECRET="换成您自己的至少32位随机密钥" \
+  ghcr.io/wjy2027/trunkline:0.1.0
 ```
 
-**第二步：打开浏览器做初始化**
+> 官方镜像 `ghcr.io/wjy2027/trunkline` 随 v0.1.0 发布。镜像发布前，可先用 jar 方式，或自行构建：`docker build -f Dockerfile.optimized -t trunkline:0.1.0 .`
 
-访问 `http://localhost:8080/init`（如果用安装包方式运行，地址是 `/admin/init`），按提示走三步：
+**jar 包（服务器已装 Java 17 及以上）**
 
-1. 选数据存在哪里——第一次用，选「本地」就行；
+```bash
+java -jar trunkline-0.1.0.jar
+```
+
+**从源码构建**
+
+准备 **Java 17 或以上**，下载仓库后运行：
+
+```bash
+./mvnw clean package -DskipTests
+java -jar target/trunkline-0.1.0.jar
+```
+
+### 第一次打开，照着做三步
+
+不管用哪种方式，第一次打开页面都会进入初始化向导：
+
+1. 选数据存在哪里 —— 第一次用，选「本地」就行；
 2. 如果选了远程数据库，填好信息后重启一次；
 3. 设一个管理员账号和密码（至少 12 位，别用 `123456` 这种好猜的）。
 
-**Trunkline 没有默认账号、没有默认密码。** 账号是您第一次打开页面时自己设的，这样别人拿不到现成的入口。
+安装包方式打开 `http://localhost:8080/admin/`，Docker / jar 方式打开 `http://localhost:8080/init`。
 
-**第三步：登录控制台，把您的模型加进去**
+**Trunkline 没有默认账号、没有默认密码。** 账号是您第一次打开页面时自己设的，别人拿不到现成入口。
 
-用刚设的账号登录，在控制台里添加模型。以后员工只需要用控制台发的「钥匙」，就能调用了。
+设好账号登录控制台，把您的模型加进去，以后员工用控制台发的「钥匙」就能调用了。
 
-> 正式对外提供服务前，请再设一个自己的安全密钥（环境变量 `JWT_SECRET`，至少 32 位）。示例里的值不能用于正式环境。
+> 正式对外提供服务前，请务必设自己的安全密钥（环境变量 `JWT_SECRET`，至少 32 位），并以 `prod` 模式运行（Docker 镜像默认 `prod`；jar 可加 `--spring.profiles.active=prod`）。示例里的值不能用于正式环境。
 
 如果您原来的程序已经在用 OpenAI 的方式调用模型，改一下连接地址就能切到 Trunkline，原来的代码基本不用动。
 
@@ -209,7 +271,7 @@ Trunkline 是在 [JAiRouter](https://github.com/Lincoln-cn/JAiRouter) 的基础�
 
 拿不准发哪里？先发 Discussions，如果确认是缺陷，我们会帮您转到 Issues。
 
-想自己编译：准备 **Java 17 或以上**，把仓库下载下来，运行 `./mvnw clean package -DskipTests`，然后用 `java -jar target/trunkline-0.1.0.jar` 启动。
+想自己编译或部署？见上面的「怎么装、怎么开始用」。
 
 ---
 

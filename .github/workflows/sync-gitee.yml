@@ -1,6 +1,9 @@
 name: Sync Gitee to GitHub
 on:
   schedule:
+    # 每 10 分钟同步一次。注意：私有仓库 GitHub Actions 免费额度 2000 分钟/月，
+    # 该频率在私有期可能触顶导致 Actions 暂停；建议打完 tag 尽快转 Public
+    # （公开仓库 Actions 不限量），或私有期临时把频率放宽到 */30 / */60。
     - cron: '*/10 * * * *'
   workflow_dispatch:
 jobs:
@@ -12,13 +15,18 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.GITEE_SSH_KEY }}
 
-      - name: 同步master分支
+      - name: 同步 master 分支与 tag 到 GitHub
         run: |
           git config --global user.name "github-action"
           git config --global user.email "action@github.com"
-          # 预先添加gitee和github主机密钥，解决Host key verification failed
+          # 预先添加 gitee/github 主机密钥，解决 Host key verification failed
           ssh-keyscan gitee.com >> ~/.ssh/known_hosts
           ssh-keyscan github.com >> ~/.ssh/known_hosts
           git clone --mirror git@gitee.com:wjy2025/trunkline.git src.git
           cd src.git
+          # Gitee 为唯一事实源：强推 master（GitHub 端不要直接改代码，会被覆盖）
           git push --force git@github.com:wjy2027/trunkline.git master:master
+          # 同步全部 tag（含 v0.1.0）。原脚本仅推 master，tag 不会到 GitHub，
+          # 导致 docker-publish.yml 的 on:push tags:['v*'] 永不触发、镜像不发布。
+          # 用 SSH key 推送会正常触发 GitHub Actions（仅 GITHUB_TOKEN 推送被抑制）。
+          git push --force git@github.com:wjy2027/trunkline.git --tags

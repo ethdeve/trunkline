@@ -14,6 +14,10 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/wjy2027/trunkline/releases"><strong>Download installers</strong> (Windows / Mac / Linux — no setup, just double-click)</a>
+</p>
+
+<p align="center">
   <a href="README-ZH.md">简体中文</a> •
   <a href="https://github.com/wjy2027/trunkline/issues">Report a bug</a> •
   <a href="https://github.com/wjy2027/trunkline/discussions">Ideas &amp; discussions</a>
@@ -141,29 +145,87 @@ The blueprint below is the full picture. Many items are already available in 0.1
 
 > "Where it stands" reflects version 0.1.0 and will be updated as releases go out.
 
-## Get started in three steps
+## How to install and get started
 
-**Step 1: Launch**
+There are two ways to use Trunkline. **Want to just run it? Go with option 1. Are you an operator or developer deploying to a server for the long run? Go with option 2.**
+
+| Your situation | Recommended way | What you need beforehand |
+|----------------|-----------------|--------------------------|
+| Everyday user — no environment setup, no command line | Option 1: download an installer, double-click to run | A browser; nothing else |
+| Operator / developer deploying to a server | Option 2: Docker or the jar | Docker, or Java 17+ |
+
+### Option 1: Download an installer and double-click (recommended for most people)
+
+Windows, macOS and Linux all have ready-to-run packages. **The runtime is bundled inside — you do not need to install Java or Docker.** Grab the one for your system from the [Releases page](https://github.com/wjy2027/trunkline/releases):
+
+| Your computer | Download this file | How to open it |
+|---------------|--------------------|----------------|
+| Windows (most desktops / laptops, x64) | `Trunkline-0.1.0-win-x64-portable.zip` | Unzip, double-click `Trunkline.exe` |
+| Windows (Snapdragon Copilot+ PCs, Surface ARM models) | `Trunkline-0.1.0-win-arm64-portable.zip` | Unzip, double-click `启动.bat` |
+| Mac (Apple silicon M1/M2/M3/M4) | `Trunkline-0.1.0-macos-arm64.tar.gz` | Unzip, double-click `start.command` |
+| Mac (Intel) | `Trunkline-0.1.0-macos-x64.tar.gz` | Unzip, double-click `start.command` |
+| Linux (x64) | `Trunkline-0.1.0-linux-x64.tar.gz` | Unzip, run `./start.sh` |
+| Linux (ARM / aarch64) | `Trunkline-0.1.0-linux-aarch64.tar.gz` | Unzip, run `./start.sh` |
+
+> **Not sure which one you have?** On Windows, open Settings → System → About and check "System type"; on a Mac, click the Apple icon → About This Mac — Apple silicon models list an M-series chip.
+
+A browser opens automatically on launch; if it does not, open `http://localhost:8080/admin/` yourself. On first launch you will be guided through setup (see "First launch: three steps" below). **To stop it, just close the black terminal window that appeared.**
+
+<details>
+<summary>A security warning, or it won't open? (expand)</summary>
+
+- **Windows** says "Windows protected your PC": click **More info** → **Run anyway**.
+- **Mac** says "unidentified developer": in Terminal run `xattr -dr com.apple.quarantine "/path/to/Trunkline"`, then double-click again.
+- **Linux** says permission denied: run `chmod +x start.sh runtime/bin/java` first.
+- **Port 8080 is busy**: open the start script in a text editor and change `--server.port=8080` to another port, e.g. `8081`.
+
+</details>
+
+### Option 2: Docker or jar deployment (for technical users)
+
+This section is for operators and developers who want to run Trunkline on a server long-term. Everyday users can stick with the installers above and skip this.
+
+**Docker (easiest)**
 
 ```bash
-docker run -d --name trunkline -p 8080:8080 trunkline/trunkline:latest
+docker run -d --name trunkline -p 8080:8080 \
+  -v trunkline-data:/app/data \
+  -e JWT_SECRET="replace-with-your-own-32-char-secret" \
+  ghcr.io/wjy2027/trunkline:0.1.0
 ```
 
-**Step 2: Open your browser and set it up**
+> The official image `ghcr.io/wjy2027/trunkline` ships with v0.1.0. Before it is published, use the jar option or build it yourself: `docker build -f Dockerfile.optimized -t trunkline:0.1.0 .`
 
-Visit `http://localhost:8080/init` (or `/admin/init` when running from the packaged jar) and follow three prompts:
+**jar (server already has Java 17+)**
+
+```bash
+java -jar trunkline-0.1.0.jar
+```
+
+**Build from source**
+
+With **Java 17 or newer**, clone the repo and run:
+
+```bash
+./mvnw clean package -DskipTests
+java -jar target/trunkline-0.1.0.jar
+```
+
+### First launch: three steps
+
+Whichever option you chose, the first launch opens a setup wizard:
 
 1. Choose where data is stored — pick **local** if you are just getting started;
 2. If you chose a remote database, enter its details and restart once;
 3. Create an admin username and password (12+ characters — avoid anything guessable like `123456`).
 
+With an installer, open `http://localhost:8080/admin/`; with Docker or the jar, open `http://localhost:8080/init`.
+
 **Trunkline ships with no default username and no default password.** You create the admin account the first time you open the page, so there is no ready-made entry point for someone else to find.
 
-**Step 3: Sign in and add your models**
+Sign in with the account you just created and add your models in the console. From then on, staff only need the "key" the console issues to start calling them.
 
-Log in with the account you just created, then add your models in the console. From then on, staff only need the "key" the console issues to start calling them.
-
-> Before serving real traffic, also set your own secret key (environment variable `JWT_SECRET`, at least 32 characters). Never use the sample value in production.
+> Before serving real traffic, set your own secret key (environment variable `JWT_SECRET`, at least 32 characters) and run in `prod` mode (the Docker image defaults to `prod`; for the jar add `--spring.profiles.active=prod`). Never use the sample value in production.
 
 If your application already calls models the OpenAI way, just change the connection address to switch to Trunkline — your existing code mostly stays as it is.
 
@@ -207,7 +269,7 @@ Released under the [Apache 2.0 License](LICENSE) — free to use, modify, and sh
 
 Not sure? Start with Discussions — if it turns out to be a reproducible bug, we will move it to Issues for you.
 
-To build from source: install **Java 17 or newer**, clone the repository, run `./mvnw clean package -DskipTests`, then start it with `java -jar target/trunkline-0.1.0.jar`.
+Want to build or deploy it yourself? See "How to install and get started" above.
 
 ---
 

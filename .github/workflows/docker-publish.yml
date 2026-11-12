@@ -1,0 +1,122 @@
+name: Publish Docker image to GHCR
+
+# 打 v* tag（如 v0.1.0）或手动触发时，构建 amd64/arm64 多架构镜像并推送到 GHCR。
+# 与 README 中 ghcr.io/wjy2027/trunkline 的下载/部署说明对应。
+# 凭据用内置 GITHUB_TOKEN（需 packages: write），无需额外 Secrets。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '镜像标签（默认用触发的 git tag；手动触发可填，如 0.1.0）'
+        required: false
+        default: ''
+
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  # github.repository 为 wjy2027/trunkline，小写后即 GHCR 命名空间
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    name: Build & push multi-arch image
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # 构建含前端控制台的完整 jar（frontend-maven-plugin 会自动装 Node 22 并构建 UI）。
+      # 测试与静态检查已由 ci.yml 在 push/PR 阶段把关，发布构建只出产物，故用 -Pprod 跳过。
+      - name: Build application jar (with frontend)
+        run: ./mvnw -B clean package -Pprod -DskipTests
+
+      - name: Verify jar produced
+        run: |
+          set -euo pipefail
+          JAR=$(ls target/trunkline-*.jar | grep -v -E 'original|sources|javadoc' | head -n1)
+          echo "Built jar: $JAR"
+          test -s "$JAR"
+
+      - name: Set up QEMU (for arm64 cross-build)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 标签固定为两段：语义版本（去掉 v 前缀）与 latest。
+      - name: Resolve image tags
+        id: meta
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          GIT_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          raw="${INPUT_TAG:-$GIT_TAG}"
+          version="${raw#v}"
+          if [ -z "$version" ]; then
+            echo "::error::无法解析镜像版本标签"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          {
+            echo "tags<<EOF"
+            echo "${REGISTRY}/${IMAGE_NAME}:${version}"
+            echo "${REGISTRY}/${IMAGE_NAME}:latest"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.title=Trunkline
+            org.opencontainers.image.description=Simple, secure, trustworthy intelligent routing model gateway
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.licenses=Apache-2.0
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          {
+            echo "### 已发布镜像"
+            echo ""
+            echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}\`"
+            echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`"
+            echo "- 架构：linux/amd64, linux/arm64"
+            echo "- Commit：\`${{ github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
