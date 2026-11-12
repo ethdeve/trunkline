@@ -275,5 +275,9 @@ frontend/src/views/_attic/
 frontend/diag/
 frontend/diag-pages/
 
-# GitHub 平台配置（本地保留，不进 git）
-.github/
+# GitHub 平台配置：同步用的 SSH 密钥等本地敏感文件不进 git，
+# 但 workflows（CI 门禁、镜像同步脚本）必须随代码版本化，否则打 tag 无回归护栏。
+.github/*
+!.github/workflows/
+.github/workflows/*
+!.github/workflows/*.yml

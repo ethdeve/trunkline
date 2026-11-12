@@ -30,7 +30,7 @@ FROM gcr.io/distroless/java17-debian12:latest
 LABEL maintainer="Trunkline Team"
 LABEL description="Trunkline - AI Governance Gateway (Distroless)"
 LABEL version="0.1.0"
-LABEL org.opencontainers.image.source="https://github.com/sodlinken/trunkline"
+LABEL org.opencontainers.image.source="https://github.com/wjy2027/trunkline"
 
 WORKDIR /app
 

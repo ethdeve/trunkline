@@ -15,8 +15,8 @@
 
 <p align="center">
   <a href="README.md">English</a> •
-  <a href="https://github.com/Lincoln-cn/trunkline/issues">问题反馈</a> •
-  <a href="https://github.com/Lincoln-cn/trunkline/discussions">想法与讨论</a>
+  <a href="https://github.com/wjy2027/trunkline/issues">问题反馈</a> •
+  <a href="https://github.com/wjy2027/trunkline/discussions">想法与讨论</a>
 </p>
 
 ---
@@ -204,8 +204,8 @@ Trunkline 是在 [JAiRouter](https://github.com/Lincoln-cn/JAiRouter) 的基础�
 
 | 您手上的东西 | 发到哪里 |
 |-------------|---------|
-| 遇到了缺陷：崩溃、结果不对、文档写错 | [Issues](https://github.com/Lincoln-cn/trunkline/issues) |
-| 有想法、想加功能、想提问、想讨论 | [Discussions](https://github.com/Lincoln-cn/trunkline/discussions) |
+| 遇到了缺陷：崩溃、结果不对、文档写错 | [Issues](https://github.com/wjy2027/trunkline/issues) |
+| 有想法、想加功能、想提问、想讨论 | [Discussions](https://github.com/wjy2027/trunkline/discussions) |
 
 拿不准发哪里？先发 Discussions，如果确认是缺陷，我们会帮您转到 Issues。
 
@@ -214,7 +214,7 @@ Trunkline 是在 [JAiRouter](https://github.com/Lincoln-cn/JAiRouter) 的基础�
 ---
 
 <p align="center">
-  如果 Trunkline 帮到了您，欢迎点个 <a href="https://github.com/Lincoln-cn/trunkline/stargazers">Star</a> ⭐
+  如果 Trunkline 帮到了您，欢迎点个 <a href="https://github.com/wjy2027/trunkline/stargazers">Star</a> ⭐
 </p>
 
 <p align="center">

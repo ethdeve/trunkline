@@ -1,0 +1,43 @@
+name: CI - Backend Verify
+
+# 每个 PR 与 master 推送都跑后端全量测试 + 静态检查，作为合并/打 tag 的回归护栏（清单 M-23②）
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-verify:
+    name: Maven verify (backend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Backend verify (tests + SpotBugs + Checkstyle)
+        # 与本地 ./mvnw test -Dfrontend.build.skip=true 口径一致；前端构建在独立 job 可选
+        run: ./mvnw -B verify -Dfrontend.build.skip=true
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: '**/target/surefire-reports/**'
+          retention-days: 7

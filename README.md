@@ -15,8 +15,8 @@
 
 <p align="center">
   <a href="README-ZH.md">简体中文</a> •
-  <a href="https://github.com/Lincoln-cn/trunkline/issues">Report a bug</a> •
-  <a href="https://github.com/Lincoln-cn/trunkline/discussions">Ideas &amp; discussions</a>
+  <a href="https://github.com/wjy2027/trunkline/issues">Report a bug</a> •
+  <a href="https://github.com/wjy2027/trunkline/discussions">Ideas &amp; discussions</a>
 </p>
 
 ---
@@ -202,8 +202,8 @@ Released under the [Apache 2.0 License](LICENSE) — free to use, modify, and sh
 
 | What you have | Where to send it |
 |---------------|------------------|
-| A reproducible bug: crash, wrong result, doc error | [Issues](https://github.com/Lincoln-cn/trunkline/issues) |
-| An idea, a feature request, a question, or a discussion | [Discussions](https://github.com/Lincoln-cn/trunkline/discussions) |
+| A reproducible bug: crash, wrong result, doc error | [Issues](https://github.com/wjy2027/trunkline/issues) |
+| An idea, a feature request, a question, or a discussion | [Discussions](https://github.com/wjy2027/trunkline/discussions) |
 
 Not sure? Start with Discussions — if it turns out to be a reproducible bug, we will move it to Issues for you.
 
@@ -212,7 +212,7 @@ To build from source: install **Java 17 or newer**, clone the repository, run `.
 ---
 
 <p align="center">
-  If Trunkline helps you, please give it a <a href="https://github.com/Lincoln-cn/trunkline/stargazers">Star</a> ⭐
+  If Trunkline helps you, please give it a <a href="https://github.com/wjy2027/trunkline/stargazers">Star</a> ⭐
 </p>
 
 <p align="center">
