@@ -79,4 +79,29 @@ class StartupSecurityGateTest {
         // 非生产：默认密钥仅告警
         assertTrue(StartupSecurityGate.jwtSecretOk(false, null));
     }
+
+    @Test
+    @DisplayName("#664 残余：文档/模板占位符密钥一律视为默认值")
+    void placeholderSecretsDetected() {
+        assertTrue(StartupSecurityGate.isDefaultJwtSecret(
+                "your-very-secure-jwt-secret-key-at-least-32-characters-long"));
+        assertTrue(StartupSecurityGate.isDefaultJwtSecret("replace-with-your-own-32-char-secret"));
+        assertTrue(StartupSecurityGate.isDefaultJwtSecret("change-this-secret-before-going-live"));
+        assertTrue(StartupSecurityGate.isDefaultJwtSecret("placeholder-abcdefghijklmnopqrstuv"));
+        assertTrue(StartupSecurityGate.isDefaultJwtSecret("example-secret-value-long-enough-0001"));
+        // 既有口径不能被削弱
+        assertTrue(StartupSecurityGate.isDefaultJwtSecret(
+                StartupSecurityGate.DEFAULT_JWT_SECRET));
+        assertTrue(StartupSecurityGate.isDefaultJwtSecret("something-devonly-abcdefghijklmn"));
+        // 真实强密钥不得误伤（含 example 字样但不是占位前缀）
+        assertFalse(StartupSecurityGate.isDefaultJwtSecret(
+                "Pr0d!Only#Random$Secret-Key-2026-abcdefghijklmnopqrst"));
+    }
+
+    @Test
+    @DisplayName("占位符在生产同样被 jwtSecretOk 拒绝")
+    void placeholderSecretRejectedInProduction() {
+        assertFalse(StartupSecurityGate.jwtSecretOk(true, "your-very-secure-jwt-secret-key-0001"));
+        assertTrue(StartupSecurityGate.jwtSecretOk(false, "your-very-secure-jwt-secret-key-0001"));
+    }
 }

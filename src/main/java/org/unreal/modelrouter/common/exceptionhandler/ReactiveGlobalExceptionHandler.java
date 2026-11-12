@@ -59,6 +59,9 @@ public class ReactiveGlobalExceptionHandler implements ErrorWebExceptionHandler 
      */
     private static final String SIMPLE_ERROR_MESSAGE = "Internal Server Error";
 
+    /** 【issue #856】兜底 500 一律返回该通用文案，异常原文只进日志。 */
+    private static final String GENERIC_SERVER_ERROR = "服务内部错误，请稍后重试";
+
     /**
      * 非 {@code /v1/**} 路径的静态兜底错误体（保持既有形状不变）.
      */
@@ -127,6 +130,11 @@ public class ReactiveGlobalExceptionHandler implements ErrorWebExceptionHandler 
                 } else if (ex instanceof ResponseStatusException) {
                     ResponseStatusException rse = (ResponseStatusException) ex;
                     logger.error("响应状态异常: status={}, message={}", rse.getStatusCode(), rse.getMessage());
+                    // #856 的脱敏边界：ResponseStatusException 的 reason 由业务代码显式构造
+                    //（配额命中 dailyRequestLimit: 3/3、下游超时等），是对客户端的业务提示；
+                    // 既有 error body 契约（V1ClientErrorBodyMappingTest / 配额集成测试）锁定
+                    // "请求处理失败: <reason>" 原样回显，不能一刀切成通用文案。
+                    // 真正需要防泄露的是下方「未知 Throwable → 500」分支，那里已去掉 getMessage() 回显。
                     errorResponse = RouterResponse.error("请求处理失败: " + rse.getReason(),
                             String.valueOf(rse.getStatusCode().value()));
                     status = HttpStatus.resolve(rse.getStatusCode().value());
@@ -138,12 +146,11 @@ public class ReactiveGlobalExceptionHandler implements ErrorWebExceptionHandler 
                     errorResponse = RouterResponse.error("参数验证失败：" + ex.getMessage(), "400");
                     status = HttpStatus.BAD_REQUEST;
                 } else {
+                    // 【issue #856】未知异常的 getMessage() 可能含内部主机名、JDBC 连接串、
+                    // 堆栈片段等；/api/** 与 /v1/** 双契约都会把它透出给客户端。
+                    // 完整原文与堆栈只进日志（排障靠 traceId + 日志），响应只给通用文案。
                     logger.error("系统异常", ex);
-                    String errorMessage = ex.getMessage();
-                    if (errorMessage == null) {
-                        errorMessage = ex.getClass().getSimpleName();
-                    }
-                    errorResponse = RouterResponse.error("系统异常: " + errorMessage, "500");
+                    errorResponse = RouterResponse.error(GENERIC_SERVER_ERROR, "500");
                     status = HttpStatus.INTERNAL_SERVER_ERROR;
                 }
                 

@@ -169,7 +169,7 @@ class V1ClientErrorBodyMappingTest {
     }
 
     @Test
-    @DisplayName("/v1/messages + 5xx：api_error（状态码保持）")
+    @DisplayName("/v1/messages + 5xx：api_error 形状保持，未知异常原文不回显（#856）")
     void anthropicMessagesServerError_shouldMapToApiError() throws Exception {
         final MockServerWebExchange exchange = exchangeOf(ANTHROPIC_PATH);
         final String body = render(exchange, new RuntimeException("downstream reset by peer"));
@@ -177,8 +177,12 @@ class V1ClientErrorBodyMappingTest {
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, exchange.getResponse().getStatusCode());
         final JsonNode json = singleJsonObject(body);
         assertEquals("api_error", json.path("error").path("type").asText());
-        assertTrue(json.path("error").path("message").asText().contains("downstream reset by peer"),
-                "必须是原错误消息: " + body);
+        // #856：未知 RuntimeException 的原文只进日志（排障靠 traceId），不能回显给客户端；
+        // 但 Anthropic 的 api_error 形状必须保持，否则 SDK 无法解析网关自身错误。
+        final String message = json.path("error").path("message").asText();
+        assertFalse(message.contains("downstream reset by peer"),
+                "5xx 不得回显未知异常原文: " + body);
+        assertEquals("服务内部错误，请稍后重试", message, body);
     }
 
     @Test

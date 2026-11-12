@@ -75,6 +75,30 @@ class DebugMultipartControllerSecurityTest {
     }
 
     @Test
+    @DisplayName("multipart-info 的 uri 字段不得明文回显 query 中的密钥（#695）")
+    void debugMultipartInfo_doesNotEchoSecretsInUri() {
+        MockServerHttpRequest request = MockServerHttpRequest.post(
+                        "/v1/debug/multipart-info?token=URI_SECRET_TOKEN&api_key=URI_SECRET_KEY&page=1")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(controller.debugMultipartInfo(exchange))
+                .assertNext(entity -> {
+                    Map<String, Object> body = entity.getBody();
+                    assertNotNull(body);
+                    String uri = String.valueOf(body.get("uri"));
+                    assertFalse(uri.contains("URI_SECRET_TOKEN"), "uri 不得明文落 token: " + uri);
+                    assertFalse(uri.contains("URI_SECRET_KEY"), "uri 不得明文落 api_key");
+                    assertTrue(uri.contains("token=[REDACTED]"));
+                    assertTrue(uri.contains("api_key=[REDACTED]"));
+                    assertTrue(uri.contains("page=1"), "非敏感参数应原样保留");
+                })
+                .expectComplete()
+                .verify(Duration.ofSeconds(5));
+    }
+
+    @Test
     @DisplayName("调试端点默认关闭（ConditionalOnProperty 缺省 false）")
     void debugEndpoints_disabledByDefault() {
         // 契约：默认配置下 Spring 不装配该 Bean —— 见类上 @ConditionalOnProperty

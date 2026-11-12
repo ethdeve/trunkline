@@ -227,7 +227,7 @@ java -jar target/trunkline-0.1.0.jar
 
 设好账号登录控制台，把您的模型加进去，以后员工用控制台发的「钥匙」就能调用了。
 
-> 正式对外提供服务前，请务必设自己的安全密钥（环境变量 `JWT_SECRET`，至少 32 位），并以 `prod` 模式运行（Docker 镜像默认 `prod`；jar 可加 `--spring.profiles.active=prod`）。示例里的值不能用于正式环境。
+> 正式对外提供服务前，请务必设自己的安全密钥（环境变量 `JWT_SECRET`，至少 32 位），并以 `prod` 模式运行（Docker 镜像默认 `prod`；jar 可加 `--spring.profiles.active=prod`）。示例里的值不能用于正式环境：启动门闩会拒绝 `your-*` / `change-*` / `replace-*` / `example-*` 这类占位串，`.env.example` 的凭据字段也刻意留空，原样复制不填值在生产会直接 fail-fast。请用 `openssl rand -base64 32` 生成；也支持 `PROD_JWT_SECRET` / `DEV_JWT_SECRET`，优先级低于 `JWT_SECRET`。
 
 如果您原来的程序已经在用 OpenAI 的方式调用模型，改一下连接地址就能切到 Trunkline，原来的代码基本不用动。
 

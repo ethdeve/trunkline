@@ -29,6 +29,13 @@ public class JwtAccountService {
     private final ObjectMapper objectMapper;
 
     /**
+     * 【issue #704】账户状态守卫（可选依赖）：删除/禁用账户后立即失效 JWT 验证期的
+     * 30 秒状态缓存，让旧令牌当场失效，而不是等缓存自然过期。同包，无需 import。
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AccountStatusGuard accountStatusGuard;
+
+    /**
      * 获取所有账户
      */
     public List<JwtAccountDTO> getAllAccounts() {
@@ -129,6 +136,14 @@ public class JwtAccountService {
             jwtAccountRepository.delete(entity);
             log.info("Deleted JWT account: {}", username);
         });
+        invalidateCachedStatus(username);
+    }
+
+    /** 账户状态变更后清缓存；未装配守卫（如极简单测上下文）时静默跳过。 */
+    private void invalidateCachedStatus(final String username) {
+        if (accountStatusGuard != null) {
+            accountStatusGuard.invalidate(username);
+        }
     }
 
     /**
@@ -149,6 +164,7 @@ public class JwtAccountService {
                 .orElseThrow(() -> new RuntimeException("Account not found: " + username));
         entity.setEnabled(enabled);
         JwtAccountEntity saved = jwtAccountRepository.save(entity);
+        invalidateCachedStatus(username);
         log.info("Toggled JWT account status: {} -> {}", username, enabled);
         return convertToDTO(saved);
     }

@@ -21,6 +21,7 @@ import org.unreal.modelrouter.auth.security.config.properties.SecurityProperties
 import org.unreal.modelrouter.auth.security.model.JwtAuthentication;
 import org.unreal.modelrouter.auth.security.model.JwtPrincipal;
 import org.unreal.modelrouter.auth.security.service.AccountManager;
+import org.unreal.modelrouter.auth.security.service.AccountStatusGuard;
 import org.unreal.modelrouter.auth.security.service.EnhancedJwtBlacklistService;
 import org.unreal.modelrouter.auth.security.service.JwtRefreshClaimResolver;
 import org.unreal.modelrouter.auth.security.service.JwtRefreshIdentityException;
@@ -83,6 +84,13 @@ public class DefaultJwtTokenValidator implements JwtTokenValidator {
     @Autowired(required = false)
     private AccountManager accountManager;
 
+    /**
+     * 【issue #704】验证期账户状态守卫。可选依赖；Bean 缺失时不得静默放行，
+     * 由 {@link #requireActiveAccount(String)} 返回 fail-closed 错误。
+     */
+    @Autowired(required = false)
+    private AccountStatusGuard accountStatusGuard;
+
     @Override
     public Mono<Authentication> validateToken(final String token) {
         // 检查令牌是否在黑名单中
@@ -109,25 +117,30 @@ public class DefaultJwtTokenValidator implements JwtTokenValidator {
                     LocalDateTime issuedAt = convertToLocalDateTime(claims.getIssuedAt());
                     LocalDateTime expiresAt = convertToLocalDateTime(claims.getExpiration());
 
-                    // 创建JWT主体对象
-                    JwtPrincipal principal = new JwtPrincipal(
-                        subject,
-                        issuer,
-                        roles,
-                        issuedAt,
-                        expiresAt,
-                        new HashMap<>(claims)
-                    );
+                    // 【issue #704】账户删除/禁用后，已签发令牌在过期前仍会被这里放行。
+                    // 在解析成功之后、发放 Authentication 之前重新查权威账户状态；
+                    // 守卫缺失或账户存储不可用时一律 fail-closed，不允许"查不了就放行"。
+                    return requireActiveAccount(subject)
+                        .then(Mono.fromSupplier(() -> {
+                            // 创建JWT主体对象
+                            JwtPrincipal principal = new JwtPrincipal(
+                                subject,
+                                issuer,
+                                roles,
+                                issuedAt,
+                                expiresAt,
+                                new HashMap<>(claims)
+                            );
 
-                    // 创建认证对象（角色→ROLE_ 前缀 authority；URL 级授权由固定角色矩阵裁决）
-                    JwtAuthentication authentication =
-                            new JwtAuthentication(subject, token, roles);
-                    authentication.setAuthenticated(true);
-                    authentication.setDetails(principal);
+                            // 创建认证对象（角色→ROLE_ 前缀 authority；URL 级授权由固定角色矩阵裁决）
+                            JwtAuthentication authentication =
+                                    new JwtAuthentication(subject, token, roles);
+                            authentication.setAuthenticated(true);
+                            authentication.setDetails(principal);
 
-                    log.debug("JWT令牌验证成功: subject={}, roles={}",
-                            subject, roles);
-                    return Mono.just((Authentication) authentication);
+                            log.debug("JWT令牌验证成功: subject={}, roles={}", subject, roles);
+                            return (Authentication) authentication;
+                        }));
 
                 } catch (JwtException e) {
                     log.warn("JWT令牌验证失败: {}", e.getMessage());
@@ -137,6 +150,17 @@ public class DefaultJwtTokenValidator implements JwtTokenValidator {
                     return Mono.error(new AuthenticationException("JWT令牌验证过程中发生错误", "JWT_VALIDATION_ERROR"));
                 }
             });
+    }
+
+    /**
+     * 【issue #704】账户状态守卫入口。守卫 Bean 缺失时显式拒绝，避免"组件没装配就绕过"。
+     */
+    private Mono<Void> requireActiveAccount(final String subject) {
+        if (accountStatusGuard == null) {
+            return Mono.error(new AuthenticationException(
+                    "账户状态校验组件不可用，拒绝令牌", "ACCOUNT_STORE_UNAVAILABLE"));
+        }
+        return accountStatusGuard.requireActive(subject);
     }
 
     @Override

@@ -25,6 +25,14 @@ import java.util.Arrays;
 @ConditionalOnProperty(name = "trunkline.security.startup-check.enabled", havingValue = "true", matchIfMissing = true)
 public class StartupSecretKeyChecker implements CommandLineRunner {
 
+    /**
+     * 【issue #674】与 config/auth/jwt.yml、application-{dev,prod}.yml 的占位符顺序完全一致：
+     * {@code ${JWT_SECRET:${PROD_JWT_SECRET:${DEV_JWT_SECRET:}}}}。
+     * 门闩必须认得全部三别名，否则「只设 PROD_JWT_SECRET」会出现绑定侧有密钥、
+     * 门闩读 null → 生产 fail-fast 的假故障。
+     */
+    static final String[] JWT_SECRET_ALIASES = {"JWT_SECRET", "PROD_JWT_SECRET", "DEV_JWT_SECRET"};
+
     private static final String ASCII_ART_BORDER = "\n"
             + "╔══════════════════════════════════════════════════════════════════════════════╗\n"
             + "║                                                                              ║\n"
@@ -61,6 +69,7 @@ public class StartupSecretKeyChecker implements CommandLineRunner {
                 + "║                                                                              ║\n"
                 + "║  在生产环境使用之前，请务必：                                                ║\n"
                 + "║  1. 设置强密钥：export JWT_SECRET=\"<随机生成的 32+ 字节密钥>\"                    ║\n"
+                + "║     （也支持 PROD_JWT_SECRET / DEV_JWT_SECRET，优先级依次降低）                 ║\n"
                 + "║  2. 首次部署访问 /init 完成初始化，在向导中设置强管理员密码                  ║\n"
                 + "║  3. 启用 JWT 认证：trunkline.security.jwt.enabled=true                       ║\n"
                 + "║  4. 使用密钥生成工具：java -jar trunkline.jar --generate-key                 ║\n"
@@ -142,33 +151,55 @@ public class StartupSecretKeyChecker implements CommandLineRunner {
     }
 
     /**
-     * 检查 JWT 密钥配置
+     * 检查 JWT 密钥配置（包可见，便于同包单测直接反证）。
+     *
+     * <p>【issue #674】此前只读 {@code System.getenv("DEV_JWT_SECRET")} / {@code JWT_SECRET}，
+     * 既不认 PROD_JWT_SECRET，也 DEV 优先于绑定侧（绑定侧是 JWT_SECRET 优先）。现在：
+     * 「是否已显式注入」看三个别名，「密钥是否可用」看绑定后的真实值 + 注入原值，
+     * 两者缺一不可。</p>
      */
-    private boolean checkJwtSecrets() {
+    boolean checkJwtSecrets() {
         log.info("正在检查 JWT 密钥配置...");
 
-        // 检查主 JWT 密钥
-        String jwtSecret = System.getenv("DEV_JWT_SECRET");
-        if (jwtSecret == null || jwtSecret.isEmpty()) {
-            jwtSecret = System.getenv("JWT_SECRET");
+        final boolean production = isProductionEnvironment();
+        // 显式注入的原始值：用于判定「生产必须显式配置」，以及拦截示例占位符。
+        // 用 Environment 而非 System.getenv，既能读环境变量也能读 -D 系统属性，且可注入测试替身。
+        final String injected = firstExplicitSecret();
+        // 绑定后真正用于签名的值：可能已被外部挂载覆盖，或被启动期随机密钥替换。
+        final String bound = securityProperties.getJwt() == null
+                ? null : securityProperties.getJwt().getSecret();
+        final String effective = (bound == null || bound.isBlank()) ? injected : bound;
+
+        if (injected == null || injected.isBlank()) {
+            log.warn("⚠️  未显式注入 JWT 密钥（JWT_SECRET / PROD_JWT_SECRET / DEV_JWT_SECRET 均为空）");
+            if (production) {
+                log.error("❌ 生产环境必须显式注入强密钥；启动期自动生成的随机密钥不适用于生产");
+                // 关键：StartupSecurityEnvironmentPostProcessor 在 prod 同样会生成随机密钥，
+                // 因此这里必须显式用 null 触发 fail-fast，不能把绑定后的随机值当成「已配置」。
+                return StartupSecurityGate.jwtSecretOk(true, null);
+            }
+            log.warn("   非生产环境沿用 StartupSecurityEnvironmentPostProcessor 生成并持久化的随机密钥");
+        } else if (StartupSecurityGate.isDefaultJwtSecret(injected)) {
+            if (production) {
+                log.error("❌ 显式注入的 JWT 密钥仍是出厂/文档示例值，生产环境禁止使用");
+                return false;
+            }
+            log.warn("⚠️  注入的是示例/默认值，非生产环境将被启动期随机密钥替换");
         }
 
-        if (jwtSecret == null || jwtSecret.isEmpty()) {
-            // 与 JwtSecretEnvironmentPostProcessor 对齐：配置文件不再内置可用默认密钥，
-            // 未显式注入时由启动期处理器生成本地随机密钥（dev），生产由下方门闩 fail-fast。
-            log.warn("⚠️  未显式设置 JWT_SECRET 环境变量；非生产环境将使用启动期生成并持久化的随机密钥");
-            log.warn("   生产环境必须显式设置 JWT_SECRET 环境变量！");
-            // R4-P1：生产缺密钥 → 失败
-            return StartupSecurityGate.jwtSecretOk(isProductionEnvironment(), null);
+        if (effective == null || effective.isBlank()) {
+            return StartupSecurityGate.jwtSecretOk(production, null);
+        }
+        // 绑定侧也可能被外部挂载改成默认值，同样按生产 fail-closed 处理。
+        if (StartupSecurityGate.isDefaultJwtSecret(effective)) {
+            if (production) {
+                log.error("❌ 最终生效的 JWT 密钥仍为出厂/文档默认值，生产环境禁止使用");
+                return false;
+            }
+            log.warn("⚠️  最终生效的密钥为示例/默认值，非生产环境仅告警");
         }
 
-        // R4-P1：生产拒绝已知默认 JWT 密钥
-        if (isProductionEnvironment() && StartupSecurityGate.isDefaultJwtSecret(jwtSecret)) {
-            log.error("❌ JWT 密钥仍为出厂/文档默认值，生产环境禁止使用");
-            return false;
-        }
-
-        ValidationResult result = SecretKeyValidator.validateJwtSecret(jwtSecret);
+        ValidationResult result = SecretKeyValidator.validateJwtSecret(effective);
 
         switch (result.getStrengthLevel()) {
             case VERY_WEAK:
@@ -186,6 +217,23 @@ public class StartupSecretKeyChecker implements CommandLineRunner {
             default:
                 return true;
         }
+    }
+
+    /**
+     * 按配置占位符的优先级返回第一个非空显式注入值。
+     * 走 {@link Environment} 而非直接 {@code System.getenv}，兼容 -D 系统属性并便于测试注入。
+     */
+    private String firstExplicitSecret() {
+        if (environment == null) {
+            return null;
+        }
+        for (String alias : JWT_SECRET_ALIASES) {
+            String value = environment.getProperty(alias);
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 
 }

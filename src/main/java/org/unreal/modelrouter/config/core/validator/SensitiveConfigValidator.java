@@ -31,7 +31,9 @@ public class SensitiveConfigValidator implements ApplicationListener<Application
 
     private static final Logger log = LoggerFactory.getLogger(SensitiveConfigValidator.class);
 
-    @Value("${JWT_SECRET:}")
+    // 【issue #674】与 jwt.yml / application-{dev,prod}.yml / 启动门闩同一别名口径，
+    // 否则「只设 PROD_JWT_SECRET」会在这里被误报为「JWT_SECRET 未设置」。
+    @Value("${JWT_SECRET:${PROD_JWT_SECRET:${DEV_JWT_SECRET:}}}")
     private String jwtSecret;
 
     @Value("${GPUSTACK_API_TOKEN:}")

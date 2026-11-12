@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
+import org.unreal.modelrouter.common.util.UrlSanitizer;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -90,7 +91,9 @@ public class DebugMultipartController {
         debugInfo.put("method", exchange.getRequest().getMethod() != null
                 ? exchange.getRequest().getMethod().name() : null);
         debugInfo.put("path", exchange.getRequest().getPath().value());
-        debugInfo.put("uri", exchange.getRequest().getURI().toString());
+        // 【issue #695】URI 可能带 ?token= / ?api_key=；本类声称"已脱敏"，此前 uri 字段是漏网
+        debugInfo.put("uri", UrlSanitizer.sanitizeUrlString(
+                exchange.getRequest().getURI().toString()));
 
         // 检查Content-Type是否包含boundary
         String contentType = headers.getFirst("Content-Type");

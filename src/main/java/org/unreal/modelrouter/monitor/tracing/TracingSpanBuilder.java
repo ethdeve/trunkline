@@ -6,6 +6,7 @@ import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import lombok.extern.slf4j.Slf4j;
+import org.unreal.modelrouter.common.util.UrlSanitizer;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -200,7 +201,8 @@ public final class TracingSpanBuilder {
      */
     public TracingSpanBuilder setHttpAttributes(final String method, final String url, final Integer statusCode) {
         setAttribute("http.method", method);
-        setAttribute("http.url", url);
+        // 【issue #695】公共构建入口统一脱敏，避免调用方把带密钥的 query 写进 span
+        setAttribute("http.url", UrlSanitizer.sanitizeUrlString(url));
         if (statusCode != null) {
             setAttribute("http.status_code", statusCode);
         }

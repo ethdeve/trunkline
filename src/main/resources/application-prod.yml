@@ -53,8 +53,10 @@ trunkline:
 
     jwt:
       enabled: true
-      # 生产环境必须使用环境变量设置密钥（优先读 JWT_SECRET，回退 PROD_JWT_SECRET，两者皆无则报错）
-      secret: "${JWT_SECRET:${PROD_JWT_SECRET:}}"
+      # 生产必须显式注入强密钥；别名顺序 JWT_SECRET > PROD_JWT_SECRET > DEV_JWT_SECRET，
+      # 与 StartupSecretKeyChecker 的「显式注入」判定完全同口径（issue #674）。
+      # 三者皆无时门闩 fail-fast：即使启动期处理器生成了随机密钥，生产也不接受未显式注入。
+      secret: "${JWT_SECRET:${PROD_JWT_SECRET:${DEV_JWT_SECRET:}}}"
       issuer: "trunkline-prod"
 
       # 【生产安全默认·fail-closed】黑名单存储不可用/降级期间，已撤销/登出的令牌
@@ -63,6 +65,9 @@ trunkline:
       # 最高优先级仍可被环境变量 TRUNKLINE_SECURITY_JWT_BLACKLIST_FAIL_CLOSED_WHEN_UNAVAILABLE 覆盖。
       blacklist-fail-closed-when-unavailable: true
 
+      # 【issue #676】此处是 profile 级显式收紧，覆盖唯一真源 persistence-base.yml；
+      # 取值与真源默认值一致，保留是为了让「生产不开令牌台账」的安全意图可读。
+      # 黑名单持久化不由这里控制（见 persistence-base.yml 头部说明）。
       persistence:
         enabled: false
         redis:

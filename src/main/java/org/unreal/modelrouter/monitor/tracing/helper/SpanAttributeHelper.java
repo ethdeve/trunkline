@@ -6,6 +6,7 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.unreal.modelrouter.common.util.ClientIpResolver;
+import org.unreal.modelrouter.common.util.UrlSanitizer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,7 +40,8 @@ public class SpanAttributeHelper {
             }
 
             // URL 相关
-            span.setAttribute("http.url", request.getURI().toString());
+            // 【issue #695】span 属性同样不得明文落 ?token= / ?api_key=；保留 base，仅脱敏 query。
+            span.setAttribute("http.url", UrlSanitizer.sanitizeUrlString(request.getURI().toString()));
             span.setAttribute("http.scheme", request.getURI().getScheme());
             span.setAttribute("http.host", request.getURI().getHost());
             span.setAttribute("http.target", request.getPath().value());
@@ -125,7 +127,7 @@ public class SpanAttributeHelper {
         if (request.getMethod() != null) {
             attributes.put("http.method", request.getMethod().name());
         }
-        attributes.put("http.url", request.getURI().toString());
+        attributes.put("http.url", UrlSanitizer.sanitizeUrlString(request.getURI().toString()));
         attributes.put("http.path", request.getPath().value());
 
         if (request.getURI().getScheme() != null) {

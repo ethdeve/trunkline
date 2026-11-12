@@ -26,6 +26,13 @@ public final class ApiKeyAuthentication implements Authentication {
     private final List<String> allowedGroups;
 
     /**
+     * 【issue #693】发起该请求的真实客户端 IP，由 DefaultAuthenticationConverter 在提取
+     * API Key 时用 ClientIpResolver 推导后写入，认证链据此校验 ApiKey 的 IP 白名单。
+     * 未认证对象也携带该值；无法判定时为 "unknown"（不是 null），白名单非空时自然拒绝。
+     */
+    private String clientIp;
+
+    /**
      * 构造函数 - 用于未认证的请求
      */
     public ApiKeyAuthentication(final String apiKey) {

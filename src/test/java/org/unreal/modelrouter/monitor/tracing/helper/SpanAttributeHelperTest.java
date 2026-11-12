@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpMethod;
@@ -299,5 +300,57 @@ class SpanAttributeHelperTest {
         assertEquals(201, attributes.get("http.status_code"));
         assertEquals(1024L, attributes.get("http.response_content_length"));
         assertEquals("GET", attributes.get("http.method"));
+    }
+
+    @Test
+    @DisplayName("#695 span 属性 http.url 不得明文落敏感 query（含编码绕过）")
+    void setHttpAttributes_shouldRedactSensitiveQueryInSpanUrl() {
+        // Given: 同一个 URI 同时带明文敏感参数、编码后的敏感键、普通参数
+        setupRequestPath("/api/test");
+        when(request.getMethod()).thenReturn(HttpMethod.GET);
+        when(request.getURI()).thenReturn(URI.create(
+                "http://localhost:8080/api/test?token=SUPER_SECRET&api_key=AKIA_SECRET"
+                        + "&%74oken=ENCODED_SECRET&param=value"));
+        when(request.getHeaders()).thenReturn(new org.springframework.http.HttpHeaders());
+        when(request.getRemoteAddress()).thenReturn(null);
+
+        // When
+        spanAttributeHelper.setHttpAttributes(span, request);
+
+        // Then: 反证——修复前这里会是 request.getURI().toString() 原文，密钥全部进 span
+        ArgumentCaptor<String> url = ArgumentCaptor.forClass(String.class);
+        verify(span).setAttribute(eq("http.url"), url.capture());
+        String sanitized = url.getValue();
+        assertFalse(sanitized.contains("SUPER_SECRET"));
+        assertFalse(sanitized.contains("AKIA_SECRET"));
+        assertFalse(sanitized.contains("ENCODED_SECRET"));
+        assertTrue(sanitized.contains("token=[REDACTED]"));
+        assertTrue(sanitized.contains("api_key=[REDACTED]"));
+        assertTrue(sanitized.contains("%74oken=[REDACTED]"), "编码后的敏感键也必须脱敏");
+        assertTrue(sanitized.contains("param=value"), "非敏感参数应原样保留，避免改变 span 语义");
+    }
+
+    @Test
+    @DisplayName("#695 属性 Map 的 http.url 同样不得明文落敏感 query")
+    void extractRequestAttributes_shouldRedactSensitiveQueryInUrl() {
+        // Given
+        setupRequestPath("/api/users/123");
+        when(request.getMethod()).thenReturn(HttpMethod.GET);
+        when(request.getURI()).thenReturn(URI.create(
+                "https://example.com/api/users/123?access_token=LEAK_ME&sig=SIGN_LEAK&page=2"));
+        when(request.getHeaders()).thenReturn(new org.springframework.http.HttpHeaders());
+        when(request.getRemoteAddress()).thenReturn(null);
+
+        // When
+        Map<String, Object> attributes = spanAttributeHelper.extractRequestAttributes(request);
+
+        // Then
+        String url = (String) attributes.get("http.url");
+        assertNotNull(url);
+        assertFalse(url.contains("LEAK_ME"));
+        assertFalse(url.contains("SIGN_LEAK"));
+        assertTrue(url.contains("access_token=[REDACTED]"));
+        assertTrue(url.contains("sig=[REDACTED]"));
+        assertTrue(url.contains("page=2"));
     }
 }

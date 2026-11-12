@@ -69,7 +69,10 @@ public class CustomReactiveAuthenticationManager implements ReactiveAuthenticati
             ));
         }
 
-        return apiKeyService.validateApiKey(apiKey)
+        // 【issue #693】三参重载把真实客户端 IP 传下去；单参重载会委派 (kv, null, null)，
+        // 导致 ApiKeyValidator 的 isIpAllowed(null) 在白名单非空时恒 false（全量 401）。
+        // endpoint 参数在本层拿不到 exchange，保持 null；审计侧至少能拿到真实 IP。
+        return apiKeyService.validateApiKey(apiKey, null, authentication.getClientIp())
                 .doOnNext(apiKeyInfo -> log.debug("API Key认证成功: {}", apiKeyInfo.getKeyId()))
                 .map(apiKeyInfo -> {
                     // 创建已认证的Authentication对象
@@ -81,6 +84,7 @@ public class CustomReactiveAuthenticationManager implements ReactiveAuthenticati
                     );
                     authenticated.setAuthenticated(true);
                     authenticated.setDetails(apiKeyInfo);
+                    authenticated.setClientIp(authentication.getClientIp());
                     return (Authentication) authenticated;
                 })
                 .doOnError(error -> log.debug("API Key认证失败: {}", error.getMessage()))

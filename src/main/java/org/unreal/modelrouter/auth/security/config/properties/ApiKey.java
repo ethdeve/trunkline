@@ -338,6 +338,11 @@ public class ApiKey {
         if (allowedIpAddresses == null || allowedIpAddresses.isEmpty()) {
             return true;
         }
+        // 白名单非空却拿不到客户端 IP：一律拒绝（fail-closed，issue #693）。
+        // 同时避免不可变集合（List.of）的 contains(null) 抛 NPE 把 401 变成 500。
+        if (ipAddress == null) {
+            return false;
+        }
         return allowedIpAddresses.contains(ipAddress);
     }
 

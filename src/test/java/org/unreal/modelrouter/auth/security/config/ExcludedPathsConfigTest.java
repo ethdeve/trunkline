@@ -98,4 +98,53 @@ class ExcludedPathsConfigTest {
         // （此处仅断言排除列表不会误伤「非 HTTP 记录」场景的概念边界）
         assertFalse(ExcludedPathsConfig.isDataMaskExcluded("call-history:record:summary"));
     }
+
+    @ParameterizedTest(name = "#834 反证：近似路径不得被裸前缀误放行: {0}")
+    @ValueSource(strings = {
+            "/healthz", "/healthcheck", "/actuatorx", "/metricsx",
+            "/apix", "/administrator", "/webjarsx"
+    })
+    void prefixLookalikes_mustNotBeAuthExcluded(String path) {
+        assertFalse(ExcludedPathsConfig.isAuthExcluded(path),
+                path + " 曾被 startsWith 误判为认证排除路径");
+    }
+
+    @Test
+    @DisplayName("#834 反证：脱敏排除也不再因裸前缀放大")
+    void prefixLookalikes_mustNotBeMaskExcluded() {
+        assertFalse(ExcludedPathsConfig.isDataMaskExcluded("/healthz"));
+        assertFalse(ExcludedPathsConfig.isDataMaskExcluded("/administrator"));
+        assertFalse(ExcludedPathsConfig.isDataMaskExcluded("/apix"));
+        assertFalse(ExcludedPathsConfig.isDataMaskExcluded("/actuatorx"));
+    }
+
+    @Test
+    @DisplayName("#834 收紧后合法子路径仍按显式 Ant 模式放行")
+    void legitimateSubpathsStillExcluded() {
+        assertTrue(ExcludedPathsConfig.isAuthExcluded("/health"));
+        assertTrue(ExcludedPathsConfig.isAuthExcluded("/actuator/health/liveness"));
+        assertTrue(ExcludedPathsConfig.isAuthExcluded("/actuator/health/readiness"));
+        assertTrue(ExcludedPathsConfig.isAuthExcluded("/api/setup/datasource"));
+        assertTrue(ExcludedPathsConfig.isAuthExcluded("/admin/index.html"));
+        assertTrue(ExcludedPathsConfig.isAuthExcluded("/.well-known/acme-challenge/token"));
+        assertTrue(ExcludedPathsConfig.isDataMaskExcluded("/css/app.css"));
+        assertTrue(ExcludedPathsConfig.isDataMaskExcluded("/js/main.js"));
+        assertTrue(ExcludedPathsConfig.isDataMaskExcluded("/images/logo.png"));
+        assertTrue(ExcludedPathsConfig.isDataMaskExcluded("/swagger-ui/index.html"));
+        assertTrue(ExcludedPathsConfig.isDataMaskExcluded("/.well-known/acme-challenge/token"));
+    }
+
+    @Test
+    @DisplayName("#834 docs-public 开启时 /webjarsx 也不得被当成 /webjars 子路径")
+    void apiDocsPrefixLookalikeRejected() {
+        ExcludedPathsConfig.setApiDocsAuthExcluded(true);
+        try {
+            assertTrue(ExcludedPathsConfig.isAuthExcluded("/webjars/swagger-ui/index.html"));
+            assertTrue(ExcludedPathsConfig.isAuthExcluded("/swagger-ui/index.html"));
+            assertFalse(ExcludedPathsConfig.isAuthExcluded("/webjarsx/swagger-ui/index.html"));
+            assertFalse(ExcludedPathsConfig.isAuthExcluded("/swagger-uix/index.html"));
+        } finally {
+            ExcludedPathsConfig.setApiDocsAuthExcluded(false);
+        }
+    }
 }

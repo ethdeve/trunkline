@@ -147,6 +147,10 @@ public class SecurityConfiguration {
                 // 健康状态 SSE / 监控 WebSocket：均需认证
                 // WS 通过 query token（DefaultAuthenticationConverter）校验（浏览器无法带自定义头）
                 .pathMatchers("/api/health-status/**").authenticated()
+                // 【issue #916】路由监控 WS 的控制消息可 pause/resume/updateConfig，
+                // 属管理员操作：精确规则必须先于 /ws/** 的 authenticated() 命中（首条命中优先）。
+                .pathMatchers("/ws/routing-monitor").hasRole("ADMIN")
+                .pathMatchers("/ws/circuit-breaker-monitor").hasRole("ADMIN")
                 .pathMatchers("/ws/**").authenticated()
                 // JWT登录端点允许匿名访问
                 .pathMatchers(org.springframework.http.HttpMethod.POST, "/api/auth/jwt/login").permitAll()

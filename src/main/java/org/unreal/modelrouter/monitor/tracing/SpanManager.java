@@ -7,6 +7,7 @@ import io.opentelemetry.api.trace.Tracer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.unreal.modelrouter.common.util.UrlSanitizer;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -71,7 +72,8 @@ public class SpanManager {
         
         // 设置HTTP客户端相关属性
         span.setAttribute("http.method", method);
-        span.setAttribute("http.url", url);
+        // 【issue #695】公共构建入口统一脱敏，避免调用方把带密钥的 query 写进 span
+        span.setAttribute("http.url", UrlSanitizer.sanitizeUrlString(url));
         span.setAttribute("component", "http-client");
         
         return span;

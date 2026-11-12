@@ -13,9 +13,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.unreal.modelrouter.auth.security.config.properties.JwtConfig;
 import org.unreal.modelrouter.auth.security.config.properties.SecurityProperties;
+import org.unreal.modelrouter.auth.security.service.AccountStatusGuard;
 import org.unreal.modelrouter.auth.security.service.EnhancedJwtBlacklistService;
+import org.unreal.modelrouter.common.exception.AuthenticationException;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -51,6 +54,10 @@ class DefaultJwtTokenValidatorTest {
     @Mock
     private EnhancedJwtBlacklistService enhancedBlacklistService;
 
+    /** #704：验证期账户状态守卫，默认放行，反证用例再单独改写其行为。 */
+    @Mock
+    private AccountStatusGuard accountStatusGuard;
+
     @InjectMocks
     private DefaultJwtTokenValidator validator;
 
@@ -66,6 +73,11 @@ class DefaultJwtTokenValidatorTest {
         when(jwtProperties.getExpirationMinutes()).thenReturn(30L);
         when(jwtProperties.getRefreshExpirationDays()).thenReturn(7L);
         when(jwtProperties.isBlacklistEnabled()).thenReturn(false); // 禁用黑名单简化测试
+        // @InjectMocks 走最大构造器注入后不再做字段注入，@Autowired(required=false)
+        // 的守卫字段需显式注入（生产 Spring 上下文由容器完成，不受此限制）。
+        ReflectionTestUtils.setField(validator, "accountStatusGuard", accountStatusGuard);
+        // #704：默认账户状态检查通过；反证用例可覆盖该 stub。
+        when(accountStatusGuard.requireActive(anyString())).thenReturn(Mono.empty());
     }
 
     @Nested
@@ -93,6 +105,35 @@ class DefaultJwtTokenValidatorTest {
 
             StepVerifier.create(result)
                 .expectError()
+                .verify();
+        }
+
+        @Test
+        @DisplayName("#704 反证：黑名单未命中但账户已禁用 → 令牌仍被拒绝")
+        void testValidateTokenDisabledAccount() {
+            String token = generateTestToken("user123", Arrays.asList("USER"));
+            when(accountStatusGuard.requireActive("user123")).thenReturn(
+                    Mono.error(new AuthenticationException("账户已删除或禁用", "ACCOUNT_DISABLED")));
+
+            StepVerifier.create(validator.validateToken(token))
+                .expectErrorSatisfies(error -> assertTrue(
+                        error instanceof AuthenticationException
+                                && error.getMessage().contains("账户已删除或禁用"),
+                        "账户禁用必须覆盖黑名单未命中的放行路径: " + error))
+                .verify();
+        }
+
+        @Test
+        @DisplayName("#704 反证：守卫 Bean 缺失 → fail-closed，不得静默放行")
+        void testValidateTokenMissingGuard() {
+            ReflectionTestUtils.setField(validator, "accountStatusGuard", null);
+            String token = generateTestToken("user123", Arrays.asList("USER"));
+
+            StepVerifier.create(validator.validateToken(token))
+                .expectErrorSatisfies(error -> assertTrue(
+                        error instanceof AuthenticationException
+                                && error.getMessage().contains("账户状态校验组件不可用"),
+                        "守卫缺失必须拒绝令牌: " + error))
                 .verify();
         }
     }

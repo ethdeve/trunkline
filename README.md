@@ -225,7 +225,7 @@ With an installer, open `http://localhost:8080/admin/`; with Docker or the jar, 
 
 Sign in with the account you just created and add your models in the console. From then on, staff only need the "key" the console issues to start calling them.
 
-> Before serving real traffic, set your own secret key (environment variable `JWT_SECRET`, at least 32 characters) and run in `prod` mode (the Docker image defaults to `prod`; for the jar add `--spring.profiles.active=prod`). Never use the sample value in production.
+> Before serving real traffic, set your own secret key (environment variable `JWT_SECRET`, at least 32 characters) and run in `prod` mode (the Docker image defaults to `prod`; for the jar add `--spring.profiles.active=prod`). Never use the sample value in production — the startup gate rejects placeholder-looking secrets, and `.env.example` ships empty credential fields on purpose (copying it without filling them in fails fast in prod). Generate one with `openssl rand -base64 32`. `PROD_JWT_SECRET` / `DEV_JWT_SECRET` are also accepted, in that priority order after `JWT_SECRET`.
 
 If your application already calls models the OpenAI way, just change the connection address to switch to Trunkline — your existing code mostly stays as it is.
 

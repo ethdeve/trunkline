@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.unreal.modelrouter.auth.sanitization.SanitizationService;
+import org.unreal.modelrouter.common.util.UrlSanitizer;
 import org.unreal.modelrouter.monitor.tracing.TracingContext;
 import org.unreal.modelrouter.monitor.tracing.config.TracingConfiguration;
 import org.unreal.modelrouter.monitor.tracing.logger.StructuredLogger;
@@ -177,7 +178,11 @@ public class TracingSanitizationService {
             String key = entry.getKey();
             Object value = entry.getValue();
             
-            if (value instanceof String && isSensitiveLogField(key)) {
+            if ("url".equalsIgnoreCase(key) && value instanceof String) {
+                // 【issue #695】url 不是「敏感字段名」，但它的值可能含 ?token= / ?api_key=。
+                // 即使调用方绕过了 RequestLogBuilder，也在这里做值级双保险。
+                sanitizedData.put(key, UrlSanitizer.sanitizeUrlString((String) value));
+            } else if (value instanceof String && isSensitiveLogField(key)) {
                 // 脱敏字符串值
                 sanitizationService.sanitizeForStorage((String) value, "text/plain")
                         .subscribe(sanitizedValue -> {

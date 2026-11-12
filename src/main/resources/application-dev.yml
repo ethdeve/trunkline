@@ -80,8 +80,9 @@ trunkline:
     jwt:
       enabled: true
       # 与 config/auth/jwt.yml 同一口径：不内置任何可用的默认密钥。
-      # 未设置 JWT_SECRET / DEV_JWT_SECRET 时由启动期处理器生成并持久化随机密钥。
-      secret: "${JWT_SECRET:${DEV_JWT_SECRET:}}"
+      # 别名顺序 JWT_SECRET > PROD_JWT_SECRET > DEV_JWT_SECRET（issue #674，与启动门闩同口径）。
+      # 三者皆未设置时由启动期处理器生成并持久化随机密钥。
+      secret: "${JWT_SECRET:${PROD_JWT_SECRET:${DEV_JWT_SECRET:}}}"
 
       # 开发环境同样不提供默认管理员；首次启动访问 /init 完成初始化。
       accounts: []

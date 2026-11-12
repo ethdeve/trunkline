@@ -40,7 +40,8 @@ public final class StartupSecurityGate {
         if (shouldFailFast(production, checksPassed, skipAuthWarning)) {
             throw new IllegalStateException(
                     "Production security startup checks failed. "
-                            + "Set JWT_SECRET to a strong value, complete /init to create the admin password, "
+                            + "Set JWT_SECRET (or PROD_JWT_SECRET / DEV_JWT_SECRET) to a strong value, "
+                            + "complete /init to create the admin password, "
                             + "or set " + SKIP_ENV + "=true only for trusted isolated networks.");
         }
     }
@@ -66,7 +67,8 @@ public final class StartupSecurityGate {
         if (secret == null || secret.isBlank()) {
             return !production;
         }
-        if (DEFAULT_JWT_SECRET.equals(secret.trim())) {
+        // 与 isDefaultJwtSecret 共用同一张表：出厂常量、devonly、文档占位符一视同仁。
+        if (isDefaultJwtSecret(secret)) {
             return !production;
         }
         return true;
@@ -80,15 +82,32 @@ public final class StartupSecurityGate {
     }
 
     /**
-     * 是否命中已知默认 JWT 密钥（含 dev 文档默认值）。
+     * 是否为出厂默认 / 文档示例 JWT 密钥。
+     *
+     * <p>除两个历史常量与 devonly 外，还拒绝 .env.example、README、config-external
+     * 文档里「看起来像密钥、其实可以照抄」的占位值（issue #664 残余）。占位符判定只认
+     * 明确的前缀/整词，不用 contains("example") 这类宽松匹配，以免误伤真实强密钥。
+     * 本方法同时被 StartupSecretKeyChecker（生产门闩）与
+     * StartupSecurityEnvironmentPostProcessor（是否生成随机密钥）使用。</p>
      */
     public static boolean isDefaultJwtSecret(final String secret) {
         if (secret == null) {
             return false;
         }
         String value = secret.trim();
-        return DEFAULT_JWT_SECRET.equals(value)
+        if (DEFAULT_JWT_SECRET.equals(value)
                 || "dev-secret-key-for-testing-only-32-characters-minimum".equals(value)
-                || value.toLowerCase(Locale.ROOT).contains("devonly");
+                || value.toLowerCase(Locale.ROOT).contains("devonly")) {
+            return true;
+        }
+        String lower = value.toLowerCase(Locale.ROOT);
+        return lower.startsWith("your-") || lower.startsWith("your_")
+                || lower.startsWith("change-") || lower.startsWith("change_")
+                || lower.startsWith("changeme")
+                || lower.startsWith("replace-") || lower.startsWith("replace_")
+                || lower.startsWith("replace-with")
+                || lower.startsWith("placeholder")
+                || lower.equals("example")
+                || lower.startsWith("example-") || lower.startsWith("example_");
     }
 }

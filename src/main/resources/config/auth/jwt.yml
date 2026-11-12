@@ -17,10 +17,11 @@ trunkline:
       jwt-header: "Trunkline_Token"
       
       # JWT 密钥（长度 >= 32 字符；禁止使用出厂默认值）
-      # 安全说明：不在此处提供任何可用的默认密钥。未显式设置 JWT_SECRET / DEV_JWT_SECRET 时，
-      # JwtSecretEnvironmentPostProcessor 会在启动期生成随机密钥并持久化到 data/jwt-secret
-      # （重启复用、源码中无法预测），离线伪造令牌的前提因此不成立。
-      secret: "${JWT_SECRET:${DEV_JWT_SECRET:}}"
+      # 安全说明：不在此处提供任何可用的默认密钥。JWT_SECRET / PROD_JWT_SECRET /
+      # DEV_JWT_SECRET 三者皆未设置时，StartupSecurityEnvironmentPostProcessor 会在启动期
+      # 生成随机密钥并持久化到 data/jwt-secret（重启复用、源码中无法预测）。
+      # 三个别名与 StartupSecretKeyChecker 的「显式注入」判定必须保持同一口径（issue #674）。
+      secret: "${JWT_SECRET:${PROD_JWT_SECRET:${DEV_JWT_SECRET:}}}"
       
       # JWT 算法
       algorithm: "HS256"
@@ -46,34 +47,18 @@ trunkline:
       # 但那属于自担风险的自定义配置，不再是开箱默认行为。
       accounts: []
 
-      # JWT 持久化配置
-      persistence:
-        enabled: true
-        primary-storage: h2
-        fallback-storage: memory
-        composite:
-          enabled: false
-        sync:
-          enabled: false
-        startup-recovery:
-          enabled: true
-        cleanup:
-          schedule: "0 */5 * * * ?"
-          retention-days: 7
-        redis:
-          # 只保留开关：连接信息统一由 REDIS_HOST/REDIS_PORT/REDIS_PASSWORD 或 spring.data.redis.* 提供。
-          # 原先这里的 host/port/password/database 自 issue #196（取消 JWT 独立 Redis）起已无消费者，
-          # 留着会让人以为改它有效（见 #202）。
-          enabled: false
-
-      # JWT 黑名单持久化配置
-      blacklist:
-        persistence:
-          enabled: true
-          primary-storage: h2
-          max-memory-size: 10000
-        composite:
-          enabled: false
-        redis:
-          # 同上：只保留开关
-          enabled: false
+      # ── JWT 持久化 / 黑名单持久化：唯一真源不在这里 ──────────────────────────
+      # 【issue #676】application.yml 的 spring.config.import 中，
+      #   classpath:config/auth/jwt.yml            (:39，先导入)
+      #   classpath:config/security/persistence-base.yml (:60，后导入，优先级更高)
+      # 此前本文件也定义了整套 persistence / blacklist 子树且取值相反
+      # （true/h2/false vs false/file/true），结果本文件的键 100% 被静默覆盖，
+      # 形成「改了不生效」的假配置。现已整块移除，唯一真源为 persistence-base.yml。
+      #
+      # 需要开关时请用环境变量（真源里已留占位符）：
+      #   JWT_PERSISTENCE_ENABLED           → trunkline.security.jwt.persistence.enabled
+      #   JWT_BLACKLIST_PERSISTENCE_ENABLED → trunkline.security.jwt.blacklist.persistence.enabled
+      # 注意：这两个开关控制的是组件扫描实现与定时任务，会改变 JwtServiceConfiguration
+      # 的装配结果；默认值刻意与历史实际生效值一致，改动前请跑完整上下文启动验证。
+      # 黑名单条目本身由 JwtServiceConfiguration#storeManagerJwtBlacklistService
+      # （无条件 @Bean，写入 StoreManager/H2）落盘，不依赖上述开关。

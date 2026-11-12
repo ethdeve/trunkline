@@ -588,7 +588,8 @@ class SecurityExceptionHandlerTest {
             assertEquals("Unauthorized", body.getError());
             assertEquals("Invalid credentials", body.getMessage());
             assertEquals("AUTH_001", body.getErrorCode());
-            assertEquals("/api/security", body.getPath(), "既有 path 字段语义不变");
+            assertEquals("/api/v1/chat/completions", body.getPath(),
+                    "#930：path 应来自真实请求，不再硬编码 /api/security");
             assertNotNull(body.getTimestamp());
         }
 

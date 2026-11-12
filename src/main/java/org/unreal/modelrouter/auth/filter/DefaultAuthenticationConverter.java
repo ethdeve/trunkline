@@ -9,6 +9,7 @@ import org.springframework.web.server.ServerWebExchange;
 import org.unreal.modelrouter.auth.security.config.properties.SecurityProperties;
 import org.unreal.modelrouter.auth.security.model.ApiKeyAuthentication;
 import org.unreal.modelrouter.auth.security.model.JwtAuthentication;
+import org.unreal.modelrouter.common.util.ClientIpResolver;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -57,7 +58,13 @@ public final class DefaultAuthenticationConverter implements ServerAuthenticatio
             return Mono.just(new JwtAuthentication(jwtToken));
         } else if (apiKey != null) {
             log.debug("提取到API Key，创建API Key认证对象");
-            return Mono.just(new ApiKeyAuthentication(apiKey));
+            ApiKeyAuthentication auth = new ApiKeyAuthentication(apiKey);
+            // 【issue #693】把真实客户端 IP 带进认证链，供 ApiKey 的 IP 白名单校验。
+            // 此前认证链从不带 exchange/ClientIp，validateApiKey 的 ip 恒为 null，
+            // 白名单非空的 Key 一律 contains(null)=false → 全量 401。
+            // ClientIpResolver 无法判定时返回 "unknown" 而非 null：白名单非空时仍拒绝（fail-closed）。
+            auth.setClientIp(ClientIpResolver.resolve(exchange));
+            return Mono.just(auth);
         }
 
         // 没有找到认证信息

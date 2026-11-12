@@ -25,10 +25,14 @@ scp -r config-external/ production-server:/path/to/trunkline/config
 
 创建 `.env` 文件（参考 `.env.example`）：
 
+> ⚠️ `.env.example` 中所有凭据字段刻意留空，**原样复制后不填值不能用于生产**：
+> 生产启动门闩要求显式注入 ≥32 位强密钥，且会拒绝 `your-*` / `change-*` /
+> `replace-*` / `example-*` 这类看似可用的示例串。留空时仅本地 dev 会自动生成随机密钥。
+
 ```bash
-# 必须配置的环境变量
-JWT_SECRET=your-very-secure-jwt-secret-key-at-least-32-characters-long
-GPUSTACK_API_TOKEN=your-gpustack-api-token
+# 必须配置的环境变量（示例为生成命令，不是可直接复制的密钥）
+export JWT_SECRET="$(openssl rand -base64 32)"
+export GPUSTACK_API_TOKEN="<从供应商控制台获取>"
 # 管理员账号不再来自环境变量：首次启动访问 /init（jar 部署为 /admin/init）走向导创建
 ```
 

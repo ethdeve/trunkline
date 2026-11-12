@@ -1,6 +1,14 @@
 # ========================================
-# JWT令牌持久化基础配置
+# JWT令牌持久化基础配置 —— trunkline.security.jwt.{persistence,blacklist} 的唯一真源
 # ========================================
+# 【issue #676】application.yml 的 spring.config.import 中本文件位于 config/auth/jwt.yml
+# 之后（:60 vs :39），后导入优先；此前两个文件都定义了同一批键且取值相反，jwt.yml 的配置
+# 因此从未生效。现已从 jwt.yml 与 config-external/auth/jwt.yml 删除重复子树，本文件成为
+# 唯一真源。下列默认值与整改前的「实际生效值」完全一致，本次整改不改变任何装配行为。
+#
+# 需要显式开关时用环境变量 JWT_PERSISTENCE_ENABLED / JWT_BLACKLIST_PERSISTENCE_ENABLED；
+# 两者会改变 JwtServiceConfiguration 及若干 @ConditionalOnProperty Bean 的装配，
+# 调整前务必跑完整上下文启动验证（JwtPersistenceConfigTest 锁定了基线值）。
 # H2 数据库存储配置
 store:
   type: h2  # 默认使用 H2 数据库存储
@@ -13,8 +21,10 @@ trunkline:
   security:
     jwt:
       # 令牌持久化配置
+      # 默认 false 与整改前实际生效值一致；置 true 会新装配 JwtTokenPersistenceServiceImpl、
+      # JwtTokenLifecycleServiceImpl、JwtTokenExpirationScheduler、JwtServiceHealthChecker 等。
       persistence:
-        enabled: false  # 默认关闭，各环境按需启用
+        enabled: ${JWT_PERSISTENCE_ENABLED:false}  # 默认关闭，各环境按需启用
         primary-storage: file    # file（使用 H2）, redis, memory
         fallback-storage: memory  # memory
         
@@ -50,9 +60,12 @@ trunkline:
           enabled: false  # 默认关闭，需要时启用
           
       # 黑名单持久化配置
+      # 该开关只控制组件扫描实现 JwtBlacklistServiceImpl（@Service 上的条件）。
+      # 黑名单条目实际由 JwtServiceConfiguration#storeManagerJwtBlacklistService
+      # 无条件 @Bean 写入 StoreManager/H2，因此保持 false 不会让撤销记录丢失。
       blacklist:
         persistence:
-          enabled: false  # 默认关闭
+          enabled: ${JWT_BLACKLIST_PERSISTENCE_ENABLED:false}  # 默认关闭
           primary-storage: file  # file（使用 H2）, redis, memory
           fallback-storage: memory
           max-memory-size: 10000

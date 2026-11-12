@@ -8,6 +8,7 @@ import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import org.unreal.modelrouter.common.cluster.ClusterEventBus;
 import org.unreal.modelrouter.common.util.InstanceIdentity;
+import org.unreal.modelrouter.common.util.WebSocketAdminGuard;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -93,17 +94,37 @@ public class CircuitBreakerMonitorWebSocketHandler implements WebSocketHandler {
                 output.map(session::textMessage)
         ).and(
                 session.receive()
-                        .doOnNext(message -> {
-                            String payload = message.getPayloadAsText();
-                            log.debug("Received from client: {}", payload);
-                            handleClientMessage(payload);
-                        })
+                        .doOnNext(message -> log.debug("Received from client: {}",
+                                message.getPayloadAsText()))
+                        // 【issue #916】控制消息必须串进响应式链做 ADMIN 校验；
+                        // 绝不能 block() 握手 Principal（WebFlux event loop 会死锁）。
+                        .flatMap(message -> handleClientMessage(message.getPayloadAsText(), session))
                         .doOnError(e -> log.warn("WebSocket error: {}", e.getMessage()))
                         .doOnTerminate(() -> log.info("WebSocket client disconnected: {}", session.getId()))
+                        .then()
         );
     }
 
-    private void handleClientMessage(String payload) {
+    /**
+     * 处理客户端控制消息（#916）。
+     *
+     * <p>WS 握手不是 {@code @RequestMapping}，{@code @PreAuthorize} 拿不到；URL 闸门之外必须在
+     * handler 内做第二道校验。pause / resume 会改变全局监控状态，属管理员操作，非 ADMIN 一律
+     * 忽略并告警。包可见便于单测绕过握手直调反证。</p>
+     */
+    Mono<Void> handleClientMessage(final String payload, final WebSocketSession session) {
+        return WebSocketAdminGuard.isAdmin(session).flatMap(admin -> {
+            if (!admin) {
+                log.warn("拒绝非 ADMIN 的 WS 控制消息: session={}",
+                        session == null ? "n/a" : session.getId());
+                return Mono.empty();
+            }
+            return Mono.fromRunnable(() -> applyControlMessage(payload)).then();
+        });
+    }
+
+    /** 仅由已通过 ADMIN 校验的路径调用，保留原有控制消息语义。 */
+    private void applyControlMessage(final String payload) {
         try {
             ClientMessage message = objectMapper.readValue(payload, ClientMessage.class);
 

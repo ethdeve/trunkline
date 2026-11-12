@@ -9,8 +9,9 @@ trunkline:
     jwt:
       enabled: ${JWT_ENABLED:true}
       
-      # JWT 密钥（必须使用环境变量）
-      secret: "${JWT_SECRET:}"
+      # JWT 密钥（必须使用环境变量；三别名与内置配置、启动门闩保持同一口径，issue #674）
+      # 不提供任何示例值：示例密钥一旦被原样复制即可预测，生产启动门闩会直接拒绝。
+      secret: "${JWT_SECRET:${PROD_JWT_SECRET:${DEV_JWT_SECRET:}}}"
       
       # JWT 头名称
       jwt-header: "Trunkline_Token"
@@ -23,14 +24,13 @@ trunkline:
       
       # 发行者
       issuer: "${JWT_ISSUER:trunkline}"
-      
-      # 持久化配置
-      persistence:
-        enabled: ${JWT_PERSISTENCE_ENABLED:true}
-        primary-storage: ${JWT_STORAGE_TYPE:h2}
-        redis:
-          enabled: ${REDIS_ENABLED:false}
-          host: "${REDIS_HOST:localhost}"
-          port: "${REDIS_PORT:6379}"
-          password: "${REDIS_PASSWORD:}"
-          database: "${REDIS_DATABASE:1}"
+
+      # ── 持久化配置不在此处重复声明（issue #676）────────────────────────────
+      # 唯一真源是 classpath:config/security/persistence-base.yml。本文件挂载在
+      # spring.config.import 末尾，若在此重复定义 persistence/blacklist 子树，
+      # 会再次造成「同一键多处取值、改哪一处才生效」的歧义。
+      # 请用环境变量显式开关（默认值与整改前实际生效值一致）：
+      #   JWT_PERSISTENCE_ENABLED=false
+      #   JWT_BLACKLIST_PERSISTENCE_ENABLED=false
+      # 如需整块覆盖（例如切换 Redis），请明确知悉它会改变多个 @ConditionalOnProperty
+      # Bean 的装配，并在改后跑完整上下文启动验证。

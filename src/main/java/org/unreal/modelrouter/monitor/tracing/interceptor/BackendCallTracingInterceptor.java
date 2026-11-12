@@ -10,6 +10,7 @@ import org.springframework.web.reactive.function.client.ClientRequest;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.ExchangeFunction;
+import org.unreal.modelrouter.common.util.UrlSanitizer;
 import org.unreal.modelrouter.monitor.tracing.TracingContext;
 import org.unreal.modelrouter.monitor.tracing.TracingContextHolder;
 import org.unreal.modelrouter.monitor.tracing.logger.StructuredLogger;
@@ -64,7 +65,7 @@ public final class BackendCallTracingInterceptor implements ExchangeFilterFuncti
         TracingContext tracingContext = TracingContextHolder.getCurrentContext();
         
         logger.debug("BackendCallTracingInterceptor.filter() 被调用: url={}, hasContext={}", 
-            request.url(), tracingContext != null);
+            UrlSanitizer.sanitizeUrlString(request.url().toString()), tracingContext != null);
         
         if (tracingContext == null || !tracingContext.isActive()) {
             // 如果没有追踪上下文，直接执行请求
@@ -137,7 +138,7 @@ public final class BackendCallTracingInterceptor implements ExchangeFilterFuncti
         
         // HTTP语义约定属性
         span.setAttribute(HTTP_METHOD, request.method().name());
-        span.setAttribute(HTTP_URL, uri.toString());
+        span.setAttribute(HTTP_URL, UrlSanitizer.sanitizeUrlString(uri.toString()));
         
         // 设置主机和端口信息
         if (uri.getHost() != null) {
@@ -239,7 +240,7 @@ public final class BackendCallTracingInterceptor implements ExchangeFilterFuncti
             
             Map<String, Object> requestData = new HashMap<>();
             requestData.put("method", request.method().name());
-            requestData.put("url", uri.toString());
+            requestData.put("url", UrlSanitizer.sanitizeUrlString(uri.toString()));
             requestData.put("adapter", adapter != null ? adapter : "unknown");
             requestData.put("instance", instance);
             requestData.put("headers", sanitizeHeaders(request.headers().toSingleValueMap()));
@@ -295,7 +296,7 @@ public final class BackendCallTracingInterceptor implements ExchangeFilterFuncti
             structuredLogger.logBackendCallDetails(
                 adapter != null ? adapter : "unknown",
                 instance,
-                uri.toString(),
+                UrlSanitizer.sanitizeUrlString(uri.toString()),
                 request.method().name(),
                 duration,
                 statusCode,
@@ -334,7 +335,7 @@ public final class BackendCallTracingInterceptor implements ExchangeFilterFuncti
             Map<String, Object> errorInfo = new HashMap<>();
             errorInfo.put("adapter", adapter != null ? adapter : "unknown");
             errorInfo.put("instance", instance);
-            errorInfo.put("url", uri.toString());
+            errorInfo.put("url", UrlSanitizer.sanitizeUrlString(uri.toString()));
             errorInfo.put("method", request.method().name());
             errorInfo.put("duration", duration);
             errorInfo.put("error_type", error.getClass().getSimpleName());
@@ -345,7 +346,7 @@ public final class BackendCallTracingInterceptor implements ExchangeFilterFuncti
             structuredLogger.logBackendCallDetails(
                 adapter != null ? adapter : "unknown",
                 instance,
-                uri.toString(),
+                UrlSanitizer.sanitizeUrlString(uri.toString()),
                 request.method().name(),
                 duration,
                 0, // 错误情况下状态码为0

@@ -21,9 +21,12 @@ import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.unreal.modelrouter.auth.security.config.properties.JwtConfig;
 import org.unreal.modelrouter.auth.security.config.properties.SecurityProperties;
+import org.unreal.modelrouter.auth.security.service.AccountStatusGuard;
 import org.unreal.modelrouter.common.exception.AuthenticationException;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import javax.crypto.SecretKey;
@@ -35,6 +38,9 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * issuer（iss）强制校验测试（issue #117）.
@@ -67,6 +73,11 @@ class DefaultJwtTokenValidatorIssuerValidationTest {
 
         // 黑名单关闭时不会触达 redisTemplate，可传 null
         validator = new DefaultJwtTokenValidator(securityProperties, null);
+        // #704：新增的验证期账户状态守卫绕过 Spring 容器时须显式注入，
+        // 否则 requireActiveAccount 走 fail-closed，合法令牌也会被拒。
+        AccountStatusGuard accountStatusGuard = mock(AccountStatusGuard.class);
+        when(accountStatusGuard.requireActive(anyString())).thenReturn(Mono.empty());
+        ReflectionTestUtils.setField(validator, "accountStatusGuard", accountStatusGuard);
         testKey = Keys.hmacShaKeyFor(TEST_SECRET.getBytes(StandardCharsets.UTF_8));
     }
 

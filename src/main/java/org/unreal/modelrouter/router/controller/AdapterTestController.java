@@ -66,6 +66,11 @@ public class AdapterTestController {
             return testService.testRegisteredAdapter(name, testType, apiKey, model, baseUrl)
                     .map(result -> ResponseEntity.ok(RouterResponse.success(result, "测试完成")))
                     .onErrorResume(ex -> {
+                        // #928：SSRF 拒绝等 ApiException 必须原样冒泡，由 @RestControllerAdvice
+                        // 映射成 400；不能被吞成 INTERNAL_ERROR(500) 或回落到 200 成功体。
+                        if (ex instanceof ApiException) {
+                            return Mono.error(ex);
+                        }
                         logger.error("测试适配器失败: {}", name, ex);
                         return Mono.error(ApiException.of("INTERNAL_ERROR", "测试失败: " + ex.getMessage()));
                     });
@@ -105,6 +110,10 @@ public class AdapterTestController {
         return testService.testPreview(type, baseUrl, authHeaderName, authHeaderValue, testType, model)
                 .map(result -> ResponseEntity.ok(RouterResponse.success(result, "测试完成")))
                 .onErrorResume(ex -> {
+                    // #928：同上，ApiException 原样冒泡成 400。
+                    if (ex instanceof ApiException) {
+                        return Mono.error(ex);
+                    }
                     logger.error("预览测试失败", ex);
                     return Mono.error(ApiException.of("INTERNAL_ERROR", "测试失败: " + ex.getMessage()));
                 });

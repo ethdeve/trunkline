@@ -73,7 +73,7 @@ public class SecurityExceptionHandler {
                 .error(ex.getHttpStatus().getReasonPhrase())
                 .message(ex.getMessage())
                 .errorCode(ex.getErrorCode())
-                .path(getCurrentPath())
+                .path(pathOf(exchange))
                 .build();
 
         return ResponseEntity.status(ex.getHttpStatus()).body(errorResponse);
@@ -103,7 +103,7 @@ public class SecurityExceptionHandler {
                 .error(ex.getHttpStatus().getReasonPhrase())
                 .message(ex.getMessage())
                 .errorCode(ex.getErrorCode())
-                .path(getCurrentPath())
+                .path(pathOf(exchange))
                 .build();
 
         return ResponseEntity.status(ex.getHttpStatus()).body(errorResponse);
@@ -134,7 +134,7 @@ public class SecurityExceptionHandler {
                 .error(ex.getHttpStatus().getReasonPhrase())
                 .message(SANITIZATION_ERROR_MESSAGE)  // 不暴露具体的脱敏错误信息
                 .errorCode(ex.getErrorCode())
-                .path(getCurrentPath())
+                .path(pathOf(exchange))
                 .build();
 
         return ResponseEntity.status(ex.getHttpStatus()).body(errorResponse);
@@ -164,7 +164,7 @@ public class SecurityExceptionHandler {
                 .error(ex.getHttpStatus().getReasonPhrase())
                 .message(ex.getMessage())
                 .errorCode(ex.getErrorCode())
-                .path(getCurrentPath())
+                .path(pathOf(exchange))
                 .build();
 
         return ResponseEntity.status(ex.getHttpStatus()).body(errorResponse);
@@ -201,20 +201,22 @@ public class SecurityExceptionHandler {
                 .error(ex.getStatusCode().getReasonPhrase())
                 .message(ex.getMessage())
                 .errorCode(DOWNSTREAM_SERVICE_ERROR_CODE)
+                .path(pathOf(exchange))
                 .build();
 
         return ResponseEntity.status(status).body(errorResponse);
     }
 
     /**
-     * 获取当前请求路径
-     * 在WebFlux环境中，可以通过ServerRequest获取路径信息
+     * 【issue #930】从 exchange 读取真实请求路径。
      *
-     * @return 路径（既有实现返回固定值，非 /v1 错误体形状保持不变）
+     * <p>旧实现恒返回 {@code "/api/security"}，所有安全错误体的 path 都是假的；
+     * 与另两个异常处理器一致复用 {@code V1ErrorBodyMapper.requestPathOf}——
+     * 它取 {@code getPath().value()}，不含 query，避免把 {@code ?token=...} 写进错误体
+     * （与 #695 的 URL 脱敏联动）。exchange 为 null 时返回空串，builder 不会 NPE。</p>
      */
-    private String getCurrentPath() {
-        // 在实际的WebFlux环境中，可以通过ServerRequest获取路径
-        // 这里先返回一个默认值，后续可以通过RequestContextHolder或其他方式获取
-        return "/api/security";
+    private static String pathOf(final ServerWebExchange exchange) {
+        String path = V1ErrorBodyMapper.requestPathOf(exchange);
+        return path == null ? "" : path;
     }
 }

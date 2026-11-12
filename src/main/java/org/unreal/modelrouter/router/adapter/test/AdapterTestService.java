@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.unreal.modelrouter.common.exception.ApiException;
 import org.unreal.modelrouter.common.util.UrlSecurityValidator;
 import org.unreal.modelrouter.router.adapter.AdapterRegistry;
 import reactor.core.publisher.Mono;
@@ -63,7 +64,12 @@ public class AdapterTestService {
         try {
             safeBaseUrl = validateAdapterTestUrl(baseUrl);
         } catch (SecurityException ex) {
-            return Mono.just(AdapterTestResult.error("Base URL 不合法: " + ex.getMessage()));
+            // 【issue #928】SSRF 拒绝是请求参数错误：必须以 HTTP 400 结束。
+            // 旧实现包装成「正常完成的 Mono」+ AdapterTestResult.error，Controller 再统一
+            // 返回 200 + success=true，等价于把安全拒绝伪装成一次成功的测试。
+            // 校验细节只进 warn 日志，不把内网地址/拒绝理由回显给调用方。
+            logger.warn("拒绝不合法的 Base URL: {}", ex.getMessage());
+            return Mono.error(ApiException.of("INVALID_BASE_URL", "Base URL 不合法，禁止访问该地址"));
         }
 
         WebClient client = webClientBuilder.baseUrl(safeBaseUrl).build(); // lgtm[java/ssrf]
@@ -127,7 +133,12 @@ public class AdapterTestService {
         try {
             safeBaseUrl = validateAdapterTestUrl(baseUrl);
         } catch (SecurityException ex) {
-            return Mono.just(AdapterTestResult.error("Base URL 不合法: " + ex.getMessage()));
+            // 【issue #928】SSRF 拒绝是请求参数错误：必须以 HTTP 400 结束。
+            // 旧实现包装成「正常完成的 Mono」+ AdapterTestResult.error，Controller 再统一
+            // 返回 200 + success=true，等价于把安全拒绝伪装成一次成功的测试。
+            // 校验细节只进 warn 日志，不把内网地址/拒绝理由回显给调用方。
+            logger.warn("拒绝不合法的 Base URL: {}", ex.getMessage());
+            return Mono.error(ApiException.of("INVALID_BASE_URL", "Base URL 不合法，禁止访问该地址"));
         }
 
         WebClient client = webClientBuilder.baseUrl(safeBaseUrl).build(); // lgtm[java/ssrf]
@@ -204,7 +215,12 @@ public class AdapterTestService {
         try {
             safeBaseUrl = validateAdapterTestUrl(effectiveBaseUrl);
         } catch (SecurityException ex) {
-            return Mono.just(AdapterTestResult.error("Base URL 不合法: " + ex.getMessage()));
+            // 【issue #928】SSRF 拒绝是请求参数错误：必须以 HTTP 400 结束。
+            // 旧实现包装成「正常完成的 Mono」+ AdapterTestResult.error，Controller 再统一
+            // 返回 200 + success=true，等价于把安全拒绝伪装成一次成功的测试。
+            // 校验细节只进 warn 日志，不把内网地址/拒绝理由回显给调用方。
+            logger.warn("拒绝不合法的 Base URL: {}", ex.getMessage());
+            return Mono.error(ApiException.of("INVALID_BASE_URL", "Base URL 不合法，禁止访问该地址"));
         }
 
         String authHeader = apiKey != null && !apiKey.isBlank() ? "Bearer " + apiKey : "";
@@ -228,7 +244,12 @@ public class AdapterTestService {
         try {
             safeBaseUrl = validateAdapterTestUrl(baseUrl);
         } catch (SecurityException ex) {
-            return Mono.just(AdapterTestResult.error("Base URL 不合法: " + ex.getMessage()));
+            // 【issue #928】SSRF 拒绝是请求参数错误：必须以 HTTP 400 结束。
+            // 旧实现包装成「正常完成的 Mono」+ AdapterTestResult.error，Controller 再统一
+            // 返回 200 + success=true，等价于把安全拒绝伪装成一次成功的测试。
+            // 校验细节只进 warn 日志，不把内网地址/拒绝理由回显给调用方。
+            logger.warn("拒绝不合法的 Base URL: {}", ex.getMessage());
+            return Mono.error(ApiException.of("INVALID_BASE_URL", "Base URL 不合法，禁止访问该地址"));
         }
 
         if ("CHAT".equalsIgnoreCase(testType)) {
