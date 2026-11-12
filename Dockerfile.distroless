@@ -5,18 +5,20 @@
 # 注意: Distroless 没有 shell，无法使用健康检查命令
 # 建议使用 Kubernetes liveness/readiness probe
 #
-# 构建命令: docker build -f Dockerfile.distroless -t trunkline:distroless .
+# 构建命令: docker build --build-arg VERSION=0.1.0 -f Dockerfile.distroless -t trunkline:distroless .
 # 运行命令: docker run -p 8080:8080 -e JWT_SECRET=your-secret trunkline:distroless
+# VERSION 必须与 pom.xml 的 project.version 一致（决定 jar 名与镜像 LABEL）。
 
 # =============================================================================
 # 阶段 1: 提取 Spring Boot 分层内容
 # =============================================================================
 FROM eclipse-temurin:17-jdk-alpine AS extract-layer
+ARG VERSION
 
 WORKDIR /app
 
-# 复制 JAR 文件
-COPY target/trunkline-*.jar app.jar
+# 复制 JAR 文件（精确版本，避免 target/ 残留旧版本 jar 被误选）
+COPY target/trunkline-${VERSION}.jar app.jar
 
 # 使用 Spring Boot 工具提取分层（利用 Docker 缓存）
 RUN java -Djarmode=layertools -jar app.jar extract --destination extracted
@@ -25,11 +27,12 @@ RUN java -Djarmode=layertools -jar app.jar extract --destination extracted
 # 阶段 2: 最终运行镜像 (Distroless)
 # =============================================================================
 FROM gcr.io/distroless/java17-debian12:latest
+ARG VERSION
 
 # 设置元数据
 LABEL maintainer="Trunkline Team"
 LABEL description="Trunkline - AI Governance Gateway (Distroless)"
-LABEL version="0.1.0"
+LABEL version="${VERSION}"
 LABEL org.opencontainers.image.source="https://github.com/wjy2027/trunkline"
 
 WORKDIR /app
@@ -58,4 +61,5 @@ EXPOSE 8080
 #     port: 8080
 
 # 启动应用（Distroless 入口点已配置为 java）
-ENTRYPOINT ["java", "-Xms128m", "-Xmx256m", "-XX:+UseG1GC", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "org.springframework.boot.loader.launch.JarLauncher"]
+# 不设 -Xms/-Xmx：固定堆会压过 MaxRAMPercentage，使容器 limits 失效。
+ENTRYPOINT ["java", "-XX:+UseG1GC", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-XX:InitialRAMPercentage=50.0", "org.springframework.boot.loader.launch.JarLauncher"]

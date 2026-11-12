@@ -40,6 +40,8 @@ spring:
       # 覆盖按 spring.datasource.url 的方言判定，因此不能写成 profile。本行仍必须保留：缺了它，
       # Hibernate 对嵌入式数据源的默认值会退化为 create-drop，开发库会在停机时被清空。
       # 测试环境（application-test.yml）显式设了 create-drop 与 flyway.enabled=false，不受影响。
+      # H2 路径没有 validate 这层保险：表结构与实体的一致性由 H2BaselineMatchesEntityModelTest 兜底，
+      # 新增或修改实体时，必须同步改 db/migration/h2 与 db/migration/postgres 的 V1__baseline.sql。
       ddl-auto: update
     show-sql: false
     properties:

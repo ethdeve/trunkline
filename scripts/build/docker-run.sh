@@ -106,13 +106,15 @@ else
 fi
 
 # 设置端口和 JVM 参数
+# dev 走 Dockerfile.dev 调试镜像，保留固定堆 + jdwp 端口便于本地复现问题；
+# 生产路径不设 -Xms/-Xmx：固定堆会压过 MaxRAMPercentage，令容器 limits 失效。
 if [[ "$ENVIRONMENT" == "dev" ]]; then
     PORTS="-p 8080:8080 -p 5005:5005"
     JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
     SECURITY_CONFIG="-e TRUNKLINE_SECURITY_JWT_ENABLED=false"
 else
     PORTS="-p 8080:8080"
-    JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+    JAVA_OPTS="-XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=50.0"
     # 生产Environment需要配置 JWT 密钥
     log_warning "生产Environment请确保设置 TRUNKLINE_SECURITY_JWT_SECRET Environment变量"
     SECURITY_CONFIG="-e TRUNKLINE_SECURITY_ENABLED=true -e TRUNKLINE_SECURITY_JWT_ENABLED=true"

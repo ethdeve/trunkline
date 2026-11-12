@@ -84,7 +84,9 @@ if ($existingContainer) {
 # 创建必要的目录
 New-Item -ItemType Directory -Force -Path "logs", "config", "config-store" | Out-Null
 
-# 设置镜像标签
+# 设置镜像标签与 JVM 参数
+# dev 走 Dockerfile.dev 调试镜像，保留固定堆 + jdwp 端口便于本地复现问题；
+# 生产路径不设 -Xms/-Xmx：固定堆会压过 MaxRAMPercentage，令容器 limits 失效。
 if ($Environment -eq "dev") {
     if ($Version -eq "latest") {
         $ImageTag = "trunkline/trunkline:latest-dev"
@@ -96,7 +98,7 @@ if ($Environment -eq "dev") {
 } else {
     $ImageTag = "trunkline/trunkline:${Version}"
     $Ports = "-p 8080:8080"
-    $JavaOpts = "-Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+    $JavaOpts = "-XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=50.0"
 }
 
 # 检查镜像是否存在

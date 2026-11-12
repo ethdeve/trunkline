@@ -196,7 +196,7 @@ docker run -d --name trunkline -p 8080:8080 \
   ghcr.io/wjy2027/trunkline:0.1.0
 ```
 
-> 官方镜像 `ghcr.io/wjy2027/trunkline` 随 v0.1.0 发布。镜像发布前，可先用 jar 方式，或自行构建：`docker build -f Dockerfile.optimized -t trunkline:0.1.0 .`
+> 官方镜像 `ghcr.io/wjy2027/trunkline` 随 v0.1.0 发布。镜像发布前，可先用 jar 方式，或自行构建：`docker build --build-arg VERSION=0.1.0 -f Dockerfile.optimized -t trunkline:0.1.0 .`
 
 **jar 包（服务器已装 Java 17 及以上）**
 

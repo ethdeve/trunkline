@@ -71,28 +71,28 @@ coverage: ## 生成测试覆盖率报告
 .PHONY: docker-build
 docker-build: package-fast ## 构建生产环境 Docker 镜像（标准版）
 	@echo "构建生产环境 Docker 镜像（标准版）..."
-	docker build -t $(DOCKER_IMAGE):$(VERSION) .
+	docker build --build-arg VERSION=$(VERSION) -t $(DOCKER_IMAGE):$(VERSION) .
 	docker tag $(DOCKER_IMAGE):$(VERSION) $(DOCKER_IMAGE):latest
 
 # Docker 构建 - 优化版（Alpine 基础镜像，~200MB，减小40%+）
 .PHONY: docker-build-optimized
 docker-build-optimized: package-fast ## 构建优化版 Docker 镜像（Alpine，减小40%+）
 	@echo "构建优化版 Docker 镜像（Alpine 基础镜像，~200MB）..."
-	docker build -f Dockerfile.optimized -t $(DOCKER_IMAGE):$(VERSION)-alpine .
+	docker build -f Dockerfile.optimized --build-arg VERSION=$(VERSION) -t $(DOCKER_IMAGE):$(VERSION)-alpine .
 	docker tag $(DOCKER_IMAGE):$(VERSION)-alpine $(DOCKER_IMAGE):alpine
 
 # Docker 构建 - Distroless 版（Google Distroless，~180MB，最小攻击面）
 .PHONY: docker-build-distroless
 docker-build-distroless: package-fast ## 构建 Distroless Docker 镜像（最小攻击面，~180MB）
 	@echo "构建 Distroless Docker 镜像（Google Distroless，~180MB）..."
-	docker build -f Dockerfile.distroless -t $(DOCKER_IMAGE):$(VERSION)-distroless .
+	docker build -f Dockerfile.distroless --build-arg VERSION=$(VERSION) -t $(DOCKER_IMAGE):$(VERSION)-distroless .
 	docker tag $(DOCKER_IMAGE):$(VERSION)-distroless $(DOCKER_IMAGE):distroless
 
 # Docker 构建 - 开发环境
 .PHONY: docker-build-dev
 docker-build-dev: package ## 构建开发环境 Docker 镜像
 	@echo "构建开发环境 Docker 镜像..."
-	docker build -f Dockerfile.dev -t $(DOCKER_IMAGE):$(VERSION)-dev .
+	docker build -f Dockerfile.dev --build-arg VERSION=$(VERSION) -t $(DOCKER_IMAGE):$(VERSION)-dev .
 
 # Docker 构建 - 使用 Jib
 .PHONY: docker-build-jib

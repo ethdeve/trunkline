@@ -2,16 +2,19 @@
 # 使用 Alpine + 多阶段构建 + JVM 参数优化
 # 实际大小：~280MB（比标准版减少 36%）
 # 注：JLink 方案由于 Spring Boot 3.x 模块兼容性问题无法使用
+#
+# 构建时必须传 --build-arg VERSION=<pom 版本>（决定 jar 名与镜像 LABEL）。
 
 # =============================================================================
 # 阶段 1: 提取 JAR 内容
 # =============================================================================
 FROM eclipse-temurin:17-jdk-alpine AS build-extract
+ARG VERSION
 
 WORKDIR /app
 
-# 复制 JAR 文件
-COPY target/trunkline-*.jar app.jar
+# 复制 JAR 文件（精确版本，避免 target/ 残留旧版本 jar 被误选）
+COPY target/trunkline-${VERSION}.jar app.jar
 
 # 使用 Spring Boot 工具提取分层
 RUN java -Djarmode=layertools -jar app.jar extract --destination extracted
@@ -20,11 +23,12 @@ RUN java -Djarmode=layertools -jar app.jar extract --destination extracted
 # 阶段 2: 最终运行镜像
 # =============================================================================
 FROM eclipse-temurin:17-jre-alpine
+ARG VERSION
 
 # 设置元数据
 LABEL maintainer="Trunkline Team"
 LABEL description="Trunkline - AI Governance Gateway (Optimized)"
-LABEL version="0.1.0"
+LABEL version="${VERSION}"
 
 # 安装必要工具
 RUN apk add --no-cache wget tzdata
@@ -46,8 +50,8 @@ COPY --from=build-extract --chown=trunkline:trunkline /app/extracted/spring-boot
 COPY --from=build-extract --chown=trunkline:trunkline /app/extracted/snapshot-dependencies/ ./
 COPY --from=build-extract --chown=trunkline:trunkline /app/extracted/application/ ./
 
-# 设置环境变量
-ENV JAVA_OPTS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+# 设置环境变量（容器感知）：不设 -Xms/-Xmx，避免固定堆压过 MaxRAMPercentage。
+ENV JAVA_OPTS="-XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=50.0"
 
 # 应用配置
 ENV SPRING_PROFILES_ACTIVE=prod

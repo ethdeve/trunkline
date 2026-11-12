@@ -50,12 +50,21 @@ jobs:
       - name: Build application jar (with frontend)
         run: ./mvnw -B clean package -Pprod -DskipTests
 
-      - name: Verify jar produced
+      # VERSION 必须取自 pom.xml：Dockerfile 用 COPY target/trunkline-${VERSION}.jar，
+      # 传 git tag 版本会在 tag 与 pom 版本不一致时找不到 jar。
+      - name: Verify jar produced and resolve pom version
+        id: pom
         run: |
           set -euo pipefail
-          JAR=$(ls target/trunkline-*.jar | grep -v -E 'original|sources|javadoc' | head -n1)
+          VERSION=$(./mvnw -q -DforceStdout help:evaluate -Dexpression=project.version | tail -n1 | tr -d '\r')
+          if [ -z "$VERSION" ]; then
+            echo "::error::无法从 pom.xml 读取 project.version"
+            exit 1
+          fi
+          JAR="target/trunkline-${VERSION}.jar"
           echo "Built jar: $JAR"
           test -s "$JAR"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU (for arm64 cross-build)
         uses: docker/setup-qemu-action@v3
@@ -76,6 +85,7 @@ jobs:
         env:
           INPUT_TAG: ${{ github.event.inputs.tag }}
           GIT_TAG: ${{ github.ref_name }}
+          POM_VERSION: ${{ steps.pom.outputs.version }}
         run: |
           set -euo pipefail
           raw="${INPUT_TAG:-$GIT_TAG}"
@@ -83,6 +93,9 @@ jobs:
           if [ -z "$version" ]; then
             echo "::error::无法解析镜像版本标签"
             exit 1
+          fi
+          if [ "$version" != "$POM_VERSION" ]; then
+            echo "::warning::git tag 版本($version) 与 pom.xml project.version($POM_VERSION) 不一致：镜像标签按 git tag，jar 与镜像 LABEL 按 pom 版本"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           {
@@ -100,6 +113,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            VERSION=${{ steps.pom.outputs.version }}
           labels: |
             org.opencontainers.image.title=Trunkline
             org.opencontainers.image.description=Simple, secure, trustworthy intelligent routing model gateway

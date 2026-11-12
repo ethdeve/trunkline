@@ -22,10 +22,21 @@ import shutil
 import struct
 import sys
 import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-APP_VERSION = "0.1.0"
+
+
+def read_project_version():
+    """从 pom.xml 顶层 <version> 读取版本，避免打包脚本与 Maven 坐标脱钩。"""
+    for child in ET.parse(ROOT / "pom.xml").getroot():
+        if child.tag.rsplit("}", 1)[-1] == "version":
+            return (child.text or "").strip()
+    raise RuntimeError("pom.xml 缺少顶层 <version>")
+
+
+APP_VERSION = read_project_version()
 JAR_NAME = f"trunkline-{APP_VERSION}.jar"
 
 

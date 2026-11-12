@@ -27,7 +27,13 @@ warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 err()  { echo -e "${RED}[ERROR]${NC} $1"; }
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-APP_VERSION="0.1.0"
+# 版本号从 pom.xml 顶层 <version> 读取，避免打包脚本与 Maven 坐标脱钩。
+# parent 内的 <version> 缩进 8 空格，顶层为 4 空格，故只匹配后者。
+APP_VERSION="$(sed -n 's/^    <version>\([^<]*\)<\/version>[[:space:]]*$/\1/p' "$PROJECT_ROOT/pom.xml" | head -n1)"
+if [[ ! "$APP_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$ ]]; then
+    err "无法从 pom.xml 解析顶层 <version>（得到：'${APP_VERSION}'）"
+    exit 1
+fi
 JAR_NAME="trunkline-${APP_VERSION}.jar"
 MODULES="java.se,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.unsupported,jdk.management,jdk.management.agent,jdk.attach,java.instrument,jdk.localedata,jdk.jcmd"
 

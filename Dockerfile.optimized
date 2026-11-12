@@ -2,18 +2,20 @@
 # 多阶段构建 + Alpine 基础镜像 + Spring Boot 分层
 # 镜像大小: ~200MB (比标准版减少 40%+)
 #
-# 构建命令: docker build -f Dockerfile.optimized -t trunkline:optimized .
+# 构建命令: docker build --build-arg VERSION=0.1.0 -f Dockerfile.optimized -t trunkline:optimized .
 # 运行命令: docker run -p 8080:8080 -e JWT_SECRET=your-secret trunkline:optimized
+# VERSION 必须与 pom.xml 的 project.version 一致（决定 jar 名与镜像 LABEL）。
 
 # =============================================================================
 # 阶段 1: 提取 Spring Boot 分层内容
 # =============================================================================
 FROM eclipse-temurin:17-jre-alpine AS extract-layer
+ARG VERSION
 
 WORKDIR /app
 
-# 复制 JAR 文件
-COPY target/trunkline-*.jar app.jar
+# 复制 JAR 文件（精确版本，避免 target/ 残留旧版本 jar 被误选）
+COPY target/trunkline-${VERSION}.jar app.jar
 
 # 使用 Spring Boot 工具提取分层（利用 Docker 缓存）
 RUN java -Djarmode=layertools -jar app.jar extract --destination extracted
@@ -22,11 +24,12 @@ RUN java -Djarmode=layertools -jar app.jar extract --destination extracted
 # 阶段 2: 最终运行镜像
 # =============================================================================
 FROM eclipse-temurin:17-jre-alpine
+ARG VERSION
 
 # 设置元数据
 LABEL maintainer="Trunkline Team"
 LABEL description="Trunkline - AI Governance Gateway"
-LABEL version="0.1.0"
+LABEL version="${VERSION}"
 LABEL org.opencontainers.image.source="https://github.com/wjy2027/trunkline"
 
 # 安装必要工具（wget 用于健康检查，tzdata 用于时区支持）
@@ -50,8 +53,8 @@ COPY --from=extract-layer --chown=trunkline:trunkline /app/extracted/spring-boot
 COPY --from=extract-layer --chown=trunkline:trunkline /app/extracted/snapshot-dependencies/ ./
 COPY --from=extract-layer --chown=trunkline:trunkline /app/extracted/application/ ./
 
-# JVM 优化参数（容器感知，适用于小内存环境）
-ENV JAVA_OPTS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20"
+# JVM 优化参数（容器感知）：不设 -Xms/-Xmx，避免固定堆压过 MaxRAMPercentage。
+ENV JAVA_OPTS="-XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=50.0 -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20"
 
 # 应用配置
 ENV SPRING_PROFILES_ACTIVE=prod

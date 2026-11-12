@@ -579,6 +579,7 @@
                     <tag>${project.version}</tag>
                     <buildArgs>
                         <JAR_FILE>target/${project.build.finalName}.jar</JAR_FILE>
+                        <VERSION>${project.version}</VERSION>
                     </buildArgs>
                     <useMavenSettingsForAuth>true</useMavenSettingsForAuth>
                     <pullNewerImage>false</pullNewerImage>
@@ -679,13 +680,17 @@
                         </tags>
                     </to>
                     <container>
+                        <!-- 与 Dockerfile 对齐：不设 -Xms/-Xmx，交给 MaxRAMPercentage 按容器 limits 伸缩 -->
                         <jvmFlags>
-                            <jvmFlag>-Xms512m</jvmFlag>
-                            <jvmFlag>-Xmx1024m</jvmFlag>
                             <jvmFlag>-XX:+UseG1GC</jvmFlag>
                             <jvmFlag>-XX:+UseContainerSupport</jvmFlag>
                             <jvmFlag>-XX:MaxRAMPercentage=75.0</jvmFlag>
+                            <jvmFlag>-XX:InitialRAMPercentage=50.0</jvmFlag>
                         </jvmFlags>
+                        <!-- Jib 不走 Dockerfile，镜像版本标签须在此单独声明 -->
+                        <labels>
+                            <version>${project.version}</version>
+                        </labels>
                         <environment>
                             <SPRING_PROFILES_ACTIVE>prod</SPRING_PROFILES_ACTIVE>
                         </environment>

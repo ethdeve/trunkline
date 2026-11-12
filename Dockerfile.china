@@ -1,10 +1,11 @@
 # 单阶段构建 Dockerfile for Trunkline
 FROM eclipse-temurin:17-jre
+ARG VERSION
 
 # 设置维护者信息
 LABEL maintainer="Trunkline Team"
 LABEL description="Trunkline - AI Governance Gateway"
-LABEL version="0.1.0"
+LABEL version="${VERSION}"
 
 # 创建应用用户（安全最佳实践）
 RUN groupadd -r -g 10010 trunkline && \
@@ -18,14 +19,14 @@ RUN mkdir -p /app/logs /app/config /app/config-store /app/config-dev /app/data &
     chown -R trunkline:trunkline /app  && \
     chmod -R 766 /app
 
-# 直接复制外部构建好的 JAR 文件
-COPY target/trunkline-*.jar app.jar
+# 直接复制外部构建好的 JAR 文件（精确版本，避免 target/ 残留旧版本 jar 被误选）
+COPY target/trunkline-${VERSION}.jar app.jar
 RUN chown trunkline:trunkline app.jar
 
 # 配置文件通过卷挂载提供，无需复制到镜像中
 
-# 设置 JVM 参数
-ENV JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+# 设置 JVM 参数（容器感知）：不设 -Xms/-Xmx，避免固定堆压过 MaxRAMPercentage。
+ENV JAVA_OPTS="-XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=50.0"
 
 # 设置应用参数
 ENV SPRING_PROFILES_ACTIVE=prod

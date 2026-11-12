@@ -112,7 +112,7 @@ if ($Environment -eq "dev") {
     $AdditionalTags = @("${ImageName}:latest")
 }
 
-docker build -f $Dockerfile -t $ImageTag @AdditionalTags .
+docker build -f $Dockerfile --build-arg VERSION=$Version -t $ImageTag @AdditionalTags .
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Docker build failed!"

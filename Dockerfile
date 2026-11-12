@@ -1,16 +1,21 @@
 # Trunkline 优化版 Dockerfile
 # 多阶段构建 + Spring Boot 分层 JAR + 多架构支持 (amd64/arm64)
 # 镜像大小: ~320MB
+#
+# 构建时必须传 --build-arg VERSION=<pom 版本>，VERSION 同时决定 COPY 的 jar 名与镜像 LABEL；
+# 不传会让 COPY target/trunkline-.jar 直接失败（早失败优于静默选错 jar）。
+# 例：docker build --build-arg VERSION=0.1.0 -t trunkline:0.1.0 .
 
 # =============================================================================
 # 阶段 1: 提取 Spring Boot 分层内容
 # =============================================================================
 FROM eclipse-temurin:17-jdk AS extract-layer
+ARG VERSION
 
 WORKDIR /app
 
-# 复制 JAR 文件
-COPY target/trunkline-*.jar app.jar
+# 复制 JAR 文件（精确版本，避免 target/ 残留旧版本 jar 被误选）
+COPY target/trunkline-${VERSION}.jar app.jar
 
 # 使用 Spring Boot 工具提取分层（利用 Docker 缓存）
 RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
@@ -19,11 +24,12 @@ RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination 
 # 阶段 2: 最终运行镜像
 # =============================================================================
 FROM eclipse-temurin:17-jre
+ARG VERSION
 
 # 设置元数据
 LABEL maintainer="Trunkline Team"
 LABEL description="Trunkline - AI Governance Gateway"
-LABEL version="0.1.0"
+LABEL version="${VERSION}"
 
 # 安装必要工具（curl 用于健康检查，tzdata 用于时区支持）
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -48,8 +54,9 @@ COPY --from=extract-layer --chown=trunkline:trunkline /app/extracted/spring-boot
 COPY --from=extract-layer --chown=trunkline:trunkline /app/extracted/snapshot-dependencies/ ./
 COPY --from=extract-layer --chown=trunkline:trunkline /app/extracted/application/ ./
 
-# JVM 优化参数（容器感知）
-ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+# JVM 优化参数（容器感知）：显式 -Xms/-Xmx 会压过 MaxRAMPercentage，
+# 令 2G/4G limits 下堆被锁死在固定小值，故只保留按比例伸缩的参数。
+ENV JAVA_OPTS="-XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=50.0"
 
 # 应用配置
 ENV SPRING_PROFILES_ACTIVE=prod

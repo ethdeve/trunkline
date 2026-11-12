@@ -38,7 +38,10 @@ function Warn($msg) { Write-Host "[WARN] $msg" -ForegroundColor Yellow }
 function Err($msg)  { Write-Host "[ERROR] $msg" -ForegroundColor Red }
 
 $PROJECT_ROOT = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
-$APP_VERSION  = "0.1.0"
+# 版本号从 pom.xml 顶层 <version> 读取，避免打包脚本与 Maven 坐标脱钩。
+[xml]$POM = Get-Content (Join-Path $PROJECT_ROOT "pom.xml") -Raw
+$APP_VERSION = ([string]$POM.project.version).Trim()
+if ([string]::IsNullOrEmpty($APP_VERSION)) { throw "无法从 pom.xml 解析顶层 <version>" }
 $JAR_NAME     = "trunkline-$APP_VERSION.jar"
 $MODULES      = "java.se,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.unsupported,jdk.management,jdk.management.agent,jdk.attach,java.instrument,jdk.localedata,jdk.jcmd"
 
@@ -123,6 +126,8 @@ Copy-Item $JAR_SRC (Join-Path $APP_INPUT $JAR_NAME) -Force
 # ---------- jpackage app-image ----------
 if (Test-Path $DEST) { Move-Item $DEST (Join-Path $STASH_OUT "dist-installer-rebuild-$(Get-Date -Format HHmmss)") -Force -ErrorAction SilentlyContinue }
 Info "jpackage app-image ..."
+# 桌面便携版有意保留固定堆：本地桌面没有容器 limits，MaxRAMPercentage 会按宿主机
+# 总内存放大堆；768m 上限可避免单机占用过高。生产容器镜像已移除 -Xms/-Xmx。
 & $JPACKAGE --type app-image `
     --name Trunkline --app-version $APP_VERSION --vendor "Trunkline Team" `
     --input $APP_INPUT --dest $DEST `

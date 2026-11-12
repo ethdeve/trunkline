@@ -194,7 +194,7 @@ docker run -d --name trunkline -p 8080:8080 \
   ghcr.io/wjy2027/trunkline:0.1.0
 ```
 
-> The official image `ghcr.io/wjy2027/trunkline` ships with v0.1.0. Before it is published, use the jar option or build it yourself: `docker build -f Dockerfile.optimized -t trunkline:0.1.0 .`
+> The official image `ghcr.io/wjy2027/trunkline` ships with v0.1.0. Before it is published, use the jar option or build it yourself: `docker build --build-arg VERSION=0.1.0 -f Dockerfile.optimized -t trunkline:0.1.0 .`
 
 **jar (server already has Java 17+)**
 

@@ -42,7 +42,7 @@ echo -e "${GREEN}JAR file built successfully${NC}"
 
 # Step 2: Build Docker image using China-optimized Dockerfile
 echo -e "${YELLOW}Step 2: Building Docker image with China-optimized configuration...${NC}"
-docker build -f Dockerfile.china -t "${IMAGE_NAME}:${VERSION}" -t "${IMAGE_NAME}:latest" .
+docker build -f Dockerfile.china --build-arg VERSION="${VERSION}" -t "${IMAGE_NAME}:${VERSION}" -t "${IMAGE_NAME}:latest" .
 
 # Check if Docker build was successful
 if [ $? -eq 0 ]; then
