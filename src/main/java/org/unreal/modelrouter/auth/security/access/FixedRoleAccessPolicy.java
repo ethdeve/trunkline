@@ -143,6 +143,11 @@ public class FixedRoleAccessPolicy {
                 // 网关运行形态（快速上手去硬编码）：只返回当前访问地址与部署形态，无敏感信息
                 AccessRule.get("/api/gateway/info", AccessLevel.SELF),
 
+                // 企业能力探测（O6）：前端特性开关唯一数据源，任意已登录角色按能力显隐企业 UI；
+                // 响应仅含能力键值对（社区版恒为 {}），无敏感信息。必须显式登记为 SELF：
+                // 未登记端点 fail-closed 仅 ADMIN，普通用户/运维会被挡在特性探测之外。
+                AccessRule.get("/api/v1/enterprise/features", AccessLevel.SELF),
+
                 // API Key 管理：自助端点在前（首条命中优先）
                 AccessRule.get("/api/auth/api-keys/mine", AccessLevel.SELF),
                 // 员工取回自己的密钥明文（「我的密钥」页复制，2026-11 用户决策）：

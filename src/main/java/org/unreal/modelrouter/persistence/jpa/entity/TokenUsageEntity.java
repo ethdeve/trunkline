@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -215,6 +216,37 @@ public class TokenUsageEntity {
      */
     @Column(name = "metadata", columnDefinition = "TEXT")
     private String metadata;
+
+    /**
+     * 成交价快照·输入单价（¥ / 千 token），O1 价格固化。
+     *
+     * <p>落库时点由 {@code PriceResolver} 取价写入；账单聚合<b>只读本快照</b>、
+     * 不再查当前 {@code model_price}，保证改价不影响历史账单金额。
+     * 未定价（{@code priceMissing=true}）或历史迁移行为 NULL。</p>
+     */
+    @Column(name = "price_input_snapshot", precision = 18, scale = 6)
+    private BigDecimal priceInputSnapshot;
+
+    /**
+     * 成交价快照·输出单价（¥ / 千 token），O1 价格固化（语义同 {@link #priceInputSnapshot}）。
+     */
+    @Column(name = "price_output_snapshot", precision = 18, scale = 6)
+    private BigDecimal priceOutputSnapshot;
+
+    /**
+     * 价格版本标识（如 {@code flat}），标记该笔用量按哪一代计价策略成交。
+     */
+    @Column(name = "price_version", length = 64)
+    private String priceVersion;
+
+    /**
+     * 价格缺失标记：{@code true} = 落库时无价可固（未定价模型）或历史迁移无法回填。
+     *
+     * <p><b>未定价 ≠ ¥0</b>（O2）：缺失价格的用量在账单侧单列「待定价」，
+     * 绝不静默按 ¥0 混入总额。</p>
+     */
+    @Column(name = "price_missing")
+    private Boolean priceMissing;
 
     /**
      * 在保存前自动设置时间相关字段

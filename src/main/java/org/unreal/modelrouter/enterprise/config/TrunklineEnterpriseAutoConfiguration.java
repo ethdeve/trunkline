@@ -10,12 +10,14 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.event.ContextRefreshedEvent;
+import org.unreal.modelrouter.enterprise.noop.CommunityFeaturesProvider;
 import org.unreal.modelrouter.enterprise.noop.NoopBillingProvider;
 import org.unreal.modelrouter.enterprise.noop.NoopLicenseVerifier;
 import org.unreal.modelrouter.enterprise.noop.NoopModerationProvider;
 import org.unreal.modelrouter.enterprise.noop.NoopSsoConnector;
 import org.unreal.modelrouter.enterprise.noop.SingleTenantContext;
 import org.unreal.modelrouter.enterprise.spi.BillingProvider;
+import org.unreal.modelrouter.enterprise.spi.EnterpriseFeaturesProvider;
 import org.unreal.modelrouter.enterprise.spi.LicenseVerifier;
 import org.unreal.modelrouter.enterprise.spi.ModerationProvider;
 import org.unreal.modelrouter.enterprise.spi.SsoConnector;
@@ -74,5 +76,17 @@ public class TrunklineEnterpriseAutoConfiguration {
     @ConditionalOnMissingBean(LicenseVerifier.class)
     public NoopLicenseVerifier noopLicenseVerifier() {
         return new NoopLicenseVerifier();
+    }
+
+    /**
+     * 企业能力探测兜底（O6）：社区版恒返回空能力集。
+     *
+     * <p>商业版 jar 注册自己的 {@link EnterpriseFeaturesProvider} 后本 Bean 退位，
+     * {@code GET /api/v1/enterprise/features} 即返回企业能力集。</p>
+     */
+    @Bean
+    @ConditionalOnMissingBean(EnterpriseFeaturesProvider.class)
+    public CommunityFeaturesProvider communityFeaturesProvider() {
+        return new CommunityFeaturesProvider();
     }
 }

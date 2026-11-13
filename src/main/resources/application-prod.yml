@@ -67,6 +67,11 @@ trunkline:
     # 生产环境安全功能
     enabled: true
 
+    # 【O3 · 安全开关化】安全日志归档 production 默认开（基础默认关：开源主干 matchIfMissing=false，
+    # dev 零配置不装配；切 production profile 即激活）。统一口径：基础默认关 + prod 显式开。
+    archive:
+      enabled: true
+
     jwt:
       enabled: true
       # 生产必须显式注入强密钥；别名顺序 JWT_SECRET > PROD_JWT_SECRET > DEV_JWT_SECRET，
@@ -92,8 +97,17 @@ trunkline:
     api-key:
       enabled: true
       default-expiration-days: 365
+      # 【O3 · 安全开关化】密钥过期清理与轮换 production 默认开（基础默认关）。
+      # 过期清理为幂等操作，多副本重复执行危害小；轮换已带跨副本 ScheduledTaskLock，仅单副本执行。
+      expiration-cleanup:
+        enabled: true
+      rotation:
+        enabled: true
 
     audit:
+      # 【O3 · 安全开关化】增强审计 production 默认开（基础默认关：开源主干 matchIfMissing=false，
+      # dev 零配置不装配；切 production profile 即激活真实落库 + 死信兜底链路，不静默丢事件）。
+      enhanced: true
       log-level: "WARN"
       include-request-body: false
       include-response-body: false

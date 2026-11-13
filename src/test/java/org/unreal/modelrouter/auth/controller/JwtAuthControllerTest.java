@@ -19,10 +19,14 @@ import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.common.dto.JwtTokenInfo;
 import org.unreal.modelrouter.common.dto.LoginRequest;
 import org.unreal.modelrouter.common.dto.LoginResponse;
+import org.unreal.modelrouter.common.dto.SsoLoginRequest;
 import org.unreal.modelrouter.common.dto.TokenRefreshRequest;
 import org.unreal.modelrouter.common.exception.ApiException;
+import org.unreal.modelrouter.enterprise.spi.SsoConnector;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -49,6 +53,9 @@ class JwtAuthControllerTest {
     @Mock
     private JwtPersistenceService jwtPersistenceService;
 
+    @Mock
+    private SsoConnector ssoConnector;
+
     @InjectMocks
     private JwtAuthController controller;
 
@@ -57,6 +64,10 @@ class JwtAuthControllerTest {
 
     @BeforeEach
     void setUp() {
+        // Mockito 对带 @RequiredArgsConstructor 的控制器走构造器注入后不再做字段注入
+        // （jwtPersistenceService 的 null 即证据），SSO 字段需显式反射注入。
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "ssoConnector", ssoConnector);
+
         testLoginRequest = new LoginRequest();
         testLoginRequest.setUsername("testuser");
         testLoginRequest.setPassword("password");
@@ -177,6 +188,63 @@ class JwtAuthControllerTest {
                         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, apiEx.getStatus());
                     })
                     .verify();
+        }
+    }
+
+    @Nested
+    @DisplayName("SSO 登录（O7-a）")
+    class SsoLoginTests {
+
+        private SsoLoginRequest requestWithCode() {
+            final SsoLoginRequest request = new SsoLoginRequest();
+            request.setCode("auth-code");
+            return request;
+        }
+
+        @Test
+        @DisplayName("Noop（providerName 空串）→ SSO_UNSUPPORTED，不以 null 判别")
+        void noopConnectorReturnsUnsupported() {
+            lenient().when(ssoConnector.providerName()).thenReturn("");
+            lenient().when(ssoConnector.exchange(anyString())).thenReturn(Optional.empty());
+
+            StepVerifier.create(controller.ssoLogin(requestWithCode(), null))
+                    .expectErrorSatisfies(ex -> {
+                        assertInstanceOf(ApiException.class, ex);
+                        assertEquals("SSO_UNSUPPORTED", ((ApiException) ex).getErrorCode());
+                    })
+                    .verify();
+            verifyNoInteractions(accountManager);
+        }
+
+        @Test
+        @DisplayName("企业连接器返回 empty（无效授权码）→ SSO_FAILED，不签 token")
+        void invalidCodeReturnsSsoFailed() {
+            lenient().when(ssoConnector.providerName()).thenReturn("oidc");
+            lenient().when(ssoConnector.exchange(anyString())).thenReturn(Optional.empty());
+
+            StepVerifier.create(controller.ssoLogin(requestWithCode(), null))
+                    .expectErrorSatisfies(ex -> {
+                        assertInstanceOf(ApiException.class, ex);
+                        assertEquals("SSO_FAILED", ((ApiException) ex).getErrorCode());
+                    })
+                    .verify();
+            verifyNoInteractions(accountManager);
+        }
+
+        @Test
+        @DisplayName("企业连接器命中 → 映射本地账号并签发 JWT")
+        void validCodeIssuesToken() {
+            final SsoConnector.EnterpriseUser user =
+                    new SsoConnector.EnterpriseUser("ext-1", "张三", "zhangsan@corp.example", "IT");
+            lenient().when(ssoConnector.providerName()).thenReturn("oidc");
+            lenient().when(ssoConnector.exchange(anyString())).thenReturn(Optional.of(user));
+            lenient().when(accountManager.authenticateExternal(any(), any(), any()))
+                    .thenReturn(Mono.just("sso-jwt-token"));
+
+            StepVerifier.create(controller.ssoLogin(requestWithCode(), null))
+                    .expectNextMatches(response -> response.isSuccess()
+                            && response.getData().getToken().equals("sso-jwt-token"))
+                    .verifyComplete();
         }
     }
 }

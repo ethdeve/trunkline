@@ -47,7 +47,7 @@ class TokenUsageRecorderThreadingTest {
         private final CountDownLatch latch = new CountDownLatch(1);
 
         CapturingTokenUsageService() {
-            super(null);
+            super(null, null, null);
         }
 
         @Override

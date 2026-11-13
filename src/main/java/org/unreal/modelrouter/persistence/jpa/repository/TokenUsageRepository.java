@@ -142,7 +142,15 @@ public interface TokenUsageRepository extends JpaRepository<TokenUsageEntity, Lo
      * 保证用量不丢（这类行按 ¥0 计价，因其名称不会命中厂商模型价格行）。</p>
      *
      * <p>仅统计 {@code isSuccess = true} 的成功调用（失败调用不产生实际费用）。
-     * 返回每行：{@code [modelName, promptTokens, completionTokens, totalTokens, requestCount, successCount]}。</p>
+     * 返回每行：{@code [modelName, promptTokens, completionTokens, totalTokens, requestCount,
+     * successCount, snapshotAmount, pricedCount]}。其中（O1 成交价快照 / O2 未定价 ≠ ¥0）：</p>
+     * <ul>
+     *   <li>{@code snapshotAmount} —— 按落库时点固化的快照单价在 SQL 内求和的成交金额
+     *       （{@code Σ(prompt×priceIn + completion×priceOut)/1000}）；价格缺失的行表达式为 NULL，
+     *       SUM 自动忽略，COALESCE 兜 0；</li>
+     *   <li>{@code pricedCount} —— 该模型下<b>有快照价</b>的行数；为 0 表示该模型全部用量
+     *       无价可固（未定价 / 历史迁移行），服务层单列「待定价」、金额不入总额。</li>
+     * </ul>
      *
      * @param userId 用户名（JWT subject，服务端 principal 透传）
      * @param year   年份
@@ -152,12 +160,55 @@ public interface TokenUsageRepository extends JpaRepository<TokenUsageEntity, Lo
     @Query("SELECT COALESCE(t.instanceName, t.modelName), "
            + "COALESCE(SUM(t.promptTokens), 0), COALESCE(SUM(t.completionTokens), 0), "
            + "COALESCE(SUM(t.totalTokens), 0), COUNT(t), "
-           + "COALESCE(SUM(CASE WHEN t.isSuccess = true THEN 1 ELSE 0 END), 0) "
+           + "COALESCE(SUM(CASE WHEN t.isSuccess = true THEN 1 ELSE 0 END), 0), "
+           + "COALESCE(SUM((t.promptTokens * t.priceInputSnapshot "
+           + "+ t.completionTokens * t.priceOutputSnapshot) / 1000), 0), "
+           + "COALESCE(SUM(CASE WHEN t.priceMissing = false AND t.priceInputSnapshot IS NOT NULL "
+           + "THEN 1 ELSE 0 END), 0) "
            + "FROM TokenUsageEntity t "
            + "WHERE t.userId = :userId AND t.year = :year AND t.month = :month "
            + "AND t.isSuccess = true "
            + "GROUP BY COALESCE(t.instanceName, t.modelName) ORDER BY SUM(t.totalTokens) DESC")
     List<Object[]> aggregateByUserMonthModel(
+            @Param("userId") String userId,
+            @Param("year") Integer year,
+            @Param("month") Integer month);
+
+    /**
+     * 按月汇总「有快照价」用量的成交金额（O1：账单只读快照，改价不影响历史账单）。
+     *
+     * <p>「我的账单」上月同期对比专用。价格缺失的行不计入（O2：未定价 ≠ ¥0）。</p>
+     *
+     * @param userId 用户名
+     * @param year   年份
+     * @param month  月份（1-12）
+     * @return 单行单列：成交金额合计（无记录时 0）
+     */
+    @Query("SELECT COALESCE(SUM((t.promptTokens * t.priceInputSnapshot "
+           + "+ t.completionTokens * t.priceOutputSnapshot) / 1000), 0) "
+           + "FROM TokenUsageEntity t "
+           + "WHERE t.userId = :userId AND t.year = :year AND t.month = :month "
+           + "AND t.isSuccess = true "
+           + "AND t.priceMissing = false AND t.priceInputSnapshot IS NOT NULL")
+    List<Object[]> sumPricedAmountByUserMonth(
+            @Param("userId") String userId,
+            @Param("year") Integer year,
+            @Param("month") Integer month);
+
+    /**
+     * 按月汇总「待定价」用量的 token 与请求数（O2：未定价 ≠ ¥0、账单页可见）。
+     *
+     * @param userId 用户名
+     * @param year   年份
+     * @param month  月份（1-12）
+     * @return 单行：{@code [unpricedTokens, unpricedRequests]}（无记录时 0）
+     */
+    @Query("SELECT COALESCE(SUM(t.totalTokens), 0), COUNT(t) "
+           + "FROM TokenUsageEntity t "
+           + "WHERE t.userId = :userId AND t.year = :year AND t.month = :month "
+           + "AND t.isSuccess = true "
+           + "AND (t.priceMissing = true OR t.priceInputSnapshot IS NULL)")
+    List<Object[]> sumUnpricedByUserMonth(
             @Param("userId") String userId,
             @Param("year") Integer year,
             @Param("month") Integer month);
@@ -200,7 +251,8 @@ public interface TokenUsageRepository extends JpaRepository<TokenUsageEntity, Lo
      *
      * <p>仅统计 {@code isSuccess = true} 的成功调用（失败调用不产生实际费用）。
      * 返回每行：{@code [usageDate, virtualModel, instanceName, promptTokens, completionTokens,
-     * totalTokens, requestCount]}。</p>
+     * totalTokens, requestCount, snapshotAmount]}。{@code snapshotAmount} 为该组按快照单价
+     * 求和的成交金额（O1：价格缺失行为 0，金额不入总额）。</p>
      *
      * @param userId 用户名（JWT subject，服务端 principal 透传）
      * @param year   年份
@@ -209,7 +261,9 @@ public interface TokenUsageRepository extends JpaRepository<TokenUsageEntity, Lo
      */
     @Query("SELECT t.usageDate, t.virtualModel, COALESCE(t.instanceName, t.modelName), "
            + "COALESCE(SUM(t.promptTokens), 0), COALESCE(SUM(t.completionTokens), 0), "
-           + "COALESCE(SUM(t.totalTokens), 0), COUNT(t) "
+           + "COALESCE(SUM(t.totalTokens), 0), COUNT(t), "
+           + "COALESCE(SUM((t.promptTokens * t.priceInputSnapshot "
+           + "+ t.completionTokens * t.priceOutputSnapshot) / 1000), 0) "
            + "FROM TokenUsageEntity t "
            + "WHERE t.userId = :userId AND t.year = :year AND t.month = :month "
            + "AND t.isSuccess = true "
@@ -229,7 +283,8 @@ public interface TokenUsageRepository extends JpaRepository<TokenUsageEntity, Lo
      *
      * <p>计价维度与分组维度分离（同上）：分组按虚拟模型，金额按厂商模型单价算。
      * 返回每行：{@code [virtualModel, instanceName, promptTokens, completionTokens,
-     * totalTokens, requestCount]}。</p>
+     * totalTokens, requestCount, snapshotAmount]}。{@code snapshotAmount} 为该组按快照
+     * 单价求和的成交金额（O1：价格缺失行为 0）。</p>
      *
      * <p>仅统计 {@code isSuccess = true} 的成功调用。</p>
      *
@@ -240,7 +295,9 @@ public interface TokenUsageRepository extends JpaRepository<TokenUsageEntity, Lo
      */
     @Query("SELECT t.virtualModel, COALESCE(t.instanceName, t.modelName), "
            + "COALESCE(SUM(t.promptTokens), 0), COALESCE(SUM(t.completionTokens), 0), "
-           + "COALESCE(SUM(t.totalTokens), 0), COUNT(t) "
+           + "COALESCE(SUM(t.totalTokens), 0), COUNT(t), "
+           + "COALESCE(SUM((t.promptTokens * t.priceInputSnapshot "
+           + "+ t.completionTokens * t.priceOutputSnapshot) / 1000), 0) "
            + "FROM TokenUsageEntity t "
            + "WHERE t.userId = :userId AND t.usageDate BETWEEN :startDate AND :endDate "
            + "AND t.isSuccess = true "

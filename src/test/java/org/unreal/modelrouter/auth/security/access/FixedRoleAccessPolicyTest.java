@@ -51,6 +51,9 @@ class FixedRoleAccessPolicyTest {
             assertEquals(AccessLevel.SELF, levelOf(HttpMethod.GET, "/api/auth/api-keys/mine"));
             assertEquals(AccessLevel.SELF, levelOf(HttpMethod.GET, "/api/instance/mine"));
             assertEquals(AccessLevel.SELF, levelOf(HttpMethod.GET, "/api/gateway/info"));
+            // 企业能力探测（O6）：任意已登录角色都要能做特性探测，
+            // 未登记 fail-closed 仅 ADMIN 会把普通用户挡在企业 UI 显隐判断之外
+            assertEquals(AccessLevel.SELF, levelOf(HttpMethod.GET, "/api/v1/enterprise/features"));
             // 我的密钥「本月已用」自助端点：必须先于 /api/monitoring/quota/** 的 OPS 规则命中
             assertEquals(AccessLevel.SELF, levelOf(HttpMethod.GET, "/api/monitoring/quota/mine/usage"));
         }

@@ -62,6 +62,24 @@ public class MyBillsVO {
      */
     private Long previousMonthRequestCount;
 
+    /**
+     * 待定价 token 合计（O2：未定价 ≠ ¥0）。
+     *
+     * <p>落库时无价可固的用量 token 总数——<b>不计入 {@code totalAmount}</b>、
+     * 也不与 ¥0 混淆，账单页应显著标注「待定价」。</p>
+     */
+    private Long unpricedTokenTotal;
+
+    /**
+     * 待定价调用次数（O2）。
+     */
+    private Long unpricedRequestCount;
+
+    /**
+     * 是否存在待定价用量（O2：账单页据此高亮）。
+     */
+    private Boolean hasUnpriced;
+
     /** 按厂商模型明细（金额降序） */
     private List<ModelBill> byModel;
 
@@ -132,7 +150,16 @@ public class MyBillsVO {
         /** 输出单价（¥ / 千 token） */
         private BigDecimal priceOutput;
 
-        /** 该项花费（¥） */
+        /** 该项花费（¥）；待定价行不计金额（见 {@link #unpriced}） */
         private BigDecimal amount;
+
+        /**
+         * 待定价标记（O2：未定价 ≠ ¥0）。
+         *
+         * <p>{@code true} = 该模型全部用量落库时无价可固（未定价模型 / 历史迁移行）——
+         * {@code amount} 恒为 0 但<b>不代表免费</b>，token 计入 VO 级
+         * {@code unpricedTokenTotal} 单列展示。</p>
+         */
+        private Boolean unpriced;
     }
 }

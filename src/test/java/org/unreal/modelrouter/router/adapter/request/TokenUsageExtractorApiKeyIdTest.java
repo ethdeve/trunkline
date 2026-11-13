@@ -52,7 +52,7 @@ class TokenUsageExtractorApiKeyIdTest {
     @BeforeEach
     void setUp() {
         // 真实 Recorder + 手写捕获存根（不落库），捕获最终构造的 DTO
-        final TokenUsageRecorder recorder = new TokenUsageRecorder(new TokenUsageService(null) {
+        final TokenUsageRecorder recorder = new TokenUsageRecorder(new TokenUsageService(null, null, null) {
             @Override
             public void recordTokenUsage(final TokenUsageRecordDTO record) {
                 captured.set(record);

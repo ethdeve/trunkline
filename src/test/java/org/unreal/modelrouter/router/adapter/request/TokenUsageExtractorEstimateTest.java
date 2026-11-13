@@ -70,7 +70,7 @@ class TokenUsageExtractorEstimateTest {
 
     @BeforeEach
     void setUp() {
-        final TokenUsageRecorder recorder = new TokenUsageRecorder(new TokenUsageService(null) {
+        final TokenUsageRecorder recorder = new TokenUsageRecorder(new TokenUsageService(null, null, null) {
             @Override
             public void recordTokenUsage(final TokenUsageRecordDTO record) {
                 captured.set(record);

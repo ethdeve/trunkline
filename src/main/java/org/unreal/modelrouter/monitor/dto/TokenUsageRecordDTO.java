@@ -117,4 +117,28 @@ public final class TokenUsageRecordDTO {
      * 元数据
      */
     private String metadata;
+
+    /**
+     * 成交价快照·输入单价（¥ / 千 token），O1 价格固化。
+     *
+     * <p>为 {@code null} 时由 {@code PriceResolver} 在落库时点取价固化；
+     * 企业链路可显式携带（如从请求上下文透传议价结果），显式值优先。</p>
+     */
+    private java.math.BigDecimal priceInputSnapshot;
+
+    /**
+     * 成交价快照·输出单价（¥ / 千 token），O1 价格固化（语义同 {@link #priceInputSnapshot}）。
+     */
+    private java.math.BigDecimal priceOutputSnapshot;
+
+    /**
+     * 价格版本标识（如 {@code flat}）；显式快照时由调用方给出。
+     */
+    private String priceVersion;
+
+    /**
+     * 价格缺失标记（{@code null} 视为 {@code false}）：落库时无价可固 → true，
+     * 账单侧单列「待定价」（未定价 ≠ ¥0）。
+     */
+    private Boolean priceMissing;
 }

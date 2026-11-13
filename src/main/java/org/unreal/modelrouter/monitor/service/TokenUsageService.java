@@ -4,11 +4,19 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.unreal.modelrouter.billing.price.PriceQuote;
+import org.unreal.modelrouter.billing.price.PriceResolver;
+import org.unreal.modelrouter.enterprise.config.TenantContextHolder;
+import org.unreal.modelrouter.enterprise.spi.BillingProvider;
 import org.unreal.modelrouter.monitor.dto.TokenUsageRecordDTO;
 import org.unreal.modelrouter.monitor.dto.TokenUsageStatisticsDTO;
 import org.unreal.modelrouter.persistence.jpa.entity.TokenUsageEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.TokenUsageRepository;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,6 +38,21 @@ public class TokenUsageService {
     private final TokenUsageRepository tokenUsageRepository;
 
     /**
+     * 价格解析 SPI（O1 成交价快照 + O2 未定价 ≠ ¥0）。
+     *
+     * <p>落库时点取价固化进快照列；开源默认 {@code FlatPriceResolver}（读 {@code model_price}），
+     * 企业版可覆盖为阶梯 / 时段 / 议价策略。取不到价 → {@code priceMissing=true} 单列「待定价」，
+     * <b>绝不静默按 ¥0</b>。</p>
+     */
+    private final PriceResolver priceResolver;
+
+    /**
+     * 商业计费扩展点（O7-b 计费接线）。OSS 侧 {@code NoopBillingProvider} 恒注册（只记账不扣费），
+     * 企业 jar 注入真实实现后自动接管。判空仅为无 Spring 装配的单元测试兜底。
+     */
+    private final BillingProvider billingProvider;
+
+    /**
      * 记录 Token 使用量
      *
      * @param record Token 使用量记录
@@ -37,6 +60,9 @@ public class TokenUsageService {
     @Transactional
     public void recordTokenUsage(TokenUsageRecordDTO record) {
         try {
+            // O1 成交价快照：DTO 显式携带的快照优先（企业链路透传），否则落库时点取价固化。
+            // 计价键与账单口径一致：instance_name 优先，回落 model_name。
+            final PriceSnapshot snapshot = resolvePriceSnapshot(record);
             TokenUsageEntity entity = TokenUsageEntity.builder()
                     .traceId(record.getTraceId())
                     .serviceType(record.getServiceType())
@@ -57,14 +83,119 @@ public class TokenUsageService {
                     .responseTimeMs(record.getResponseTimeMs())
                     .occurredAt(record.getOccurredAt() != null ? record.getOccurredAt() : LocalDateTime.now())
                     .metadata(record.getMetadata())
+                    .priceInputSnapshot(snapshot.priceInput())
+                    .priceOutputSnapshot(snapshot.priceOutput())
+                    .priceVersion(snapshot.version())
+                    .priceMissing(snapshot.missing())
                     .build();
 
             tokenUsageRepository.save(entity);
-            log.debug("Token usage recorded: model={}, totalTokens={}, serviceType={}",
-                    record.getModelName(), record.getTotalTokens(), record.getServiceType());
+
+            // O7-b 计费接线：事务提交后扣费（见 registerBillingAfterCommit 注释）
+            registerBillingAfterCommit(record, snapshot);
+
+            log.debug("Token usage recorded: model={}, totalTokens={}, serviceType={}, priceMissing={}",
+                    record.getModelName(), record.getTotalTokens(), record.getServiceType(), snapshot.missing());
         } catch (Exception e) {
             log.error("Failed to record token usage", e);
         }
+    }
+
+    /**
+     * O7-b 计费接线：在<b>主事务提交后</b>向 {@link BillingProvider} 上报扣费。
+     *
+     * <p>为什么不在事务体内扣费：① 事务内若 charge 内部触发 JPA 持久化异常，事务被标记
+     * rollback-only，提交时抛 {@code UnexpectedRollbackException}，请求照样失败；② 事务内
+     * 扣费与落库不同步（用量已提交、扣费丢失），对账必差。afterCommit 时主事务已提交，
+     * 「降级不阻断」才是真话。</p>
+     *
+     * <p>未定价 ≠ ¥0（O7-b 验收）：{@code priceMissing} 或快照不完整（半价快照）的用量
+     * <b>不上报</b>，按待定价留在账本（账单侧已单列），绝不按 0 元扣费。</p>
+     */
+    private void registerBillingAfterCommit(final TokenUsageRecordDTO record, final PriceSnapshot snapshot) {
+        if (billingProvider == null) {
+            return;
+        }
+        if (snapshot.missing() || snapshot.priceInput() == null || snapshot.priceOutput() == null) {
+            log.info("本笔用量待定价（价格缺失或快照不完整），跳过计费上报: model={}, instanceName={}",
+                    record.getModelName(), record.getInstanceName());
+            return;
+        }
+        final BillingProvider.BillingEntry entry = toBillingEntry(record, snapshot);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    chargeSafely(entry);
+                }
+            });
+        } else {
+            // 无事务上下文（单测 / 非事务调用点）：直接扣费
+            chargeSafely(entry);
+        }
+    }
+
+    /** charge 失败只允许降级记日志，绝不向上抛（扣费失败不阻断已成功的调用）。 */
+    private void chargeSafely(final BillingProvider.BillingEntry entry) {
+        try {
+            billingProvider.charge(entry);
+        } catch (Exception e) {
+            log.warn("计费扣减失败，已降级放行: username={}, model={}, cost={}, cause={}",
+                    entry.username(), entry.model(), entry.cost(), e.getMessage());
+        }
+    }
+
+    /**
+     * 构造计费条目：cost 直接取 O1 成交价快照计算（企业链路显式快照优先的议价结果同样生效），
+     * tenantId 从 {@link TenantContextHolder} 透传，model 与账单聚合口径一致（instance_name 回落 model_name）。
+     */
+    private BillingProvider.BillingEntry toBillingEntry(final TokenUsageRecordDTO record, final PriceSnapshot snapshot) {
+        final long prompt = record.getPromptTokens() != null ? record.getPromptTokens() : 0L;
+        final long completion = record.getCompletionTokens() != null ? record.getCompletionTokens() : 0L;
+        final long total = record.getTotalTokens() != null ? record.getTotalTokens() : prompt + completion;
+        // cost = (prompt×输入价 + completion×输出价) / 1000（单价按千 token 计价，与账单 computeAmount 口径一致）
+        final BigDecimal cost = snapshot.priceInput().multiply(BigDecimal.valueOf(prompt))
+                .add(snapshot.priceOutput().multiply(BigDecimal.valueOf(completion)))
+                .divide(BigDecimal.valueOf(1000), 6, RoundingMode.HALF_UP);
+        final String pricingKey = record.getInstanceName() != null && !record.getInstanceName().isBlank()
+                ? record.getInstanceName() : record.getModelName();
+        return new BillingProvider.BillingEntry(
+                TenantContextHolder.currentTenantId(), record.getUserId(), pricingKey, cost, total);
+    }
+
+    /**
+     * 成交价快照解析结果（内部载体）。
+     */
+    private record PriceSnapshot(java.math.BigDecimal priceInput,
+                                 java.math.BigDecimal priceOutput,
+                                 String version,
+                                 boolean missing) {
+    }
+
+    /**
+     * 解析成交价快照：显式快照优先 → PriceResolver 取价 → 取不到则标缺失（未定价 ≠ ¥0）。
+     */
+    private PriceSnapshot resolvePriceSnapshot(final TokenUsageRecordDTO record) {
+        // 1) 调用方显式携带的快照（企业链路透传议价结果等）优先
+        if (record.getPriceInputSnapshot() != null || record.getPriceOutputSnapshot() != null) {
+            return new PriceSnapshot(record.getPriceInputSnapshot(), record.getPriceOutputSnapshot(),
+                    record.getPriceVersion() != null ? record.getPriceVersion() : "explicit", false);
+        }
+        // 2) 落库时点取价：计价键 = instance_name（厂商模型）优先，回落 model_name（与账单聚合口径一致）
+        final String pricingKey = record.getInstanceName() != null && !record.getInstanceName().isBlank()
+                ? record.getInstanceName() : record.getModelName();
+        try {
+            final PriceQuote quote = priceResolver != null ? priceResolver.resolve(pricingKey).orElse(null) : null;
+            if (quote != null) {
+                return new PriceSnapshot(quote.priceInput(), quote.priceOutput(), quote.version(), false);
+            }
+        } catch (Exception e) {
+            // 取价异常不阻断计量（O2：计量层永不阻断），按缺失处理并告警
+            log.warn("价格解析失败，本笔用量按待定价处理: model={}, instanceName={}, cause={}",
+                    record.getModelName(), record.getInstanceName(), e.getMessage());
+        }
+        // 3) 未定价：标记缺失，账单侧单列「待定价」——绝不静默 ¥0
+        return new PriceSnapshot(null, null, null, true);
     }
 
     /**

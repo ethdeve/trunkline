@@ -13,6 +13,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Filter;
+import org.unreal.modelrouter.enterprise.config.TenantJpaFilterDefinition;
 
 import java.time.LocalDateTime;
 
@@ -51,6 +53,9 @@ import java.time.LocalDateTime;
         @Index(name = "idx_quota_ledger_model", columnList = "model"),
         @Index(name = "idx_quota_ledger_window", columnList = "window_type, window_start")
     })
+// O9：配额账本含 tenant_id（:tenantId 列），必须与其余 7 个租户实体同口径挂行级过滤器——
+// 开启多租户后账本跨租户可见、可改是隔离漏洞。过滤器默认不启用（社区版行为零变化）。
+@Filter(name = TenantJpaFilterDefinition.NAME)
 public class QuotaLedgerEntity {
 
     /**

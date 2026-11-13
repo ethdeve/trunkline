@@ -36,12 +36,14 @@ import java.util.Set;
  * {@code promptTokens × priceInput / 1000 + completionTokens × priceOutput / 1000}
  * 计算花费（单价为 ¥ / 千 token）。</p>
  *
- * <p><b>计价口径</b>：账单按<b>厂商模型名</b>计价——分组维度为 {@code token_usage.instance_name}
- * （请求最终落到的已接入模型实例名），与 {@code model_price.model_name} 键一致；
- * 不按虚拟模型（对外路由名）计价。</p>
+ * <p><b>计价口径（O1 成交价快照 / O2 未定价 ≠ ¥0）</b>：「我的账单」「我的额度」的金额
+ * 在 SQL 内按<b>落库时点固化的快照单价</b>求和（{@code token_usage.price_*_snapshot}），
+ * 不再读当前 {@code model_price}——改价不影响历史账单金额。落库时无价可固的用量
+ * （{@code priceMissing=true}）金额不入总额，经 {@code unpricedTokenTotal / hasUnpriced}
+ * 单列「待定价」，绝不静默按 ¥0。</p>
  *
- * <p>价格缺失容错：未配置价格（或停用）的模型按 ¥0 计入，前端账单页给空态提示；
- * 金额计算在内存完成，避免跨实体 JOIN 的方言兼容性风险。</p>
+ * <p>「团队用量」（{@link #getTeamUsage}）暂仍按当前价内存计价（快照化改造待做，
+ * 见《开源版待改造清单》O1 剩余项）；未定价模型按 ¥0 计入，前端给空态提示。</p>
  *
  * @author Trunkline Team
  */
@@ -67,20 +69,13 @@ public class BillingService {
      */
     @Transactional(readOnly = true)
     public MyBillsVO getMyBills(final String userId, final int year, final int month) {
-        // 1. 加载已启用的模型单价（内存建索引，避免逐行查库的 N+1）
-        //    键 = 厂商模型名，与 token_usage.instance_name 对齐
-        final Map<String, ModelPriceEntity> priceIndex = new HashMap<>();
-        for (final ModelPriceEntity price : modelPriceRepository.findAllByEnabledTrue()) {
-            if (price.getModelName() != null) {
-                priceIndex.put(price.getModelName(), price);
-            }
-        }
-
-        // 2. 按「用户 + 月份 + 模型」聚合 token 用量（成功调用）
+        // 1. 按「用户 + 月份 + 模型」聚合 token 用量与成交金额（成功调用）
+        //    O1 成交价快照：金额在 SQL 内按落库时点固化的快照单价求和，
+        //    不再查当前 model_price——改价不影响历史账单金额。
         final List<Object[]> modelRows =
                 tokenUsageRepository.aggregateByUserMonthModel(userId, year, month);
 
-        // 3. 逐模型合并单价、算花费
+        // 2. 逐模型组装明细：有价行按快照金额；无价行单列「待定价」（O2：未定价 ≠ ¥0）
         final List<MyBillsVO.ModelBill> modelBills = new ArrayList<>(modelRows.size());
         BigDecimal totalAmount = BigDecimal.ZERO;
         long totalTokens = 0L, promptTokens = 0L, completionTokens = 0L, requestCount = 0L;
@@ -91,12 +86,10 @@ public class BillingService {
             final long completion = ((Number) row[2]).longValue();
             final long total = ((Number) row[3]).longValue();
             final long requests = ((Number) row[4]).longValue();
-
-            final ModelPriceEntity price = priceIndex.get(modelName);
-            final BigDecimal priceIn = price != null ? price.getPriceInput() : BigDecimal.ZERO;
-            final BigDecimal priceOut = price != null ? price.getPriceOutput() : BigDecimal.ZERO;
-
-            final BigDecimal amount = computeAmount(prompt, completion, priceIn, priceOut);
+            final BigDecimal snapshotAmount = row.length > 6 && row[6] instanceof Number n
+                    ? BigDecimal.valueOf(n.doubleValue()) : BigDecimal.ZERO;
+            final long pricedCount = row.length > 7 && row[7] instanceof Number n2 ? n2.longValue() : 0L;
+            final boolean priced = pricedCount > 0;
 
             modelBills.add(MyBillsVO.ModelBill.builder()
                     .modelName(modelName)
@@ -104,28 +97,40 @@ public class BillingService {
                     .completionTokens(completion)
                     .totalTokens(total)
                     .requestCount(requests)
-                    .priceInput(priceIn)
-                    .priceOutput(priceOut)
-                    .amount(amount)
+                    // 快照计价下单价可能随版本变化，聚合行无单一单价可展示（前端据此不渲染单价列）
+                    .priceInput(null)
+                    .priceOutput(null)
+                    .amount(priced ? snapshotAmount.setScale(4, RoundingMode.HALF_UP) : BigDecimal.ZERO)
+                    .unpriced(!priced)
                     .build());
 
-            totalAmount = totalAmount.add(amount);
+            if (priced) {
+                totalAmount = totalAmount.add(snapshotAmount);
+            }
             totalTokens += total;
             promptTokens += prompt;
             completionTokens += completion;
             requestCount += requests;
         }
 
-        // 按金额降序（未计价的 ¥0 排后）
+        // 按金额降序（待定价 ¥0 排后）
         modelBills.sort((a, b) -> b.getAmount().compareTo(a.getAmount()));
 
-        // 5. 按天 × 虚拟模型的交叉表（v3.5：账单页按原型改为「按天汇总」）
-        final List<MyBillsVO.DailyBill> dailyBills = buildDailyBills(userId, year, month, priceIndex);
+        // 3. 待定价用量单列（O2：不混入 ¥0 总额）
+        final List<Object[]> unpricedRows =
+                tokenUsageRepository.sumUnpricedByUserMonth(userId, year, month);
+        final long unpricedTokens = !unpricedRows.isEmpty() && unpricedRows.get(0)[0] instanceof Number n
+                ? n.longValue() : 0L;
+        final long unpricedRequests = !unpricedRows.isEmpty() && unpricedRows.get(0)[1] instanceof Number n2
+                ? n2.longValue() : 0L;
 
-        // 6. 上月同期（KPI 卡的「比上月省了 ¥x」参照）
+        // 4. 按天 × 虚拟模型的交叉表（v3.5：账单页按原型改为「按天汇总」）
+        final List<MyBillsVO.DailyBill> dailyBills = buildDailyBills(userId, year, month);
+
+        // 5. 上月同期（KPI 卡的「比上月省了 ¥x」参照）——同样只读快照
         final int prevYear = month == 1 ? year - 1 : year;
         final int prevMonth = month == 1 ? 12 : month - 1;
-        final BigDecimal prevAmount = computeMonthAmount(userId, prevYear, prevMonth, priceIndex);
+        final BigDecimal prevAmount = computeMonthAmount(userId, prevYear, prevMonth);
         final long prevRequests = countMonthRequests(userId, prevYear, prevMonth);
 
         return MyBillsVO.builder()
@@ -136,6 +141,9 @@ public class BillingService {
                 .promptTokens(promptTokens)
                 .completionTokens(completionTokens)
                 .requestCount(requestCount)
+                .unpricedTokenTotal(unpricedTokens)
+                .unpricedRequestCount(unpricedRequests)
+                .hasUnpriced(unpricedTokens > 0 || unpricedRequests > 0)
                 .previousMonthAmount(prevAmount.setScale(4, RoundingMode.HALF_UP))
                 .previousMonthRequestCount(prevRequests)
                 .byModel(modelBills)
@@ -146,21 +154,16 @@ public class BillingService {
     /**
      * 计算某月的总花费（¥）——用于「上月同期」对比。
      *
-     * <p>与 {@link #getMyBills} 同一计价口径：按厂商模型单价算后汇总。</p>
+     * <p>O1 成交价快照：与 {@link #getMyBills} 同一计价口径——只读落库时点固化的
+     * 快照单价，价格缺失的用量不计入（O2：未定价 ≠ ¥0）。</p>
      */
-    private BigDecimal computeMonthAmount(final String userId, final int year, final int month,
-                                          final Map<String, ModelPriceEntity> priceIndex) {
-        BigDecimal amount = BigDecimal.ZERO;
-        for (final Object[] row : tokenUsageRepository.aggregateByUserMonthModel(userId, year, month)) {
-            final String modelName = (String) row[0];
-            final long prompt = ((Number) row[1]).longValue();
-            final long completion = ((Number) row[2]).longValue();
-            final ModelPriceEntity price = priceIndex.get(modelName);
-            final BigDecimal priceIn = price != null ? price.getPriceInput() : BigDecimal.ZERO;
-            final BigDecimal priceOut = price != null ? price.getPriceOutput() : BigDecimal.ZERO;
-            amount = amount.add(computeAmount(prompt, completion, priceIn, priceOut));
+    private BigDecimal computeMonthAmount(final String userId, final int year, final int month) {
+        final List<Object[]> rows =
+                tokenUsageRepository.sumPricedAmountByUserMonth(userId, year, month);
+        if (rows.isEmpty() || !(rows.get(0)[0] instanceof Number n)) {
+            return BigDecimal.ZERO;
         }
-        return amount;
+        return BigDecimal.valueOf(n.doubleValue());
     }
 
     /**
@@ -194,18 +197,11 @@ public class BillingService {
         final LocalDate end = LocalDate.now();
         final LocalDate start = end.minusDays(window - 1L);
 
-        // 单价索引
-        final Map<String, ModelPriceEntity> priceIndex = new HashMap<>();
-        for (final ModelPriceEntity price : modelPriceRepository.findAllByEnabledTrue()) {
-            if (price.getModelName() != null) {
-                priceIndex.put(price.getModelName(), price);
-            }
-        }
-
         final List<Object[]> rows = tokenUsageRepository.aggregateByUserDateRangeVirtualModel(
                 userId, start.toString(), end.toString());
 
         // 虚拟模型 → 累加器
+        // O1 成交价快照：金额直接用 SQL 内按快照单价求和的列，不再查当前价格表
         final Map<String, long[]> counters = new LinkedHashMap<>();
         final Map<String, BigDecimal> amounts = new LinkedHashMap<>();
         BigDecimal totalAmount = BigDecimal.ZERO;
@@ -214,16 +210,10 @@ public class BillingService {
 
         for (final Object[] row : rows) {
             final String rawVirtualModel = (String) row[0];
-            final String instanceName = (String) row[1];
-            final long prompt = ((Number) row[2]).longValue();
-            final long completion = ((Number) row[3]).longValue();
             final long total = ((Number) row[4]).longValue();
             final long requests = ((Number) row[5]).longValue();
-
-            final ModelPriceEntity price = priceIndex.get(instanceName);
-            final BigDecimal priceIn = price != null ? price.getPriceInput() : BigDecimal.ZERO;
-            final BigDecimal priceOut = price != null ? price.getPriceOutput() : BigDecimal.ZERO;
-            final BigDecimal amount = computeAmount(prompt, completion, priceIn, priceOut);
+            final BigDecimal amount = row.length > 6 && row[6] instanceof Number n
+                    ? BigDecimal.valueOf(n.doubleValue()) : BigDecimal.ZERO;
 
             final String virtualModel = rawVirtualModel != null && !rawVirtualModel.isBlank()
                     ? rawVirtualModel : TeamUsageVO.UNASSIGNED_VIRTUAL_MODEL;
@@ -282,12 +272,12 @@ public class BillingService {
      * @param priceIndex 厂商模型 → 单价的索引
      * @return 按日期倒序的每日明细
      */
-    private List<MyBillsVO.DailyBill> buildDailyBills(final String userId, final int year, final int month,
-                                                      final Map<String, ModelPriceEntity> priceIndex) {
+    private List<MyBillsVO.DailyBill> buildDailyBills(final String userId, final int year, final int month) {
         final List<Object[]> dayRows =
                 tokenUsageRepository.aggregateByUserMonthDayVirtualModel(userId, year, month);
 
         // 日期 → 该日的虚拟模型金额累加器（保持插入顺序，便于前端稳定渲染列）
+        // O1 成交价快照：金额直接用 SQL 内按快照单价求和的列，价格缺失行为 0（不入总额）
         final Map<String, Map<String, BigDecimal>> dayVirtualAmounts = new LinkedHashMap<>();
         final Map<String, Long> dayRequests = new LinkedHashMap<>();
         final Map<String, Long> dayTokens = new LinkedHashMap<>();
@@ -295,16 +285,10 @@ public class BillingService {
         for (final Object[] row : dayRows) {
             final String usageDate = (String) row[0];
             final String rawVirtualModel = (String) row[1];
-            final String instanceName = (String) row[2];
-            final long prompt = ((Number) row[3]).longValue();
-            final long completion = ((Number) row[4]).longValue();
             final long total = ((Number) row[5]).longValue();
             final long requests = ((Number) row[6]).longValue();
-
-            final ModelPriceEntity price = priceIndex.get(instanceName);
-            final BigDecimal priceIn = price != null ? price.getPriceInput() : BigDecimal.ZERO;
-            final BigDecimal priceOut = price != null ? price.getPriceOutput() : BigDecimal.ZERO;
-            final BigDecimal amount = computeAmount(prompt, completion, priceIn, priceOut);
+            final BigDecimal amount = row.length > 7 && row[7] instanceof Number n
+                    ? BigDecimal.valueOf(n.doubleValue()) : BigDecimal.ZERO;
 
             final String virtualModel = rawVirtualModel != null && !rawVirtualModel.isBlank()
                     ? rawVirtualModel : TeamUsageVO.UNASSIGNED_VIRTUAL_MODEL;
