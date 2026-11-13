@@ -5,6 +5,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.reactive.error.ErrorWebExceptionHandler;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -19,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.common.exception.AuthenticationException;
 import org.unreal.modelrouter.common.exception.AuthorizationException;
+import org.unreal.modelrouter.common.exception.NoAvailableInstanceException;
 import org.unreal.modelrouter.common.exception.PoolUnavailableException;
 import org.unreal.modelrouter.common.exception.SanitizationException;
 import org.unreal.modelrouter.common.exception.SecurityException;
@@ -71,6 +73,13 @@ public class ReactiveGlobalExceptionHandler implements ErrorWebExceptionHandler 
     private final ErrorTracker errorTracker;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * #1010：{@code /v1/**} 错误体是否附带 {@code error.details} 拓扑明细（host:port 已脱敏）。
+     * 默认 false —— 客户端协议面不暴露内部拓扑；控制台面 {@code RouterResponse.data} 不受此开关限制。
+     */
+    @Value("${trunkline.error-details.expose-topology:false}")
+    private boolean exposeTopologyDetails;
+
     {
         // 注册JavaTimeModule以支持LocalDateTime序列化
         objectMapper.registerModule(new JavaTimeModule());
@@ -109,24 +118,38 @@ public class ReactiveGlobalExceptionHandler implements ErrorWebExceptionHandler 
                 return handleSpringSecurityAccessDeniedException(
                         exchange, (org.springframework.security.access.AccessDeniedException) ex);
             } else {
-                RouterResponse<Void> errorResponse;
+                RouterResponse<?> errorResponse;
                 HttpStatus status;
                 Integer retryAfterSeconds = null;
+                // #1010：/v1/** 的 error.details（开关 gating，默认不暴露拓扑）
+                Map<String, Object> details = null;
 
                 if (ex instanceof ServerWebInputException) {
                     logger.error("请求体读取异常: {}", ex.getMessage());
                     errorResponse = RouterResponse.error("请求体无效或缺失: " + ex.getMessage(), "400");
                     status = HttpStatus.BAD_REQUEST;
+                } else if (ex instanceof NoAvailableInstanceException) {
+                    // #1010：无可用实例（全限流 / 全不健康 / 全熔断）——503 带 Retry-After 与 data.members 明细，
+                    // 与池路由 503 的退避语义一致
+                    NoAvailableInstanceException naie = (NoAvailableInstanceException) ex;
+                    logger.error("无可用实例: retryAfter={}s, message={}",
+                            naie.getRetryAfterSeconds(), naie.getMessage());
+                    errorResponse = dataErrorResponse(naie.getMessage(), naie.getData(),
+                            String.valueOf(naie.getStatus().value()));
+                    status = naie.getStatus();
+                    retryAfterSeconds = naie.getRetryAfterSeconds();
+                    details = exposeTopologyDetails ? naie.getData() : null;
                 } else if (ex instanceof PoolUnavailableException) {
                     // N-4：池不可用（熔断打开 / 成员不健康）——503 带 Retry-After，
                     // 与 fallback 降级路径的 Retry-After: 60 语义一致，客户端可统一退避。
                     PoolUnavailableException pue = (PoolUnavailableException) ex;
                     logger.error("池路由不可用: retryAfter={}s, message={}",
                             pue.getRetryAfterSeconds(), pue.getMessage());
-                    errorResponse = RouterResponse.error(pue.getMessage(),
+                    errorResponse = dataErrorResponse(pue.getMessage(), pue.getData(),
                             String.valueOf(pue.getStatus().value()));
                     status = pue.getStatus();
                     retryAfterSeconds = pue.getRetryAfterSeconds();
+                    details = exposeTopologyDetails ? pue.getData() : null;
                 } else if (ex instanceof ResponseStatusException) {
                     ResponseStatusException rse = (ResponseStatusException) ex;
                     logger.error("响应状态异常: status={}, message={}", rse.getStatusCode(), rse.getMessage());
@@ -155,7 +178,7 @@ public class ReactiveGlobalExceptionHandler implements ErrorWebExceptionHandler 
                 }
                 
                 // 安全地设置响应状态和头
-                return setResponse(exchange, errorResponse, status, retryAfterSeconds);
+                return setResponse(exchange, errorResponse, status, retryAfterSeconds, details);
             }
         } catch (Exception e) {
             logger.error("异常处理器本身发生异常", e);
@@ -210,23 +233,24 @@ public class ReactiveGlobalExceptionHandler implements ErrorWebExceptionHandler 
     }
     
     /**
-     * 安全地设置响应（不带 Retry-After）
+     * 安全地设置响应（不带 Retry-After 与 /v1 details）
      */
     private Mono<Void> setResponse(
             final ServerWebExchange exchange,
-            final RouterResponse<Void> errorResponse, final HttpStatus status) {
-        return setResponse(exchange, errorResponse, status, null);
+            final RouterResponse<?> errorResponse, final HttpStatus status) {
+        return setResponse(exchange, errorResponse, status, null, null);
     }
 
     /**
      * 安全地设置响应
      *
      * @param retryAfterSeconds 非空时附加 {@code Retry-After} 头（N-4：池不可用 503 的退避提示）
+     * @param details           #1010：非空且开关开启时附加到 {@code /v1/**} 的 {@code error.details}
      */
     private Mono<Void> setResponse(
             final ServerWebExchange exchange,
-            final RouterResponse<Void> errorResponse, final HttpStatus status,
-            final Integer retryAfterSeconds) {
+            final RouterResponse<?> errorResponse, final HttpStatus status,
+            final Integer retryAfterSeconds, final Map<String, Object> details) {
         try {
             final ServerHttpResponse response = exchange.getResponse();
             // 检查响应是否已提交
@@ -250,7 +274,7 @@ public class ReactiveGlobalExceptionHandler implements ErrorWebExceptionHandler 
             }
 
             // 序列化响应体：/v1/** 按客户端协议形状输出，其余路径沿用 RouterResponse（状态码不变）
-            String jsonResponse = serializeErrorBody(exchange, errorResponse, status);
+            String jsonResponse = serializeErrorBody(exchange, errorResponse, status, details);
             DataBuffer buffer = response.bufferFactory().wrap(jsonResponse.getBytes(StandardCharsets.UTF_8));
             
             // 再次检查响应是否已提交
@@ -278,15 +302,24 @@ public class ReactiveGlobalExceptionHandler implements ErrorWebExceptionHandler 
      * @return JSON 文本
      * @throws Exception 序列化异常（由调用方捕获并降级）
      */
-    private String serializeErrorBody(final ServerWebExchange exchange, final RouterResponse<Void> errorResponse,
-                                      final HttpStatus status) throws Exception {
+    private String serializeErrorBody(final ServerWebExchange exchange, final RouterResponse<?> errorResponse,
+                                      final HttpStatus status, final Map<String, Object> details) throws Exception {
         final Map<String, Object> clientBody = V1ErrorBodyMapper.toErrorBody(
                 V1ErrorBodyMapper.requestPathOf(exchange), status.value(),
-                errorResponse.getMessage(), errorResponse.getErrorCode());
+                errorResponse.getMessage(), errorResponse.getErrorCode(), details);
         if (clientBody != null) {
             return objectMapper.writeValueAsString(clientBody);
         }
         return objectMapper.writeValueAsString(errorResponse);
+    }
+
+    /**
+     * #1010：构造带结构化明细（{@code data}）的错误响应；{@code data} 为 null 时与
+     * {@link RouterResponse#error(String, String)} 等价（NON_NULL 序列化下无 data 字段）.
+     */
+    private RouterResponse<Map<String, Object>> dataErrorResponse(
+            final String message, final Map<String, Object> data, final String errorCode) {
+        return new RouterResponse<>(false, message, data, errorCode);
     }
     
     /**

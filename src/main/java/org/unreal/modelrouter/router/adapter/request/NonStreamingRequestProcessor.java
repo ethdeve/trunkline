@@ -22,10 +22,12 @@ import org.unreal.modelrouter.auth.sanitization.SanitizationService;
 import org.unreal.modelrouter.auth.security.quota.QuotaReservation;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.common.exception.DownstreamServiceException;
+import org.unreal.modelrouter.common.util.LogSanitizer;
 import org.unreal.modelrouter.monitor.callhistory.config.CallHistoryProperties;
 import org.unreal.modelrouter.monitor.callhistory.config.RecordLevel;
 import org.unreal.modelrouter.monitor.tracing.TracingContextHolder;
 import org.unreal.modelrouter.router.adapter.builder.RequestBuilder;
+import org.unreal.modelrouter.router.adapter.error.ErrorTargetResolver;
 import org.unreal.modelrouter.router.adapter.handler.MultipartRequestHandler;
 import org.unreal.modelrouter.router.adapter.metrics.AdapterMetricsRecorder;
 import org.unreal.modelrouter.router.cache.ResponseCacheService;
@@ -223,6 +225,9 @@ public class NonStreamingRequestProcessor {
             final ModelInstance selectedInstance,
             final String requestedModel) {
 
+        // #1011: 二进制路径同口径的错误目标（host:port 脱敏），只作 logger 占位参数
+        final String errorTarget = ErrorTargetResolver.hostPortFromUrl(selectedInstance.getBaseUrl());
+
         BodyInserter<?, ? super ClientHttpRequest> requestBody;
         if (multipartHandler != null) {
             requestBody = multipartHandler.createRequestBody(transformedRequest);
@@ -241,7 +246,7 @@ public class NonStreamingRequestProcessor {
 
                     // 处理 4xx 客户端错误
                     if (clientResponse.statusCode().is4xxClientError()) {
-                        handleClientError(clientResponse.statusCode(), instanceName, path);
+                        handleClientError(clientResponse.statusCode(), instanceName, errorTarget, path);
                         return Mono.error(new ResponseStatusException(clientResponse.statusCode()));
                     }
 
@@ -258,7 +263,9 @@ public class NonStreamingRequestProcessor {
                                 System.currentTimeMillis() - requestStartTime, "200");
                         // v2.9.2: 二进制响应记录调用历史（仅元数据，body 为二进制不捕获）
                         long duration = System.currentTimeMillis() - requestStartTime;
-                        metricsRecorder.recordCompleteCall(adapterType, instanceName, duration, true,
+                        // 统计由 BaseAdapter.doOnSuccess 的 recordCompleteCallStats 统一记一次，
+                        // 此处只记录调用历史，避免一次成功请求被记成两次（LB 在途双减等）。
+                        metricsRecorder.recordCallHistoryOnly(adapterType, instanceName, duration, true,
                                 null, requestedModel, serviceType, selectedInstance);
                     }
                 })
@@ -267,6 +274,15 @@ public class NonStreamingRequestProcessor {
                         metricsRecorder.recordError(adapterType, instanceName,
                                 throwable.getClass().getSimpleName(), throwable,
                                 System.currentTimeMillis() - requestStartTime, serviceType);
+                    }
+                    // #1011: 连接级失败（WebClientRequestException 等）此前无任何日志；
+                    // 响应级 5xx/4xx 已在 onStatus 记过，此处只补记其余异常。
+                    // target 沿 cause 链取真实 URI 的 host:port；不打印 getMessage() 原文（可能含凭证）。
+                    if (!(throwable instanceof ResponseStatusException)) {
+                        logger.error("下游调用失败: instance={}, target={}, error={}",
+                                instanceName,
+                                ErrorTargetResolver.resolveTarget(throwable, selectedInstance.getBaseUrl()),
+                                throwable.getClass().getSimpleName());
                     }
                 });
     }
@@ -298,6 +314,10 @@ public class NonStreamingRequestProcessor {
         // 导致 token_usage / 调用历史无法通过 traceId 反查追踪与账单对账。
         final String traceIdForRecord = TracingContextHolder.getCurrentTraceId();
 
+        // #1011: 下游错误日志目标（host:port，脱敏：丢 userinfo/query/fragment，不携带凭证）。
+        // 只作 logger 占位参数，不拼进异常 message/reason——全局异常处理器会把 reason 回显给客户端。
+        final String errorTarget = ErrorTargetResolver.hostPortFromUrl(selectedInstance.getBaseUrl());
+
         // 支持multipart请求（如STT）
         BodyInserter<?, ? super ClientHttpRequest> requestBody;
         if (multipartHandler != null && multipartHandler.isMultipartRequest(transformedRequest)) {
@@ -311,12 +331,12 @@ public class NonStreamingRequestProcessor {
                 .body(requestBody)
                 .retrieve()
                 .onStatus(HttpStatusCode::is5xxServerError, clientResponse -> {
-                    logger.error("下游服务5xx错误: instance={}, path={}, status={}",
-                            instanceName, path, clientResponse.statusCode());
+                    logger.error("下游服务5xx错误: instance={}, target={}, path={}, status={}",
+                            instanceName, errorTarget, path, clientResponse.statusCode());
                     return Mono.error(new ResponseStatusException(clientResponse.statusCode()));
                 })
                 .onStatus(HttpStatusCode::is4xxClientError, clientResponse -> {
-                    return handle4xxError(clientResponse, instanceName, path);
+                    return handle4xxError(clientResponse, instanceName, errorTarget, path);
                 })
                 .toEntity(String.class)
                 .flatMap(responseEntity -> {
@@ -363,7 +383,9 @@ public class NonStreamingRequestProcessor {
                         // v2.9.2: 记录治理 - 异步记录含请求/响应体的调用历史
                         // traceId: 传入同步捕获的值，保证调用历史与追踪系统同源（不再退化为随机 UUID）
                         if (metricsRecorder != null) {
-                            metricsRecorder.recordCompleteCall(
+                            // 统计归 BaseAdapter.recordCompleteCallStats（恰一次），此处只落调用历史；
+                            // 若继续用 recordCompleteCall 会让 Registry/MetricsCollector/StatsRepository 全双记。
+                            metricsRecorder.recordCallHistoryOnly(
                                     adapterType, instanceName,
                                     System.currentTimeMillis() - requestStartTime,
                                     true, null, requestedModel, serviceType, selectedInstance,
@@ -387,7 +409,16 @@ public class NonStreamingRequestProcessor {
                                         .body(finalResponse));
 
                     } catch (JsonProcessingException e) {
-                        logger.error("无法解析下游服务的响应体: {}", responseEntity.getBody(), e);
+                        // issue #725: 不打全量正文——坏 JSON 的 Jackson 异常 message 常带原文片段
+                        //（可能含密钥），正文只打脱敏摘要（前 512 字符），异常只打类名不打 getMessage() 原文
+                        final String bodyText = responseEntity.getBody() != null
+                                ? responseEntity.getBody().toString() : "";
+                        final String bodyPreview = LogSanitizer.sanitize(
+                                bodyText.substring(0, Math.min(bodyText.length(), 512)));
+                        logger.error("无法解析下游服务的响应体: traceId={}, bodyLen={}, status={}, bodyPreview={}, exception={}",
+                                traceIdForRecord, bodyText.length(),
+                                responseEntity.getStatusCode(), bodyPreview,
+                                e.getClass().getSimpleName());
                         return Mono.error(new ResponseStatusException(
                                 HttpStatus.INTERNAL_SERVER_ERROR, "无法解析下游服务响应"));
                     }
@@ -408,6 +439,13 @@ public class NonStreamingRequestProcessor {
                         metricsRecorder.recordError(adapterType, instanceName,
                                 throwable.getClass().getSimpleName(), throwable,
                                 System.currentTimeMillis() - requestStartTime, serviceType);
+                    }
+                    // #1011: 同 processBinaryResponse——只补记非响应级异常，target 沿 cause 链解析
+                    if (!(throwable instanceof ResponseStatusException)) {
+                        logger.error("下游调用失败: instance={}, target={}, error={}",
+                                instanceName,
+                                ErrorTargetResolver.resolveTarget(throwable, selectedInstance.getBaseUrl()),
+                                throwable.getClass().getSimpleName());
                     }
                 });
     }
@@ -489,25 +527,26 @@ public class NonStreamingRequestProcessor {
      */
     private Mono<Throwable> handle4xxError(final ClientResponse clientResponse,
                                             final String instanceName,
+                                            final String target,
                                             final String path) {
         HttpStatusCode statusCode = clientResponse.statusCode();
 
         if (statusCode.value() == 401) {
-            logger.error("下游服务认证失败 (401): instance={}, path={}", instanceName, path);
+            logger.error("下游服务认证失败 (401): instance={}, target={}, path={}", instanceName, target, path);
             return Mono.error(new DownstreamServiceException(
                     "下游服务认证失败，请检查下游服务的认证配置", HttpStatus.valueOf(401)));
         } else if (statusCode.value() == 400) {
-            logger.error("下游服务请求错误 (400): instance={}, path={}", instanceName, path);
+            logger.error("下游服务请求错误 (400): instance={}, target={}, path={}", instanceName, target, path);
             return Mono.error(new DownstreamServiceException(
                     "下游服务请求参数错误，请检查请求内容", HttpStatus.valueOf(400)));
         } else if (statusCode.value() == 503) {
-            logger.error("下游服务不可用 (503): instance={}, path={}", instanceName, path);
+            logger.error("下游服务不可用 (503): instance={}, target={}, path={}", instanceName, target, path);
             return Mono.error(new DownstreamServiceException(
                     "下游服务暂时不可用，请稍后重试", HttpStatus.valueOf(503)));
         }
 
-        logger.error("下游服务4xx错误: instance={}, path={}, status={}",
-                instanceName, path, statusCode);
+        logger.error("下游服务4xx错误: instance={}, target={}, path={}, status={}",
+                instanceName, target, path, statusCode);
         return Mono.error(new ResponseStatusException(statusCode));
     }
 
@@ -516,13 +555,14 @@ public class NonStreamingRequestProcessor {
      */
     private void handleClientError(final HttpStatusCode statusCode,
                                     final String instanceName,
+                                    final String target,
                                     final String path) {
         if (statusCode.value() == 401) {
-            logger.error("下游服务认证失败 (401): instance={}, path={}", instanceName, path);
+            logger.error("下游服务认证失败 (401): instance={}, target={}, path={}", instanceName, target, path);
         } else if (statusCode.value() == 400) {
-            logger.error("下游服务请求错误 (400): instance={}, path={}", instanceName, path);
+            logger.error("下游服务请求错误 (400): instance={}, target={}, path={}", instanceName, target, path);
         } else if (statusCode.value() == 503) {
-            logger.error("下游服务不可用 (503): instance={}, path={}", instanceName, path);
+            logger.error("下游服务不可用 (503): instance={}, target={}, path={}", instanceName, target, path);
         }
     }
 

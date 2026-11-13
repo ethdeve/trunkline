@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.server.ResponseStatusException;
+import org.unreal.modelrouter.router.adapter.error.ErrorTargetResolver;
 import reactor.core.publisher.Mono;
 import org.springframework.http.HttpStatus;
 
@@ -184,18 +185,31 @@ public class ResponseHandler {
             final ClientResponse clientResponse,
             final String instanceName,
             final String path) {
+        return handleClientError(clientResponse, instanceName, path, ErrorTargetResolver.UNKNOWN);
+    }
+
+    /**
+     * 处理客户端错误（#1011: 带 target 的错误日志）
+     *
+     * @param target 下游目标 host:port（脱敏后）；只作 logger 占位参数
+     */
+    private Mono<ResponseEntity<byte[]>> handleClientError(
+            final ClientResponse clientResponse,
+            final String instanceName,
+            final String path,
+            final String target) {
 
         int statusCode = clientResponse.statusCode().value();
 
         if (statusCode == 401) {
-            logger.error("下游服务认证失败 (401): instance={}, path={}, response={}",
-                    instanceName, path, clientResponse.statusCode());
+            logger.error("下游服务认证失败 (401): instance={}, target={}, path={}, response={}",
+                    instanceName, target, path, clientResponse.statusCode());
         } else if (statusCode == 400) {
-            logger.error("下游服务请求错误 (400): instance={}, path={}, response={}",
-                    instanceName, path, clientResponse.statusCode());
+            logger.error("下游服务请求错误 (400): instance={}, target={}, path={}, response={}",
+                    instanceName, target, path, clientResponse.statusCode());
         } else if (statusCode == 503) {
-            logger.error("下游服务请求错误 (503): instance={}, path={}, response={}",
-                    instanceName, path, clientResponse.statusCode());
+            logger.error("下游服务请求错误 (503): instance={}, target={}, path={}, response={}",
+                    instanceName, target, path, clientResponse.statusCode());
         }
 
         return Mono.error(new ResponseStatusException(clientResponse.statusCode()));
@@ -212,8 +226,19 @@ public class ResponseHandler {
     public Mono<Void> handleServerError(
             final ClientResponse clientResponse,
             final String instanceName, final String path) {
-        logger.error("下游服务 5xx 错误：instance={}, path={}, status={}",
-                instanceName, path, clientResponse.statusCode());
+        return handleServerError(clientResponse, instanceName, path, ErrorTargetResolver.UNKNOWN);
+    }
+
+    /**
+     * 处理 5xx 服务器错误（#1011: 带 target 的错误日志）
+     *
+     * @param target 下游目标 host:port（脱敏后）；只作 logger 占位参数
+     */
+    public Mono<Void> handleServerError(
+            final ClientResponse clientResponse,
+            final String instanceName, final String path, final String target) {
+        logger.error("下游服务 5xx 错误：instance={}, target={}, path={}, status={}",
+                instanceName, target, path, clientResponse.statusCode());
         return Mono.error(new ResponseStatusException(clientResponse.statusCode()));
     }
 

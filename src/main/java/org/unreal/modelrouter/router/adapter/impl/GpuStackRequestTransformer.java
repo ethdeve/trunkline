@@ -70,6 +70,10 @@ public class GpuStackRequestTransformer {
             if (request.stream() != null) {
                 gpuStackRequest.put("stream", request.stream());
             }
+            // issue #720: 透传 stream_options（如 {"include_usage": true}）
+            if (request.streamOptions() != null) {
+                gpuStackRequest.set("stream_options", objectMapper.valueToTree(request.streamOptions()));
+            }
             if (request.n() != null) {
                 gpuStackRequest.put("n", request.n());
             }

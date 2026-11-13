@@ -191,29 +191,40 @@ public final class AsyncTracingProcessor {
         return Mono.fromCallable(() -> {
             try {
                 long startTime = System.currentTimeMillis();
-                
+
                 // 模拟批量处理逻辑
                 int successCount = 0;
                 int failureCount = 0;
-                
+
                 for (TraceData traceData : batch) {
                     try {
                         // 实际的处理逻辑（如导出到后端系统）
                         processTraceData(traceData);
+                        // issue #1083：先标记 processed 再计数——与 cleanupExpiredData 的
+                        // poll() 并发时同一项不会重复计入 dropped（标记幂等）。
+                        traceData.setProcessed(true);
                         successCount++;
                     } catch (Exception e) {
                         log.error("处理追踪数据失败: traceId={}", traceData.getTraceId(), e);
                         failureCount++;
                     }
                 }
-                
+
                 long processingTime = System.currentTimeMillis() - startTime;
                 processedCount.addAndGet(successCount);
                 this.failureCount.addAndGet(failureCount);
                 batchCount.incrementAndGet();
-                
+
+                // issue #1083：处理完即从队列移除已处理项。修复前队列只进不出（除
+                // cleanupExpiredData 按到期 poll 外），同一项被处理后仍留在队列中，
+                // 到期被 cleanup 二次移除并计入 dropped → processed 与 dropped 双计、
+                // dropRate 恒约 50%。失败项保留在队列中，由 cleanup 按到期策略兜底清理。
+                if (successCount > 0) {
+                    traceQueue.removeAll(batch);
+                }
+
                 return new BatchResult(successCount, failureCount, processingTime);
-                
+
             } catch (Exception e) {
                 log.error("批处理失败", e);
                 failureCount.addAndGet(batch.size());
@@ -257,21 +268,31 @@ public final class AsyncTracingProcessor {
         try {
             Duration maxAge = tracingConfiguration.getPerformance().getBuffer().getMaxWaitTime();
             Instant cutoff = Instant.now().minus(maxAge);
-            
+
             int removedCount = 0;
+            int droppedCountLocal = 0;
             while (!traceQueue.isEmpty()) {
                 TraceData data = traceQueue.peek();
                 if (data != null && data.getTimestamp().isBefore(cutoff)) {
                     traceQueue.poll();
                     removedCount++;
+                    // issue #1083：已被批次处理过的项不计入 dropped——它已经被
+                    // processedCount 记过一次，再计就双计。只有「未被处理就到期」的
+                    // 项才是真正的丢弃。与 processBatch 的 removeAll / setProcessed
+                    // 并发时靠 processed 标记幂等。
+                    if (!data.isProcessed()) {
+                        droppedCountLocal++;
+                    }
                 } else {
                     break;
                 }
             }
-            
+
             if (removedCount > 0) {
-                log.info("清理过期追踪数据: 清理数量={}", removedCount);
-                droppedCount.addAndGet(removedCount);
+                log.info("清理过期追踪数据: 清理数量={}, 其中未处理丢弃={}", removedCount, droppedCountLocal);
+                if (droppedCountLocal > 0) {
+                    droppedCount.addAndGet(droppedCountLocal);
+                }
             }
         } catch (Exception e) {
             log.error("清理过期数据失败", e);
@@ -315,6 +336,15 @@ public final class AsyncTracingProcessor {
         private final boolean success;
         private final SpanContext spanContext;
         private final Instant timestamp;
+
+        /**
+         * 是否已被批次处理（issue #1083）。
+         *
+         * <p>{@code volatile}：processBatch 的标记与 cleanupExpiredData 的读取
+         * 跨线程并发，必须保证可见性；两处靠该标记幂等，避免同一项被
+         * processedCount 与 droppedCount 各记一次。</p>
+         */
+        private volatile boolean processed;
     }
 
     /**
@@ -344,8 +374,16 @@ public final class AsyncTracingProcessor {
             return total > 0 ? (double) processedCount / total : 0.0;
         }
         
+        /**
+         * 丢弃率（issue #1083：分母补上 failureCount）。
+         *
+         * <p>修复前分母只有 processedCount + droppedCount，而批次处理失败的项
+         * 只进了 failureCount——既不算 processed 也不算 dropped，导致
+         * processed ≈ dropped 时 dropRate 恒约 0.5 的失真；补齐后三者之和
+         * 即「提交后离开队列的项」，分母语义完整。</p>
+         */
         public double getDropRate() {
-            long total = processedCount + droppedCount;
+            long total = processedCount + droppedCount + failureCount;
             return total > 0 ? (double) droppedCount / total : 0.0;
         }
     }

@@ -24,6 +24,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * RuleConfigController 规则 API 测试
@@ -564,6 +565,78 @@ class RuleConfigControllerTest {
             assertEquals(100L, action.get("capacity"));
             assertEquals(10L, action.get("rate"));
             assertEquals("rule", action.get("scope"));
+        }
+    }
+
+    // ==================== YAML 管理规则冲突（issue #708） ====================
+
+    @Nested
+    @DisplayName("YAML 管理规则冲突测试（#708）")
+    class YamlRuleConflictTests {
+
+        private InMemoryPersistence yamlPersistence;
+
+        /** 构建「YAML 含一条规则、持久化为空」的控制器（构造时 reload 合并 → source=YAML）。 */
+        private RuleConfigController controllerWithYamlRule(final String id) {
+            RuleDefinition yamlRule = validRule("yaml-rule");
+            yamlRule.setId(id);
+            RuleEngineService engine = mock(RuleEngineService.class);
+            when(engine.getYamlRules()).thenReturn(new ArrayList<>(List.of(yamlRule)));
+            yamlPersistence = new InMemoryPersistence();
+            return new RuleConfigController(engine, yamlPersistence, ruleStatsService, rateLimitManager);
+        }
+
+        @Test
+        @DisplayName("RULEC-701: 删除 YAML 规则返回 409 + YAML_RULE_ACTIVE，规则仍生效")
+        void yamlRuleDeleteReturns409() {
+            RuleConfigController yamlController = controllerWithYamlRule("yaml-1");
+
+            ResponseEntity<RouterResponse<Void>> response = yamlController.deleteRule("yaml-1");
+
+            assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+            assertNotNull(response.getBody());
+            assertEquals("YAML_RULE_ACTIVE", response.getBody().getErrorCode(),
+                    "错误码应承载 YAML_RULE_ACTIVE");
+            assertTrue(yamlPersistence.loadAll().stream().noneMatch(r -> "yaml-1".equals(r.getId())),
+                    "持久化集合不得出现 YAML 规则");
+            assertEquals(200, yamlController.getRule("yaml-1").getStatusCode().value(),
+                    "YAML 规则 reload 后仍应生效（反证旧 200 删除谎报）");
+        }
+
+        @Test
+        @DisplayName("RULEC-702: 更新 YAML 规则返回 409 且不落库")
+        void yamlRuleUpdateReturns409() {
+            RuleConfigController yamlController = controllerWithYamlRule("yaml-1");
+
+            RuleDefinition update = validRule("updated");
+            ResponseEntity<RouterResponse<RuleDefinition>> response = yamlController.updateRule("yaml-1", update);
+
+            assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+            assertEquals("YAML_RULE_ACTIVE", response.getBody().getErrorCode());
+            assertTrue(yamlPersistence.loadAll().isEmpty(), "更新被拒绝时不得落库");
+        }
+
+        @Test
+        @DisplayName("RULEC-703: 启用/停用 YAML 规则返回 409")
+        void yamlRuleEnableDisableReturn409() {
+            RuleConfigController yamlController = controllerWithYamlRule("yaml-1");
+
+            assertEquals(HttpStatus.CONFLICT, yamlController.enableRule("yaml-1").getStatusCode());
+            assertEquals(HttpStatus.CONFLICT, yamlController.disableRule("yaml-1").getStatusCode());
+            assertTrue(yamlPersistence.loadAll().isEmpty(), "启停被拒绝时不得落库");
+        }
+
+        @Test
+        @DisplayName("RULEC-704: 持久化规则删除仍返回 200（不受新规则影响）")
+        void persistedRuleDeleteStill200() {
+            RuleConfigController freshController = new RuleConfigController(
+                    new RuleEngineService(), new InMemoryPersistence(), ruleStatsService, rateLimitManager);
+            RuleDefinition created = freshController.createRule(validRule("persisted-rule"))
+                    .getBody().getData();
+
+            ResponseEntity<RouterResponse<Void>> response = freshController.deleteRule(created.getId());
+
+            assertEquals(HttpStatus.OK, response.getStatusCode(), "持久化规则删除不回归");
         }
     }
 }

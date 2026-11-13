@@ -53,6 +53,10 @@ public class OpenAiRequestTransformerImpl implements OpenAiRequestTransformer {
             if (request.stream() != null) {
                 openAiRequest.put("stream", request.stream());
             }
+            // issue #720: 透传 stream_options（如 {"include_usage": true}），否则下游流式响应永不携带 usage 帧
+            if (request.streamOptions() != null) {
+                openAiRequest.set("stream_options", objectMapper.valueToTree(request.streamOptions()));
+            }
             if (request.n() != null) {
                 openAiRequest.put("n", request.n());
             }

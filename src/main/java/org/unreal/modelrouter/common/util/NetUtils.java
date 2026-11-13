@@ -53,21 +53,33 @@ public final class NetUtils {
     }
 
     /**
-     * 同步检测socket是否可连接
+     * 同步检测socket是否可连接（默认 5000ms 超时）
      *
      * @param host 域名或ip地址
      * @param port 端口号
      * @return NetConnect 返回结果
      */
     public static NetConnect testSocketConnect(final String host, final int port) {
+        return testSocketConnect(host, port, 5000);
+    }
+
+    /**
+     * 同步检测socket是否可连接（超时外部化，#651）
+     *
+     * @param host 域名或ip地址
+     * @param port 端口号
+     * @param timeoutMs 连接超时（毫秒），<=0 时回退默认 5000ms
+     * @return NetConnect 返回结果
+     */
+    public static NetConnect testSocketConnect(final String host, final int port, final int timeoutMs) {
         boolean reachable = false;
         String msg;
+        int effectiveTimeout = timeoutMs > 0 ? timeoutMs : 5000;
 
         try {
             //这里创建的是tcp连接的socket, 这里能连接的话, 则http接口应该也可以正常连接
             Socket socket = new Socket();
-            // 5000ms timeout
-            socket.connect(new InetSocketAddress(host, port), 5000);
+            socket.connect(new InetSocketAddress(host, port), effectiveTimeout);
             reachable = true;
             msg = String.format("Port %s is open on %s", port, host);
             // 关闭socket连接

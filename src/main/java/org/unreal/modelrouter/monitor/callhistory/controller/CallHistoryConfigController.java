@@ -102,6 +102,7 @@ public class CallHistoryConfigController {
         config.put("responseBodySummaryEnabled", callHistoryProperties.isResponseBodySummaryEnabled());
         config.put("slowCallThresholdMs", callHistoryProperties.getSlowCallThresholdMs());
         config.put("encryptionKeySource", callHistoryProperties.getEncryptionKeySource());
+        config.put("encryptionKeyRequired", callHistoryProperties.isEncryptionKeyRequired());
         // #617: 密钥来源只读观测字段——请求来源 vs 实际生效来源（env 缺失时回退 auto）
         if (recordContentCipher != null) {
             config.put("encryptionKeySourceRequested", recordContentCipher.keySourceRequested());

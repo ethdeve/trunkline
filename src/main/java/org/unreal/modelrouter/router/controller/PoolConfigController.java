@@ -143,6 +143,10 @@ public class PoolConfigController {
     public ResponseEntity<RouterResponse<PoolDefinition>> updatePool(@PathVariable final String poolName,
                                                                      @RequestBody final PoolDefinition pool) {
         PoolDefinition existing = findPool(poolName);
+        // issue #708: YAML 来源的池"改了被 reload 覆盖"，与删除同源拒绝（409）
+        if (isYamlManagedPool(poolName)) {
+            return yamlPoolConflict();
+        }
         validatePool(pool);
         // v3.5 治理收口 —— 强制实例先入组：移除成员后若某实例在其它分组已无归属，
         // 该实例将变成「游离实例」（无对外入口，等同死配置）→ 阻断变更。
@@ -207,6 +211,10 @@ public class PoolConfigController {
     @Operation(summary = "删除资源池", description = "按池名删除资源池并热生效")
     public ResponseEntity<RouterResponse<Void>> deletePool(@PathVariable final String poolName) {
         findPool(poolName);
+        // issue #708: YAML 池删除后 reload 会把它重新合并进来（谎报成功）——校验期拒绝
+        if (isYamlManagedPool(poolName)) {
+            return yamlPoolConflict();
+        }
         // 删除前依赖校验：密钥白名单仍引用该分组时拒绝删除（否则密钥调用将 403/404）
         // v3.5：成员实例将变成「游离实例」只提示不阻断——否则「删实例被成员关系阻断、
         // 删分组被游离阻断」会形成死锁，管理员无法清理配置。
@@ -228,6 +236,30 @@ public class PoolConfigController {
                 .filter(p -> p.getPoolName() != null && p.getPoolName().equals(poolName))
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pool not found: " + poolName));
+    }
+
+    /**
+     * 判定池是否由 YAML 配置文件管理（issue #708）。
+     *
+     * <p>{@code PoolDefinition} 无 source 字段，用「不在持久化集合即视为 YAML 管理」判定
+     * （持久化同名池在 reload 时覆盖 YAML 项，判定结果与实际来源一致）。</p>
+     */
+    private boolean isYamlManagedPool(final String poolName) {
+        if (poolName == null) {
+            return false;
+        }
+        return persistenceService.loadAll().stream()
+                .noneMatch(p -> poolName.equals(p.getPoolName()));
+    }
+
+    /**
+     * YAML 管理池的统一 409 响应（issue #708：错误码 {@code YAML_POOL_ACTIVE}）。
+     */
+    private <T> ResponseEntity<RouterResponse<T>> yamlPoolConflict() {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(RouterResponse.error(
+                        "该资源池由 YAML 配置文件定义，无法通过 API 删除/修改；请修改配置文件后重启生效",
+                        "YAML_POOL_ACTIVE"));
     }
 
     private void validatePool(final PoolDefinition pool) {

@@ -43,9 +43,25 @@ management:
 trunkline:
   # 多副本共享态自检：生产环境默认 FAIL（多副本 + 共享态开关未开时 fail-fast，禁止带病上线）。
   # 单副本部署（replicas=1 或无 K8s 环境）不受影响；确需容忍时显式设为 WARN / OFF。
+  #
+  # 【多副本部署基线（A3-pre）】下方 5 个共享态开关默认全关、且多副本探测只认显式 replicas 与
+  # K8s 环境变量——裸机多进程 / docker-compose 多副本 / VM 双机会被判为单副本而静默通过。
+  # 部署多副本时必须：① 显式配置 trunkline.cluster.replicas；② 显式开启以下开关
+  # （Redis 必须可用），否则自检 FAIL 属预期，修正配置后重启：
+  #   trunkline.security.jwt.blacklist.redis.enabled=true    # 否则副本 A 吊销的令牌副本 B 仍放行
+  #   trunkline.security.jwt.persistence.redis.enabled=true  # 否则令牌状态各副本独立
+  #   trunkline.security.cache.redis.enabled=true            # 否则 API Key 缓存吊销不跨副本生效
+  #   trunkline.quota.distributed.enabled=true               # 否则配额计数按副本数放大
+  #   trunkline.persistence.redis.enabled=true               # 否则状态持久化退坡本机
   cluster:
     shared-state-check:
       mode: FAIL
+
+  # 调用记录加密密钥（O4 · fail-closed）：生产禁止 auto 模式明文密钥落盘，
+  # 密钥必须经环境变量 TRUNKLINE_CALL_HISTORY_KEY 注入（Base64 编码的 32 字节 AES-256 密钥）。
+  # 缺失时启动失败（不静默降级）。多副本部署各副本必须同值，否则 A 副本加密的调用记录 B 副本无法解密。
+  call-history:
+    encryption-key-required: true
 
   security:
     # 生产环境安全功能

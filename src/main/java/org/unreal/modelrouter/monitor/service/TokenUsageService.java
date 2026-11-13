@@ -99,7 +99,9 @@ public class TokenUsageService {
                 .build();
 
         // 基本统计
-        dto.setTotalRequests(tokenUsageRepository.countAllUsage());
+        // issue #714：totalRequests（成功率分母）改用同窗口计数。修复前用 countAllUsage()
+        // 统计全表，窗口远小于全表时成功率被严重稀释（全表 1000 / 窗口 10 / 成功 7 → 旧 0.7%、新 70%）。
+        dto.setTotalRequests(tokenUsageRepository.countByTimeRange(effectiveStartTime, effectiveEndTime));
         dto.setTotalTokens(tokenUsageRepository.countTotalTokensByTimeRange(effectiveStartTime, effectiveEndTime));
         dto.setSuccessfulRequests(tokenUsageRepository.countSuccessByTimeRange(effectiveStartTime, effectiveEndTime));
         dto.setFailedRequests(tokenUsageRepository.countFailedByTimeRange(effectiveStartTime, effectiveEndTime));

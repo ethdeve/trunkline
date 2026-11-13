@@ -71,6 +71,16 @@ public final class UrlSecurityValidator {
             throw new SecurityException("Base URL must not contain user credentials");
         }
 
+        // issue #703（定案 A，breaking change）：base URL 禁止携带 query——
+        // 修复前 normalize 只拼 path、getRawQuery() 被静默丢弃（Azure ?api-version= 消失）；
+        // 若改为保留，令牌会写进 currentConfig 并被日志/审计捕获（#695 必须覆盖），
+        // 故定案校验期直接拒绝并引导把参数移到请求时传递。
+        if (uri.getRawQuery() != null) {
+            throw new SecurityException(
+                    "Base URL must not contain a query string; pass query params (e.g. api-version) "
+                    + "at request time instead");
+        }
+
         String host = uri.getHost();
         if (host == null || host.isBlank()) {
             throw new SecurityException("Base URL must contain a host");

@@ -242,6 +242,18 @@ public final class ResponseCacheKeyBuilder {
         putIfNotNull(body, "tools", request.tools());
         putIfNotNull(body, "toolChoice", request.toolChoice());
         putIfNotNull(body, "wireMessages", request.wireMessages());
+        // issue #722: vLLM 系布尔开关影响生成行为，true 必须产生不同键——
+        // 修复前两字段未入键，include_stop_str_in_output=true 与 false 的响应会
+        // 互相命中（stop 串是否出现在输出里不同）。键名沿用 DTO 字段的驼峰形式，
+        // 与序列化用 @JsonProperty("include_stop_str_in_output")（ChatDTO:237）无关。
+        // 归一口径：仅 true 入键（null 与 false 同键，均表示「未要求」），与
+        // canonicalize 剔除 null 的既有行为一致，三态收敛为两键。
+        if (Boolean.TRUE.equals(request.includeStopStrInOutput())) {
+            body.put("includeStopStrInOutput", Boolean.TRUE);
+        }
+        if (Boolean.TRUE.equals(request.ignoreEos())) {
+            body.put("ignoreEos", Boolean.TRUE);
+        }
     }
 
     /**

@@ -13,6 +13,7 @@ import reactor.core.publisher.Mono;
 
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.common.exception.DownstreamServiceException;
+import org.unreal.modelrouter.router.adapter.error.ErrorTargetResolver;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
 import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 
@@ -45,6 +46,9 @@ public class RequestProcessingTemplate {
         String instanceName = selectedInstance.getName();
         long requestStartTime = System.currentTimeMillis();
 
+        // #1011: 下游错误日志目标（host:port 脱敏，不携带凭证）；只作 logger 占位参数，不回显客户端
+        final String errorTarget = ErrorTargetResolver.hostPortFromUrl(selectedInstance.getBaseUrl());
+
         String finalAuth = authorization;
 
         return client.post()
@@ -53,45 +57,45 @@ public class RequestProcessingTemplate {
                 .bodyValue(request)
                 .retrieve()
                 .onStatus(HttpStatusCode::is5xxServerError, clientResponse -> {
-                    log.error("下游服务 5xx 错误：instance={}, path={}, status={}",
-                            instanceName, path, clientResponse.statusCode());
+                    log.error("下游服务 5xx 错误：instance={}, target={}, path={}, status={}",
+                            instanceName, errorTarget, path, clientResponse.statusCode());
                     return Mono.error(new ResponseStatusException(clientResponse.statusCode()));
                 })
                 .onStatus(HttpStatusCode::is4xxClientError, clientResponse -> {
-                    return handleClientError(instanceName, path, clientResponse);
+                    return handleClientError(instanceName, errorTarget, path, clientResponse);
                 })
                 .toEntity(String.class)
                 .flatMap(responseEntity -> processSuccessfulResponse(responseEntity));
     }
 
     private Mono<ResponseStatusException> handleClientError(
-            final String instanceName, final String path,
+            final String instanceName, final String target, final String path,
             final org.springframework.web.reactive.function.client.ClientResponse clientResponse) {
 
         int statusCode = clientResponse.statusCode().value();
 
         return switch (statusCode) {
             case 401 -> {
-                log.error("下游服务认证失败 (401): instance={}, path={}", instanceName, path);
+                log.error("下游服务认证失败 (401): instance={}, target={}, path={}", instanceName, target, path);
                 yield Mono.error(new DownstreamServiceException(
                         "下游服务认证失败，请检查下游服务的认证配置",
                         HttpStatus.UNAUTHORIZED));
             }
             case 400 -> {
-                log.error("下游服务请求错误 (400): instance={}, path={}", instanceName, path);
+                log.error("下游服务请求错误 (400): instance={}, target={}, path={}", instanceName, target, path);
                 yield Mono.error(new DownstreamServiceException(
                         "下游服务请求参数错误，请检查请求内容",
                         HttpStatus.BAD_REQUEST));
             }
             case 503 -> {
-                log.error("下游服务不可用 (503): instance={}, path={}", instanceName, path);
+                log.error("下游服务不可用 (503): instance={}, target={}, path={}", instanceName, target, path);
                 yield Mono.error(new DownstreamServiceException(
                         "下游服务暂时不可用，请稍后重试",
                         HttpStatus.SERVICE_UNAVAILABLE));
             }
             default -> {
-                log.error("下游服务 4xx 错误：instance={}, path={}, status={}",
-                        instanceName, path, clientResponse.statusCode());
+                log.error("下游服务 4xx 错误：instance={}, target={}, path={}, status={}",
+                        instanceName, target, path, clientResponse.statusCode());
                 yield Mono.error(new ResponseStatusException(clientResponse.statusCode()));
             }
         };

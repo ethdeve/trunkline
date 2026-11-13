@@ -56,6 +56,10 @@ public final class VllmRequestTransformer {
             if (request.stream() != null) {
                 vllmRequest.put("stream", request.stream());
             }
+            // issue #720: 透传 stream_options（如 {"include_usage": true}）
+            if (request.streamOptions() != null) {
+                vllmRequest.set("stream_options", objectMapper.valueToTree(request.streamOptions()));
+            }
             if (request.n() != null) {
                 vllmRequest.put("n", request.n());
             }

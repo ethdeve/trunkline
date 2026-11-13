@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.unreal.modelrouter.auth.security.quota.QuotaReservation;
+import org.unreal.modelrouter.auth.security.quota.QuotaTokenEstimator;
 import org.unreal.modelrouter.auth.security.service.ApiKeyService;
 import org.unreal.modelrouter.common.dto.ChatDTO;
 import org.unreal.modelrouter.common.dto.EmbeddingDTO;
@@ -19,7 +20,6 @@ import org.unreal.modelrouter.router.pool.PoolSelector;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-
 /**
  * Token 使用量提取与记录辅助类
  *
@@ -87,9 +87,13 @@ public class TokenUsageExtractor {
      * 从下游服务响应中提取 token 使用量并记录，同时完成配额结算（v3.1 PR-2）。
      *
      * <p>配额结算发生在“实际 token 落库点”：按 {@code 实际 − 估算} 冲正预留
-     * （{@link QuotaReservation#settleSuccess(QuotaReservation, long)}）。响应不含 usage 或
-     * 总量为 0 时本方法提前返回，预留保持原估算值（记账口径退化为“预留即计费”），
-     * 不会被错误冲正为 0。</p>
+     * （{@link QuotaReservation#settleSuccess(QuotaReservation, long)}）。</p>
+     *
+     * <p>issue #712：响应不含 usage 或 total≤0 时，改按响应文本<b>估算</b>
+     * completion 后照常落库+结算（{@code metadata.estimated=true} 标记）——
+     * 修复前提前返回导致非流式与流式两链路口径不一致（流式已估算落库）。
+     * 定案口径：估算仅配额兜底，不作对外计费依据；响应完全无文本信号时
+     * 才退回「预留即计费」（预留保持原估算值，不会被错误冲正为 0）。</p>
      *
      * @param bodyStr        下游响应体
      * @param adapterType    适配器类型
@@ -168,43 +172,59 @@ public class TokenUsageExtractor {
         try {
             JsonNode jsonNode = objectMapper.readTree(bodyStr);
 
-            if (!jsonNode.has("usage")) {
-                return;
+            JsonNode usage = jsonNode.has("usage") ? jsonNode.get("usage") : null;
+            long promptTokens = 0;
+            long completionTokens = 0;
+            long totalTokens = 0;
+            long cacheHitTokens = 0;
+            long cacheMissTokens = 0;
+
+            if (usage != null) {
+                promptTokens = usage.has("prompt_tokens") ? usage.get("prompt_tokens").asLong() : 0;
+                completionTokens = usage.has("completion_tokens") ? usage.get("completion_tokens").asLong() : 0;
+                totalTokens = usage.has("total_tokens") ? usage.get("total_tokens").asLong() : 0;
+
+                // v2.9.0: 提取 KV 缓存命中/未命中 token 数
+                // DeepSeek 形态: prompt_cache_hit_tokens / prompt_cache_miss_tokens
+                // OpenAI/vLLM 形态: prompt_tokens_details.cached_tokens
+                if (usage.has("prompt_cache_hit_tokens")) {
+                    cacheHitTokens = usage.get("prompt_cache_hit_tokens").asLong();
+                }
+                if (usage.has("prompt_cache_miss_tokens")) {
+                    cacheMissTokens = usage.get("prompt_cache_miss_tokens").asLong();
+                }
+                // OpenAI 形态: prompt_tokens_details.cached_tokens → 视为 cacheHit
+                if (cacheHitTokens == 0 && usage.has("prompt_tokens_details")) {
+                    JsonNode details = usage.get("prompt_tokens_details");
+                    if (details.has("cached_tokens")) {
+                        cacheHitTokens = details.get("cached_tokens").asLong();
+                    }
+                }
+                // 如果只有 cacheHit 无 cacheMiss，估算 miss = promptTokens - cacheHit
+                if (cacheHitTokens > 0 && cacheMissTokens == 0) {
+                    cacheMissTokens = Math.max(0, promptTokens - cacheHitTokens);
+                }
             }
 
-            JsonNode usage = jsonNode.get("usage");
-            long promptTokens = usage.has("prompt_tokens") ? usage.get("prompt_tokens").asLong() : 0;
-            long completionTokens = usage.has("completion_tokens") ? usage.get("completion_tokens").asLong() : 0;
-            long totalTokens = usage.has("total_tokens") ? usage.get("total_tokens").asLong() : 0;
-
+            // issue #712: 响应缺 usage 或 total<=0 时，不再直接放弃落库与结算
+            //（修复前「预留即计费」口径导致两链路口径不一致——流式在 total==0 且见过内容时
+            // 已按估算落库+结算），改按响应文本估算 completion（QuotaTokenEstimator：
+            // HAN/2、其余/4，与流式 estimateTokens 同系数），metadata.estimated=true 标记。
+            // 定案口径：估算仅配额兜底，不作对外计费依据。
+            boolean estimated = false;
             if (totalTokens <= 0) {
-                return;
+                final long estimatedCompletion =
+                        QuotaTokenEstimator.estimateFromText(extractResponseText(jsonNode));
+                if (estimatedCompletion <= 0) {
+                    // 响应无文本信号（空 choices/纯工具调用等），退回旧行为：不落库不结算
+                    return;
+                }
+                completionTokens = estimatedCompletion;
+                totalTokens = promptTokens + completionTokens;
+                estimated = true;
             }
 
             String model = jsonNode.has("model") ? jsonNode.get("model").asText() : "unknown";
-
-            // v2.9.0: 提取 KV 缓存命中/未命中 token 数
-            // DeepSeek 形态: prompt_cache_hit_tokens / prompt_cache_miss_tokens
-            // OpenAI/vLLM 形态: prompt_tokens_details.cached_tokens
-            long cacheHitTokens = 0;
-            long cacheMissTokens = 0;
-            if (usage.has("prompt_cache_hit_tokens")) {
-                cacheHitTokens = usage.get("prompt_cache_hit_tokens").asLong();
-            }
-            if (usage.has("prompt_cache_miss_tokens")) {
-                cacheMissTokens = usage.get("prompt_cache_miss_tokens").asLong();
-            }
-            // OpenAI 形态: prompt_tokens_details.cached_tokens → 视为 cacheHit
-            if (cacheHitTokens == 0 && usage.has("prompt_tokens_details")) {
-                JsonNode details = usage.get("prompt_tokens_details");
-                if (details.has("cached_tokens")) {
-                    cacheHitTokens = details.get("cached_tokens").asLong();
-                }
-            }
-            // 如果只有 cacheHit 无 cacheMiss，估算 miss = promptTokens - cacheHit
-            if (cacheHitTokens > 0 && cacheMissTokens == 0) {
-                cacheMissTokens = Math.max(0, promptTokens - cacheHitTokens);
-            }
 
             // 记录 KV 缓存指标
             if (metricsCollector != null && (cacheHitTokens > 0 || cacheMissTokens > 0)) {
@@ -233,7 +253,9 @@ public class TokenUsageExtractor {
                         // v3.5 Trunkline: 调用者（团队用量按此归人；缺失会导致聚合查不到）
                         resolveCallerUser(httpRequest, apiKeyId),
                         // issue #713: 计费归因——调用方未透传时回退请求属性（handler 认证后写入）
-                        apiKeyId != null ? apiKeyId : extractKeyIdFromRequest(httpRequest)
+                        apiKeyId != null ? apiKeyId : extractKeyIdFromRequest(httpRequest),
+                        // issue #712: 估算行标记（metadata 为 JSON 文本；账单侧只记请求数、不作计费依据）
+                        estimated ? "{\"estimated\":true}" : null
                 );
             }
 
@@ -243,12 +265,40 @@ public class TokenUsageExtractor {
             // v3.1 PR-2: 配额结算 — 按实际用量冲正预留（恰一次）
             QuotaReservation.settleSuccess(quotaReservation, totalTokens);
 
-            logger.debug("Non-streaming token usage recorded: adapter={}, instance={}, model={}, total={}",
-                    adapterType, instanceName, model, totalTokens);
+            if (estimated) {
+                logger.debug("Non-streaming token usage estimated: adapter={}, instance={}, model={}, total={}",
+                        adapterType, instanceName, model, totalTokens);
+            } else {
+                logger.debug("Non-streaming token usage recorded: adapter={}, instance={}, model={}, total={}",
+                        adapterType, instanceName, model, totalTokens);
+            }
 
         } catch (Exception e) {
             logger.debug("Failed to extract token usage from response: {}", e.getMessage());
         }
+    }
+
+    /**
+     * 提取响应文本用于 token 估算（issue #712）.
+     *
+     * <p>拼接 {@code choices[*].message.content} 全量内容；tool_calls / 多 choices
+     * 覆盖不全会低估（方案已知偏差，定案接受）。</p>
+     *
+     * @param jsonNode 响应 JSON
+     * @return 拼接后的文本；无内容返回空串
+     */
+    private String extractResponseText(final JsonNode jsonNode) {
+        final StringBuilder text = new StringBuilder();
+        final JsonNode choices = jsonNode.get("choices");
+        if (choices != null && choices.isArray()) {
+            for (final JsonNode choice : choices) {
+                final JsonNode message = choice.get("message");
+                if (message != null && message.has("content") && message.get("content").isTextual()) {
+                    text.append(message.get("content").asText());
+                }
+            }
+        }
+        return text.toString();
     }
 
     /**

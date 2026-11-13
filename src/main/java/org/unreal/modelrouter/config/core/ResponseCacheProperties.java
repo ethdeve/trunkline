@@ -34,9 +34,22 @@ public final class ResponseCacheProperties {
     private int maxSize = 10000;
 
     /**
-     * 仅缓存确定性请求（chat: temperature==0/null 且 n==1/null；默认 true）
+     * 仅缓存确定性请求（chat: temperature 显式为 0 且 n==1/null；默认 true）
+     *
+     * <p>issue #723：未指定 temperature（跟随下游默认，通常非 0 贪心）不计入确定性。
+     * 修复前 null 与 0 同判为确定性，OpenAI 客户端普遍不传 temperature，
+     * 会把「跟随下游默认（非贪心）」的随机响应缓存下来被他人命中。</p>
      */
     private boolean onlyDeterministic = true;
+
+    /**
+     * temperature=null 是否视为确定性（issue #723，默认 false）
+     *
+     * <p>定案口径：判定仅「显式 0」为确定性。下游固定贪心解码的自建实例
+     * （temperature 配置恒等价于 0）可按需开启本开关恢复旧口径——null 视为确定性、
+     * 可缓存。关闭时 null 一律不缓存（命中率下降是正确性优先的预期代价）。</p>
+     */
+    private boolean cacheNullTemperature = false;
 
     /**
      * 跳过流式请求（默认 true；P0 仅支持非流式缓存）

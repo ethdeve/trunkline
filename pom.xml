@@ -232,6 +232,13 @@
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
+        <!-- O8-4 租户跨线程传播：micrometer-core 对本依赖是 optional，不会进 fat jar；
+             企业版 TenantContextPropagationConfiguration 需要 Hooks.enableAutomaticContextPropagation()，
+             显式声明使其随运行时分发（版本由 Boot 3.5 parent 管理）。 -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>context-propagation</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -317,14 +324,6 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- JUnit Platform Suite for test suite support -->
-        <dependency>
-            <groupId>org.junit.platform</groupId>
-            <artifactId>junit-platform-suite</artifactId>
-            <version>1.10.0</version>
             <scope>test</scope>
         </dependency>
 
@@ -427,14 +426,67 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!--
+                      3.5 实测事实（loader-tools 3.5.16 反编译核验）：
+                      - loaderImplementation 枚举只有 DEFAULT / CLASSIC，选的是「loader 体系」，
+                        不存在 PROPERTIES_LOADER / PROPERTIES 值；
+                      - 新式 loader 的 PropertiesLauncher 只认 loader.home/main/args/classLoader，
+                        不支持 loader.path —— 插件目录式部署必须用 classic loader；
+                      - CLASSIC 体系内嵌 spring-boot-loader-classic.jar（repackage 后展开在
+                        fat jar 根部）：含 classic JarLauncher / PropertiesLauncher（支持
+                        loader.path）及 launch.* 桥接类，java -jar 的 Main-Class
+                        （launch.JarLauncher 桥接 → classic JarLauncher）不受影响，
+                        社区 Dockerfile 的 jarmode=tools 入口同样可用。
+                      商业版两种部署形态（trunkline-enterprise/deploy/README.md）：
+                        A. 烤入式 —— 企业 jar 放进 BOOT-INF/lib，java -jar 直接跑；
+                        B. 插件目录式 —— java -Dloader.path=./plugins -cp trunkline.jar
+                           org.springframework.boot.loader.PropertiesLauncher
+                    -->
+                    <loaderImplementation>CLASSIC</loaderImplementation>
+                </configuration>
+            </plugin>
+
+            <!-- O10：把 repackage 前的原始 jar 以 classifier=normal attached 发布，
+                 让 trunkline-enterprise 可以直接以 <classifier>original</classifier> 声明编译依赖，
+                 消除手工 install-file 步骤。
+                 注意执行顺序：本插件必须声明在 spring-boot-maven-plugin 之后（同 phase 内
+                 按声明顺序执行，repackage 先生成 .original，本插件才能 attach 到它）。 -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-original-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>attach-artifact</goal>
+                        </goals>
+                        <configuration>
+                            <artifacts>
+                                <artifact>
+                                    <file>${project.build.directory}/${project.build.finalName}.jar.original</file>
+                                    <type>jar</type>
+                                    <classifier>original</classifier>
+                                </artifact>
+                            </artifacts>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
             <!-- Maven Surefire Plugin：JDK 21+ 需显式允许动态 agent 加载，
                  否则 Mockito inline mock maker 的 byte-buddy 自挂载会失败
                  （部分环境对外部 attach 进程创建有限制，见 S1 记录） -->
+            <!-- 锁定 3.5.3：3.5.4+ 的 provider 级类名过滤回归（surefire #3179/#3446 系列）
+                 导致 JUnit5 @Nested 测试类在全量/定向运行中静默不执行
+                 （2026-11-12 parent 3.5.5→3.5.16 连带 surefire 3.5.3→3.5.6 后，
+                 764 个 Nested 报告不再生成、测试门禁实际失效）。
+                 升级前必须先验证 @Nested 恢复执行。 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.3</version>
                 <configuration>
                     <argLine>-XX:+EnableDynamicAgentLoading -Djdk.attach.allowAttachSelf=true</argLine>
                 </configuration>

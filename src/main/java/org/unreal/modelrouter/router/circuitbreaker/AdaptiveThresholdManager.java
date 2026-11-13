@@ -16,6 +16,7 @@ import org.unreal.modelrouter.config.service.CircuitBreakerConfigService;
 import org.unreal.modelrouter.persistence.jpa.entity.CircuitBreakerMetricsEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.CircuitBreakerMetricsRepository;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -232,28 +233,40 @@ public class AdaptiveThresholdManager {
     }
 
     /**
-     * 应用阈值调整
+     * 应用阈值调整（#653 修复）
+     *
+     * <p>此前只写 DB 且 {@code adjustmentApplied} 恒为 false，运行时熔断器走「裸 reset」
+     * 重建后仍取全局/实例级默认阈值——自适应结果从未真正生效。现在：
+     * <ol>
+     *   <li>调 {@link CircuitBreakerManager#applyAdaptiveThreshold} 写入覆盖层并重建熔断器；</li>
+     *   <li>应用成功才落 DB 并置 {@code adjustmentApplied=true}；</li>
+     *   <li>手工配置优先时跳过运行时写入，也不产生待补偿记录。</li>
+     * </ol></p>
      */
-    private void applyThresholdAdjustment(final String instanceId, final int oldThreshold, 
+    private void applyThresholdAdjustment(final String instanceId, final int oldThreshold,
             final int newThreshold, final double failureRate) {
-        
-        String reason = String.format("自适应调整: 失败率 %.2f%%, 阈值 %d -> %d", 
+
+        String reason = String.format("自适应调整: 失败率 %.2f%%, 阈值 %d -> %d",
                 failureRate * 100, oldThreshold, newThreshold);
 
-        log.info("实例 {} 阈值调整: {} (失败率: {:.2f}%)", instanceId, 
-                oldThreshold + " -> " + newThreshold, failureRate * 100);
+        log.info("实例 {} 阈值调整: {} -> {} (失败率: {}%)", instanceId,
+                oldThreshold, newThreshold, String.format("%.2f", failureRate * 100));
 
-        // 更新数据库记录
+        // 更新运行时熔断器阈值（手工配置优先，命中即跳过）
+        boolean applied = circuitBreakerManager.applyAdaptiveThreshold(instanceId, newThreshold);
+        if (!applied) {
+            log.info("实例 {} 存在手工熔断配置，自适应调整跳过（手工层优先，两层分离）", instanceId);
+            return;
+        }
+
+        // 更新数据库记录并标记已应用（供重启后启动补偿核账）
         metricsRepository.findFirstByInstanceIdOrderByWindowEndDesc(instanceId)
                 .ifPresent(entity -> {
                     entity.setAdjustedFailureThreshold(newThreshold);
                     entity.setAdjustmentReason(reason);
-                    entity.setAdjustmentApplied(false);
+                    entity.setAdjustmentApplied(true);
                     metricsRepository.save(entity);
                 });
-
-        // 更新内存中的熔断器阈值
-        updateCircuitBreakerThreshold(instanceId, newThreshold);
     }
 
     /**
@@ -268,28 +281,44 @@ public class AdaptiveThresholdManager {
     }
 
     /**
-     * 更新熔断器阈值
+     * 启动补偿（#653）：应用 DB 中「待生效」的自适应阈值记录。
+     *
+     * <p>{@link CircuitBreakerMetricsRepository#findPendingAdjustments} 此前无任何调用方——
+     * 运行时调整虽然写 DB，但重启后内存覆盖层丢失、记录永远停在 {@code adjustmentApplied=false}，
+     * 自适应结果静默失效。启动时逐条补偿：写覆盖层 + 标记已应用。</p>
+     *
+     * <p>包在 try/catch 中：Flyway 尚未完成迁移或 DB 暂不可用时仅告警，不阻断启动。</p>
      */
-    private void updateCircuitBreakerThreshold(final String instanceId, final int newThreshold) {
-        // 获取熔断器并更新阈值
-        // 注意：这里需要 CircuitBreaker 支持动态更新阈值
-        // 目前通过重置熔断器来实现
+    @PostConstruct
+    public void applyPendingAdjustments() {
         try {
-            Map<String, Object> detail = circuitBreakerManager.getCircuitBreakerDetail(instanceId);
-            if (detail != null) {
-                // 获取当前状态信息
-                CircuitBreaker.State state = CircuitBreaker.State.valueOf((String) detail.get("state"));
-                int successCount = (Integer) detail.get("successCount");
-                long timeout = ((Number) detail.get("timeout")).longValue();
-                int successThreshold = (Integer) detail.get("successThreshold");
-
-                // 重置并使用新阈值创建
-                circuitBreakerManager.resetCircuitBreaker(instanceId, null);
-                
-                log.debug("已更新实例 {} 的熔断器阈值为 {}", instanceId, newThreshold);
+            final List<CircuitBreakerMetricsEntity> pending = metricsRepository.findPendingAdjustments();
+            if (pending.isEmpty()) {
+                log.debug("启动补偿: 无待生效的自适应阈值记录");
+                return;
             }
+
+            int appliedCount = 0;
+            for (CircuitBreakerMetricsEntity entity : pending) {
+                final Integer threshold = entity.getAdjustedFailureThreshold();
+                final String instanceId = entity.getInstanceId();
+                if (threshold == null || instanceId == null || instanceId.isBlank()) {
+                    continue;
+                }
+
+                final boolean applied = circuitBreakerManager.applyAdaptiveThreshold(instanceId, threshold);
+                entity.setAdjustmentApplied(true);
+                metricsRepository.save(entity);
+                if (applied) {
+                    appliedCount++;
+                } else {
+                    log.info("启动补偿: 实例 {} 存在手工熔断配置，记录标记已应用但未覆盖运行时（手工层优先）",
+                            instanceId);
+                }
+            }
+            log.info("启动补偿: 应用 {} 条待生效自适应阈值（共 {} 条记录）", appliedCount, pending.size());
         } catch (Exception e) {
-            log.warn("更新实例 {} 熔断器阈值失败: {}", instanceId, e.getMessage());
+            log.warn("启动补偿应用待生效自适应阈值失败", e);
         }
     }
 

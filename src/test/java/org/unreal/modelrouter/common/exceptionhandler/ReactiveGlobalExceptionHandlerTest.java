@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -20,6 +21,8 @@ import org.springframework.web.server.ResponseStatusException;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.common.exception.AuthenticationException;
 import org.unreal.modelrouter.common.exception.AuthorizationException;
+import org.unreal.modelrouter.common.exception.NoAvailableInstanceException;
+import org.unreal.modelrouter.common.exception.PoolUnavailableException;
 import org.unreal.modelrouter.common.exception.SanitizationException;
 import org.unreal.modelrouter.common.exception.SecurityException;
 import org.unreal.modelrouter.common.exception.SecurityAuthenticationException;
@@ -28,7 +31,13 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -332,6 +341,58 @@ class ReactiveGlobalExceptionHandlerTest {
 
             // Assert
             verify(headers, never()).add("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+        }
+    }
+
+    @Nested
+    @DisplayName("NoAvailableInstanceException 处理测试（#1010）")
+    class NoAvailableInstanceExceptionTests {
+
+        @Test
+        @DisplayName("处理无可用实例异常 - 返回503并带Retry-After: 60")
+        void testHandleNoAvailableInstanceExceptionStatusAndRetryAfter() {
+            // Arrange
+            Map<String, Object> data = new HashMap<>();
+            data.put("members", List.of(Map.of("name", "inst-1")));
+            NoAvailableInstanceException ex = new NoAvailableInstanceException(
+                    "All instances rate limited for model 'gpt-x'", data);
+
+            // Act
+            Mono<Void> result = handler.handle(exchange, ex);
+
+            // Assert
+            StepVerifier.create(result).verifyComplete();
+            verify(response).setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
+            verify(headers).add("Retry-After", "60");
+        }
+
+        @Test
+        @DisplayName("控制台面错误体带 data.members 明细（data 不再恒为 null）")
+        void testResponseBodyCarriesMembersData() {
+            // Arrange（exchange 为 mock，request 为 null → 非 /v1 路径 → RouterResponse 形状）
+            Map<String, Object> member = new LinkedHashMap<>();
+            member.put("name", "inst-1");
+            member.put("failureCount", 3);
+            Map<String, Object> data = new HashMap<>();
+            data.put("members", List.of(member));
+            NoAvailableInstanceException ex = new NoAvailableInstanceException(
+                    "All instances rate limited for model 'gpt-x'", data);
+
+            // Act
+            handler.handle(exchange, ex).block();
+
+            // Assert
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<org.reactivestreams.Publisher<DataBuffer>> captor =
+                    ArgumentCaptor.forClass(org.reactivestreams.Publisher.class);
+            verify(response).writeWith(captor.capture());
+            DataBuffer buffer = Mono.from(captor.getValue()).block();
+            assertNotNull(buffer);
+            byte[] bytes = new byte[buffer.readableByteCount()];
+            buffer.read(bytes);
+            String body = new String(bytes, StandardCharsets.UTF_8);
+            assertTrue(body.contains("\"members\""), "503 响应体应携带 members 明细，实际=" + body);
+            assertTrue(body.contains("gpt-x"));
         }
     }
 }

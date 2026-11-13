@@ -195,4 +195,65 @@ class RecordContentCipherTest {
             });
         }
     }
+
+    @Nested
+    @DisplayName("O4 fail-closed 密钥必填测试")
+    class KeyRequiredTests {
+
+        private static final String VALID_KEY_B64 =
+                Base64.getEncoder().encodeToString(new byte[32]);
+
+        @Test
+        @DisplayName("keyRequired=true - auto 模式直接启动失败（禁明文落盘）")
+        void testRequiredBlocksAutoMode(@TempDir Path tempDir) {
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> new RecordContentCipher("auto", tempDir, true,
+                            () -> null));
+            assertTrue(ex.getMessage().contains("禁止 auto 模式明文落盘"),
+                    "错误信息应说明禁止 auto 明文落盘: " + ex.getMessage());
+            assertFalse(Files.exists(tempDir.resolve("call-history.key")),
+                    "fail-closed 下不得生成密钥文件");
+        }
+
+        @Test
+        @DisplayName("keyRequired=true - env 缺失启动失败（不回退 auto）")
+        void testRequiredFailsWhenEnvMissing(@TempDir Path tempDir) {
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> new RecordContentCipher("env", tempDir, true, () -> null));
+            assertTrue(ex.getMessage().contains("TRUNKLINE_CALL_HISTORY_KEY"),
+                    "错误信息应指明环境变量: " + ex.getMessage());
+            assertFalse(Files.exists(tempDir.resolve("call-history.key")),
+                    "fail-closed 下不得生成密钥文件");
+        }
+
+        @Test
+        @DisplayName("keyRequired=true - env 存在时正常加载并加解密")
+        void testRequiredWithEnvPresent() {
+            RecordContentCipher requiredCipher = new RecordContentCipher(
+                    "env", null, true, () -> VALID_KEY_B64);
+            assertEquals("env", requiredCipher.keySourceEffective());
+            assertTrue(requiredCipher.keyRequired());
+            String plaintext = "fail-closed roundtrip";
+            assertEquals(plaintext, requiredCipher.decrypt(requiredCipher.encrypt(plaintext)));
+        }
+
+        @Test
+        @DisplayName("keyRequired=true - env 密钥长度非法仍抛 IllegalArgumentException")
+        void testRequiredWithInvalidEnvKeyLength() {
+            String badKey = Base64.getEncoder().encodeToString(new byte[16]);
+            assertThrows(IllegalArgumentException.class,
+                    () -> new RecordContentCipher("env", null, true, () -> badKey));
+        }
+
+        @Test
+        @DisplayName("keyRequired=false - env 缺失保持历史行为（warn 回退 auto）")
+        void testNotRequiredKeepsLegacyFallback(@TempDir Path tempDir) {
+            RecordContentCipher legacy = new RecordContentCipher(
+                    "env", tempDir, false, () -> null);
+            assertEquals("auto", legacy.keySourceEffective());
+            assertFalse(legacy.keyRequired());
+            String plaintext = "legacy fallback";
+            assertEquals(plaintext, legacy.decrypt(legacy.encrypt(plaintext)));
+        }
+    }
 }

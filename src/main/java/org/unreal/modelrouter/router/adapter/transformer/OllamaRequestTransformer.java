@@ -43,6 +43,11 @@ public class OllamaRequestTransformer {
             if (request.stream() != null) {
                 ollamaRequest.put("stream", request.stream());
             }
+            // issue #720: 透传 stream_options（如 {"include_usage": true}）——
+            // Ollama 原生 API 不识别该字段，若下游报 400 需上游按 adapter 白名单裁剪（方案风险已注明）
+            if (request.streamOptions() != null) {
+                ollamaRequest.set("stream_options", objectMapper.valueToTree(request.streamOptions()));
+            }
 
             ObjectNode extraBody = buildExtraBody(request);
             if (extraBody.size() > 0) {

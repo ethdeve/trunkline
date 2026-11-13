@@ -3,8 +3,12 @@ package org.unreal.modelrouter.router.checker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import org.unreal.modelrouter.persistence.jpa.entity.ServiceInstanceEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.ServiceInstanceRepository;
 import org.unreal.modelrouter.router.model.InstanceKeys;
@@ -23,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 public class ServerChecker {
@@ -41,6 +46,16 @@ public class ServerChecker {
     // 缓存实例之前的状态，用于检测状态变化
     private final Map<String, Boolean> previousInstanceStates = new ConcurrentHashMap<>();
 
+    // #651：in-progress 守卫，防止上一轮健康检查未完成时轮次叠加
+    private final AtomicBoolean inProgress = new AtomicBoolean();
+
+    // #651：健康检查调度参数（外部化配置；单测/无配置时回退默认值）
+    @Value("${trunkline.health-check.concurrency:4}")
+    private int concurrency = 4;
+
+    @Value("${trunkline.health-check.connect-timeout-ms:5000}")
+    private int connectTimeoutMs = 5000;
+
     public ServerChecker(final ModelServiceRegistry modelServiceRegistry,
                          final ServiceStateManager serviceStateManager) {
         this.modelServiceRegistry = modelServiceRegistry;
@@ -58,22 +73,38 @@ public class ServerChecker {
 
     /**
      * 定时检查所有服务实例的健康状态
-     * 每30秒执行一次
+     * 默认每 30 秒执行一次（可通过 trunkline.health-check.interval-ms 配置）。
+     * 使用 in-progress 守卫 + 并发执行，避免上一轮未完成时轮次叠加（#651）。
      */
-    @Scheduled(fixedRate = 30000)
+    @Scheduled(fixedRateString = "${trunkline.health-check.interval-ms:30000}")
     public void checkAllServices() {
+        if (!inProgress.compareAndSet(false, true)) {
+            log.warn("上轮健康检查尚未完成，跳过本轮以避免轮次叠加");
+            return;
+        }
+        try {
+            doCheckAllServices();
+        } finally {
+            inProgress.set(false);
+        }
+    }
+
+    /**
+     * 实际健康检查逻辑，由 {@link #checkAllServices()} 在 in-progress 守卫内调用。
+     */
+    private void doCheckAllServices() {
         long batchStartTime = System.currentTimeMillis();
         log.info("开始检查所有服务实例的健康状态");
-        
+
         Map<ModelServiceRegistry.ServiceType, List<ModelRouterProperties.ModelInstance>> instanceRegistry =
                 modelServiceRegistry.getAllInstances();
-        
+
         // 增强日志输出，帮助诊断问题
         if (instanceRegistry == null) {
             log.warn("服务实例注册表为null");
             return;
         }
-        
+
         if (instanceRegistry.isEmpty()) {
             log.warn("未找到配置的服务实例");
             // 添加更多调试信息
@@ -82,7 +113,7 @@ public class ServerChecker {
                 // 尝试获取服务类型列表
                 Set<ModelServiceRegistry.ServiceType> availableTypes = modelServiceRegistry.getAvailableServiceTypes();
                 log.debug("可用服务类型: {}", availableTypes != null ? availableTypes.size() : 0);
-                
+
                 // 检查每个服务类型的实例
                 for (ModelServiceRegistry.ServiceType type : ModelServiceRegistry.ServiceType.values()) {
                     Set<String> models = modelServiceRegistry.getAvailableModels(type);
@@ -95,7 +126,7 @@ public class ServerChecker {
         }
 
         List<Runnable> tasks = getRunnable(instanceRegistry);
-        
+
         // 统计信息
         int totalServices = instanceRegistry.size();
         int totalInstances = instanceRegistry.values().stream()
@@ -104,21 +135,15 @@ public class ServerChecker {
         int healthyServices = 0;
         int healthyInstances = 0;
 
-        // 执行所有检查任务
-        for (Runnable task : tasks) {
-            try {
-                task.run();
-            } catch (Exception e) {
-                log.error("执行服务检查任务时发生错误", e);
-            }
-        }
-        
+        // 执行所有检查任务（并发执行于 boundedElastic，单个任务异常不影响其他任务）
+        runHealthCheckTasks(tasks);
+
         // 统计健康状态
         for (Map.Entry<ModelServiceRegistry.ServiceType,
                 List<ModelRouterProperties.ModelInstance>> entry : instanceRegistry.entrySet()) {
             String serviceType = entry.getKey().name();
             List<ModelRouterProperties.ModelInstance> instances = entry.getValue();
-            
+
             boolean serviceHasHealthyInstance = false;
             for (ModelRouterProperties.ModelInstance instance : instances) {
                 if (serviceStateManager.isInstanceHealthy(serviceType, instance)) {
@@ -126,20 +151,20 @@ public class ServerChecker {
                     serviceHasHealthyInstance = true;
                 }
             }
-            
+
             if (serviceHasHealthyInstance) {
                 healthyServices++;
             }
         }
-        
+
         long batchDuration = System.currentTimeMillis() - batchStartTime;
-        
+
         // 记录批次完成追踪
         try {
-            org.unreal.modelrouter.monitor.tracing.health.HealthCheckTracingEnhancer enhancer = 
+            org.unreal.modelrouter.monitor.tracing.health.HealthCheckTracingEnhancer enhancer =
                 org.unreal.modelrouter.common.util.ApplicationContextProvider.getBean(
                     org.unreal.modelrouter.monitor.tracing.health.HealthCheckTracingEnhancer.class);
-            enhancer.logHealthCheckBatchComplete(totalServices, healthyServices, 
+            enhancer.logHealthCheckBatchComplete(totalServices, healthyServices,
                 totalInstances, healthyInstances, batchDuration);
         } catch (Exception e) {
             // 忽略追踪错误
@@ -149,7 +174,35 @@ public class ServerChecker {
             healthyServices, totalServices, healthyInstances, totalInstances, batchDuration);
     }
 
-    private List<Runnable> getRunnable(
+    /**
+     * 并发执行健康检查任务：在 boundedElastic 线程池上并行执行，
+     * 总耗时≈单个任务最大耗时而非串行之和（#651）。
+     * 单个任务抛异常时仅记录日志，不影响其他任务（保留原逐 task try-catch 隔离语义）。
+     *
+     * @param tasks 健康检查任务列表
+     */
+    private void runHealthCheckTasks(final List<Runnable> tasks) {
+        if (tasks == null || tasks.isEmpty()) {
+            return;
+        }
+        int concurrencyLevel = Math.max(1, concurrency);
+        try {
+            Flux.fromIterable(tasks)
+                .flatMap(task -> Mono.fromRunnable(() -> {
+                    try {
+                        task.run();
+                    } catch (Exception e) {
+                        log.error("执行服务检查任务时发生错误", e);
+                    }
+                }).subscribeOn(Schedulers.boundedElastic()), concurrencyLevel)
+                .then()
+                .block();
+        } catch (Exception e) {
+            log.error("健康检查并发执行异常", e);
+        }
+    }
+
+    protected List<Runnable> getRunnable(
             final Map<ModelServiceRegistry.ServiceType,
                     List<ModelRouterProperties.ModelInstance>> instanceRegistry) {
         List<Runnable> tasks = new ArrayList<>();
@@ -201,9 +254,9 @@ public class ServerChecker {
                     }
                 }
 
-                // 使用 NetUtils 检查 socket 连接（同步方法）
+                // 使用 NetUtils 检查 socket 连接（同步方法，超时外部化）
                 long startTime = System.currentTimeMillis();
-                NetUtils.NetConnect result = NetUtils.testSocketConnect(host, port);
+                NetUtils.NetConnect result = NetUtils.testSocketConnect(host, port, connectTimeoutMs);
                 long responseTime = System.currentTimeMillis() - startTime;
 
                 // #636: 实例唯一标识符解析 instance-id → baseUrl → name，未配置 id 不再共享 ":null" 键
@@ -265,6 +318,14 @@ public class ServerChecker {
 
             } catch (URISyntaxException e) {
                 log.error("无效的URL格式: {}", instance.getBaseUrl(), e);
+                // #650 修复：补齐与连接失败分支一致的四步，将非法 URL 实例标记为不健康，
+                // 避免 ServiceStateManager 默认健康位图（BitSet 无记录默认健康）把非法 URL 实例放进候选
+                String instanceKey = InstanceKeys.healthKey(serviceType, instance);
+                serviceStateManager.updateInstanceHealthStatus(serviceType, instance, false);
+                updateDatabaseHealthStatus(instance.getName(), instance.getInstanceId(), "UNHEALTHY",
+                        "无效的URL格式: " + e.getMessage());
+                previousInstanceStates.put(instanceKey, false);
+                recordHealthCheckMetrics(getAdapterType(instance), instance.getName(), false, 0);
                 // 记录健康检查完成事件（失败）
                 if (tracingEnhancer != null && tracingContext != null) {
                     tracingEnhancer.logHealthCheckComplete(
@@ -334,7 +395,11 @@ public class ServerChecker {
      */
     private String getAdapterType(final ModelRouterProperties.ModelInstance instance) {
         // 根据实例的URL或其他特征推断适配器类型
-        String baseUrl = instance.getBaseUrl().toLowerCase();
+        String baseUrl = instance.getBaseUrl();
+        if (baseUrl == null) {
+            return "normal";
+        }
+        baseUrl = baseUrl.toLowerCase();
         if (baseUrl.contains("ollama")) {
             return "ollama";
         } else if (baseUrl.contains("vllm")) {

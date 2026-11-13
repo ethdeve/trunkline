@@ -1,1 +1,2 @@
 org.unreal.modelrouter.enterprise.config.TrunklineEnterpriseAutoConfiguration
+org.unreal.modelrouter.enterprise.config.TenantAspectOrderingConfiguration

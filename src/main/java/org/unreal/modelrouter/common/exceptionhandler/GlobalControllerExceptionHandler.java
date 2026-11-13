@@ -1,5 +1,6 @@
 package org.unreal.modelrouter.common.exceptionhandler;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -7,9 +8,12 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import org.unreal.modelrouter.common.controller.response.RouterResponse; // 确保引入您项目中的Response类
 import org.unreal.modelrouter.common.exception.ApiException;
+import org.unreal.modelrouter.common.exception.NoAvailableInstanceException;
 import org.unreal.modelrouter.common.exception.PoolUnavailableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Map;
 
 /**
  * 控制台面（{@code /api/**}）控制器异常处理器.
@@ -26,6 +30,13 @@ import org.slf4j.LoggerFactory;
 public class GlobalControllerExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(GlobalControllerExceptionHandler.class);
+
+    /**
+     * #1010：{@code /v1/**} 错误体是否附带 {@code error.details} 拓扑明细（host:port 已脱敏）。
+     * 默认 false —— 客户端协议面不暴露内部拓扑；控制台面 {@code RouterResponse.data} 不受此开关限制。
+     */
+    @Value("${trunkline.error-details.expose-topology:false}")
+    private boolean exposeTopologyDetails;
 
     /**
      * 处理响应状态异常.
@@ -77,7 +88,8 @@ public class GlobalControllerExceptionHandler {
                 ex.getRetryAfterSeconds(), ex.getMessage(), ex);
 
         final ResponseEntity<?> clientResponse = V1ErrorBodyMapper.toClientErrorResponse(
-                exchange, ex.getStatus().value(), ex.getMessage(), String.valueOf(ex.getStatus().value()));
+                exchange, ex.getStatus().value(), ex.getMessage(), String.valueOf(ex.getStatus().value()),
+                exposeTopologyDetails ? ex.getData() : null);
         if (clientResponse != null) {
             // 客户端协议形状的错误体也要带 Retry-After
             return ResponseEntity.status(ex.getStatus())
@@ -87,7 +99,48 @@ public class GlobalControllerExceptionHandler {
 
         return ResponseEntity.status(ex.getStatus())
                 .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
-                .body(RouterResponse.error(ex.getMessage(), String.valueOf(ex.getStatus().value())));
+                .body(dataErrorResponse(ex.getMessage(), ex.getData(), String.valueOf(ex.getStatus().value())));
+    }
+
+    /**
+     * 处理无可用实例异常（#1010）.
+     *
+     * <p>普通路由「全候选被限流 / 全不健康 / 全熔断」时抛出：503 + {@code Retry-After: 60}
+     * （与池路由退避语义一致），响应体带 {@code data.members} 逐实例明细；{@code /v1/**} 面的
+     * {@code error.details} 由 {@code trunkline.error-details.expose-topology} 开关控制（默认不暴露）。</p>
+     *
+     * @param ex       无可用实例异常
+     * @param exchange 当前交换对象（仅用于取请求路径，决定错误体形状）
+     * @return 503 响应（带 Retry-After 头）
+     */
+    @ExceptionHandler(NoAvailableInstanceException.class)
+    public ResponseEntity<?> handleNoAvailableInstanceException(final NoAvailableInstanceException ex,
+                                                                final ServerWebExchange exchange) {
+
+        logger.error("通过 @RestControllerAdvice 捕获到无可用实例异常: retryAfter={}s, message={}",
+                ex.getRetryAfterSeconds(), ex.getMessage(), ex);
+
+        final ResponseEntity<?> clientResponse = V1ErrorBodyMapper.toClientErrorResponse(
+                exchange, ex.getStatus().value(), ex.getMessage(), String.valueOf(ex.getStatus().value()),
+                exposeTopologyDetails ? ex.getData() : null);
+        if (clientResponse != null) {
+            return ResponseEntity.status(ex.getStatus())
+                    .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+                    .body(clientResponse.getBody());
+        }
+
+        return ResponseEntity.status(ex.getStatus())
+                .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+                .body(dataErrorResponse(ex.getMessage(), ex.getData(), String.valueOf(ex.getStatus().value())));
+    }
+
+    /**
+     * #1010：构造带结构化明细（{@code data}）的错误响应；{@code data} 为 null 时与
+     * {@link RouterResponse#error(String, String)} 等价（NON_NULL 序列化下无 data 字段）.
+     */
+    private RouterResponse<Map<String, Object>> dataErrorResponse(
+            final String message, final Map<String, Object> data, final String errorCode) {
+        return new RouterResponse<>(false, message, data, errorCode);
     }
 
     /**

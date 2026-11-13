@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -449,8 +450,10 @@ public class ModelServiceRegistry {
                         availableInstances, loadBalancer, affinityKey, clientIp, serviceType, effectiveModelName);
 
         if (selectedInstance == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.SERVICE_UNAVAILABLE,
+            // #654/#1010：候选非空才会走到这里（空候选已在上方分支按 404/池感知 503 处理），
+            // 故本分支即「全候选被限流」；文案与「候选为空」分支区分，并带逐实例明细 + Retry-After
+            throw instanceSelector.buildUnavailableException(
+                    serviceType, effectiveModelName, availableInstances,
                     "All instances rate limited for model '" + effectiveModelName + "'");
         }
 
@@ -660,11 +663,49 @@ public class ModelServiceRegistry {
         if (!anyResolved) {
             return new PoolUnavailableException(
                     "Pool '" + pool.getPoolName() + "' has no resolvable members (members: " + memberStates + ")",
+                    buildPoolMembersData(serviceType, pool, allInstances),
                     POOL_UNAVAILABLE_RETRY_AFTER_SECONDS);
         }
         return new PoolUnavailableException(
                 "Pool '" + pool.getPoolName() + "' has no available members (members: " + memberStates + ")",
+                buildPoolMembersData(serviceType, pool, allInstances),
                 POOL_UNAVAILABLE_RETRY_AFTER_SECONDS);
+    }
+
+    /**
+     * #1010：构建池路由的 {@code data.members} 逐成员明细（与普通路由共用
+     * {@link InstanceDiagnostics#describeMember} 口径），供异常处理器写入响应体。
+     */
+    private Map<String, Object> buildPoolMembersData(
+            final ServiceType serviceType,
+            final PoolDefinition pool,
+            final List<ModelRouterProperties.ModelInstance> allInstances) {
+        final Map<String, Object> data = new LinkedHashMap<>();
+        data.put("pool", pool.getPoolName());
+        final List<Map<String, Object>> members = new ArrayList<>();
+        if (pool.getMembers() != null) {
+            for (final PoolMember member : pool.getMembers()) {
+                final String memberKey = member.getInstanceId();
+                final ModelRouterProperties.ModelInstance resolved = allInstances.stream()
+                        .filter(i -> memberKey != null
+                                && (memberKey.equals(i.getInstanceId()) || memberKey.equals(i.getName())))
+                        .findFirst()
+                        .orElse(null);
+                if (resolved == null) {
+                    final Map<String, Object> unresolved = new LinkedHashMap<>();
+                    unresolved.put("name", memberKey);
+                    unresolved.put("resolved", false);
+                    members.add(unresolved);
+                    continue;
+                }
+                final Map<String, Object> described = InstanceDiagnostics.describeMember(
+                        serviceType, resolved, serviceStateManager, circuitBreakerManager);
+                described.put("resolved", true);
+                members.add(described);
+            }
+        }
+        data.put("members", members);
+        return data;
     }
 
     /**

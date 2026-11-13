@@ -26,6 +26,7 @@ import org.unreal.modelrouter.monitor.monitoring.collector.MetricsCollector;
 import org.unreal.modelrouter.monitor.service.TokenUsageRecorder;
 import org.unreal.modelrouter.monitor.tracing.TracingContextHolder;
 import org.unreal.modelrouter.router.adapter.CallerIdentityResolver;
+import org.unreal.modelrouter.router.adapter.error.ErrorTargetResolver;
 import org.unreal.modelrouter.router.adapter.transformer.ResponseTransformer;
 import org.unreal.modelrouter.router.cache.CachedStreamingResponse;
 import org.unreal.modelrouter.router.cache.ResponseCacheService;
@@ -235,6 +236,10 @@ public class StreamingRequestProcessor {
 
         String instanceName = selectedInstance.getName();
         long requestStartTime = System.currentTimeMillis();
+
+        // #1011: 下游错误日志目标（host:port 脱敏：丢 userinfo/query/fragment，不携带凭证）；
+        // 只作 logger 占位参数，不拼进异常 message——/v1 面错误帧与响应 reason 会回显给客户端
+        final String errorTarget = ErrorTargetResolver.hostPortFromUrl(selectedInstance.getBaseUrl());
 
         logger.debug("开始流式请求: adapter={}, instance={}, path={}", adapterType, instanceName, path);
 
@@ -463,13 +468,15 @@ public class StreamingRequestProcessor {
                     // v3.2.3 (#126/#127): 释放累积缓冲（空闲超时/异常终止时立即归还内存）。
                     // onError 与 onNext 串行，此处与 map() 无并发；同步仅统一监视器约定。
                     releaseAccumulation(contentBuilder, transformedChunks);
-                    recordStreamingError(serviceType, adapterType, instanceName,
-                            requestStartTime, throwable);
                     // #719：此处结算为「终端结算」而非 attempt 级——body 已在 200 响应内提交，
                     // BaseAdapter 的重试只覆盖 ResponseEntity 发出前的错误，body 信号（错误/取消）
                     // 不再有任何重试跟随，且 handler 层观测不到 body 级信号；删除会把流中失败
                     // 与客户端断连的预留永久泄漏（残量直到窗口滚动才自愈）。保留恰一次 CAS。
                     QuotaReservation.settleFailure(quotaReservation);
+                    // #1011: target 优先沿 cause 链取真实目标（回退 baseUrl）
+                    recordStreamingError(serviceType, adapterType, instanceName,
+                            ErrorTargetResolver.resolveTarget(throwable, selectedInstance.getBaseUrl()),
+                            requestStartTime, throwable);
                 })
                 .doOnCancel(() -> {
                     // v3.2.3 (#126/#127): 同样释放累积缓冲（cancel 不与 onNext 串行，须持锁）
@@ -500,8 +507,8 @@ public class StreamingRequestProcessor {
                     .bodyValue(rewriteModelField(request, instanceName))
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, clientResponse -> {
-                        logger.warn("流式请求下游错误: instance={}, status={}",
-                                instanceName, clientResponse.statusCode());
+                        logger.warn("流式请求下游错误: instance={}, target={}, status={}",
+                                instanceName, errorTarget, clientResponse.statusCode());
                         return clientResponse.releaseBody()
                                 .then(Mono.error(new ResponseStatusException(
                                         clientResponse.statusCode(), "下游服务错误")));
@@ -518,12 +525,14 @@ public class StreamingRequestProcessor {
                 .bodyValue(rewriteModelField(request, instanceName))
                 .retrieve()
                 .onStatus(HttpStatusCode::is5xxServerError, clientResponse -> {
-                    logger.error("流式请求5xx错误: instance={}, status={}", instanceName, clientResponse.statusCode());
+                    logger.error("流式请求5xx错误: instance={}, target={}, status={}",
+                            instanceName, errorTarget, clientResponse.statusCode());
                     return Mono.error(new ResponseStatusException(
                             clientResponse.statusCode(), "下游服务错误"));
                 })
                 .onStatus(HttpStatusCode::is4xxClientError, clientResponse -> {
-                    logger.error("流式请求4xx错误: instance={}, status={}", instanceName, clientResponse.statusCode());
+                    logger.error("流式请求4xx错误: instance={}, target={}, status={}",
+                            instanceName, errorTarget, clientResponse.statusCode());
                     return Mono.error(new ResponseStatusException(
                             clientResponse.statusCode(), "请求错误"));
                 })
@@ -569,17 +578,22 @@ public class StreamingRequestProcessor {
 
     /**
      * 记录流式请求错误指标
+     *
+     * <p>#1011: 日志带 target（沿 cause 链取连接级异常的真实 URI host:port，回退实例 baseUrl）；
+     * 只打异常类名不打 {@code getMessage()} 原文——WebClientRequestException 的 message
+     * 含完整 URL，凭证拼在 query/userinfo 时原文入日志即泄露。</p>
      */
     private void recordStreamingError(final ModelServiceRegistry.ServiceType serviceType,
                                         final String adapterType,
                                         final String instanceName,
+                                        final String target,
                                         final long startTime,
                                         final Throwable throwable) {
         if (metricsCollector != null) {
             long responseTime = System.currentTimeMillis() - startTime;
             metricsCollector.recordBackendCall(adapterType, instanceName, responseTime, false);
-            logger.error("流式请求错误: adapter={}, instance={}, error={}",
-                    adapterType, instanceName, throwable.getMessage());
+            logger.error("流式请求错误: adapter={}, instance={}, target={}, error={}",
+                    adapterType, instanceName, target, throwable.getClass().getSimpleName());
         }
     }
 

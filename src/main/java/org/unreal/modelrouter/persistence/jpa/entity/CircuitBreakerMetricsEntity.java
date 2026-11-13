@@ -32,7 +32,9 @@ import java.time.LocalDateTime;
     // relation 名（含索引）是 schema 级命名空间（H2/MySQL 为表级），重名会使 CREATE INDEX
     // 失败且 Hibernate 仅记 WARN —— 索引被静默丢失。
     @Index(name = "idx_cb_metrics_instance_id", columnList = "instance_id"),
-    @Index(name = "idx_window_end", columnList = "window_end")
+    @Index(name = "idx_window_end", columnList = "window_end"),
+    // #653: findPendingAdjustments 按 adjustment_applied 过滤，避免全表扫描
+    @Index(name = "idx_cb_metrics_adjustment_applied", columnList = "adjustment_applied")
 })
 public class CircuitBreakerMetricsEntity {
 

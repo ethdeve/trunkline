@@ -44,6 +44,9 @@ public final class FilterOrderContract {
     /** 请求头可写化包装：紧跟 CachedBody。 */
     public static final int WRITEABLE_HEADERS = CACHED_BODY + 1;
 
+    /** 请求 ID 解析与响应回写（issue #724）：可写头之后、指标之前（链首注册 beforeCommit）。 */
+    public static final int REQUEST_ID = CACHED_BODY + 2;
+
     /** WebFlux 指标采集：读 headers + 装饰响应，无需可写头。 */
     public static final int WEB_METRICS = CACHED_BODY + 10;
 

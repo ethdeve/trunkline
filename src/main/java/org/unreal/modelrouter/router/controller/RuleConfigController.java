@@ -140,6 +140,10 @@ public class RuleConfigController {
     public ResponseEntity<RouterResponse<RuleDefinition>> updateRule(@PathVariable final String id,
                                                                      @RequestBody final RuleDefinition rule) {
         RuleDefinition existing = findRule(id);
+        // issue #708: YAML 来源规则的"改了被 reload 覆盖"与删除同源，一并拒绝（409）
+        if (isYamlManaged(existing)) {
+            return yamlManagedConflict();
+        }
         validateRule(rule);
         rule.setId(existing.getId());
         persistenceService.save(rule);
@@ -155,7 +159,11 @@ public class RuleConfigController {
     @DeleteMapping("/{id}")
     @Operation(summary = "删除规则", description = "按 ID 删除规则并热生效")
     public ResponseEntity<RouterResponse<Void>> deleteRule(@PathVariable final String id) {
-        findRule(id);
+        RuleDefinition existing = findRule(id);
+        // issue #708: YAML 规则删除后 reload 会把它重新合并进来（谎报成功）——校验期拒绝
+        if (isYamlManaged(existing)) {
+            return yamlManagedConflict();
+        }
         persistenceService.remove(id);
         // v2.8.8: 清理规则级限流器,防泄漏
         rateLimitManager.removeRuleRateLimiter(id);
@@ -170,6 +178,10 @@ public class RuleConfigController {
     @Operation(summary = "启用规则", description = "启用指定规则")
     public ResponseEntity<RouterResponse<RuleDefinition>> enableRule(@PathVariable final String id) {
         RuleDefinition rule = findRule(id);
+        // issue #708: YAML 规则的启停同样会被 reload 覆盖，拒绝
+        if (isYamlManaged(rule)) {
+            return yamlManagedConflict();
+        }
         rule.setEnabled(true);
         persistenceService.save(rule);
         reloadActiveRules();
@@ -183,6 +195,10 @@ public class RuleConfigController {
     @Operation(summary = "停用规则", description = "停用指定规则")
     public ResponseEntity<RouterResponse<RuleDefinition>> disableRule(@PathVariable final String id) {
         RuleDefinition rule = findRule(id);
+        // issue #708: YAML 规则的启停同样会被 reload 覆盖，拒绝
+        if (isYamlManaged(rule)) {
+            return yamlManagedConflict();
+        }
         rule.setEnabled(false);
         persistenceService.save(rule);
         reloadActiveRules();
@@ -324,6 +340,37 @@ public class RuleConfigController {
                 .filter(r -> r.getId().equals(id))
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Rule not found: " + id));
+    }
+
+    /**
+     * 判定规则是否由 YAML 配置文件管理（issue #708）。
+     *
+     * <p>来源由 {@code reload} 时赋值；未经 reload 的旧对象可能为 null——
+     * 此时回退「不在持久化集合即视为 YAML 管理」（宁可误拒不可谎报成功）。</p>
+     */
+    private boolean isYamlManaged(final RuleDefinition rule) {
+        if (rule == null) {
+            return false;
+        }
+        if (rule.getSource() == RuleDefinition.Source.YAML) {
+            return true;
+        }
+        if (rule.getSource() == RuleDefinition.Source.PERSISTED) {
+            return false;
+        }
+        final String id = rule.getId();
+        return id != null && persistenceService.loadAll().stream()
+                .noneMatch(r -> id.equals(r.getId()));
+    }
+
+    /**
+     * YAML 管理项的统一 409 响应（issue #708：错误码 {@code YAML_RULE_ACTIVE}）。
+     */
+    private <T> ResponseEntity<RouterResponse<T>> yamlManagedConflict() {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(RouterResponse.error(
+                        "该规则由 YAML 配置文件定义，无法通过 API 删除/修改/启停；请修改配置文件后重启生效",
+                        "YAML_RULE_ACTIVE"));
     }
 
     private void validateRule(final RuleDefinition rule) {

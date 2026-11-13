@@ -413,6 +413,58 @@ class ResponseCacheServiceTest {
         assertEquals(60L, snap.get("ttlSeconds"));
     }
 
+    // ==================== issue #723: temperature=null 确定性判定 ====================
+
+    @Test
+    @DisplayName("issue #723: temperature=null（未指定）不再视为确定性 → buildKey 返回 null（反证旧非 null）")
+    void nullTemperatureNotDeterministicByDefault() {
+        properties.setOnlyDeterministic(true);
+        properties.setCacheNullTemperature(false);
+        ChatDTO.Request request = chatRequest("hello", null, null);
+
+        assertNull(service.buildKey("tenant-a", ServiceType.chat, request),
+                "未指定 temperature 跟随下游默认（通常非 0 贪心），不得视为确定性（修复前可缓存）");
+    }
+
+    @Test
+    @DisplayName("issue #723: temperature 显式 0.0 仍是确定性 → 生成键")
+    void explicitZeroTemperatureStillDeterministic() {
+        properties.setOnlyDeterministic(true);
+        properties.setCacheNullTemperature(false);
+        ChatDTO.Request request = chatRequest("hello", 0.0, null);
+
+        assertNotNull(service.buildKey("tenant-a", ServiceType.chat, request));
+    }
+
+    @Test
+    @DisplayName("issue #723: temperature=0.7 非确定性 → 不生成键")
+    void positiveTemperatureNotDeterministic() {
+        properties.setOnlyDeterministic(true);
+        ChatDTO.Request request = chatRequest("hello", 0.7, null);
+
+        assertNull(service.buildKey("tenant-a", ServiceType.chat, request));
+    }
+
+    @Test
+    @DisplayName("issue #723: 开启 cache-null-temperature 后 null 恢复可缓存（自建贪心实例兜底）")
+    void cacheNullTemperatureSwitchRestoresOldBehavior() {
+        properties.setOnlyDeterministic(true);
+        properties.setCacheNullTemperature(true);
+        ChatDTO.Request request = chatRequest("hello", null, null);
+
+        assertNotNull(service.buildKey("tenant-a", ServiceType.chat, request),
+                "cache-null-temperature=true 时 null 视为确定性（下游固定贪心解码实例）");
+    }
+
+    @Test
+    @DisplayName("snapshot 暴露 cacheNullTemperature 配置")
+    void snapshotExposesCacheNullTemperature() {
+        properties.setCacheNullTemperature(true);
+        Map<String, Object> snap = service.snapshot();
+
+        assertEquals(true, snap.get("cacheNullTemperature"));
+    }
+
     private ChatDTO.Request chatRequest(final String content, final Double temperature,
                                         final Integer n) {
         ChatDTO.Options options = n != null

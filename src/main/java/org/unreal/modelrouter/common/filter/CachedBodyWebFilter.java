@@ -3,10 +3,13 @@ package org.unreal.modelrouter.common.filter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpRequestDecorator;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
@@ -30,7 +33,16 @@ import reactor.core.publisher.Mono;
 @Slf4j
 public class CachedBodyWebFilter implements WebFilter, Ordered {
 
-    private static final int MAX_CACHE_SIZE = 10 * 1024 * 1024; // 10MB
+    /**
+     * 默认缓存上限（issue #700 外部化前的既有行为）。
+     *
+     * <p>无参构造（既有测试/调用方）使用本值；生产注册处从
+     * {@code trunkline.response.max-body-size} 注入（默认同为 10MB）。</p>
+     */
+    private static final int DEFAULT_MAX_CACHE_SIZE = 10 * 1024 * 1024; // 10MB
+
+    /** 缓存上限（字节）。超限时不再放行（body 已被 join 消费、下游只会读到空），改返 502。 */
+    private final int maxCacheSize;
 
     /**
      * 链首优先级：必须先于所有其他过滤器（顺序契约见 {@link FilterOrderContract}）。
@@ -38,6 +50,20 @@ public class CachedBodyWebFilter implements WebFilter, Ordered {
     @Override
     public int getOrder() {
         return FilterOrderContract.CACHED_BODY;
+    }
+
+    /** 无参构造：与外部化前行为一致（10MB），既有测试零改动。 */
+    public CachedBodyWebFilter() {
+        this(DEFAULT_MAX_CACHE_SIZE);
+    }
+
+    /**
+     * 带上限构造（issue #700：上限统一接 {@code trunkline.response.max-body-size}）。
+     *
+     * @param maxCacheSizeBytes 缓存上限（字节），非正值回退默认 10MB
+     */
+    public CachedBodyWebFilter(final int maxCacheSizeBytes) {
+        this.maxCacheSize = maxCacheSizeBytes > 0 ? maxCacheSizeBytes : DEFAULT_MAX_CACHE_SIZE;
     }
 
     @Override
@@ -79,7 +105,7 @@ public class CachedBodyWebFilter implements WebFilter, Ordered {
                     try {
                         // 检查数据大小
                         int size = dataBuffer.readableByteCount();
-                        if (size > MAX_CACHE_SIZE) {
+                        if (size > maxCacheSize) {
                             log.warn("Multipart请求体过大({}MB)，跳过缓存", size / (1024 * 1024));
                             return chain.filter(exchange);
                         }
@@ -117,10 +143,14 @@ public class CachedBodyWebFilter implements WebFilter, Ordered {
         return DataBufferUtils.join(request.getBody())
                 .flatMap(dataBuffer -> {
                     try {
+                        // 检查数据大小（issue #700：超限不再放行——body 已被 join 消费，
+                        // 放行后下游只会读到空 body；改返 502 让调用方明确感知）
                         int size = dataBuffer.readableByteCount();
-                        if (size > MAX_CACHE_SIZE) {
-                            log.warn("请求体过大({}MB)，跳过缓存", size / (1024 * 1024));
-                            return chain.filter(exchange);
+                        if (size > maxCacheSize) {
+                            log.warn("请求体过大({}字节)超过上限({}字节)，拒绝缓存并返回 502", size, maxCacheSize);
+                            return Mono.error(new ResponseStatusException(
+                                    HttpStatus.BAD_GATEWAY,
+                                    "Request body exceeds " + maxCacheSize + " bytes limit"));
                         }
                         byte[] bytes = new byte[size];
                         dataBuffer.read(bytes);
@@ -140,6 +170,12 @@ public class CachedBodyWebFilter implements WebFilter, Ordered {
                     }
                 })
                 .onErrorResume(error -> {
+                    // issue #700: codec 层超限异常统一转 502（不再是裸 500）
+                    if (error instanceof DataBufferLimitException) {
+                        log.warn("请求体超出编解码器上限，返回 502: {}", request.getPath().value());
+                        return Mono.error(new ResponseStatusException(
+                                HttpStatus.BAD_GATEWAY, "Request body exceeds size limit"));
+                    }
                     log.warn("缓存请求体失败，直接抛出异常: {} - {}", request.getPath().value(), error.getMessage());
                     return Mono.error(error); // 让异常冒泡到全局异常处理器
                 });

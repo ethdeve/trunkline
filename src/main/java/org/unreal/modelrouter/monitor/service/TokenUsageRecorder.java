@@ -192,6 +192,41 @@ public class TokenUsageRecorder {
             final String virtualModel,
             final String userId,
             final String apiKeyId) {
+        recordTokenUsageNoAuth(serviceType, modelName, provider, instanceName, instanceUrl,
+                promptTokens, completionTokens, totalTokens, traceId, clientIp,
+                isSuccess, errorCode, errorMessage, responseTimeMs, virtualModel, userId, apiKeyId,
+                null);
+    }
+
+    /**
+     * 执行 Token 使用量记录（无用户认证，全量归因字段 + 元数据）。
+     *
+     * <p>issue #712：{@code metadata} 用于承载 {@code {"estimated":true}} 标记——
+     * 响应缺 usage 或 total≤0 时按响应文本估算 token（HAN/2、其余/4，与流式同系数），
+     * 定案口径「估算仅配额兜底，不作对外计费依据」：账单/报表对估算行只记请求数、
+     * 不展示金额或显著标注。无元数据传 {@code null}（落库 metadata 为空，与既有行为一致）。</p>
+     *
+     * @param metadata 附加元数据 JSON 文本（如 {@code "{"estimated":true}"}），可为 {@code null}
+     */
+    public void recordTokenUsageNoAuth(
+            final String serviceType,
+            final String modelName,
+            final String provider,
+            final String instanceName,
+            final String instanceUrl,
+            final Long promptTokens,
+            final Long completionTokens,
+            final Long totalTokens,
+            final String traceId,
+            final String clientIp,
+            final Boolean isSuccess,
+            final String errorCode,
+            final String errorMessage,
+            final Long responseTimeMs,
+            final String virtualModel,
+            final String userId,
+            final String apiKeyId,
+            final String metadata) {
 
         // 阻塞 JPA 写入不得阻塞 EventLoop（issue #115）
         if (Schedulers.isInNonBlockingThread()) {
@@ -199,7 +234,7 @@ public class TokenUsageRecorder {
                 serviceType, modelName, provider, instanceName, instanceUrl,
                 promptTokens, completionTokens, totalTokens, traceId,
                 clientIp, userId, isSuccess, errorCode, errorMessage, responseTimeMs, virtualModel,
-                apiKeyId
+                apiKeyId, metadata
             ));
             return;
         }
@@ -207,7 +242,7 @@ public class TokenUsageRecorder {
             serviceType, modelName, provider, instanceName, instanceUrl,
             promptTokens, completionTokens, totalTokens, traceId,
             clientIp, userId, isSuccess, errorCode, errorMessage, responseTimeMs, virtualModel,
-            apiKeyId
+            apiKeyId, metadata
         );
     }
 
@@ -277,7 +312,8 @@ public class TokenUsageRecorder {
             final String errorMessage,
             final Long responseTimeMs,
             final String virtualModel,
-            final String apiKeyId) {
+            final String apiKeyId,
+            final String metadata) {
 
         try {
             TokenUsageRecordDTO record = TokenUsageRecordDTO.builder()
@@ -299,6 +335,8 @@ public class TokenUsageRecorder {
                     .errorCode(errorCode)
                     .errorMessage(errorMessage)
                     .responseTimeMs(responseTimeMs)
+                    // issue #712: estimated=true 等元数据透传（账单侧区分估算行）
+                    .metadata(metadata)
                     .occurredAt(LocalDateTime.now())
                     .build();
 

@@ -311,4 +311,59 @@ class PoolConfigControllerTest {
                     "400 原因应列出全部坏成员: " + ex.getReason());
         }
     }
+
+    // ==================== YAML 管理池冲突（issue #708） ====================
+
+    @Nested
+    @DisplayName("YAML 管理池冲突测试（#708）")
+    class YamlPoolConflictTests {
+
+        /** 构建「YAML 含一个池、持久化为空」的控制器（构造时 reload 合并）。 */
+        private PoolConfigController controllerWithYamlPool(final String poolName) {
+            poolProperties.setPools(new ArrayList<>(List.of(validPool(poolName))));
+            return new PoolConfigController(
+                    poolProperties, persistenceService, poolSelector, new ServiceTypeResolver(), mockRegistry(),
+                    mock(org.unreal.modelrouter.config.dependency.DependencyCheckService.class));
+        }
+
+        @Test
+        @DisplayName("POOL-701: 删除 YAML 池返回 409 + YAML_POOL_ACTIVE，池仍生效")
+        void yamlPoolDeleteReturns409() {
+            PoolConfigController yamlController = controllerWithYamlPool("yaml-pool");
+
+            ResponseEntity<RouterResponse<Void>> response = yamlController.deletePool("yaml-pool");
+
+            assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+            assertNotNull(response.getBody());
+            assertEquals("YAML_POOL_ACTIVE", response.getBody().getErrorCode());
+            assertTrue(persistenceService.loadAll().stream()
+                            .noneMatch(p -> "yaml-pool".equals(p.getPoolName())),
+                    "持久化集合不得出现 YAML 池");
+            assertEquals(200, yamlController.getPool("yaml-pool").getStatusCode().value(),
+                    "YAML 池 reload 后仍应生效（反证旧 200 删除谎报）");
+        }
+
+        @Test
+        @DisplayName("POOL-702: 更新 YAML 池返回 409 且不落库")
+        void yamlPoolUpdateReturns409() {
+            PoolConfigController yamlController = controllerWithYamlPool("yaml-pool");
+
+            ResponseEntity<RouterResponse<PoolDefinition>> response =
+                    yamlController.updatePool("yaml-pool", validPool("yaml-pool"));
+
+            assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+            assertEquals("YAML_POOL_ACTIVE", response.getBody().getErrorCode());
+            assertTrue(persistenceService.loadAll().isEmpty(), "更新被拒绝时不得落库");
+        }
+
+        @Test
+        @DisplayName("POOL-703: 持久化池删除仍返回 200（不受新规则影响）")
+        void persistedPoolDeleteStill200() {
+            controller.createPool(validPool("persisted-pool"));
+
+            ResponseEntity<RouterResponse<Void>> response = controller.deletePool("persisted-pool");
+
+            assertEquals(HttpStatus.OK, response.getStatusCode(), "持久化池删除不回归");
+        }
+    }
 }

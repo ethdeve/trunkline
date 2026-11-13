@@ -31,6 +31,11 @@ public class CircuitBreakerManager {
     // 修复「配置→生效」断链：运行时真正创建熔断器时使用此处配置，而非仅用全局 YAML 默认阈值。
     private final Map<String, InstanceConfig> instanceConfigs = new ConcurrentHashMap<>();
 
+    // 自适应阈值覆盖层（#653）：AdaptiveThresholdManager 写入的新 failureThreshold。
+    // 修复「自适应阈值只写日志不落实例」：写值后移除旧熔断器，下次 getCircuitBreaker 按新阈值重建。
+    // 仅作用于未被手工覆盖（instanceConfigs 无记录）的实例——手工 DB 层是管理员显式意图，两层分离是设计目的。
+    private final Map<String, Integer> adaptiveThresholds = new ConcurrentHashMap<>();
+
     // 全局熔断器配置
     private int failureThreshold = DEFAULT_FAILURE_THRESHOLD;
     private long timeout = DEFAULT_TIMEOUT;
@@ -110,11 +115,16 @@ public class CircuitBreakerManager {
 
         return circuitBreakers.computeIfAbsent(key,
                 k -> {
-                    // 优先使用实例级配置（来自 instance_circuit_breaker 表，由 ServiceInstanceManager 注入）；
-                    // 未配置或已禁用时回落全局 YAML 默认阈值。
+                    // 优先级：实例级手工配置（instance_circuit_breaker 表）> 自适应覆盖层 > 全局 YAML 默认。
+                    // 手工层是管理员显式意图，必须压过自适应层；自适应层只在 applyAdaptiveThreshold
+                    // 写入时校验过「未被手工覆盖」，且手工注入时会清除该实例的自适应残留，正常流程互斥。
                     final InstanceConfig cfg = instanceConfigs.get(k);
                     if (cfg != null && cfg.enabled) {
                         return new LockFreeCircuitBreaker(k, cfg.failureThreshold, cfg.timeout, cfg.successThreshold);
+                    }
+                    final Integer adaptive = adaptiveThresholds.get(k);
+                    if (adaptive != null) {
+                        return new LockFreeCircuitBreaker(k, adaptive, timeout, successThreshold);
                     }
                     return new LockFreeCircuitBreaker(k, failureThreshold, timeout, successThreshold);
                 });
@@ -423,14 +433,45 @@ public class CircuitBreakerManager {
         final InstanceConfig cfg = new InstanceConfig(enabled, failureThreshold, timeout, successThreshold);
         if (instanceId != null && !instanceId.trim().isEmpty()) {
             instanceConfigs.put(instanceId, cfg);
+            // 手工注入是管理员显式意图，清除自适应残留，避免手工配置删除后旧自适应值复活
+            adaptiveThresholds.remove(instanceId);
             circuitBreakers.remove(instanceId);
         }
         if (instanceUrl != null && !instanceUrl.trim().isEmpty()) {
             instanceConfigs.put(instanceUrl, cfg);
+            adaptiveThresholds.remove(instanceUrl);
             circuitBreakers.remove(instanceUrl);
         }
         logger.info("Applied circuit breaker config: instanceId={}, url={}, enabled={}, ft={}, timeout={}, st={}",
                 instanceId, instanceUrl, enabled, failureThreshold, timeout, successThreshold);
+    }
+
+    /**
+     * 应用自适应阈值调整（#653）：写入实例级自适应覆盖并移除旧熔断器，
+     * 使下次 {@link #getCircuitBreaker} 按新阈值重建。
+     *
+     * <p><b>手工配置优先</b>：实例存在手工 DB 配置（{@code instance_circuit_breaker} 表，经
+     * {@link #applyInstanceConfig} 注入）时跳过写入并返回 {@code false}——手工层是管理员显式意图，
+     * 自适应层只作用于未被手工覆盖的实例，两层分离是设计目的、不合并。</p>
+     *
+     * @param key              熔断器键（与 {@link #getCircuitBreaker} 的 key 解析一致：实例 UUID 或 URL）
+     * @param failureThreshold 自适应计算出的新失败阈值
+     * @return true=已应用；false=因手工配置优先而跳过
+     */
+    public boolean applyAdaptiveThreshold(final String key, final int failureThreshold) {
+        if (key == null || key.trim().isEmpty()) {
+            logger.warn("Skip adaptive threshold: key is null or empty");
+            return false;
+        }
+        if (instanceConfigs.containsKey(key)) {
+            logger.info("Skip adaptive threshold for instance {} (manual config takes precedence)", key);
+            return false;
+        }
+        adaptiveThresholds.put(key, failureThreshold);
+        circuitBreakers.remove(key);
+        logger.info("Applied adaptive failureThreshold={} for instance {}, breaker will rebuild on next access",
+                failureThreshold, key);
+        return true;
     }
 
     /**

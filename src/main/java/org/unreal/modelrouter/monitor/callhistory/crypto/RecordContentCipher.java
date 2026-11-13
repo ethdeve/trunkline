@@ -26,7 +26,12 @@ import java.util.Base64;
  *   <li>encryptionKeySource=auto 时：自动生成密钥并持久化到文件</li>
  * </ul>
  *
- * <p>密文格式：Base64(IV[12] || ciphertext || authTag[16])
+ * <p><b>fail-closed（O4）</b>：{@code trunkline.call-history.encryption-key-required=true} 时
+ * 禁止 auto 明文落盘——env 缺失或 source=auto 直接启动失败，绝不静默降级。
+ * 生产 profile 已收紧为 true；多副本部署各副本必须使用同一 env 密钥值（否则 A 副本加密的
+ * 记录 B 副本解不开）。默认 false 保持开发零配置可用（warn 后回退 auto，现状行为）。</p>
+ *
+ * <p>密文格式：Base64(IV[12] || ciphertext || authTag[16])</p>
  *
  * @author JAiRouter Team
  * @modified Trunkline Team
@@ -40,6 +45,9 @@ public class RecordContentCipher {
     private static final int GCM_TAG_LENGTH_BITS = 128;
     private static final int KEY_LENGTH_BYTES = 32; // 256-bit
 
+    /** 加密密钥环境变量名 */
+    static final String ENV_VARIABLE = "TRUNKLINE_CALL_HISTORY_KEY";
+
     private final SecretKey secretKey;
 
     /** 配置请求的密钥来源（对齐上游 3.5.1 #617 的只读观测字段） */
@@ -48,34 +56,64 @@ public class RecordContentCipher {
     /** 实际生效的密钥来源：env 请求但环境变量缺失时回退 auto */
     private final String effectiveKeySource;
 
+    /** 是否强制 env 密钥（fail-closed，O4）；true 时禁止 auto 明文落盘 */
+    private final boolean keyRequired;
+
+    /** 环境变量读取器（可注入便于测试） */
+    private final java.util.function.Supplier<String> envSupplier;
+
     /**
-     * Spring 装配构造：按 {@code trunkline.call-history.encryption-key-source} 解析密钥来源。
+     * Spring 装配构造：按 {@code trunkline.call-history.encryption-key-source} 与
+     * {@code trunkline.call-history.encryption-key-required} 解析密钥来源。
      * #617 修复：此前 @Component 只有无参构造，硬编码 auto，配置了 env 也从不生效。
      */
     public RecordContentCipher(final CallHistoryProperties properties) {
-        this(properties != null ? properties.getEncryptionKeySource() : "auto", null);
+        this(properties != null ? properties.getEncryptionKeySource() : "auto",
+                null,
+                properties != null && properties.isEncryptionKeyRequired());
     }
 
     /**
      * 自动模式构造：生成或加载密钥，持久化到 dataDir
      */
     public RecordContentCipher() {
-        this("auto", null);
+        this("auto", null, false);
     }
 
     /**
-     * 通过加密源配置构造
+     * 通过加密源配置构造（keyRequired=false，保持历史行为）
      *
      * @param encryptionKeySource 密钥来源："env" 或 "auto"
      * @param dataDir             auto 模式下密钥文件存储目录（null 则使用默认）
      */
     public RecordContentCipher(String encryptionKeySource, Path dataDir) {
+        this(encryptionKeySource, dataDir, false);
+    }
+
+    /**
+     * 通过加密源配置构造（O4 fail-closed 开关）
+     *
+     * @param encryptionKeySource 密钥来源："env" 或 "auto"
+     * @param dataDir             auto 模式下密钥文件存储目录（null 则使用默认）
+     * @param keyRequired         true = 禁止 auto 明文落盘，env 缺失启动失败
+     */
+    public RecordContentCipher(String encryptionKeySource, Path dataDir, boolean keyRequired) {
+        this(encryptionKeySource, dataDir, keyRequired, () -> System.getenv(ENV_VARIABLE));
+    }
+
+    /**
+     * 全参构造（测试可注入环境变量读取器）
+     */
+    RecordContentCipher(String encryptionKeySource, Path dataDir, boolean keyRequired,
+                        java.util.function.Supplier<String> envSupplier) {
         this.requestedKeySource = encryptionKeySource != null ? encryptionKeySource : "auto";
+        this.keyRequired = keyRequired;
+        this.envSupplier = envSupplier;
         this.secretKey = loadOrCreateKey(encryptionKeySource, dataDir);
         this.effectiveKeySource = loadedFromEnv ? "env" : "auto";
         if ("env".equalsIgnoreCase(this.requestedKeySource) && !loadedFromEnv) {
             log.warn("加密密钥源请求为 env 但实际回退到 auto（requested != effective），"
-                    + "涉及环境变量 TRUNKLINE_CALL_HISTORY_KEY 的部署请检查该变量是否已设置");
+                    + "涉及环境变量 " + ENV_VARIABLE + " 的部署请检查该变量是否已设置");
         }
     }
 
@@ -100,8 +138,15 @@ public class RecordContentCipher {
      * @return 环境变量 TRUNKLINE_CALL_HISTORY_KEY 当前是否可用（只读观测）
      */
     public boolean environmentKeyPresent() {
-        final String envKey = System.getenv("TRUNKLINE_CALL_HISTORY_KEY");
+        final String envKey = envSupplier.get();
         return envKey != null && !envKey.isEmpty();
+    }
+
+    /**
+     * @return 是否强制 env 密钥（fail-closed，O4 只读观测）
+     */
+    public boolean keyRequired() {
+        return keyRequired;
     }
 
     /**
@@ -113,6 +158,10 @@ public class RecordContentCipher {
         this.secretKey = secretKey;
         this.requestedKeySource = "explicit";
         this.effectiveKeySource = "explicit";
+        // 测试用显式密钥直构造：不涉及 env 密钥源强制（keyRequired 只约束 env/auto 链路）
+        this.keyRequired = false;
+        this.envSupplier = () -> System.getenv(ENV_VARIABLE);
+        this.loadedFromEnv = false;
     }
 
     /**
@@ -182,22 +231,38 @@ public class RecordContentCipher {
 
     /**
      * 获取密钥来源策略下加载或创建密钥
+     *
+     * <p>O4 fail-closed：{@code keyRequired=true} 时 source=auto 直接启动失败（禁明文落盘），
+     * source=env 但环境变量缺失也启动失败——绝不静默降级。</p>
      */
     private SecretKey loadOrCreateKey(String source, Path dataDir) {
+        if (keyRequired && !"env".equalsIgnoreCase(source)) {
+            throw new IllegalStateException(
+                    "trunkline.call-history.encryption-key-required=true 时禁止 auto 模式明文落盘"
+                            + "（encryptionKeySource=" + source + "）。请以环境变量 " + ENV_VARIABLE
+                            + " 注入 Base64 编码的 256-bit 密钥，或显式关闭该开关（仅限开发环境）。");
+        }
         if ("env".equalsIgnoreCase(source)) {
-            String envKey = System.getenv("TRUNKLINE_CALL_HISTORY_KEY");
+            String envKey = envSupplier.get();
             if (envKey != null && !envKey.isEmpty()) {
                 byte[] keyBytes = Base64.getDecoder().decode(envKey);
                 if (keyBytes.length != KEY_LENGTH_BYTES) {
                     throw new IllegalArgumentException(
-                            "环境变量 TRUNKLINE_CALL_HISTORY_KEY 解码后长度应为 32 字节，实际: " + keyBytes.length);
+                            "环境变量 " + ENV_VARIABLE + " 解码后长度应为 32 字节，实际: " + keyBytes.length);
                 }
                 log.info("已从环境变量加载调用记录加密密钥");
                 loadedFromEnv = true;
                 return new SecretKeySpec(keyBytes, "AES");
             }
-            // env 模式但环境变量未设置，回退到 auto
-            log.warn("环境变量 TRUNKLINE_CALL_HISTORY_KEY 未设置，回退到自动生成密钥");
+            // env 模式但环境变量未设置
+            if (keyRequired) {
+                // O4 fail-closed：生产禁止静默回退 auto
+                throw new IllegalStateException(
+                        "trunkline.call-history.encryption-key-required=true 但环境变量 " + ENV_VARIABLE
+                                + " 未设置。生产环境禁止回退 auto 明文落盘——请注入 Base64 编码的"
+                                + " 256-bit 密钥（多副本部署各副本必须同值）。");
+            }
+            log.warn("环境变量 " + ENV_VARIABLE + " 未设置，回退到自动生成密钥");
         }
 
         // auto 模式：尝试从文件加载，不存在则生成并持久化

@@ -62,6 +62,7 @@ public class ExcludedPathsConfig {
             "/health",
             "/metrics",
             "/api/auth/jwt/login",
+            "/api/auth/jwt/sso",
             "/api/auth/jwt/validate",
             "/favicon.ico",
             "/.well-known"

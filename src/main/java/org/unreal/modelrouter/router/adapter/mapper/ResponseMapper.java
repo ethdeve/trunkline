@@ -13,6 +13,8 @@ import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
+import org.unreal.modelrouter.router.adapter.error.ErrorTargetResolver;
+
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -88,23 +90,41 @@ public class ResponseMapper {
             final ClientResponse clientResponse,
             final String instanceName,
             final String path) {
+        return handleResponseError(clientResponse, instanceName, path, null);
+    }
+
+    /**
+     * 处理响应错误（#1011: 带 target 的错误日志）
+     *
+     * @param clientResponse 客户端响应
+     * @param instanceName 实例名称
+     * @param path 请求路径
+     * @param target 下游目标 host:port（脱敏后，可为 null 记 unknown）；只作 logger 占位参数
+     * @return 错误 Mono
+     */
+    public Mono<Throwable> handleResponseError(
+            final ClientResponse clientResponse,
+            final String instanceName,
+            final String path,
+            final String target) {
 
         HttpStatus status = HttpStatus.valueOf(clientResponse.statusCode().value());
+        final String safeTarget = target != null ? target : ErrorTargetResolver.UNKNOWN;
 
         return clientResponse.bodyToMono(String.class)
                 .flatMap(errorBody -> {
                     if (status.value() == 401) {
-                        logger.error("下游服务认证失败 (401): instance={}, path={}, response={}",
-                                instanceName, path, status);
+                        logger.error("下游服务认证失败 (401): instance={}, target={}, path={}, response={}",
+                                instanceName, safeTarget, path, status);
                     } else if (status.value() == 400) {
-                        logger.error("下游服务请求错误 (400): instance={}, path={}, response={}",
-                                instanceName, path, status);
+                        logger.error("下游服务请求错误 (400): instance={}, target={}, path={}, response={}",
+                                instanceName, safeTarget, path, status);
                     } else if (status.value() == 503) {
-                        logger.error("下游服务不可用 (503): instance={}, path={}, response={}",
-                                instanceName, path, status);
+                        logger.error("下游服务不可用 (503): instance={}, target={}, path={}, response={}",
+                                instanceName, safeTarget, path, status);
                     } else {
-                        logger.error("下游服务错误：instance={}, path={}, status={}",
-                                instanceName, path, status);
+                        logger.error("下游服务错误：instance={}, target={}, path={}, status={}",
+                                instanceName, safeTarget, path, status);
                     }
 
                     return Mono.just((Throwable) new ResponseStatusException(status, errorBody));

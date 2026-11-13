@@ -87,4 +87,13 @@ public final class CallHistoryProperties {
      * "env": 读取 TRUNKLINE_CALL_HISTORY_KEY 环境变量（Base64 编码的 256-bit 密钥）
      */
     private String encryptionKeySource = "auto";
+
+    /**
+     * 加密密钥是否强制来自环境变量（fail-closed，O4）。
+     *
+     * <p>{@code false}（默认，开发友好）：env 缺失时 warn 后回退 auto 明文落盘（现状行为）。
+     * {@code true}（生产收紧）：禁止 auto 明文落盘——env 缺失直接启动失败，绝不静默降级；
+     * 生产部署必须以 env / KMS 注入 {@code TRUNKLINE_CALL_HISTORY_KEY}。</p>
+     */
+    private boolean encryptionKeyRequired = false;
 }

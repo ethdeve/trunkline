@@ -129,7 +129,8 @@ public class ResponseCacheService {
      * 请求是否可缓存（only-deterministic / skip-streaming 属性判定）.
      *
      * <p>chat 需满足：skipStreaming 关闭或非流式；onlyDeterministic 关闭或
-     * temperature==null/0 且 n==null/1。embedding/rerank 天然确定性（无采样参数）。
+     * 确定性判定通过（见 {@link #isDeterministicChat}）。embedding/rerank
+     * 天然确定性（无采样参数）。
      */
     private boolean isCacheEligible(final ServiceType serviceType, final Object requestDto) {
         switch (serviceType) {
@@ -154,14 +155,26 @@ public class ResponseCacheService {
     }
 
     /**
-     * chat 确定性判定：temperature==null/0 且 n==null/1.
+     * chat 确定性判定：temperature 显式为 0（或开启 cache-null-temperature 时 null）
+     * 且 n==null/1.
+     *
+     * <p>issue #723：修复前 {@code temperature==null||==0} 把「未指定（跟随下游默认，
+     * 通常非 0）」当确定性——OpenAI 客户端普遍不传 temperature，默认
+     * {@code onlyDeterministic=true} 下这些随机响应会被缓存并被他人命中。
+     * 定案口径：仅「显式 0」判定为确定性；下游固定贪心解码的自建实例可开启
+     * {@code trunkline.response-cache.cache-null-temperature} 恢复 null 可缓存。</p>
      */
     private boolean isDeterministicChat(final ChatDTO.Request request) {
         Double temperature = request.temperature();
-        boolean temperatureZero = temperature == null || temperature == 0d;
+        boolean temperatureDeterministic;
+        if (temperature != null) {
+            temperatureDeterministic = temperature == 0d;
+        } else {
+            temperatureDeterministic = properties.isCacheNullTemperature();
+        }
         Integer n = request.n();
         boolean singleChoice = n == null || n == 1;
-        return temperatureZero && singleChoice;
+        return temperatureDeterministic && singleChoice;
     }
 
     /**
@@ -252,6 +265,7 @@ public class ResponseCacheService {
         snap.put("size", size());
         snap.put("skipStreaming", properties.isSkipStreaming());
         snap.put("onlyDeterministic", properties.isOnlyDeterministic());
+        snap.put("cacheNullTemperature", properties.isCacheNullTemperature());
         snap.put("hits", h);
         snap.put("misses", m);
         snap.put("hitRatio", hitRatio);

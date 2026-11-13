@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Component;
+import org.springframework.util.unit.DataSize;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.unreal.modelrouter.config.core.helper.SsrfGuard;
 import reactor.netty.http.client.HttpClient;
@@ -59,8 +60,18 @@ public class WebClientPool {
     static final long DEFAULT_PENDING_ACQUIRE_TIMEOUT_MS = 60_000L;
     static final int DEFAULT_MAX_IDLE_TIME_SECONDS = 60;
 
+    /**
+     * 出站响应体内存缓冲默认上限（issue #700）。
+     *
+     * <p>WebClient 默认仅 256KB，下游大响应会被 {@code DataBufferLimitException}
+     * 静默拒绝；统一接 {@code trunkline.response.max-body-size}（默认 10MB），
+     * 与入站缓存/服务端 codec 同口径。</p>
+     */
+    static final DataSize DEFAULT_MAX_BODY_SIZE = DataSize.ofMegabytes(10);
+
     private final int connectTimeoutMs;
     private final int responseTimeoutSeconds;
+    private final DataSize maxBodySize;
     private final ConnectionProvider connectionProvider;
     private final AddressResolverGroup<InetSocketAddress> dnsResolverGroup;
 
@@ -75,6 +86,7 @@ public class WebClientPool {
     /**
      * 生产构造器：参数来自配置，默认值与外部化前一致。
      *
+     * @param maxBodySize               出站响应体内存缓冲上限（#700，{@code trunkline.response.max-body-size}）
      * @param connectTimeoutMs          连接超时（毫秒）
      * @param responseTimeoutSeconds    响应超时（秒）
      * @param maxConnections            连接池最大连接数
@@ -83,25 +95,42 @@ public class WebClientPool {
      */
     @Autowired
     public WebClientPool(
+            @Value("${trunkline.response.max-body-size:10MB}") final DataSize maxBodySize,
             @Value("${trunkline.webclient.connect-timeout-ms:10000}") final int connectTimeoutMs,
             @Value("${trunkline.webclient.response-timeout-seconds:60}") final int responseTimeoutSeconds,
             @Value("${trunkline.webclient.max-connections:500}") final int maxConnections,
             @Value("${trunkline.webclient.pending-acquire-timeout-ms:60000}") final long pendingAcquireTimeoutMs,
             @Value("${trunkline.webclient.max-idle-time-seconds:60}") final int maxIdleTimeSeconds) {
         this(connectTimeoutMs, responseTimeoutSeconds, maxConnections, pendingAcquireTimeoutMs, maxIdleTimeSeconds,
-                SsrfGuardedAddressResolverGroup.instance());
+                maxBodySize, SsrfGuardedAddressResolverGroup.instance());
     }
 
     /**
      * 内部构造器：可注入解析守卫（包内可见，供测试用可控 DNS 复现重绑定场景）。
+     * 出站缓冲上限取默认 10MB。
      *
      * @param dnsResolverGroup 底层解析器（生产固定为 {@link SsrfGuardedAddressResolverGroup}）
      */
     WebClientPool(final int connectTimeoutMs, final int responseTimeoutSeconds, final int maxConnections,
                   final long pendingAcquireTimeoutMs, final int maxIdleTimeSeconds,
                   final AddressResolverGroup<InetSocketAddress> dnsResolverGroup) {
+        this(connectTimeoutMs, responseTimeoutSeconds, maxConnections, pendingAcquireTimeoutMs, maxIdleTimeSeconds,
+                DEFAULT_MAX_BODY_SIZE, dnsResolverGroup);
+    }
+
+    /**
+     * 内部构造器：可注入解析守卫与出站缓冲上限（包内可见，供测试注入自定义上限）。
+     *
+     * @param maxBodySize 出站响应体内存缓冲上限（null 时回落默认 10MB）
+     * @param dnsResolverGroup 底层解析器（生产固定为 {@link SsrfGuardedAddressResolverGroup}）
+     */
+    WebClientPool(final int connectTimeoutMs, final int responseTimeoutSeconds, final int maxConnections,
+                  final long pendingAcquireTimeoutMs, final int maxIdleTimeSeconds,
+                  final DataSize maxBodySize,
+                  final AddressResolverGroup<InetSocketAddress> dnsResolverGroup) {
         this.connectTimeoutMs = connectTimeoutMs;
         this.responseTimeoutSeconds = responseTimeoutSeconds;
+        this.maxBodySize = maxBodySize != null ? maxBodySize : DEFAULT_MAX_BODY_SIZE;
         this.dnsResolverGroup = dnsResolverGroup;
         this.connectionProvider = ConnectionProvider.builder("trunkline-outbound")
                 .maxConnections(maxConnections)
@@ -109,9 +138,9 @@ public class WebClientPool {
                 .maxIdleTime(Duration.ofSeconds(maxIdleTimeSeconds))
                 .build();
         logger.info("WebClientPool 初始化完成: connectTimeoutMs={}, responseTimeoutSeconds={}, "
-                        + "maxConnections={}, pendingAcquireTimeoutMs={}, maxIdleTimeSeconds={}",
+                        + "maxConnections={}, pendingAcquireTimeoutMs={}, maxIdleTimeSeconds={}, maxBodySize={}",
                 connectTimeoutMs, responseTimeoutSeconds, maxConnections,
-                pendingAcquireTimeoutMs, maxIdleTimeSeconds);
+                pendingAcquireTimeoutMs, maxIdleTimeSeconds, this.maxBodySize);
     }
 
     /**
@@ -201,6 +230,12 @@ public class WebClientPool {
         if (configurator != null) {
             configurator.accept(builder);
         }
+
+        // #700：出站响应体内存缓冲统一接 trunkline.response.max-body-size（默认 10MB），
+        // 覆盖 WebClient 默认 256KB（下游大响应被 DataBufferLimitException 拒绝）。
+        // 置于 configurator 之后：统一上限为最后写入，不被调用方配置冲掉。
+        final int maxInMemorySize = (int) Math.min(maxBodySize.toBytes(), Integer.MAX_VALUE);
+        builder.codecs(codecs -> codecs.defaultCodecs().maxInMemorySize(maxInMemorySize));
 
         return builder.build();
     }

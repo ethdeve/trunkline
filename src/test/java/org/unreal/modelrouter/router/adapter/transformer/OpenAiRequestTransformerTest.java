@@ -393,4 +393,46 @@ class OpenAiRequestTransformerTest {
                     resultNode.get("extra_body").get("cache_salt").asText());
         }
     }
+
+    @Nested
+    @DisplayName("issue #720: stream_options 透传")
+    class StreamOptionsTests {
+
+        private final ObjectMapper objectMapper = new ObjectMapper();
+
+        @Test
+        @DisplayName("stream_options.include_usage=true → 请求体顶层含 stream_options（反证旧缺失）")
+        void streamOptionsForwarded() {
+            ChatDTO.Options options = ChatDTO.Options.builder()
+                    .streamOptions(Map.of("include_usage", true))
+                    .build();
+            ChatDTO.Request request = new ChatDTO.Request(
+                "gpt-4",
+                List.of(new ChatDTO.Message("user", "Hello", null)),
+                true, null, null, null, null, null, null, null, null, options
+            );
+
+            Object result = transformer.transformChatRequest(request, modelNameAdapter);
+            JsonNode resultNode = objectMapper.valueToTree(result);
+
+            assertTrue(resultNode.has("stream_options"),
+                    "修复前 stream_options 反序列化即丢且下游请求体从不写入");
+            assertTrue(resultNode.get("stream_options").get("include_usage").asBoolean());
+        }
+
+        @Test
+        @DisplayName("stream_options 未设置 → 请求体不含该键（既有请求体逐字节不变）")
+        void streamOptionsAbsentByDefault() {
+            ChatDTO.Request request = new ChatDTO.Request(
+                "gpt-4",
+                List.of(new ChatDTO.Message("user", "Hello", null)),
+                true, null, null, null, null, null, null, null, null, null
+            );
+
+            Object result = transformer.transformChatRequest(request, modelNameAdapter);
+            JsonNode resultNode = objectMapper.valueToTree(result);
+
+            assertFalse(resultNode.has("stream_options"));
+        }
+    }
 }

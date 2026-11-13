@@ -17,13 +17,16 @@ import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.common.dto.JwtTokenInfo;
 import org.unreal.modelrouter.common.dto.LoginRequest;
 import org.unreal.modelrouter.common.dto.LoginResponse;
+import org.unreal.modelrouter.common.dto.SsoLoginRequest;
 import org.unreal.modelrouter.common.dto.TokenRefreshRequest;
 import org.unreal.modelrouter.auth.security.config.properties.SecurityProperties;
 import org.unreal.modelrouter.auth.security.service.AccountManager;
 import org.unreal.modelrouter.auth.security.service.JwtTokenOwnershipValidator;
 import org.unreal.modelrouter.auth.security.service.JwtTokenRefreshService;
 import org.unreal.modelrouter.auth.security.service.JwtPersistenceService;
+import org.unreal.modelrouter.enterprise.spi.SsoConnector;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.LocalDateTime;
 import org.unreal.modelrouter.common.exception.ApiException;
@@ -46,6 +49,13 @@ public class JwtAuthController {
 
     @Autowired(required = false)
     private JwtPersistenceService jwtPersistenceService;
+
+    /**
+     * SSO 扩展点（O7-a）：Noop 恒注册（{@code @ConditionalOnMissingBean}），实际不会为 null；
+     * 判空仅为防御。企业版覆盖后 {@code providerName()} 返回 {@code oidc|feishu|dingtalk|wecom}。
+     */
+    @Autowired(required = false)
+    private SsoConnector ssoConnector;
 
     /**
      * 用户登录获取JWT令牌
@@ -94,6 +104,49 @@ public class JwtAuthController {
                 .onErrorResume(ex -> {
                     log.warn("用户登录失败: {}", ex.getMessage());
                     return Mono.error(ApiException.of("LOGIN_FAILED", "登录失败: " + ex.getMessage()));
+                });
+    }
+
+    /**
+     * SSO 登录（O7-a）：企业 IdP 授权码换取本地 JWT。
+     *
+     * <p>与本地登录 {@link #login} 并存，不改其行为。判别依据是
+     * {@code ssoConnector.providerName()} 是否为空串——Noop 由开源装配恒注册，
+     * <b>不以 null 判别</b>（null 判断是死代码）。企业版接入真实 IdP 后，
+     * 映射与签发在 {@link AccountManager#authenticateExternal}。</p>
+     */
+    @PostMapping("/sso")
+    @Operation(summary = "SSO登录", description = "使用企业 IdP 授权码登录获取JWT令牌（社区版返回 SSO_UNSUPPORTED）")
+    public Mono<RouterResponse<LoginResponse>> ssoLogin(
+            @Parameter(description = "SSO 登录请求") @RequestBody final SsoLoginRequest request,
+            final org.springframework.web.server.ServerWebExchange exchange) {
+
+        // v1.2 更正（O7-a 验收）：providerName() 为空串（Noop）→ SSO_UNSUPPORTED，不以 null 判别
+        if (ssoConnector == null || ssoConnector.providerName() == null
+                || ssoConnector.providerName().isBlank()) {
+            return Mono.error(ApiException.of("SSO_UNSUPPORTED", "当前版本不支持 SSO",
+                    org.springframework.http.HttpStatus.BAD_REQUEST));
+        }
+        final String clientIp = getClientIpAddress(exchange);
+        final String userAgent = exchange != null ? exchange.getRequest().getHeaders().getFirst("User-Agent") : null;
+
+        // IdP 交换是网络 IO，统一切弹性线程（与 O7-c 同一线程模型约定）
+        return Mono.fromCallable(() -> ssoConnector.exchange(request.getCode()))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(user -> user
+                        .map(u -> accountManager.authenticateExternal(u, clientIp, userAgent))
+                        .orElseGet(() -> Mono.error(ApiException.of("SSO_FAILED", "SSO 凭证无效或未配置",
+                                org.springframework.http.HttpStatus.UNAUTHORIZED))))
+                .flatMap(token -> {
+                    LoginResponse response = new LoginResponse();
+                    response.setToken(token);
+                    response.setTokenType("Bearer");
+                    response.setExpiresIn(securityProperties.getJwt().getExpirationMinutes() * 60L);
+                    // 注意：此处不做令牌元数据持久化——本地登录的 saveTokenMetadata 以
+                    // username 为维度，而本方法手里只有授权码与 token，拿不到映射后的
+                    // 本地用户名（不把授权码当 username 写库）。SSO 登录的元数据落库
+                    // 随 A2（企业侧拿到映射用户名）一起补。
+                    return Mono.just(RouterResponse.success(response, "登录成功"));
                 });
     }
 

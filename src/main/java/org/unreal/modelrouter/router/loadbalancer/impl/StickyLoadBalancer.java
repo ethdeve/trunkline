@@ -5,11 +5,15 @@ import org.slf4j.LoggerFactory;
 import org.unreal.modelrouter.router.checker.ServiceStateManager;
 import org.unreal.modelrouter.router.circuitbreaker.CircuitBreakerManager;
 import org.unreal.modelrouter.router.loadbalancer.LoadBalancer;
+import org.unreal.modelrouter.router.loadbalancer.RingFingerprint;
+import org.unreal.modelrouter.router.model.InstanceKeys;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.TreeMap;
 
 /**
@@ -40,7 +44,8 @@ public class StickyLoadBalancer implements LoadBalancer {
     private final CircuitBreakerManager circuitBreakerManager;
 
     // 哈希环快照：通过 volatile 引用实现不可变快照的原子交换，读线程无需同步
-    private volatile TreeMap<Long, ModelRouterProperties.ModelInstance> hashCircle = new TreeMap<>();
+    private volatile NavigableMap<Long, ModelRouterProperties.ModelInstance> hashCircle =
+            Collections.unmodifiableNavigableMap(new TreeMap<>());
     // 当前缓存的实例列表指纹；指纹变化时才重建环
     private volatile String cachedFingerprint = "";
 
@@ -90,7 +95,7 @@ public class StickyLoadBalancer implements LoadBalancer {
         }
 
         // 获取(可能已缓存的)哈希环快照 — 仅当指纹变化时重建
-        TreeMap<Long, ModelRouterProperties.ModelInstance> ring = getOrRebuildRing(instances);
+        NavigableMap<Long, ModelRouterProperties.ModelInstance> ring = getOrRebuildRing(instances);
 
         // 亲和性哈希选择
         long hash = murmurHash3(affinityKey);
@@ -167,9 +172,11 @@ public class StickyLoadBalancer implements LoadBalancer {
      * 仅当实例列表指纹变化时才重建(构建新 TreeMap 后通过 volatile 原子交换)，
      * 避免每个请求都重建导致的 O(instances × virtualNodes) 开销和并发读写风险。
      */
-    private TreeMap<Long, ModelRouterProperties.ModelInstance> getOrRebuildRing(
+    private NavigableMap<Long, ModelRouterProperties.ModelInstance> getOrRebuildRing(
             final List<ModelRouterProperties.ModelInstance> instances) {
-        String fingerprint = computeFingerprint(instances);
+        // #687: 与 ConsistentHash/IpHash 共用指纹口径，权重/地址/路径变化也会触发重建
+        String fingerprint = RingFingerprint.compute(instances, "murmur3",
+                String.valueOf(virtualNodeCount));
         if (!fingerprint.equals(cachedFingerprint)) {
             synchronized (this) {
                 // double-check: 其他线程可能已在等待期间完成了重建
@@ -183,29 +190,15 @@ public class StickyLoadBalancer implements LoadBalancer {
     }
 
     /**
-     * 计算实例列表指纹(列表大小 + 每个实例的 instanceId/name 排序后拼接)。
-     * 指纹相同则哈希环不变，无需重建。
-     */
-    private String computeFingerprint(final List<ModelRouterProperties.ModelInstance> instances) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(instances.size());
-        for (ModelRouterProperties.ModelInstance inst : instances) {
-            String id = inst.getInstanceId() != null ? inst.getInstanceId() : inst.getName();
-            sb.append('|').append(id);
-        }
-        return sb.toString();
-    }
-
-    /**
-     * 构建新的不可变哈希环 TreeMap。
+     * 构建新的不可变哈希环。
      * 返回一个新实例，调用者通过 volatile 赋值实现原子切换。
      */
-    private TreeMap<Long, ModelRouterProperties.ModelInstance> buildRing(
+    private NavigableMap<Long, ModelRouterProperties.ModelInstance> buildRing(
             final List<ModelRouterProperties.ModelInstance> instances) {
         TreeMap<Long, ModelRouterProperties.ModelInstance> ring = new TreeMap<>();
         for (ModelRouterProperties.ModelInstance instance : instances) {
-            String instanceId = instance.getInstanceId() != null
-                    ? instance.getInstanceId() : instance.getName();
+            // #691: 统一实例键解析，避免空 instance-id 的实例共享虚拟节点键
+            String instanceId = InstanceKeys.resolve(instance);
             for (int i = 0; i < virtualNodeCount; i++) {
                 String virtualNodeKey = instanceId + "#" + i;
                 long h = murmurHash3(virtualNodeKey);
@@ -214,7 +207,7 @@ public class StickyLoadBalancer implements LoadBalancer {
         }
         logger.debug("Rebuilt sticky hash ring: {} instances, {} total nodes",
                 instances.size(), ring.size());
-        return ring;
+        return Collections.unmodifiableNavigableMap(ring);
     }
 
     /**

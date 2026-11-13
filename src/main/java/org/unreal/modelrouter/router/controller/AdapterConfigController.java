@@ -233,46 +233,30 @@ public class AdapterConfigController {
                         .body(RouterResponse.error("adapter名称已存在: " + request.getName(), "CONFLICT_EXISTS"));
             }
 
-            AdapterDefinitionProperties.AdapterDefinition definition =
-                    new AdapterDefinitionProperties.AdapterDefinition();
-            definition.setType(request.getType() != null ? request.getType() : "openai-compatible");
-            definition.setParent(request.getParent());  // 设置父adapter
-            definition.setDescription(request.getDescription());  // 方言/描述
-
-            if (request.getCapabilities() != null) {
-                AdapterDefinitionProperties.CapabilitiesConfig caps =
-                        new AdapterDefinitionProperties.CapabilitiesConfig();
-                caps.setChat(request.getCapabilities().getOrDefault("chat", false));
-                caps.setEmbedding(request.getCapabilities().getOrDefault("embedding", false));
-                caps.setRerank(request.getCapabilities().getOrDefault("rerank", false));
-                caps.setTts(request.getCapabilities().getOrDefault("tts", false));
-                caps.setStt(request.getCapabilities().getOrDefault("stt", false));
-                caps.setImgGen(request.getCapabilities().getOrDefault("imgGen", false));
-                caps.setImgEdit(request.getCapabilities().getOrDefault("imgEdit", false));
-                caps.setStreaming(request.getCapabilities().getOrDefault("streaming", false));
-                definition.setCapabilities(caps);
+            // issue #709: 校验前置（extend parent 存在性）——修复前"先落库后校验"，
+            // 构造失败时配置已脏、重启加载到坏 adapter
+            final String parentError = validateParentForExtend(request);
+            if (parentError != null) {
+                return ResponseEntity.badRequest()
+                        .body(RouterResponse.error(parentError, "INVALID_PARENT"));
             }
 
-            if (request.getAuth() != null) {
-                AdapterDefinitionProperties.AuthConfig auth = new AdapterDefinitionProperties.AuthConfig();
-                auth.setHeaderName(request.getAuth().getOrDefault("headerName", "Authorization"));
-                auth.setHeaderPrefix(request.getAuth().getOrDefault("headerPrefix", "Bearer "));
-                definition.setAuth(auth);
-            }
+            // 构造（纯内存；auth 缺省补默认防 NPE）
+            AdapterDefinitionProperties.AdapterDefinition definition = buildDefinition(request);
+            ServiceCapability adapter = createAdapterByType(request.getName(), definition);
 
-            if (request.getAdditionalHeaders() != null) {
-                definition.setAdditionalHeaders(request.getAdditionalHeaders());
-            }
-
-            // 保存到配置
-            adapterDefinitionProperties.getAdapterDefinitions().put(request.getName(), definition);
-
-            // 持久化到存储
+            // 落库
             persistenceService.saveDefinition(request.getName(), definition);
 
-            // 创建adapter并注册
-            ServiceCapability adapter = createAdapterByType(request.getName(), definition);
-            adapterRegistry.registerAdapter(request.getName(), adapter);
+            // 切内存（register 失败反向回滚，防持久化与运行时漂移）
+            try {
+                adapterDefinitionProperties.getAdapterDefinitions().put(request.getName(), definition);
+                adapterRegistry.registerAdapter(request.getName(), adapter);
+            } catch (RuntimeException e) {
+                persistenceService.removeDefinition(request.getName());
+                adapterDefinitionProperties.getAdapterDefinitions().remove(request.getName());
+                throw e;
+            }
 
             Map<String, Object> result = new HashMap<>();
             result.put("name", request.getName());
@@ -313,46 +297,29 @@ public class AdapterConfigController {
                         .body(RouterResponse.error("adapter不存在: " + name, "NOT_FOUND"));
             }
 
-            AdapterDefinitionProperties.AdapterDefinition definition =
-                    new AdapterDefinitionProperties.AdapterDefinition();
-            definition.setType(request.getType() != null ? request.getType() : "openai-compatible");
-            definition.setParent(request.getParent());  // 设置父adapter
-            definition.setDescription(request.getDescription());  // 方言/描述
-
-            if (request.getCapabilities() != null) {
-                AdapterDefinitionProperties.CapabilitiesConfig caps =
-                        new AdapterDefinitionProperties.CapabilitiesConfig();
-                caps.setChat(request.getCapabilities().getOrDefault("chat", false));
-                caps.setEmbedding(request.getCapabilities().getOrDefault("embedding", false));
-                caps.setRerank(request.getCapabilities().getOrDefault("rerank", false));
-                caps.setTts(request.getCapabilities().getOrDefault("tts", false));
-                caps.setStt(request.getCapabilities().getOrDefault("stt", false));
-                caps.setImgGen(request.getCapabilities().getOrDefault("imgGen", false));
-                caps.setImgEdit(request.getCapabilities().getOrDefault("imgEdit", false));
-                caps.setStreaming(request.getCapabilities().getOrDefault("streaming", false));
-                definition.setCapabilities(caps);
+            // issue #709: 校验前置（extend parent 存在性），与 create 同构
+            final String parentError = validateParentForExtend(request);
+            if (parentError != null) {
+                return ResponseEntity.badRequest()
+                        .body(RouterResponse.error(parentError, "INVALID_PARENT"));
             }
 
-            if (request.getAuth() != null) {
-                AdapterDefinitionProperties.AuthConfig auth = new AdapterDefinitionProperties.AuthConfig();
-                auth.setHeaderName(request.getAuth().getOrDefault("headerName", "Authorization"));
-                auth.setHeaderPrefix(request.getAuth().getOrDefault("headerPrefix", "Bearer "));
-                definition.setAuth(auth);
-            }
+            // 构造（纯内存；auth 缺省补默认防 NPE）
+            AdapterDefinitionProperties.AdapterDefinition definition = buildDefinition(request);
+            ServiceCapability adapter = createAdapterByType(name, definition);
 
-            if (request.getAdditionalHeaders() != null) {
-                definition.setAdditionalHeaders(request.getAdditionalHeaders());
-            }
-
-            // 更新配置
-            definitions.put(name, definition);
-
-            // 持久化到存储
+            // 落库
             persistenceService.saveDefinition(name, definition);
 
-            // 重新创建adapter
-            ServiceCapability adapter = createAdapterByType(name, definition);
-            adapterRegistry.registerAdapter(name, adapter);
+            // 切内存（register 失败反向回滚，防持久化与运行时漂移）
+            try {
+                definitions.put(name, definition);
+                adapterRegistry.registerAdapter(name, adapter);
+            } catch (RuntimeException e) {
+                persistenceService.removeDefinition(name);
+                definitions.remove(name);
+                throw e;
+            }
 
             Map<String, Object> result = new HashMap<>();
             result.put("name", name);
@@ -391,14 +358,11 @@ public class AdapterConfigController {
                         .body(RouterResponse.error("adapter不存在: " + name, "NOT_FOUND"));
             }
 
-            // 从配置中移除
-            definitions.remove(name);
-
-            // 从持久化存储中移除
-            persistenceService.removeDefinition(name);
-
-            // 从registry中移除
+            // issue #709: 先摘运行时（新请求不再路由到它），再清内存配置与持久化——
+            // 反序时可能出现"定义已删但仍被路由"的窗口
             adapterRegistry.removeAdapter(name);
+            definitions.remove(name);
+            persistenceService.removeDefinition(name);
 
             logger.info("Deleted configurable adapter: {}", name);
             return ResponseEntity.ok(RouterResponse.success("adapter删除成功"));
@@ -447,6 +411,72 @@ public class AdapterConfigController {
             return ResponseEntity.internalServerError()
                     .body(RouterResponse.error("获取父adapter列表失败: " + e.getMessage()));
         }
+    }
+
+    /**
+     * extend 类型定义的父 adapter 存在性校验（issue #709 校验前置）。
+     *
+     * @return null 表示校验通过；否则返回可回显给客户端的错误说明
+     */
+    private String validateParentForExtend(final AdapterDefinitionRequest request) {
+        final String type = request.getType() != null ? request.getType() : "openai-compatible";
+        if (!"extend".equals(type)) {
+            return null;
+        }
+        if (request.getParent() == null || request.getParent().isBlank()) {
+            return "Extended adapter must specify a parent adapter";
+        }
+        if (adapterRegistry.getAdapterByName(request.getParent()) == null) {
+            return "Parent adapter '" + request.getParent() + "' not found";
+        }
+        return null;
+    }
+
+    /**
+     * 从请求构造 adapter 定义（create/update 共享）。
+     *
+     * <p>auth 缺省时补默认值（Authorization / Bearer ）——修复前
+     * {@code definition.getAuth().getHeaderName()} 在 auth 为 null 时直接 NPE。</p>
+     */
+    private AdapterDefinitionProperties.AdapterDefinition buildDefinition(
+            final AdapterDefinitionRequest request) {
+        AdapterDefinitionProperties.AdapterDefinition definition =
+                new AdapterDefinitionProperties.AdapterDefinition();
+        definition.setType(request.getType() != null ? request.getType() : "openai-compatible");
+        definition.setParent(request.getParent());  // 设置父adapter
+        definition.setDescription(request.getDescription());  // 方言/描述
+
+        if (request.getCapabilities() != null) {
+            AdapterDefinitionProperties.CapabilitiesConfig caps =
+                    new AdapterDefinitionProperties.CapabilitiesConfig();
+            caps.setChat(request.getCapabilities().getOrDefault("chat", false));
+            caps.setEmbedding(request.getCapabilities().getOrDefault("embedding", false));
+            caps.setRerank(request.getCapabilities().getOrDefault("rerank", false));
+            caps.setTts(request.getCapabilities().getOrDefault("tts", false));
+            caps.setStt(request.getCapabilities().getOrDefault("stt", false));
+            caps.setImgGen(request.getCapabilities().getOrDefault("imgGen", false));
+            caps.setImgEdit(request.getCapabilities().getOrDefault("imgEdit", false));
+            caps.setStreaming(request.getCapabilities().getOrDefault("streaming", false));
+            definition.setCapabilities(caps);
+        }
+
+        if (request.getAuth() != null) {
+            AdapterDefinitionProperties.AuthConfig auth = new AdapterDefinitionProperties.AuthConfig();
+            auth.setHeaderName(request.getAuth().getOrDefault("headerName", "Authorization"));
+            auth.setHeaderPrefix(request.getAuth().getOrDefault("headerPrefix", "Bearer "));
+            definition.setAuth(auth);
+        } else {
+            // issue #709: auth 缺省补默认，防构造时 NPE
+            AdapterDefinitionProperties.AuthConfig auth = new AdapterDefinitionProperties.AuthConfig();
+            auth.setHeaderName("Authorization");
+            auth.setHeaderPrefix("Bearer ");
+            definition.setAuth(auth);
+        }
+
+        if (request.getAdditionalHeaders() != null) {
+            definition.setAdditionalHeaders(request.getAdditionalHeaders());
+        }
+        return definition;
     }
 
     private ServiceCapability createAdapterByType(

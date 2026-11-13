@@ -7,6 +7,8 @@ package org.unreal.modelrouter.common.exception;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Map;
+
 /**
  * 池路由不可用异常（带 Retry-After 提示）
  *
@@ -30,13 +32,32 @@ public class PoolUnavailableException extends ResponseStatusException {
     /** 客户端应等待的秒数（建议退避时间） */
     private final int retryAfterSeconds;
 
+    /**
+     * 结构化明细（#1010）：members 逐成员诊断信息，可为 null（兼容既有两参构造）。
+     * transient：异常序列化场景不携带。
+     */
+    private final transient Map<String, Object> data;
+
     public PoolUnavailableException(final String message, final int retryAfterSeconds) {
+        this(message, null, retryAfterSeconds);
+    }
+
+    /**
+     * #1010：带逐成员明细的构造（data 由异常处理器写入响应体）。
+     */
+    public PoolUnavailableException(final String message, final Map<String, Object> data,
+                                    final int retryAfterSeconds) {
         super(HttpStatus.SERVICE_UNAVAILABLE, message);
+        this.data = data;
         this.retryAfterSeconds = retryAfterSeconds;
     }
 
     public int getRetryAfterSeconds() {
         return retryAfterSeconds;
+    }
+
+    public Map<String, Object> getData() {
+        return data;
     }
 
     public HttpStatus getStatus() {

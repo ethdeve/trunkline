@@ -165,10 +165,10 @@ class NonStreamingRequestProcessorTest {
 
             var method = NonStreamingRequestProcessor.class.getDeclaredMethod("handle4xxError",
                     org.springframework.web.reactive.function.client.ClientResponse.class,
-                    String.class, String.class);
+                    String.class, String.class, String.class);
             method.setAccessible(true);
 
-            var result = (reactor.core.publisher.Mono<?>) method.invoke(processor, clientResponse, "instance", "/path");
+            var result = (reactor.core.publisher.Mono<?>) method.invoke(processor, clientResponse, "instance", "10.0.0.5:8080", "/path");
             assertNotNull(result);
         }
 
@@ -181,10 +181,10 @@ class NonStreamingRequestProcessorTest {
 
             var method = NonStreamingRequestProcessor.class.getDeclaredMethod("handle4xxError",
                     org.springframework.web.reactive.function.client.ClientResponse.class,
-                    String.class, String.class);
+                    String.class, String.class, String.class);
             method.setAccessible(true);
 
-            var result = (reactor.core.publisher.Mono<?>) method.invoke(processor, clientResponse, "instance", "/path");
+            var result = (reactor.core.publisher.Mono<?>) method.invoke(processor, clientResponse, "instance", "10.0.0.5:8080", "/path");
             assertNotNull(result);
         }
 
@@ -197,10 +197,10 @@ class NonStreamingRequestProcessorTest {
 
             var method = NonStreamingRequestProcessor.class.getDeclaredMethod("handle4xxError",
                     org.springframework.web.reactive.function.client.ClientResponse.class,
-                    String.class, String.class);
+                    String.class, String.class, String.class);
             method.setAccessible(true);
 
-            var result = (reactor.core.publisher.Mono<?>) method.invoke(processor, clientResponse, "instance", "/path");
+            var result = (reactor.core.publisher.Mono<?>) method.invoke(processor, clientResponse, "instance", "10.0.0.5:8080", "/path");
             assertNotNull(result);
         }
     }

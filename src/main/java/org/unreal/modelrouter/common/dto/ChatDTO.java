@@ -201,6 +201,21 @@ public final class ChatDTO {
         }
 
         /**
+         * OpenAI 顶层 {@code stream_options}（issue #720）.
+         *
+         * <p>典型形态 {@code {"include_usage": true}}：要求流式响应末帧携带 usage 统计。
+         * 修复前该字段反序列化即丢（{@code ChatDTO.Request} 无对应字段 +
+         * {@code FAIL_ON_UNKNOWN_PROPERTIES} 关闭），所有 OpenAI 兼容适配器构造下游
+         * 请求体时也从不写入——下游收不到该指令，流式 usage 帧永不出现，账单/配额
+         * 只能走估算路径。</p>
+         *
+         * @return stream_options 原始 Map；未设置时返回 {@code null}（请求体与既有实现逐字节一致）
+         */
+        public Map<String, Object> streamOptions() {
+            return options != null ? options.streamOptions : null;
+        }
+
+        /**
          * OpenAI 顶层 {@code messages} 覆盖值（含 {@code assistant.tool_calls} / {@code role:"tool"} 消息）.
          *
          * <p>{@link #messages()} 是只含 {@code role/content/name} 的文本视图，无法表达 OpenAI 的
@@ -308,6 +323,15 @@ public final class ChatDTO {
          */
         @JsonProperty("wire_messages")
         private List<Map<String, Object>> wireMessages;
+
+        /**
+         * OpenAI 顶层 {@code stream_options}（issue #720；典型 {@code {"include_usage": true}}）.
+         *
+         * <p>修复前反序列化即丢（FAIL_ON_UNKNOWN_PROPERTIES 关闭）且下游请求体从不写入，
+         * 流式 usage 帧永不出现。透传链路见各 OpenAI 兼容 RequestTransformer。</p>
+         */
+        @JsonProperty("stream_options")
+        private Map<String, Object> streamOptions;
     }
 
     public record Message(

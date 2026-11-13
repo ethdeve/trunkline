@@ -5,6 +5,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -95,6 +96,9 @@ class ConfigurationServiceTest {
     @Mock
     private ConfigSyncService configSyncService;
 
+    @Mock
+    private ModelServiceRegistry modelServiceRegistry;
+
     @InjectMocks
     private ConfigurationService configurationService;
 
@@ -105,6 +109,8 @@ class ConfigurationServiceTest {
         // 手动注入 eventPublisher (因为它是字段注入，@InjectMocks 不会自动注入)
         ReflectionTestUtils.setField(configurationService, "eventPublisher", eventPublisher);
         ReflectionTestUtils.setField(configurationService, "configSyncService", configSyncService);
+        // issue #707: ModelServiceRegistry 走 setter 注入，@InjectMocks 不会自动调用
+        ReflectionTestUtils.setField(configurationService, "modelServiceRegistry", modelServiceRegistry);
 
         // 创建真实的 InstanceConfigService 并注入（使用相同的 mock 依赖）
         InstanceConfigService instanceConfigService = new InstanceConfigService(
@@ -281,6 +287,28 @@ class ConfigurationServiceTest {
             verify(storeManager).saveConfig(anyString(), any());
             verify(configVersionManager).saveAsNewVersion(any(), anyString(), any());
             verify(eventPublisher).publishEvent(any(ConfigSyncEvent.class));
+        }
+
+        @Test
+        @DisplayName("issue #707: DTO 更新后本机注册表 refreshFromMergedConfig 被调用恰 1 次（saveConfig 之后）")
+        void testUpdateServiceConfigDtoRefreshesLocalRegistry() {
+            // Given
+            UpdateServiceConfigRequest request = new UpdateServiceConfigRequest();
+            request.setAdapter("gpustack");
+
+            when(storeManager.getConfigVersions(anyString())).thenReturn(List.of(1));
+            when(storeManager.getConfigByVersion(anyString(), anyInt())).thenReturn(sampleConfig);
+            when(configMergeService.getDefaultConfig()).thenReturn(sampleConfig);
+            when(serviceConfigUpdateService.buildServiceConfigUpdate(any(), any())).thenReturn(new HashMap<>());
+            when(configVersionManager.saveAsNewVersion(any(), anyString(), any())).thenReturn(2);
+
+            // When
+            configurationService.updateServiceConfigDto("gpustack", request);
+
+            // Then：修复前 refreshFromMergedConfig 调用 0 次（本机缓存不刷新，路由/查询仍返回旧值）
+            InOrder inOrder = inOrder(storeManager, modelServiceRegistry);
+            inOrder.verify(storeManager).saveConfig(anyString(), any());
+            inOrder.verify(modelServiceRegistry, times(1)).refreshFromMergedConfig();
         }
     }
 

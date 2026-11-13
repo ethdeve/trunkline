@@ -17,6 +17,7 @@ import org.unreal.modelrouter.config.core.manager.InstanceManager;
 import org.unreal.modelrouter.config.core.manager.TracingConfigManager;
 import org.unreal.modelrouter.config.dto.UpdateServiceConfigRequest;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
+import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 import org.unreal.modelrouter.persistence.store.StoreManager;
 import org.unreal.modelrouter.monitor.tracing.config.SamplingConfigurationValidator;
 import org.unreal.modelrouter.common.util.SecurityUtils;
@@ -113,6 +114,9 @@ public class ConfigurationService {
     // v2.30.0: 实例配置管理服务，从本类提取实例管理方法
     private InstanceConfigService instanceConfigService;
 
+    // issue #707: 路由注册表引用，服务配置写入后刷新本机 serviceConfigCache
+    private ModelServiceRegistry modelServiceRegistry;
+
     @Autowired
     public ConfigurationService(final StoreManager storeManager,
                                 final ConfigConverterHelper configConverterHelper,
@@ -174,6 +178,22 @@ public class ConfigurationService {
     @Autowired
     public void setInstanceConfigService(final InstanceConfigService instanceConfigService) {
         this.instanceConfigService = instanceConfigService;
+    }
+
+    /**
+     * 设置ModelServiceRegistry引用（issue #707）
+     *
+     * <p>服务配置写入后本机 {@code serviceConfigCache} 此前仅在实例变更路径
+     * （{@code ServiceInstanceManager.saveVersion}）刷新，走 DTO 更新配置的
+     * 请求保存后拿到的仍是旧配置。照 {@code setConfigSyncService} 的既有
+     * setter 模式注入，规避构造期依赖顺序问题（registry 不反向依赖本类，
+     * 无循环）。</p>
+     *
+     * @param modelServiceRegistry ModelServiceRegistry实例
+     */
+    @Autowired
+    public void setModelServiceRegistry(final ModelServiceRegistry modelServiceRegistry) {
+        this.modelServiceRegistry = modelServiceRegistry;
     }
 
     // ==================== 版本管理 ====================
@@ -254,6 +274,14 @@ public class ConfigurationService {
             configVersionManager.saveAsNewVersion(
                     currentConfig, "更新服务配置: " + serviceType, SecurityUtils.getCurrentUserId());
             instanceConfigService.refreshRuntimeConfig();
+            // issue #707: 落库后刷新本机路由注册表（重建 serviceConfigCache）。
+            // 修复前本机缓存仅在实例变更路径（ServiceInstanceManager.saveVersion）刷新，
+            // 走 DTO 更新配置的请求保存后 getAllConfigurations/路由仍返回旧值。
+            // refreshRuntimeConfig() 发布的 REFRESH 事件已由 FallbackStrategyRefreshListener
+            // 同步清除降级策略缓存（issue #873），此处无需重复清理。
+            if (modelServiceRegistry != null) {
+                modelServiceRegistry.refreshFromMergedConfig();
+            }
 
             logger.info("服务 {} 配置更新成功", serviceType);
 

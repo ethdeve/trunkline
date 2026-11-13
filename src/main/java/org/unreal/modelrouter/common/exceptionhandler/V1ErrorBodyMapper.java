@@ -205,6 +205,26 @@ public final class V1ErrorBodyMapper {
      */
     public static Map<String, Object> toErrorBody(final String path, final int statusCode,
                                                   final String message, final String errorCode) {
+        return toErrorBody(path, statusCode, message, errorCode, null);
+    }
+
+    /**
+     * 构造客户端协议形状的错误体（#1010：可附带 503 明细 {@code details}）.
+     *
+     * <p>{@code details} 非空时挂在 {@code error} 内（未知字段被 OpenAI/Anthropic SDK 忽略）；
+     * 是否暴露拓扑由调用方按 {@code trunkline.error-details.expose-topology} 决定（默认不暴露）。</p>
+     *
+     * @param path       请求路径
+     * @param statusCode HTTP 状态码（仅用于选类型，不参与状态码设置）
+     * @param message    原错误消息（{@code /v1/**} 路径会先经 {@link #sanitizeMessage} 净化）
+     * @param errorCode  原错误码（仅 OpenAI 面带 {@code code} 字段时使用，可为 {@code null}）
+     * @param details    附加明细（可为 {@code null}）
+     * @return Anthropic 面 / OpenAI 面错误体；非 {@code /v1/**} 路径返回 {@code null}（调用方沿用
+     *         {@code RouterResponse}）
+     */
+    public static Map<String, Object> toErrorBody(final String path, final int statusCode,
+                                                  final String message, final String errorCode,
+                                                  final Map<String, Object> details) {
         if (!isV1Path(path)) {
             return null;
         }
@@ -220,6 +240,9 @@ public final class V1ErrorBodyMapper {
             error.put("message", cleanMessage);
             error.put("type", errorType);
             error.put("code", errorCode);
+        }
+        if (details != null && !details.isEmpty()) {
+            error.put("details", details);
         }
         body.put("error", error);
         return body;
@@ -247,7 +270,23 @@ public final class V1ErrorBodyMapper {
      */
     public static ResponseEntity<?> toClientErrorResponse(final ServerWebExchange exchange, final int statusCode,
                                                           final String message, final String errorCode) {
-        final Map<String, Object> body = toErrorBody(requestPathOf(exchange), statusCode, message, errorCode);
+        return toClientErrorResponse(exchange, statusCode, message, errorCode, null);
+    }
+
+    /**
+     * 构造客户端协议形状的完整错误响应（#1010：可附带 503 明细 {@code details}）.
+     *
+     * @param exchange   当前交换对象（仅用于取请求路径；可为 {@code null}）
+     * @param statusCode HTTP 状态码（原样成为响应状态码，同时用于选 type）
+     * @param message    原错误消息（原样透出）
+     * @param errorCode  原错误码（仅 OpenAI 面带 {@code code} 字段时使用，可为 {@code null}）
+     * @param details    附加明细（可为 {@code null}）
+     * @return {@code /v1/**}：协议形状响应；其余路径：{@code null}
+     */
+    public static ResponseEntity<?> toClientErrorResponse(final ServerWebExchange exchange, final int statusCode,
+                                                          final String message, final String errorCode,
+                                                          final Map<String, Object> details) {
+        final Map<String, Object> body = toErrorBody(requestPathOf(exchange), statusCode, message, errorCode, details);
         if (body == null) {
             return null;
         }

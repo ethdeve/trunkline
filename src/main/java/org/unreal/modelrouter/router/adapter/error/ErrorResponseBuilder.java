@@ -92,9 +92,25 @@ public final class ErrorResponseBuilder {
      */
     public Mono<DownstreamServiceException> buildDownstreamError(
             final HttpStatus statusCode, final String instanceName, final String path) {
+        return buildDownstreamError(statusCode, instanceName, path, null);
+    }
+
+    /**
+     * 构建下游服务 4xx/5xx 错误响应（#1011: 带 target 的错误日志）
+     *
+     * @param statusCode HTTP 状态码
+     * @param instanceName 实例名称（用于日志）
+     * @param path 请求路径（用于日志）
+     * @param target 下游目标 host:port（脱敏后，可为 null 记 unknown）；只作 logger 占位参数
+     * @return Mono.error() 封装的 DownstreamServiceException
+     */
+    public Mono<DownstreamServiceException> buildDownstreamError(
+            final HttpStatus statusCode, final String instanceName, final String path,
+            final String target) {
 
         String errorMessage = getDownstreamErrorMessage(statusCode);
-        logger.error("下游服务错误 ({}): instance={}, path={}", statusCode.value(), instanceName, path);
+        logger.error("下游服务错误 ({}): instance={}, target={}, path={}",
+                statusCode.value(), instanceName, target != null ? target : ErrorTargetResolver.UNKNOWN, path);
 
         return Mono.error(new DownstreamServiceException(errorMessage, statusCode));
     }

@@ -11,6 +11,15 @@
 trunkline:
   tenant:
     filter-enabled: false
+  # 健康检查调度与超时配置（#650/#651：原硬编码 30000ms 与 5000ms 外部化）
+  health-check:
+    interval-ms: 30000        # 定时检查间隔
+    concurrency: 4            # 并发探测实例上限（boundedElastic 线程池）
+    connect-timeout-ms: 5000  # 单实例 socket 连接超时
+  # #1010：/v1/** 客户端协议面 503 错误体是否附带 error.details 拓扑明细（host:port 已脱敏）；
+  # 默认 false（不向外部客户端暴露内部拓扑）。控制台面 /api/** 的 RouterResponse.data.members 不受此开关限制。
+  error-details:
+    expose-topology: false
 
 spring:
   config:

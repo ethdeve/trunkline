@@ -21,8 +21,23 @@ public interface ModerationProvider {
      */
     ModerationDecision check(ModerationInput input);
 
-    /** 审核输入 */
-    record ModerationInput(String model, String content, String username) {
+    /**
+     * 审核输入。
+     *
+     * <p>canonical 四参构造（O7-c / SPI v2）：{@code tenantId} 供企业侧"按租户配置审核策略"。
+     * 保留三参兼容构造（tenantId=null），主干与存量企业测试无需同步改签名。</p>
+     *
+     * @param model    模型名
+     * @param content  待审文本
+     * @param username 请求方用户名（可为 null）
+     * @param tenantId 租户 ID（可为 null；多租户下由 {@code TenantContextHolder} 解析）
+     */
+    record ModerationInput(String model, String content, String username, String tenantId) {
+
+        /** 三参兼容构造（SPI v1 形态；tenantId = null）。 */
+        public ModerationInput(final String model, final String content, final String username) {
+            this(model, content, username, null);
+        }
     }
 
     /** 审核判定 */

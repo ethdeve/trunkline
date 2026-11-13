@@ -34,6 +34,8 @@ class WebClientPoolConfigTest {
                 "连接超时默认值不得因外部化而改变");
         assertEquals(WebClientPool.DEFAULT_RESPONSE_TIMEOUT_SECONDS, field(pool, "responseTimeoutSeconds"),
                 "响应超时默认值不得因外部化而改变");
+        assertEquals(WebClientPool.DEFAULT_MAX_BODY_SIZE, field(pool, "maxBodySize"),
+                "出站缓冲上限默认 10MB（#700），不得因外部化而改变");
         assertEquals(10_000, WebClientPool.DEFAULT_CONNECT_TIMEOUT_MS);
         assertEquals(60, WebClientPool.DEFAULT_RESPONSE_TIMEOUT_SECONDS);
     }
@@ -41,7 +43,8 @@ class WebClientPoolConfigTest {
     @Test
     @DisplayName("显式传入的参数被真正采纳")
     void explicitValuesAreHonoured() throws Exception {
-        final WebClientPool pool = new WebClientPool(1234, 7, 5, 4321L, 9);
+        final WebClientPool pool = new WebClientPool(
+                WebClientPool.DEFAULT_MAX_BODY_SIZE, 1234, 7, 5, 4321L, 9);
 
         assertEquals(1234, field(pool, "connectTimeoutMs"));
         assertEquals(7, field(pool, "responseTimeoutSeconds"));
@@ -51,7 +54,8 @@ class WebClientPoolConfigTest {
     @Test
     @DisplayName("显式连接池下仍能正常创建并缓存 WebClient")
     void createsAndCachesClientWithExplicitPool() {
-        final WebClientPool pool = new WebClientPool(2_000, 30, 8, 5_000L, 30);
+        final WebClientPool pool = new WebClientPool(
+                WebClientPool.DEFAULT_MAX_BODY_SIZE, 2_000, 30, 8, 5_000L, 30);
 
         assertNotNull(pool.getOrCreate("https://example.com"));
         assertNotNull(pool.getOrCreate("https://example.com"), "第二次应命中缓存");

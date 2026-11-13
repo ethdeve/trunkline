@@ -197,6 +197,49 @@ class ServiceConfigValidatorTest {
 
             assertDoesNotThrow(() -> validator.validateInstances(instances));
         }
+
+        @Test
+        @DisplayName("VAL-097: 实例配置验证 - 非法 URL 语法抛异常（#650 写入侧 URI 校验）")
+        void testValidateInstancesInvalidUrl() {
+            // 含非法字符（空格）的 URL：new URI 直接抛 URISyntaxException
+            ModelInstanceConfiguration instance = new ModelInstanceConfiguration(
+                "instance-1", "http://exa mple.com", null, null, 1, "active", null, null, null, null, null, null
+            );
+            List<ModelInstanceConfiguration> instances = Collections.singletonList(instance);
+
+            IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> validator.validateInstances(instances)
+            );
+            assertTrue(ex.getMessage().contains("格式非法"));
+        }
+
+        @Test
+        @DisplayName("VAL-098: 实例配置验证 - 缺少合法 host 抛异常（#650 写入侧 host 校验）")
+        void testValidateInstancesMissingHost() {
+            // 可解析但无 host（相对路径形式）的 baseUrl
+            ModelInstanceConfiguration instance = new ModelInstanceConfiguration(
+                "instance-1", "example.com", null, null, 1, "active", null, null, null, null, null, null
+            );
+            List<ModelInstanceConfiguration> instances = Collections.singletonList(instance);
+
+            IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> validator.validateInstances(instances)
+            );
+            assertTrue(ex.getMessage().contains("缺少合法 host"));
+        }
+
+        @Test
+        @DisplayName("VAL-099: 实例配置验证 - 合法 URL 不抛异常")
+        void testValidateInstancesValidUrlNoThrow() {
+            ModelInstanceConfiguration instance = new ModelInstanceConfiguration(
+                "instance-1", "https://models.example.com:11434/v1", null, null, 1, "active", null, null, null, null, null, null
+            );
+            List<ModelInstanceConfiguration> instances = Collections.singletonList(instance);
+
+            assertDoesNotThrow(() -> validator.validateInstances(instances));
+        }
     }
 
     @Nested

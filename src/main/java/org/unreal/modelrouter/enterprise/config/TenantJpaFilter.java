@@ -33,10 +33,11 @@ import jakarta.persistence.EntityManagerFactory;
  * <ul>
  *   <li>取的是 {@link TransactionSynchronizationManager} 上绑定在
  *       EntityManagerFactory 的当前事务会话（与 Repository 实际使用一致）；
- *       非事务调用不拦截、直接放行（SimpleJpaRepository 的读方法均有事务注解）。</li>
- *   <li>切面 order 与事务拦截器同为 LOWEST_PRECEDENCE；若装配顺序导致本切面
- *       先于事务开启执行，会话尚未绑定则跳过本次过滤（记 DEBUG），
- *       不会报错——严格 fail-closed 语义由 enterprise jar 替换本切面实现。</li>
+ *       非事务调用不拦截、直接放行（SimpleJpaRepository 的读方法均有事务注解）。
+ *       <b>O8-3 定序后</b>（{@link TenantAspectOrderingConfiguration} 把事务拦截器排到
+ *       本切面外侧），本切面总是运行在事务之内，"切面先于事务"分支只是防御性兜底。</li>
+ *   <li>切面 order 与事务拦截器同为 LOWEST_PRECEDENCE 时顺序未定义——
+ *       已由 {@link TenantAspectOrderingConfiguration} 显式定序（事务外层、本切面内层）。</li>
  *   <li>enableFilter 对同名过滤器重复调用只更新参数，幂等无副作用。</li>
  * </ul>
  * @author Trunkline Team
@@ -60,8 +61,9 @@ public class TenantJpaFilter {
     /**
      * Repository 方法执行前开启租户过滤。
      *
-     * <p>异常兜底：预埋层的任何故障只记 WARN 并放行原调用——
-     * 过滤是「多租户隔离增强」，不应因它阻断请求。
+     * <p>异常兜底（2026-11-13 更新，fail-closed）：过滤器开启却未能生效 =
+     * 行级隔离被绕过，必须中止查询而非放行（多租户模式 {@code filter-enabled=true}
+     * 下隔离正确性优先于可用性）；未开启多租户时本切面根本不装配，社区版零影响。
      */
     @Around("execution(* org.unreal.modelrouter.persistence.jpa.repository..*(..))")
     public Object applyTenantFilter(final ProceedingJoinPoint joinPoint) throws Throwable {
@@ -82,7 +84,10 @@ public class TenantJpaFilter {
                 log.debug("tenant filter skipped: no session bound yet (aspect ran before transaction)");
             }
         } catch (final RuntimeException e) {
-            log.warn("tenant filter enable failed (request proceeds unfiltered): {}", e.getMessage());
+            // 多租户模式下，过滤器开启却未能生效 = 行级隔离被绕过，必须中止查询而非放行。
+            throw new IllegalStateException(
+                    "tenant filter could not be enabled; refusing to run unfiltered query "
+                            + "(tenant isolation would be bypassed): " + e.getMessage(), e);
         }
         return joinPoint.proceed();
     }

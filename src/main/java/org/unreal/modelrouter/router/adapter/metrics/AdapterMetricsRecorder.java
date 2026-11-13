@@ -308,9 +308,11 @@ public class AdapterMetricsRecorder {
 
     /**
      * 完整的调用成功记录（统一入口，不含请求/响应体）
-     * 
-     * 同时更新：Registry + MetricsCollector + StatsRepository
-     * 
+     *
+     * 同时更新：Registry + MetricsCollector + StatsRepository + 调用历史。
+     * 供失败/客户端 4xx 这类「BaseAdapter 单点记录」路径使用；
+     * processor 层成功路径请改用 {@code recordCallHistoryOnly}（只记历史，避免统计双记）。
+     *
      * @param adapterType 适配器类型
      * @param instanceId 实例ID
      * @param durationMs 耗时（毫秒）
@@ -334,7 +336,11 @@ public class AdapterMetricsRecorder {
     }
 
     /**
-     * 完整的调用统计记录（不含调用历史，v2.9.2 用于 processor 已记录历史时的统计更新）
+     * 完整的调用统计记录（不含调用历史，v2.9.2 用于 processor 已记录历史时的统计更新）。
+     *
+     * <p><b>统计唯一入口</b>：一次 attempt 只应由 {@code BaseAdapter} 调用一次。
+     * processor 层负责调用历史时须用 {@code recordCallHistoryOnly}，否则
+     * {@code recordStats} 会被执行两次（LB 在途双减、熔断成功数与 QPS 样本翻倍）。</p>
      *
      * 同时更新：Registry + MetricsCollector + StatsRepository
      *
@@ -422,8 +428,9 @@ public class AdapterMetricsRecorder {
             final String requestBody,
             final String responseBody,
             final String traceId) {
+        // 统计仍由本入口负责（失败/客户端 4xx 路径的唯一记录点）
         recordCompleteCallInternal(adapterType, instanceId, durationMs, success, errorCode,
-                modelName, serviceType, instance, requestBody, responseBody, traceId, false);
+                modelName, serviceType, instance, requestBody, responseBody, traceId, false, true);
     }
 
     /**
@@ -445,9 +452,61 @@ public class AdapterMetricsRecorder {
             final ModelRouterProperties.ModelInstance instance) {
         recordCompleteCallInternal(adapterType, instanceId, durationMs, false, errorCode,
                 modelName, serviceType, instance, null, null,
-                TracingContextHolder.getCurrentTraceId(), true);
+                TracingContextHolder.getCurrentTraceId(), true, true);
     }
 
+    /**
+     * 仅记录 API 调用历史，不更新任何统计（v3.1 统计/历史双通道收口）。
+     *
+     * <p>成功 attempt 的统计由 {@code BaseAdapter.doOnSuccess} 调
+     * {@code recordCompleteCallStats} 统一记一次；processor 层若再调
+     * {@code recordCompleteCall}，会让 Registry（LB 在途释放 + 熔断成功）、
+     * MetricsCollector、StatsRepository 全部重复计数——一次成功请求被记成两次。
+     * 因此 processor 层只走本方法，统计归 BaseAdapter，历史归 processor。</p>
+     *
+     * @param traceId 调用方在请求线程同步捕获的追踪 ID
+     */
+    public void recordCallHistoryOnly(
+            final String adapterType,
+            final String instanceId,
+            final long durationMs,
+            final boolean success,
+            final String errorCode,
+            final String modelName,
+            final ModelServiceRegistry.ServiceType serviceType,
+            final ModelRouterProperties.ModelInstance instance) {
+        recordCompleteCallInternal(adapterType, instanceId, durationMs, success, errorCode,
+                modelName, serviceType, instance, null, null,
+                TracingContextHolder.getCurrentTraceId(), false, false);
+    }
+
+    /**
+     * 仅记录 API 调用历史（含请求/响应体与显式 traceId），不更新任何统计。
+     *
+     * @param traceId 调用方在请求线程同步捕获的追踪 ID
+     */
+    public void recordCallHistoryOnly(
+            final String adapterType,
+            final String instanceId,
+            final long durationMs,
+            final boolean success,
+            final String errorCode,
+            final String modelName,
+            final ModelServiceRegistry.ServiceType serviceType,
+            final ModelRouterProperties.ModelInstance instance,
+            final String requestBody,
+            final String responseBody,
+            final String traceId) {
+        recordCompleteCallInternal(adapterType, instanceId, durationMs, success, errorCode,
+                modelName, serviceType, instance, requestBody, responseBody, traceId, false, false);
+    }
+
+    /**
+     * 完整调用记录的内部实现。
+     *
+     * @param clientSideError 客户端侧 4xx：只释放在途、不记熔断失败（issue #647）
+     * @param updateStats     是否更新统计通道；processor 层的「仅历史」路径置 false
+     */
     private void recordCompleteCallInternal(
             final String adapterType,
             final String instanceId,
@@ -460,11 +519,14 @@ public class AdapterMetricsRecorder {
             final String requestBody,
             final String responseBody,
             final String traceId,
-            final boolean clientSideError) {
+            final boolean clientSideError,
+            final boolean updateStats) {
 
         // v2.9.2: 统计更新（Registry + MetricsCollector + StatsRepository）
-        recordStats(adapterType, instanceId, durationMs, success, errorCode,
-                modelName, serviceType, instance, clientSideError);
+        if (updateStats) {
+            recordStats(adapterType, instanceId, durationMs, success, errorCode,
+                    modelName, serviceType, instance, clientSideError);
+        }
 
         // v2.7.8: 记录 API 调用历史（v2.9.2: 含请求/响应体）
         // G1 修复：落库触发与"是否携带报文"解耦。此前在 METADATA_ONLY 下把 requestBody/responseBody 置为 null，

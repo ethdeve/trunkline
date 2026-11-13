@@ -53,6 +53,10 @@ public class XinferenceRequestTransformer {
             if (request.topP() != null) xinferenceRequest.put("top_p", request.topP());
             if (request.stop() != null) xinferenceRequest.set("stop", objectMapper.valueToTree(request.stop()));
             if (request.stream() != null) xinferenceRequest.put("stream", request.stream());
+            // issue #720: 透传 stream_options（如 {"include_usage": true}）
+            if (request.streamOptions() != null) {
+                xinferenceRequest.set("stream_options", objectMapper.valueToTree(request.streamOptions()));
+            }
             if (request.n() != null) xinferenceRequest.put("n", request.n());
             if (request.presencePenalty() != null) xinferenceRequest.put("presence_penalty", request.presencePenalty());
             if (request.frequencyPenalty() != null) {

@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service;
 import org.unreal.modelrouter.auth.security.config.properties.JwtAccountProperties;
 import org.unreal.modelrouter.auth.security.config.properties.SecurityProperties;
 import org.unreal.modelrouter.auth.security.audit.ExtendedSecurityAuditService;
+import org.unreal.modelrouter.common.exception.ApiException;
+import org.unreal.modelrouter.enterprise.spi.SsoConnector;
 import org.unreal.modelrouter.persistence.jpa.entity.JwtAccountEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.JwtAccountRepository;
 import reactor.core.publisher.Mono;
@@ -156,6 +158,69 @@ public class AccountManager implements UserDetailsService {
                     return Mono.error(new RuntimeException("用户名或密码错误"));
                 }))
                 .map(valid -> generateJwtToken(username, securityProperties));
+    }
+
+    /**
+     * 外部身份认证并签发 JWT（O7-a，SSO 调用点）。
+     *
+     * <p>映射规则（社区版最小实现）：外部身份只映射到「已存在且启用」的本地账号——
+     * 依次尝试 {@code externalId} → {@code email} → {@code email 本地前缀}；
+     * 无映射则拒绝（不自动建号，自动建号/角色映射是企业版 A2 的 {@code SsoUserMapper} 范围）。
+     * <b>安全约束</b>：签发角色完全来自本地账号配置，禁止从 IdP 返回的角色字符串透传。</p>
+     *
+     * @param externalUser IdP 交换出的企业用户身份
+     * @param ipAddress    客户端 IP（审计）
+     * @param userAgent    客户端 UA（审计）
+     * @return 平台 JWT
+     */
+    public Mono<String> authenticateExternal(final SsoConnector.EnterpriseUser externalUser,
+                                             final String ipAddress, final String userAgent) {
+        return Mono.fromCallable(() -> resolveExternalLocalUsername(externalUser))
+                .flatMap(username -> {
+                    if (username == null) {
+                        log.warn("外部身份无映射本地账号: externalId={}, email={}",
+                                externalUser.externalId(), externalUser.email());
+                        if (auditService != null) {
+                            auditService.auditSecurityEvent("AUTHENTICATION_FAILED",
+                                    "外部身份无映射本地账号: " + externalUser.externalId(),
+                                    externalUser.email(), ipAddress)
+                                    .onErrorResume(ex -> Mono.empty())
+                                    .subscribe();
+                        }
+                        return Mono.error(ApiException.of("EXTERNAL_ACCOUNT_NOT_MAPPED",
+                                "外部账号未映射到本地账号，请联系管理员开通",
+                                org.springframework.http.HttpStatus.UNAUTHORIZED));
+                    }
+                    log.info("外部身份已映射本地账号并签发令牌: username={}, ip={}", username, ipAddress);
+                    return Mono.just(generateJwtToken(username, securityProperties));
+                });
+    }
+
+    /**
+     * 外部身份 → 本地用户名映射；无映射返回 null。
+     * 依次尝试 externalId / email / email 本地前缀，且目标账号必须存在并启用。
+     */
+    private String resolveExternalLocalUsername(final SsoConnector.EnterpriseUser user) {
+        if (user == null) {
+            return null;
+        }
+        if (user.externalId() != null && !user.externalId().isBlank()
+                && findAccountByUsername(user.externalId()).isPresent()) {
+            return user.externalId();
+        }
+        if (user.email() != null && !user.email().isBlank()) {
+            if (findAccountByUsername(user.email()).isPresent()) {
+                return user.email();
+            }
+            final int at = user.email().indexOf('@');
+            if (at > 0) {
+                final String localPart = user.email().substring(0, at);
+                if (findAccountByUsername(localPart).isPresent()) {
+                    return localPart;
+                }
+            }
+        }
+        return null;
     }
 
     /**

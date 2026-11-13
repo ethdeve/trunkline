@@ -1,6 +1,8 @@
 package org.unreal.modelrouter.router.loadbalancer.monitor;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -12,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -138,14 +141,14 @@ public class RoutingStatsAggregator {
         private final List<SelectionRecord> recentSelections = Collections.synchronizedList(new ArrayList<>());
 
         /**
-         * 客户端到实例的映射（用于验证 ip-hash）
+         * 客户端到实例的映射（用于验证 ip-hash，issue #877 改有界缓存）
          */
-        private final Map<String, String> clientToInstanceMap = new ConcurrentHashMap<>();
+        private final Cache<String, String> clientToInstanceMap = newBoundedClientCache();
 
         /**
-         * 客户端请求计数
+         * 客户端请求计数（issue #877 改有界缓存）
          */
-        private final Map<String, AtomicLong> clientRequestCounts = new ConcurrentHashMap<>();
+        private final Cache<String, AtomicLong> clientRequestCounts = newBoundedClientCache();
 
         /**
          * 统计开始时间
@@ -156,6 +159,31 @@ public class RoutingStatsAggregator {
          * 保留最近选中的最大数量
          */
         private static final int MAX_RECENT_SELECTIONS = 100;
+
+        /**
+         * 客户端维度有界缓存的最大条目数（issue #877）
+         *
+         * <p>clientId 高基数且可被外部影响（每个客户端 IP 一个键），修复前是
+         * 两个无界 CHM、只增不减（除 reset 外无任何清理），恶意/异常流量可持续
+         * 膨胀内存。上限与 {@link org.unreal.modelrouter.router.ratelimit.ScopedRateLimiterWrapper}
+         * 的 MAX_SIZE 对齐。</p>
+         */
+        private static final int MAX_CLIENT_ENTRIES = 10000;
+
+        /**
+         * 客户端条目不活跃过期时长（issue #877）
+         *
+         * <p>{@code expireAfterAccess}：长期不活跃的 ip-hash 映射会被淘汰，
+         * 验证视图只呈现「最近活跃」的客户端；被淘汰后对应计数归零（下次访问重建）。</p>
+         */
+        private static final long CLIENT_ENTRY_TTL_MINUTES = 30;
+
+        private static <K, V> Cache<K, V> newBoundedClientCache() {
+            return Caffeine.newBuilder()
+                .maximumSize(MAX_CLIENT_ENTRIES)
+                .expireAfterAccess(CLIENT_ENTRY_TTL_MINUTES, TimeUnit.MINUTES)
+                .build();
+        }
 
         public ServiceRoutingStats(String serviceType) {
             this.serviceType = serviceType;
@@ -193,10 +221,11 @@ public class RoutingStatsAggregator {
                 }
             }
 
-            // 更新客户端到实例的映射
+            // 更新客户端到实例的映射（issue #877：cache.get 走 Caffeine 原生访问语义，
+            // 每次记录都会刷新 expireAfterAccess 的活跃时间）
             if (clientId != null && !clientId.isEmpty()) {
                 clientToInstanceMap.put(clientId, instance);
-                clientRequestCounts.computeIfAbsent(clientId, k -> new AtomicLong(0))
+                clientRequestCounts.get(clientId, k -> new AtomicLong(0))
                     .incrementAndGet();
             }
         }
@@ -295,7 +324,7 @@ public class RoutingStatsAggregator {
          */
         public Map<String, String> getClientToInstanceMapping(int limit) {
             Map<String, String> result = new HashMap<>();
-            clientToInstanceMap.entrySet().stream()
+            clientToInstanceMap.asMap().entrySet().stream()
                 .limit(limit)
                 .forEach(entry -> result.put(entry.getKey(), entry.getValue()));
             return result;
@@ -328,9 +357,22 @@ public class RoutingStatsAggregator {
             synchronized (recentSelections) {
                 recentSelections.clear();
             }
-            clientToInstanceMap.clear();
-            clientRequestCounts.clear();
+            clientToInstanceMap.invalidateAll();
+            clientRequestCounts.invalidateAll();
             startTime = Instant.now();
+        }
+
+        /**
+         * 当前客户端维度条目数（监控/测试用，issue #877 有界缓存下不应无界增长）
+         */
+        long clientEntryCount() {
+            return clientToInstanceMap.estimatedSize();
+        }
+
+        /** 强制执行过期/淘汰维护（测试用） */
+        void cleanUpClientCaches() {
+            clientToInstanceMap.cleanUp();
+            clientRequestCounts.cleanUp();
         }
 
         /**

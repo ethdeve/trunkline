@@ -32,7 +32,12 @@ public final class TokenUsageStatisticsDTO {
     private LocalDateTime endTime;
 
     /**
-     * 总请求次数
+     * 总请求次数（统计窗口内，issue #714）
+     *
+     * <p>语义为「查询时间范围内 [startTime, endTime] 的请求总数」，
+     * 与 successfulRequests / failedRequests 同窗口，三者构成成功率口径：
+     * successRate = successfulRequests / totalRequests × 100。
+     * 修复前该字段统计的是全表总数（不分窗口），与分子不同窗口导致成功率被稀释。</p>
      */
     @JsonProperty("totalRequests")
     private Long totalRequests;

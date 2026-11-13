@@ -26,12 +26,16 @@ import org.unreal.modelrouter.common.dto.SttDTO;
 import org.unreal.modelrouter.common.dto.TtsDTO;
 import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
+import org.unreal.modelrouter.common.exception.ApiException;
 import org.unreal.modelrouter.common.util.IpUtils;
+import org.unreal.modelrouter.enterprise.config.TenantContextHolder;
+import org.unreal.modelrouter.enterprise.spi.ModerationProvider;
 import org.unreal.modelrouter.router.fallback.FallbackStrategy;
 import org.unreal.modelrouter.router.fallback.impl.CacheFallbackStrategy;
 import org.unreal.modelrouter.auth.security.quota.QuotaReservation;
 import org.unreal.modelrouter.router.loadbalancer.SelectedInstanceHolder;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,6 +74,12 @@ public abstract class BaseAdapter implements ServiceCapability {
     private FallbackRequestProcessor fallbackRequestProcessor;
     @Autowired(required = false)
     private ErrorTracker errorTracker;
+    /**
+     * 内容审核扩展点（O7-c）：Noop 恒注册（全放行），判空仅为防御。
+     * 企业版覆盖后按租户/模型策略判定；拦截与否只看返回值（SPI 约定：实现不得抛异常）。
+     */
+    @Autowired(required = false)
+    private ModerationProvider moderationProvider;
 
     /**
      * 新构造函数 - 使用聚合组件（推荐）。
@@ -163,6 +173,52 @@ public abstract class BaseAdapter implements ServiceCapability {
             final String modelName, final RequestProcessor<T> processor) {
         // C-06：入口处生成一次幂等键，贯穿本次请求的所有重试/故障转移分支。
         ensureIdempotencyKey(httpRequest);
+        // O7-c 内容审核接线（第一版只接 ChatDTO.Request，占比最高、字段最规整；
+        // embedding/image 等按 SOW 再扩）。挂载在实例选择之前——被拦截的请求
+        // 不应消耗负载均衡状态与实例级限流令牌。拦截时上游零调用。
+        if (moderationProvider != null && request instanceof ChatDTO.Request chat) {
+            return Mono.fromCallable(() -> moderationProvider.check(new ModerationProvider.ModerationInput(
+                            modelName, extractChatText(chat), chat.user(),
+                            TenantContextHolder.currentTenantId())))
+                    // 统一线程模型（v1.2）：审核可能涉及外部引擎 IO，BaseAdapter 也会被
+                    // 非主链路径调用，不能假设当前线程——一律切弹性线程。
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .flatMap(decision -> decision.allowed()
+                            ? doProcessRequest(request, authorization, httpRequest, serviceType,
+                                    modelName, processor)
+                            : Mono.error(ApiException.of("CONTENT_BLOCKED",
+                                    decision.reason() != null ? decision.reason() : "内容未通过审核",
+                                    org.springframework.http.HttpStatus.BAD_REQUEST)));
+        }
+        return doProcessRequest(request, authorization, httpRequest, serviceType, modelName, processor);
+    }
+
+    /**
+     * O7-c：提取 chat 请求的全部消息文本（按消息顺序换行拼接），供内容审核。
+     * 空 messages / 空 content 安全返回空串。
+     */
+    static String extractChatText(final ChatDTO.Request chat) {
+        if (chat == null || chat.messages() == null || chat.messages().isEmpty()) {
+            return "";
+        }
+        final StringBuilder sb = new StringBuilder();
+        for (final ChatDTO.Message message : chat.messages()) {
+            if (message == null || message.content() == null || message.content().isEmpty()) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append('\n');
+            }
+            sb.append(message.content());
+        }
+        return sb.toString();
+    }
+
+    /** {@link #processRequest} 的原有主体（审核放行后执行）。 */
+    @SuppressWarnings("all")
+    private <T> Mono doProcessRequest(final T request, final String authorization,
+            final ServerHttpRequest httpRequest, final ModelServiceRegistry.ServiceType serviceType,
+            final String modelName, final RequestProcessor<T> processor) {
         // 优先复用网关（ServiceRequestHandler）已选中的实例：每个请求只应发生一次实例选择，
         // 否则会重复推进负载均衡状态、重复扣减实例级限流令牌，并让路由监控一次请求 +多次计数。
         // 未经网关的调用（持有者为空）回退为自行选择，保持既有行为。

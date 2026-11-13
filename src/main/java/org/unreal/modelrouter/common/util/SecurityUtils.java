@@ -95,11 +95,24 @@ public class SecurityUtils {
     }
     
     /**
-     * 从ServerWebExchange中提取请求ID
+     * 从ServerWebExchange中提取请求 ID（issue #724：统一读 attribute）
+     *
+     * <p>{@link org.unreal.modelrouter.common.filter.RequestIdWebFilter} 在链首
+     * 解析/生成请求 ID 后存入 exchange attribute；本方法改从 attribute 读取，
+     * 保证响应头回写与日志/追踪使用同一个 ID。过滤器未装配（单测/特殊场景）
+     * 时兜底走旧行为（读请求头，缺失则生成并 add 响应头）。</p>
+     *
      * @param exchange ServerWebExchange
-     * @return 请求ID
+     * @return 请求 ID
      */
     public static String extractRequestId(final ServerWebExchange exchange) {
+        Object attribute = exchange.getAttributes().get(
+                org.unreal.modelrouter.common.filter.RequestIdWebFilter.REQUEST_ID_ATTRIBUTE);
+        if (attribute instanceof String requestId && !requestId.isBlank()) {
+            return requestId;
+        }
+
+        // 兜底：RequestIdWebFilter 未装配时按旧行为
         String requestId = exchange.getRequest().getHeaders().getFirst("X-Request-ID");
         if (requestId == null || requestId.isEmpty()) {
             requestId = generateId();

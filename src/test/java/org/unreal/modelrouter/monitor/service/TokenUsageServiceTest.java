@@ -216,8 +216,8 @@ class TokenUsageServiceTest {
             LocalDateTime startTime = LocalDateTime.now().minusDays(7);
             LocalDateTime endTime = LocalDateTime.now();
 
-            // Mock 所有统计查询
-            when(tokenUsageRepository.countAllUsage()).thenReturn(100L);
+            // Mock 所有统计查询（issue #714：成功率分母改为同窗口 countByTimeRange）
+            when(tokenUsageRepository.countByTimeRange(any(), any())).thenReturn(100L);
             when(tokenUsageRepository.countTotalTokensByTimeRange(any(), any())).thenReturn(1000L);
             when(tokenUsageRepository.countSuccessByTimeRange(any(), any())).thenReturn(95L);
             when(tokenUsageRepository.countFailedByTimeRange(any(), any())).thenReturn(5L);
@@ -245,7 +245,7 @@ class TokenUsageServiceTest {
         @Test
         @DisplayName("获取统计信息使用默认时间范围")
         void testGetTokenUsageStatisticsDefaultTimeRange() {
-            when(tokenUsageRepository.countAllUsage()).thenReturn(0L);
+            when(tokenUsageRepository.countByTimeRange(any(), any())).thenReturn(0L);
             when(tokenUsageRepository.countTotalTokensByTimeRange(any(), any())).thenReturn(0L);
             when(tokenUsageRepository.countSuccessByTimeRange(any(), any())).thenReturn(0L);
             when(tokenUsageRepository.countFailedByTimeRange(any(), any())).thenReturn(0L);
@@ -266,6 +266,61 @@ class TokenUsageServiceTest {
             assertNotNull(result);
             assertNotNull(result.getStartTime());
             assertNotNull(result.getEndTime());
+        }
+
+        @Test
+        @DisplayName("issue #714：成功率分母用同窗口计数（全表1000/窗口10/成功7 → 70%，反证旧 0.7%）")
+        void testSuccessRateUsesWindowDenominator() {
+            LocalDateTime startTime = LocalDateTime.now().minusDays(1);
+            LocalDateTime endTime = LocalDateTime.now();
+
+            // 分母 = 窗口内 10 条（修复前是全表 1000 条 → 成功率被稀释为 0.7%）
+            when(tokenUsageRepository.countByTimeRange(any(), any())).thenReturn(10L);
+            when(tokenUsageRepository.countTotalTokensByTimeRange(any(), any())).thenReturn(0L);
+            when(tokenUsageRepository.countSuccessByTimeRange(any(), any())).thenReturn(7L);
+            when(tokenUsageRepository.countFailedByTimeRange(any(), any())).thenReturn(3L);
+            when(tokenUsageRepository.avgResponseTimeByTimeRange(any(), any())).thenReturn(0.0);
+            when(tokenUsageRepository.countTokensByServiceType(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByModel(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByProvider(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByDay(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByWeek(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByMonth(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByHour(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByApiKey(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByUser(any(), any())).thenReturn(Collections.emptyList());
+
+            TokenUsageStatisticsDTO result = tokenUsageService.getTokenUsageStatistics(startTime, endTime);
+
+            assertEquals(10L, result.getTotalRequests(), "分母必须是窗口内计数而非全表");
+            assertEquals(7L, result.getSuccessfulRequests());
+            assertEquals(70.0, result.getSuccessRate(), 0.01,
+                    "修复前 7/1000=0.7%（分母全表）；修复后 7/10=70%（分母同窗口）");
+        }
+
+        @Test
+        @DisplayName("issue #714：窗口 0 条 → 成功率 0.0 不抛异常")
+        void testSuccessRateZeroWindowDoesNotThrow() {
+            when(tokenUsageRepository.countByTimeRange(any(), any())).thenReturn(0L);
+            when(tokenUsageRepository.countTotalTokensByTimeRange(any(), any())).thenReturn(0L);
+            when(tokenUsageRepository.countSuccessByTimeRange(any(), any())).thenReturn(0L);
+            when(tokenUsageRepository.countFailedByTimeRange(any(), any())).thenReturn(0L);
+            when(tokenUsageRepository.avgResponseTimeByTimeRange(any(), any())).thenReturn(0.0);
+            when(tokenUsageRepository.countTokensByServiceType(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByModel(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByProvider(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByDay(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByWeek(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByMonth(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByHour(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByApiKey(any(), any())).thenReturn(Collections.emptyList());
+            when(tokenUsageRepository.countTokensByUser(any(), any())).thenReturn(Collections.emptyList());
+
+            TokenUsageStatisticsDTO result = assertDoesNotThrow(
+                    () -> tokenUsageService.getTokenUsageStatistics(LocalDateTime.now().minusDays(1), LocalDateTime.now()));
+
+            assertEquals(0L, result.getTotalRequests());
+            assertEquals(0.0, result.getSuccessRate(), 0.0);
         }
     }
 }

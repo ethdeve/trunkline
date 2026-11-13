@@ -164,6 +164,52 @@ class ResponseCacheKeyBuilderTest {
     }
 
     @Test
+    @DisplayName("issue #722: includeStopStrInOutput/ignoreEos true/false 键不同（反证旧相等）")
+    void vllmBooleanSwitchesChangeKey() {
+        ChatDTO.Request baseline = new ChatDTO.Request(MODEL,
+                List.of(new ChatDTO.Message("user", "hello", null)),
+                false, 100, 0.0, null, null, null, null, null, null,
+                ChatDTO.Options.builder().build());
+        ChatDTO.Request stopStrTrue = new ChatDTO.Request(MODEL,
+                List.of(new ChatDTO.Message("user", "hello", null)),
+                false, 100, 0.0, null, null, null, null, null, null,
+                ChatDTO.Options.builder().includeStopStrInOutput(true).build());
+        ChatDTO.Request ignoreEosTrue = new ChatDTO.Request(MODEL,
+                List.of(new ChatDTO.Message("user", "hello", null)),
+                false, 100, 0.0, null, null, null, null, null, null,
+                ChatDTO.Options.builder().ignoreEos(true).build());
+        ChatDTO.Request bothTrue = new ChatDTO.Request(MODEL,
+                List.of(new ChatDTO.Message("user", "hello", null)),
+                false, 100, 0.0, null, null, null, null, null, null,
+                ChatDTO.Options.builder().includeStopStrInOutput(true).ignoreEos(true).build());
+
+        String keyBaseline = ResponseCacheKeyBuilder.build(TENANT_A, ServiceType.chat, baseline);
+        assertNotNull(keyBaseline);
+        assertNotEquals(keyBaseline,
+                ResponseCacheKeyBuilder.build(TENANT_A, ServiceType.chat, stopStrTrue),
+                "includeStopStrInOutput=true 与未设置的响应内容不同，必须产生不同键（修复前相同）");
+        assertNotEquals(keyBaseline,
+                ResponseCacheKeyBuilder.build(TENANT_A, ServiceType.chat, ignoreEosTrue),
+                "ignoreEos=true 与未设置的响应内容不同，必须产生不同键（修复前相同）");
+        assertNotEquals(ResponseCacheKeyBuilder.build(TENANT_A, ServiceType.chat, stopStrTrue),
+                ResponseCacheKeyBuilder.build(TENANT_A, ServiceType.chat, bothTrue),
+                "两开关同时开启须与只开一个不同");
+    }
+
+    @Test
+    @DisplayName("issue #722: null 与 false 同键（均表示「未要求」，putIfNotNull 语义）")
+    void nullAndFalseSameKeyForVllmSwitches() {
+        ChatDTO.Request nullOptions = chatRequest("hello");
+        ChatDTO.Request explicitFalse = new ChatDTO.Request(MODEL,
+                List.of(new ChatDTO.Message("user", "hello", null)),
+                false, 100, 0.0, null, null, null, null, null, null,
+                ChatDTO.Options.builder().includeStopStrInOutput(false).ignoreEos(false).build());
+
+        assertEquals(ResponseCacheKeyBuilder.build(TENANT_A, ServiceType.chat, nullOptions),
+                ResponseCacheKeyBuilder.build(TENANT_A, ServiceType.chat, explicitFalse));
+    }
+
+    @Test
     @DisplayName("键为三段式 rc:{serviceType}:{model}:{sha256} 且不含明文内容")
     void keyIsThreeSegmentFormat() {
         ChatDTO.Request request = chatRequest("sensitive-content-不缓存明文");

@@ -1,17 +1,19 @@
 package org.unreal.modelrouter.config.sync.validator;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.unreal.modelrouter.common.constants.ServiceTypeConstants;
 import org.unreal.modelrouter.config.core.dto.CircuitBreakerConfiguration;
 import org.unreal.modelrouter.config.core.dto.FallbackConfiguration;
 import org.unreal.modelrouter.config.core.dto.LoadBalanceConfiguration;
 import org.unreal.modelrouter.config.core.dto.ModelInstanceConfiguration;
 import org.unreal.modelrouter.config.core.dto.RateLimitConfiguration;
 import org.unreal.modelrouter.config.core.dto.ServiceConfiguration;
-import org.unreal.modelrouter.common.constants.ServiceTypeConstants;
-
-import java.util.List;
 
 /**
  * 服务配置验证器
@@ -116,6 +118,17 @@ public class ServiceConfigValidator {
         // 验证 baseUrl
         if (instance.baseUrl() == null || instance.baseUrl().isBlank()) {
             throw new IllegalArgumentException("实例 baseUrl 不能为空");
+        }
+
+        // #650 修复：写入侧对 baseUrl 做 URI 语法与 host 非空校验，
+        // 避免非法 URL 进入运行态后被健康检查的 URISyntaxException 分支吞掉而不写健康位图
+        try {
+            URI uri = new URI(instance.baseUrl());
+            if (uri.getHost() == null || uri.getHost().isBlank()) {
+                throw new IllegalArgumentException("实例 baseUrl 缺少合法 host: " + instance.baseUrl());
+            }
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("实例 baseUrl 格式非法: " + instance.baseUrl(), e);
         }
 
         // 验证权重（如果有）

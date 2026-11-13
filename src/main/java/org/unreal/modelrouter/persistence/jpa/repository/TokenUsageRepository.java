@@ -387,6 +387,23 @@ public interface TokenUsageRepository extends JpaRepository<TokenUsageEntity, Lo
             @Param("endTime") LocalDateTime endTime);
 
     /**
+     * 统计时间范围内的总请求次数（成功率分母用，issue #714）
+     *
+     * <p>与 {@link #countSuccessByTimeRange} / {@link #countFailedByTimeRange} 同窗口：
+     * 成功率 = 窗口内成功数 ÷ 窗口内总数。修复前分母用 {@link #countAllUsage()}
+     * 统计全表，窗口远小于全表时成功率被严重稀释（如全表 1000 条、窗口 10 条、
+     * 成功 7 条会得出 0.7% 而非 70%）。</p>
+     *
+     * <p>{@code isSuccess} 为 {@code null} 的记录计入分母但不计入成功数，
+     * 与成功/失败两条查询的口径一致（成功 + 失败 ≤ 总数）。</p>
+     */
+    @Query("SELECT COUNT(t) FROM TokenUsageEntity t "
+           + "WHERE t.occurredAt BETWEEN :startTime AND :endTime")
+    long countByTimeRange(
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime);
+
+    /**
      * 统计失败数
      */
     @Query("SELECT COUNT(t) FROM TokenUsageEntity t "
