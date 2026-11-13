@@ -41,6 +41,7 @@ import reactor.test.StepVerifier;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -164,7 +165,13 @@ class StreamingRequestSafetyTest {
         safetyProperties.setMaxContentChars(10_000);
         safetyProperties.setMaxCacheChars(10_000);
 
-        final String[] chunks = contentChunks(3, 20);
+        final String[] contentOnly = contentChunks(3, 20);
+        // #721 契约更新：完整成功流必须以协议终止标记收尾——原夹具的流无任何终止标记，
+        // 修复后属"截断流"，不再写缓存（缓存残缺内容会污染后续同键请求）。
+        // 补 finish_reason 帧模拟真实完整流；该帧无 content，不影响内容/估算断言。
+        final String[] chunks = Arrays.copyOf(contentOnly, contentOnly.length + 1);
+        chunks[contentOnly.length] =
+                "data: {\"model\":\"gpt-4\",\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}";
         final String fullContent = "a".repeat(60);
         final long expectedTokens = 15L; // 60 / 4
 

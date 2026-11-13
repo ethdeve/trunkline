@@ -180,7 +180,21 @@ public class ComponentFactory {
         }
         
         return switch (config.getStrategy().toLowerCase()) {
-            case "cache" -> new CacheFallbackStrategy(serviceType, config.getCacheSize());
+            case "cache" -> {
+                // #890 定案（2026-11-12）：cacheSize<=0 = 禁用缓存，但必须保留 503 降级体——
+                // 返回 DefaultFallbackStrategy 而非 null（null 会让 BaseAdapter 走"无策略"分支，
+                // 连降级响应都发不出）。原实现会把空表退化成"始终保留最近 1 条"。
+                final Integer size = config.getCacheSize();
+                if (size == null || size <= 0) {
+                    logger.warn("Fallback strategy 'cache' with cacheSize={} effectively disabled for {}; "
+                            + "serving default degraded response instead", size, serviceType);
+                    yield new DefaultFallbackStrategy(serviceType);
+                }
+                // #872：TTL 接通 FallbackConfig.cacheTtl（此前从未被消费，缓存永不过期）；
+                // ttl<=0 = 永不过期（定案口径），由容量上限兜底。
+                yield new CacheFallbackStrategy(serviceType, size,
+                        config.getCacheTtl() != null ? config.getCacheTtl() : 0L);
+            }
             case "default" -> new DefaultFallbackStrategy(serviceType);
             default -> new DefaultFallbackStrategy(serviceType);
         };

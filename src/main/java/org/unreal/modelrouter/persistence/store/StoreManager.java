@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.UnaryOperator;
 
 /**
  * 存储管理器接口
@@ -125,4 +126,30 @@ public interface StoreManager {
      * @return 最新配置
      */
     Map<String, Object> getLatestConfig(String configKey);
+
+    /**
+     * #811/#715：读改写原子变更——「读取当前值 → 应用变更函数 → 写回」在同一临界区内完成。
+     *
+     * <p>背景：{@code security.api-keys} 这类聚合配置历史上按整表覆盖写保存，
+     * 单 Key 的用量更新会与其它 Key 的更新互相吞掉（读-改-写竞态）。
+     * 单条变更必须经本方法回写，禁止「读整表 → 改内存 → 整表覆盖」路径。</p>
+     *
+     * <p>默认实现按实例级监视器串行化（用量写低频，串行成本可接受）；
+     * JPA 实现覆写为事务 + 悲观行锁，覆盖多副本共享同一 PG 的场景。</p>
+     *
+     * @param key     配置键
+     * @param mutator 变更函数：入参为当前整表（可能为 {@code null}），返回更新后的整表；
+     *                返回 {@code null} 表示无需写回（跳过保存，不是删除语义）
+     * @return 变更函数的返回值（未写回时即返回值本身）
+     */
+    default Map<String, Object> mutateConfig(final String key,
+                                             final UnaryOperator<Map<String, Object>> mutator) {
+        synchronized (this) {
+            final Map<String, Object> updated = mutator.apply(getConfig(key));
+            if (updated != null) {
+                saveConfig(key, updated);
+            }
+            return updated;
+        }
+    }
 }

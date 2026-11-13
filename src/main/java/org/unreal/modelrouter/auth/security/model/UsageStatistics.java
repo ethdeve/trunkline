@@ -1,6 +1,7 @@
 package org.unreal.modelrouter.auth.security.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
@@ -133,6 +134,10 @@ public class UsageStatistics {
      * 获取成功率
      * @return 成功率（0-1之间的小数）
      */
+    // #811/#715：派生值不参与 JSON 往返——带 getter 无 setter 的派生属性序列化后
+    // 读回是未知字段（裸 mapper 下直接炸掉单 Key 回写），且其值可由
+    // successfulRequests/totalRequests 复原，落库纯属冗余。
+    @JsonIgnore
     public double getSuccessRate() {
         if (totalRequests == 0) {
             return 0.0;
@@ -153,7 +158,7 @@ public class UsageStatistics {
      *
      * @param success 请求是否成功
      */
-    public void incrementRequest(final boolean success) {
+    public synchronized void incrementRequest(final boolean success) {
         totalRequests++;
         if (success) {
             successfulRequests++;
@@ -193,7 +198,7 @@ public class UsageStatistics {
      *
      * @param tokens 本次请求消耗的 Token 数
      */
-    public void incrementTokens(final long tokens) {
+    public synchronized void incrementTokens(final long tokens) {
         if (tokens <= 0) {
             return;
         }
@@ -290,6 +295,8 @@ public class UsageStatistics {
      * 获取失败率
      * @return 失败率（0-1之间的小数）
      */
+    // #811/#715：派生值不参与 JSON 往返（同 getSuccessRate）。
+    @JsonIgnore
     public double getFailureRate() {
         if (totalRequests == 0) {
             return 0.0;

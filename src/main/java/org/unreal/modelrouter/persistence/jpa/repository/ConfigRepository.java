@@ -1,11 +1,14 @@
 package org.unreal.modelrouter.persistence.jpa.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.unreal.modelrouter.persistence.jpa.entity.ConfigEntity;
+;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +29,19 @@ public interface ConfigRepository extends JpaRepository<ConfigEntity, Long> {
      * 根据配置键和版本号查找
      */
     Optional<ConfigEntity> findByConfigKeyAndVersion(String configKey, Integer version);
+
+    /**
+     * #811/#715：悲观行锁读取当前配置行（仅限事务内调用）。
+     *
+     * <p>供 {@link org.unreal.modelrouter.persistence.store.StoreManager#mutateConfig}
+     * 的 JPA 实现使用：多副本共享同一 PG 时，行锁保证「读-改-写」跨 JVM 互斥，
+     * 单 Key 用量回写不被兄弟副本的整表写覆盖。H2 单进程场景由 JVM 监视器兜底。
+     * 方法名不带语义后缀（派生名不识别 ForUpdate），查询体显式声明。</p>
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM ConfigEntity c WHERE c.configKey = :configKey AND c.version = :version")
+    Optional<ConfigEntity> findByConfigKeyAndVersionForUpdate(
+            @Param("configKey") String configKey, @Param("version") Integer version);
 
     /**
      * 查找配置键的所有版本号

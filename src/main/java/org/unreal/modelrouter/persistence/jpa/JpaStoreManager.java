@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.UnaryOperator;
 
 /**
  * JPA 存储管理器
@@ -206,6 +207,41 @@ public class JpaStoreManager implements StoreManager {
     @Override
     public Map<String, Object> getLatestConfig(final String configKey) {
         return getConfig(configKey);
+    }
+
+    /**
+     * #811/#715：JPA 实现——事务 + 悲观行锁的读改写。
+     *
+     * <p>两层互斥：JVM 内按实例监视器串行（{@code synchronized}），
+     * 跨副本共享同一 PG 时由 {@code SELECT ... FOR UPDATE} 行锁互斥。
+     * 读侧用带锁查询命中 v0 当前行（迁移期无 v0 行时回退 isLatest 行，不加锁），
+     * 写侧复用 {@link #saveConfig} 的 upsert 语义。</p>
+     */
+    @Override
+    @Transactional
+    public Map<String, Object> mutateConfig(final String key, final UnaryOperator<Map<String, Object>> mutator) {
+        synchronized (this) {
+            final Map<String, Object> current = readConfigForUpdate(key);
+            final Map<String, Object> updated = mutator.apply(current);
+            if (updated != null) {
+                saveConfig(key, updated);
+            }
+            return updated;
+        }
+    }
+
+    /**
+     * 带行锁的当前值读取（仅限 {@link #mutateConfig} 的事务内调用）。
+     */
+    private Map<String, Object> readConfigForUpdate(final String key) {
+        final Optional<ConfigEntity> currentRow =
+                configRepository.findByConfigKeyAndVersionForUpdate(key, CURRENT_CONFIG_VERSION);
+        if (currentRow.isPresent()) {
+            return deserializeConfig(currentRow.get());
+        }
+        return configRepository.findFirstByConfigKeyAndIsLatestTrue(key)
+                .map(this::deserializeConfig)
+                .orElse(null);
     }
 
     private Map<String, Object> deserializeConfig(final ConfigEntity entity) {

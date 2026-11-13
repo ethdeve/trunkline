@@ -231,7 +231,9 @@ public class TokenUsageExtractor {
                         responseTimeMs,
                         extractVirtualModel(httpRequest),
                         // v3.5 Trunkline: 调用者（团队用量按此归人；缺失会导致聚合查不到）
-                        resolveCallerUser(httpRequest, apiKeyId)
+                        resolveCallerUser(httpRequest, apiKeyId),
+                        // issue #713: 计费归因——调用方未透传时回退请求属性（handler 认证后写入）
+                        apiKeyId != null ? apiKeyId : extractKeyIdFromRequest(httpRequest)
                 );
             }
 

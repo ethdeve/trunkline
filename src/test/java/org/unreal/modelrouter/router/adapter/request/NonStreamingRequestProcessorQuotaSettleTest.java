@@ -155,11 +155,11 @@ class NonStreamingRequestProcessorQuotaSettleTest {
         assertFalse(QuotaReservation.from(httpRequest).isSettled(), "未取到实际用量则不结算");
     }
 
-    // ==================== 失败路径：整笔回滚 ====================
+    // ==================== 失败路径：#719 结算收口后的中间态契约 ====================
 
     @Test
-    @DisplayName("下游 5xx：回滚整笔预留（请求数与 token 归零）")
-    void downstreamServerError_shouldRollbackReservation() {
+    @DisplayName("#719 反证：attempt 级错误不再结算（预留归属未定，防重试链漏计）")
+    void downstreamServerError_shouldNotSettleAtProcessorLevel() {
         final ServerHttpRequest httpRequest = requestWithReservation();
         final WebClient client = clientOf(jsonResponse(HttpStatus.INTERNAL_SERVER_ERROR,
             "{\"error\":\"boom\"}"));
@@ -169,15 +169,16 @@ class NonStreamingRequestProcessorQuotaSettleTest {
             .verify(java.time.Duration.ofSeconds(10));
 
         final QuotaReservation reservation = QuotaReservation.from(httpRequest);
-        assertTrue(reservation.isSettled());
-        assertTrue(reservation.isFailed(), "下游错误应按失败回滚");
-        assertEquals(0L, requestCount(QuotaWindow.MINUTE), "回滚后请求数归零");
-        assertEquals(0L, tokenCount(QuotaWindow.MINUTE), "回滚后 token 归零");
+        // #719：本 Mono 会被 BaseAdapter 重试消费，首 attempt 错误不得抢先结算；
+        // 终端结算在 ServiceRequestHandler 末端（doOnError/doOnCancel）与降级入口。
+        assertFalse(reservation.isSettled(), "attempt 级错误不得结算（重试归属未定）");
+        assertEquals(1L, requestCount(QuotaWindow.MINUTE), "预留请求数未被冲正");
+        assertEquals(ESTIMATED_TOKENS, tokenCount(QuotaWindow.MINUTE), "预留估算 token 未被冲正");
     }
 
     @Test
-    @DisplayName("传输异常：回滚整笔预留且不抛出额外异常")
-    void transportError_shouldRollbackReservation() {
+    @DisplayName("传输异常：同为中间态，不结算（终端结算归 handler/降级入口）")
+    void transportError_shouldNotSettleAtProcessorLevel() {
         final ServerHttpRequest httpRequest = requestWithReservation();
         final WebClient client = WebClient.builder()
             .exchangeFunction(ignored -> Mono.error(new IllegalStateException("下游不可用")))
@@ -188,9 +189,8 @@ class NonStreamingRequestProcessorQuotaSettleTest {
             .verify(java.time.Duration.ofSeconds(10));
 
         final QuotaReservation reservation = QuotaReservation.from(httpRequest);
-        assertTrue(reservation.isFailed());
-        assertEquals(0L, requestCount(QuotaWindow.MINUTE));
-        assertEquals(0L, tokenCount(QuotaWindow.MINUTE));
+        assertFalse(reservation.isSettled());
+        assertFalse(reservation.isFailed(), "未结算即无失败标记");
     }
 
     // ==================== 不变量 ====================

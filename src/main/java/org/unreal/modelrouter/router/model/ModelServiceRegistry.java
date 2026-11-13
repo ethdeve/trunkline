@@ -592,6 +592,27 @@ public class ModelServiceRegistry {
         circuitBreakerManager.recordFailure(instance.getInstanceId(), instance.getBaseUrl());
     }
 
+    /**
+     * issue #647：客户端侧 4xx（400/401/403/404 等，不含 408/429）完成记录。
+     *
+     * <p>一个坏请求不是实例故障，计入熔断会让连续几个 4xx 直接把健康实例熔断。
+     * 因此只经 {@code loadBalancer.recordCallComplete(..., false)} 释放/衰减在途计数，
+     * <b>不调用</b> {@code circuitBreakerManager.recordFailure}（也不调 recordSuccess）。
+     * 注意普通 {@link #recordCallComplete(ServiceType, ModelRouterProperties.ModelInstance, long, boolean)}
+     * 无条件调 recordSuccess，不能直接复用；失败统计由 AdapterMetricsRecorder 侧照记。</p>
+     */
+    public void recordClientErrorComplete(final ServiceType serviceType,
+                                          final ModelRouterProperties.ModelInstance instance,
+                                          final long durationMs) {
+        LoadBalancer loadBalancer = SelectedInstanceHolder.getLoadBalancer();
+        if (loadBalancer == null) {
+            loadBalancer = loadBalancerManager.getLoadBalancer(serviceType);
+        }
+        if (loadBalancer != null) {
+            loadBalancer.recordCallComplete(instance, durationMs, false);
+        }
+    }
+
     public CircuitBreaker.State getInstanceCircuitBreakerState(final ModelRouterProperties.ModelInstance instance) {
         return circuitBreakerManager.getState(instance.getInstanceId(), instance.getBaseUrl());
     }

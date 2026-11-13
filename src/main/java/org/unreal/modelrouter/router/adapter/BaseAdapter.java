@@ -1,7 +1,9 @@
 package org.unreal.modelrouter.router.adapter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -27,6 +29,7 @@ import org.unreal.modelrouter.router.model.ModelRouterProperties;
 import org.unreal.modelrouter.common.util.IpUtils;
 import org.unreal.modelrouter.router.fallback.FallbackStrategy;
 import org.unreal.modelrouter.router.fallback.impl.CacheFallbackStrategy;
+import org.unreal.modelrouter.auth.security.quota.QuotaReservation;
 import org.unreal.modelrouter.router.loadbalancer.SelectedInstanceHolder;
 import reactor.core.publisher.Mono;
 import org.slf4j.Logger;
@@ -249,8 +252,17 @@ public abstract class BaseAdapter implements ServiceCapability {
                     String errorCode = classifyError(throwable);
                     AdapterMetricsRecorder metricsRecorder = resilienceSupport.getMetricsRecorder();
                     if (metricsRecorder != null) {
-                        metricsRecorder.recordCompleteCall(adapterType, instanceName, duration, false,
-                                errorCode, modelName, serviceType, selectedInstance);
+                        if (RetryPolicy.isClientSide4xx(throwable)) {
+                            // #647: 客户端侧 4xx 是请求本身的问题，不得计入实例熔断失败。
+                            // 分类直接取异常状态码——classifyError 把下游异常一律归 "503" 会掩盖 4xx；
+                            // 408（超时）/429（限流）不在此列，按失败计熔断（与重试侧口径一致）。
+                            metricsRecorder.recordClientErrorCompleteCall(adapterType, instanceName, duration,
+                                    String.valueOf(RetryPolicy.statusOf(throwable)),
+                                    modelName, serviceType, selectedInstance);
+                        } else {
+                            metricsRecorder.recordCompleteCall(adapterType, instanceName, duration, false,
+                                    errorCode, modelName, serviceType, selectedInstance);
+                        }
                     }
                     // C-06：用按服务类型收敛后的实际预算（recordRetry 也用它），
                     // 与 RetryPolicy 字段里的全局默认值解耦，避免"声明重试 1 次、实际重试 3 次"。
@@ -262,6 +274,8 @@ public abstract class BaseAdapter implements ServiceCapability {
                             metricsRecorder.recordRetry(adapterType, instanceName, retryCount + 1, throwable);
                         }
                         long retryDelay = retryPolicy.calculateRetryDelay(retryCount);
+                        // #719：可重试分支绝不结算预留——错误在下次 attempt 重试，预留归属未定；
+                        // 结算收口在链末端（handler doOnError/doOnCancel 与降级入口）。
                         // v2.9.6: 请求级故障转移 — 重选实例排除已失败实例
                         failedKeys.add(instanceKey(selectedInstance));
                         ModelRouterProperties.ModelInstance nextInstance =
@@ -312,12 +326,20 @@ public abstract class BaseAdapter implements ServiceCapability {
         // 导致 strategy:cache 的内置缓存恒空、降级永远 503（形同虚设）。仅在 2xx 成功且
         // 策略确为缓存型时写入；写入键与读取键同为 requestKey，天然请求级隔离。
         Mono<ResponseEntity<?>> requestMono = rawMono.doOnSuccess(response -> {
-            if (response != null && response.getStatusCode().is2xxSuccessful()) {
+            // #892：流式响应（Publisher body / SSE）是一次性流，写入降级缓存后重放
+            // 会得到空/报错/串味的"一次性 Flux"。流式自身的 chunks 缓存由
+            // StreamingRequestProcessor 负责（含 #721 终止标记校验），此处只放行非流式。
+            if (response != null && response.getStatusCode().is2xxSuccessful()
+                    && !isStreamingResponse(response)) {
                 cacheSuccessfulResponse(serviceType, modelName, response, httpRequest);
             }
         });
         if (fallbackRequestProcessor != null) {
             return requestMono.onErrorResume(throwable -> {
+                // #719：进入降级 = 重试耗尽后的终端处置（此后不会再有 attempt），先结算失败。
+                // 缓存命中降级同理——降级响应不消耗配额（与 handler「缓存命中不消耗配额」同口径）。
+                // CAS 恰一次：降级若再抛错，handler 的 doOnError 结算会被去重。
+                QuotaReservation.settleFailure(QuotaReservation.from(httpRequest));
                 if (errorTracker != null) {
                     String adapterType = getAdapterType();
                     Map<String, Object> errorContext = new HashMap<>();
@@ -330,6 +352,8 @@ public abstract class BaseAdapter implements ServiceCapability {
             });
         }
         return requestMono.onErrorResume(throwable -> {
+            // #719：降级入口终端结算（同上）。
+            QuotaReservation.settleFailure(QuotaReservation.from(httpRequest));
             if (errorTracker != null) {
                 String adapterType = getAdapterType();
                 Map<String, Object> errorContext = new HashMap<>();
@@ -587,6 +611,22 @@ public abstract class BaseAdapter implements ServiceCapability {
         if (fallbackStrategy instanceof CacheFallbackStrategy) {
             ((CacheFallbackStrategy) fallbackStrategy).cacheResponse(serviceType, modelName, httpRequest, response);
         }
+    }
+
+    /**
+     * #892：判定响应是否为流式（不可重放）——body 为响应式 Publisher（Flux/Mono，
+     * 覆盖所有 serviceType 的流式路径），或 contentType 兼容 SSE。
+     * 包可见供反证单测直接断言契约。
+     */
+    static boolean isStreamingResponse(final ResponseEntity<?> response) {
+        if (response == null) {
+            return false;
+        }
+        if (response.getBody() instanceof Publisher) {
+            return true;
+        }
+        final MediaType contentType = response.getHeaders().getContentType();
+        return contentType != null && MediaType.TEXT_EVENT_STREAM.isCompatibleWith(contentType);
     }
 
     protected void logAdapterRetryEvent(final String adapterType,

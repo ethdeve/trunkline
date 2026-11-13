@@ -205,6 +205,52 @@ public class RetryPolicy {
     }
 
     /**
+     * issue #647：提取异常的 HTTP 状态码，供重试侧与熔断/统计侧共用同一分类口径。
+     *
+     * <p>直接按异常类型取状态，<b>不要</b>用 {@code AdapterErrorHandler.classifyError} 的
+     * errorCode 判——它把下游异常一律归 "503"，会掩盖真实的 4xx。
+     * 包装异常沿 cause 链向下找（最多 5 层）；取不到返回 {@code -1}（按普通失败处理）。</p>
+     *
+     * @param error 异常，可为 {@code null}
+     * @return HTTP 状态码；未知时 {@code -1}
+     */
+    public static int statusOf(final Throwable error) {
+        Throwable current = error;
+        for (int depth = 0; current != null && depth < 5; depth++) {
+            if (current instanceof org.springframework.web.reactive.function.client.WebClientResponseException ex) {
+                return ex.getStatusCode().value();
+            }
+            if (current instanceof org.springframework.web.server.ResponseStatusException ex) {
+                return ex.getStatusCode().value();
+            }
+            if (current instanceof org.springframework.web.client.HttpClientErrorException ex) {
+                return ex.getStatusCode().value();
+            }
+            if (current instanceof org.unreal.modelrouter.common.exception.DownstreamServiceException ex
+                    && ex.getStatusCode() != null) {
+                return ex.getStatusCode().value();
+            }
+            current = current.getCause();
+        }
+        return -1;
+    }
+
+    /**
+     * issue #647：是否「客户端侧 4xx」——请求本身的问题，不应计入实例熔断失败。
+     *
+     * <p>400~499 且排除 408/429：408 请求超时、429 上游限流都按失败计熔断，
+     * 与重试侧 {@link #isRetryableStatus(int)} 口径一致（可重试状态必属失败）。
+     * 5xx、连接/超时异常、未知异常一律不是客户端错误。</p>
+     *
+     * @param error 异常，可为 {@code null}
+     * @return 是否客户端侧 4xx
+     */
+    public static boolean isClientSide4xx(final Throwable error) {
+        final int status = statusOf(error);
+        return status >= 400 && status < 500 && !isRetryableStatus(status);
+    }
+
+    /**
      * 获取最大重试次数
      */
     public int getMaxRetries() {

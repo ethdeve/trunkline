@@ -288,6 +288,25 @@ public class AdapterMetricsRecorder {
     }
 
     /**
+     * issue #647: 记录客户端侧 4xx 到服务注册——只释放在途计数，不触发实例熔断。
+     */
+    public void recordClientErrorToRegistry(
+            final ModelServiceRegistry.ServiceType serviceType,
+            final ModelRouterProperties.ModelInstance instance,
+            final long durationMs,
+            final String errorCode) {
+
+        if (registry != null && serviceType != null && instance != null) {
+            registry.recordClientErrorComplete(serviceType, instance, durationMs);
+        }
+
+        if (log.isDebugEnabled()) {
+            log.debug("记录客户端错误（不计熔断）：service={}, instance={}, duration={}ms, errorCode={}",
+                    serviceType, instance.getName(), durationMs, errorCode);
+        }
+    }
+
+    /**
      * 完整的调用成功记录（统一入口，不含请求/响应体）
      * 
      * 同时更新：Registry + MetricsCollector + StatsRepository
@@ -403,9 +422,49 @@ public class AdapterMetricsRecorder {
             final String requestBody,
             final String responseBody,
             final String traceId) {
+        recordCompleteCallInternal(adapterType, instanceId, durationMs, success, errorCode,
+                modelName, serviceType, instance, requestBody, responseBody, traceId, false);
+    }
+
+    /**
+     * issue #647：客户端侧 4xx 的完整调用记录（含调用历史）。
+     *
+     * <p>与普通 {@code recordCompleteCall(..., success=false)} 的差别只在 Registry：
+     * 走 {@code registry.recordClientErrorComplete} 释放在途但不触发熔断失败；
+     * MetricsCollector / StatsRepository / 调用历史照常记录 4xx，避免观测面丢数据。</p>
+     *
+     * @param errorCode 真实 4xx 状态码字符串（调用方从异常提取，不用 classifyError 的 "503"）
+     */
+    public void recordClientErrorCompleteCall(
+            final String adapterType,
+            final String instanceId,
+            final long durationMs,
+            final String errorCode,
+            final String modelName,
+            final ModelServiceRegistry.ServiceType serviceType,
+            final ModelRouterProperties.ModelInstance instance) {
+        recordCompleteCallInternal(adapterType, instanceId, durationMs, false, errorCode,
+                modelName, serviceType, instance, null, null,
+                TracingContextHolder.getCurrentTraceId(), true);
+    }
+
+    private void recordCompleteCallInternal(
+            final String adapterType,
+            final String instanceId,
+            final long durationMs,
+            final boolean success,
+            final String errorCode,
+            final String modelName,
+            final ModelServiceRegistry.ServiceType serviceType,
+            final ModelRouterProperties.ModelInstance instance,
+            final String requestBody,
+            final String responseBody,
+            final String traceId,
+            final boolean clientSideError) {
 
         // v2.9.2: 统计更新（Registry + MetricsCollector + StatsRepository）
-        recordStats(adapterType, instanceId, durationMs, success, errorCode, modelName, serviceType, instance);
+        recordStats(adapterType, instanceId, durationMs, success, errorCode,
+                modelName, serviceType, instance, clientSideError);
 
         // v2.7.8: 记录 API 调用历史（v2.9.2: 含请求/响应体）
         // G1 修复：落库触发与"是否携带报文"解耦。此前在 METADATA_ONLY 下把 requestBody/responseBody 置为 null，
@@ -470,10 +529,32 @@ public class AdapterMetricsRecorder {
             final String modelName,
             final ModelServiceRegistry.ServiceType serviceType,
             final ModelRouterProperties.ModelInstance instance) {
+        recordStats(adapterType, instanceId, durationMs, success, errorCode,
+                modelName, serviceType, instance, false);
+    }
+
+    /**
+     * 更新统计（Registry + MetricsCollector + StatsRepository）。
+     *
+     * @param clientSideError 是否客户端侧 4xx（issue #647）：为 true 时 Registry 侧
+     *                        只释放在途、不记熔断失败；其余观测面与常规失败一致
+     */
+    private void recordStats(
+            final String adapterType,
+            final String instanceId,
+            final long durationMs,
+            final boolean success,
+            final String errorCode,
+            final String modelName,
+            final ModelServiceRegistry.ServiceType serviceType,
+            final ModelRouterProperties.ModelInstance instance,
+            final boolean clientSideError) {
 
         // 更新 Registry（v2.9.3: 传递 durationMs 到负载均衡器钩子）
         if (success) {
             recordCallSuccessToRegistry(serviceType, instance, durationMs, success);
+        } else if (clientSideError) {
+            recordClientErrorToRegistry(serviceType, instance, durationMs, errorCode);
         } else {
             recordCallFailureToRegistry(serviceType, instance, durationMs, errorCode);
         }

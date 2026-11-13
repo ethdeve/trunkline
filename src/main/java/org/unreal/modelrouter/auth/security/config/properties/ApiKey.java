@@ -365,6 +365,8 @@ public class ApiKey {
      *
      * @return 是否超限
      */
+    // #811/#715：派生判定值不参与 JSON 往返（无 setter，序列化后读回即未知字段）。
+    @JsonIgnore
     public boolean isDailyLimitExceeded() {
         if (dailyRequestLimit <= 0) {
             return false;
@@ -382,6 +384,7 @@ public class ApiKey {
      *
      * @return 是否超限
      */
+    @JsonIgnore
     public boolean isDailyTokenLimitExceeded() {
         if (dailyTokenLimit <= 0) {
             return false;
@@ -423,6 +426,7 @@ public class ApiKey {
      *
      * @return 是否超限
      */
+    @JsonIgnore
     public boolean isHourlyRequestLimitExceeded() {
         if (hourlyRequestLimit <= 0) {
             return false;
@@ -442,6 +446,7 @@ public class ApiKey {
      *
      * @return 是否超限
      */
+    @JsonIgnore
     public boolean isHourlyTokenLimitExceeded() {
         if (hourlyTokenLimit <= 0) {
             return false;
@@ -461,6 +466,7 @@ public class ApiKey {
      *
      * @return 是否超限
      */
+    @JsonIgnore
     public boolean isMonthlyRequestLimitExceeded() {
         if (monthlyRequestLimit <= 0) {
             return false;
@@ -480,6 +486,7 @@ public class ApiKey {
      *
      * @return 是否超限
      */
+    @JsonIgnore
     public boolean isMonthlyTokenLimitExceeded() {
         if (monthlyTokenLimit <= 0) {
             return false;
@@ -492,6 +499,7 @@ public class ApiKey {
      *
      * @return 当前自然小时窗口内的请求数
      */
+    @JsonIgnore
     public long getCurrentHourRequestCount() {
         if (usage == null || usage.getHourlyUsage() == null) {
             return 0L;
@@ -504,6 +512,7 @@ public class ApiKey {
      *
      * @return 当前自然小时窗口内的 Token 数
      */
+    @JsonIgnore
     public long getCurrentHourTokenUsage() {
         if (usage == null || usage.getHourlyTokenUsage() == null) {
             return 0L;
@@ -516,6 +525,7 @@ public class ApiKey {
      *
      * @return 当前自然月窗口内的请求数
      */
+    @JsonIgnore
     public long getCurrentMonthRequestCount() {
         if (usage == null || usage.getMonthlyUsage() == null) {
             return 0L;
@@ -528,6 +538,7 @@ public class ApiKey {
      *
      * @return 当前自然月窗口内的 Token 数
      */
+    @JsonIgnore
     public long getCurrentMonthTokenUsage() {
         if (usage == null || usage.getMonthlyTokenUsage() == null) {
             return 0L;
@@ -540,6 +551,7 @@ public class ApiKey {
      *
      * @return 今日 Token 使用量
      */
+    @JsonIgnore
     public long getTodayTokenUsage() {
         if (usage == null || usage.getDailyTokenUsage() == null) {
             return 0L;
@@ -553,6 +565,7 @@ public class ApiKey {
      *
      * @return 今日请求数
      */
+    @JsonIgnore
     public long getTodayRequestCount() {
         if (usage == null || usage.getDailyUsage() == null) {
             return 0L;
@@ -566,6 +579,7 @@ public class ApiKey {
      *
      * @return 是否需要告警
      */
+    @JsonIgnore
     public boolean isQuotaAlertTriggered() {
         if (quotaAlertThreshold <= 0 || quotaAlertThreshold >= 1.0) {
             return false;

@@ -424,12 +424,14 @@ class ApiKeyServiceTest {
 
         @Test
         @DisplayName("更新使用统计 - 成功请求增加计数")
-        void updateUsageStatistics_Success_Increment() {
+        void updateUsageStatistics_Success_Increment() throws Exception {
+            // #811/#715：高频写入走冻结快照 + 单 Key 回写，序列化需真实产出 JSON
+            when(objectMapper.writeValueAsString(any())).thenReturn("{}");
             apiKeyService.updateUsageStatistics("test-key-id", true);
 
             assertEquals(1L, testApiKey.getUsage().getSuccessfulRequests());
             assertEquals(1L, testApiKey.getUsage().getTotalRequests());
-            verify(apiKeyPersistenceService).saveApiKeysToStore(any(Map.class));
+            verify(apiKeyPersistenceService).saveSingleApiKeyToStore(anyString(), anyString());
         }
 
         @Test
@@ -488,11 +490,17 @@ class ApiKeyServiceTest {
             java.util.concurrent.atomic.AtomicReference<String> callerThread =
                     new java.util.concurrent.atomic.AtomicReference<>();
             java.util.concurrent.CountDownLatch saved = new java.util.concurrent.CountDownLatch(1);
+            try {
+                when(objectMapper.writeValueAsString(any())).thenReturn("{}");
+            } catch (Exception ignored) {
+                // mock 存根，不会抛出
+            }
+            // #811/#715：高频写入已改为单 Key 原子回写，线程语义捕获点随之切换
             doAnswer(invocation -> {
                 saveThread.set(Thread.currentThread().getName());
                 saved.countDown();
                 return null;
-            }).when(apiKeyPersistenceService).saveApiKeysToStore(any(Map.class));
+            }).when(apiKeyPersistenceService).saveSingleApiKeyToStore(anyString(), anyString());
 
             // EventLoop 语义：在 Reactor 非阻塞线程（Schedulers.parallel）上调用
             StepVerifier.create(Mono.fromRunnable(() -> {

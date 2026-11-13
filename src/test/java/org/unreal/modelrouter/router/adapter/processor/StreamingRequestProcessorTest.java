@@ -22,6 +22,7 @@ import org.unreal.modelrouter.router.cache.ResponseCacheService;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -525,6 +526,58 @@ class StreamingRequestProcessorTest {
             method.invoke(processor, chunk, finishReasonRef);
 
             assertNull(finishReasonRef.get());
+        }
+    }
+
+    @Nested
+    @DisplayName("#721: 流式终止标记置位（截断流不写缓存的前置判定）")
+    class TerminalSeenTests {
+
+        private void invokeExtract(final String chunk, final AtomicBoolean terminalSeen) throws Exception {
+            var method = StreamingRequestProcessor.class.getDeclaredMethod(
+                    "extractFinishReason", String.class, AtomicReference.class, AtomicBoolean.class);
+            method.setAccessible(true);
+            method.invoke(processor, chunk, new AtomicReference<>(null), terminalSeen);
+        }
+
+        @Test
+        @DisplayName("[DONE] 帧置位终止标记（反证：原实现直接 return 不置位）")
+        void doneFrameMarksTerminal() throws Exception {
+            AtomicBoolean terminalSeen = new AtomicBoolean(false);
+            invokeExtract("data: [DONE]", terminalSeen);
+            assertTrue(terminalSeen.get());
+        }
+
+        @Test
+        @DisplayName("finish_reason 帧置位终止标记")
+        void finishReasonMarksTerminal() throws Exception {
+            AtomicBoolean terminalSeen = new AtomicBoolean(false);
+            invokeExtract("{\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}", terminalSeen);
+            assertTrue(terminalSeen.get());
+        }
+
+        @Test
+        @DisplayName("Anthropic event: message_stop 事件行置位（先于 JSON 解析，不被 catch 吞掉）")
+        void anthropicEventLineMarksTerminal() throws Exception {
+            AtomicBoolean terminalSeen = new AtomicBoolean(false);
+            invokeExtract("event: message_stop", terminalSeen);
+            assertTrue(terminalSeen.get());
+        }
+
+        @Test
+        @DisplayName("Anthropic data 形态 {\"type\":\"message_stop\"} 置位")
+        void anthropicDataMessageStopMarksTerminal() throws Exception {
+            AtomicBoolean terminalSeen = new AtomicBoolean(false);
+            invokeExtract("data: {\"type\":\"message_stop\"}", terminalSeen);
+            assertTrue(terminalSeen.get());
+        }
+
+        @Test
+        @DisplayName("普通内容块不置位——截断流判定核心：无标记的 onComplete 不写缓存")
+        void plainContentChunkDoesNotMarkTerminal() throws Exception {
+            AtomicBoolean terminalSeen = new AtomicBoolean(false);
+            invokeExtract("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}", terminalSeen);
+            assertFalse(terminalSeen.get());
         }
     }
 

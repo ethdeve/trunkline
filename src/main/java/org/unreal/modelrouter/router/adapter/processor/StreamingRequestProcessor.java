@@ -279,6 +279,11 @@ public class StreamingRequestProcessor {
         // 「先补协议 error 帧再终止」（已产出，此时 200 已提交，状态已无法更改）。
         final AtomicBoolean firstChunkEmitted = new AtomicBoolean(false);
 
+        // #721：是否见过协议终止标记（OpenAI [DONE] / finish_reason / Anthropic message_stop）。
+        // 下游提前断开 body 时 WebFlux 同样会正常 onComplete——无终止标记的"完整成功"
+        // 实为截断流，把残缺内容写进缓存会污染后续同键请求。
+        final AtomicBoolean terminalSeen = new AtomicBoolean(false);
+
         // v2.9.10: 流式缓存写 — 仅缓存键存在时收集变换后块与 finish_reason
         final List<String> transformedChunks = (cacheKeyForWrite != null) ? new ArrayList<>() : null;
         final AtomicReference<String> finishReasonRef = (cacheKeyForWrite != null)
@@ -332,9 +337,9 @@ public class StreamingRequestProcessor {
                             contentTruncated.set(true);
                         }
                     }
-                    // v2.9.10: 提取 finish_reason 用于流式缓存
+                    // v2.9.10: 提取 finish_reason 用于流式缓存；#721: 同步记录终止标记
                     if (cacheKeyForWrite != null) {
-                        extractFinishReason(chunk, finishReasonRef);
+                        extractFinishReason(chunk, finishReasonRef, terminalSeen);
                     }
                     ServerSentEvent<String> sse = transformAndWrapChunk(chunk, transformChunkFn);
                     // v2.9.10: 收集变换后 data 串用于流式缓存（v3.2.3: 受缓存字符预算约束）
@@ -369,7 +374,11 @@ public class StreamingRequestProcessor {
                     // v3.2.3 (#127): 超出缓存预算的响应不缓存
                     if (cacheKeyForWrite != null && responseCacheService != null
                             && transformedChunks != null && !transformedChunks.isEmpty()
-                            && !cacheOverBudget.get()) {
+                            && !cacheOverBudget.get()
+                            // #721：仅当流以协议终止标记收尾才写缓存——下游提前断开也会
+                            // 正常触发 doOnComplete，无标记即截断流，缓存残缺内容会污染
+                            // 后续同键请求。保守代价：不发终止标记的厂商其流不再被缓存。
+                            && terminalSeen.get()) {
                         final List<String> chunksToCache;
                         synchronized (transformedChunks) {
                             chunksToCache = List.copyOf(transformedChunks);
@@ -456,12 +465,18 @@ public class StreamingRequestProcessor {
                     releaseAccumulation(contentBuilder, transformedChunks);
                     recordStreamingError(serviceType, adapterType, instanceName,
                             requestStartTime, throwable);
-                    // v3.1 PR-2: 流式中断/异常 — 回滚整笔配额预留
+                    // #719：此处结算为「终端结算」而非 attempt 级——body 已在 200 响应内提交，
+                    // BaseAdapter 的重试只覆盖 ResponseEntity 发出前的错误，body 信号（错误/取消）
+                    // 不再有任何重试跟随，且 handler 层观测不到 body 级信号；删除会把流中失败
+                    // 与客户端断连的预留永久泄漏（残量直到窗口滚动才自愈）。保留恰一次 CAS。
                     QuotaReservation.settleFailure(quotaReservation);
                 })
                 .doOnCancel(() -> {
                     // v3.2.3 (#126/#127): 同样释放累积缓冲（cancel 不与 onNext 串行，须持锁）
                     releaseAccumulation(contentBuilder, transformedChunks);
+                    // #719：body 级取消（客户端断连）是终端处置，同上保留结算。
+                    // 「重试中取消」发生在 ResponseEntity 发出前，不会进入本钩子，
+                    // 由 ServiceRequestHandler 末端的 doOnCancel 结算。
                     QuotaReservation.settleFailure(quotaReservation);
                 })
                 // 摘自上游 v3.2.x (#257)：/v1 OpenAI 面在失败时先补一个协议形状 error 帧、再以异常终止
@@ -740,7 +755,8 @@ public class StreamingRequestProcessor {
                         null, // errorMessage
                         responseTimeMs, // P1-4: 流式耗时透传,供平均响应时间统计
                         virtualModel, // v3.5 Trunkline: 请求命中的虚拟模型（模型分组）
-                        resolveCallerUser(httpRequest, apiKeyId) // v3.5 Trunkline: 调用者（团队用量按此归人）
+                        resolveCallerUser(httpRequest, apiKeyId), // v3.5 Trunkline: 调用者（团队用量按此归人）
+                        apiKeyId // issue #713: 计费归因——按 Key 统计的归属依据
                 );
 
                 // 更新 API Key 的每日 Token 使用量配额
@@ -968,26 +984,57 @@ public class StreamingRequestProcessor {
      * @param finishReasonRef finish_reason 累积引用（最后非 null 值生效）
      */
     private void extractFinishReason(final String chunk, final AtomicReference<String> finishReasonRef) {
+        // #721：保留两参签名（既有反射测试锁定），委托三参重载（terminalSeen=null 不置位）。
+        extractFinishReason(chunk, finishReasonRef, null);
+    }
+
+    /**
+     * #721：三参重载——提取 finish_reason 的同时记录协议终止标记。
+     * 覆盖三种协议形态：OpenAI {@code [DONE]} / {@code choices[0].finish_reason}、
+     * Anthropic {@code event: message_stop}（独立 event 行，data 行可能缺席）
+     * 与 {@code {"type":"message_stop"}}。
+     */
+    private void extractFinishReason(final String chunk, final AtomicReference<String> finishReasonRef,
+            final AtomicBoolean terminalSeen) {
         try {
             String jsonPart = chunk;
             if (chunk.startsWith("data: ")) {
                 jsonPart = chunk.substring(6);
             }
             if ("[DONE]".equals(jsonPart.trim())) {
+                // #721：[DONE] 是 OpenAI 协议终止帧——先置位再返回（原实现直接 return 不置位）。
+                markTerminal(terminalSeen);
                 return;
             }
+            // #721：Anthropic SSE 事件行独立成块（"event: message_stop"），必须先于 readTree
+            // 识别，否则解析失败被 catch 吞掉、终止标记丢失。
+            if (chunk.contains("event: message_stop")) {
+                markTerminal(terminalSeen);
+            }
             JsonNode jsonNode = objectMapper.readTree(jsonPart);
+            // #721：Anthropic 事件 data 形态 {"type":"message_stop"}
+            if ("message_stop".equals(jsonNode.path("type").asText())) {
+                markTerminal(terminalSeen);
+            }
             if (jsonNode.has("choices")) {
                 JsonNode choices = jsonNode.get("choices");
                 if (choices.isArray() && !choices.isEmpty()) {
                     JsonNode choice = choices.get(0);
                     if (choice.has("finish_reason") && !choice.get("finish_reason").isNull()) {
                         finishReasonRef.set(choice.get("finish_reason").asText());
+                        // #721：finish_reason 到达即终止
+                        markTerminal(terminalSeen);
                     }
                 }
             }
         } catch (Exception e) {
             logger.trace("Failed to extract finish_reason from chunk: {}", e.getMessage());
+        }
+    }
+
+    private static void markTerminal(final AtomicBoolean terminalSeen) {
+        if (terminalSeen != null) {
+            terminalSeen.set(true);
         }
     }
 

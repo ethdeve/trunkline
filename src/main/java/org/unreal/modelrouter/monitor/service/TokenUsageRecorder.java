@@ -157,20 +157,57 @@ public class TokenUsageRecorder {
             final Long responseTimeMs,
             final String virtualModel,
             final String userId) {
+        recordTokenUsageNoAuth(serviceType, modelName, provider, instanceName, instanceUrl,
+                promptTokens, completionTokens, totalTokens, traceId, clientIp,
+                isSuccess, errorCode, errorMessage, responseTimeMs, virtualModel, userId, null);
+    }
+
+    /**
+     * 执行 Token 使用量记录（无用户认证，全量归因字段）。
+     *
+     * <p>v3.5 Trunkline（issue #713）：{@code apiKeyId} 记录命中的 API Key，
+     * 是「按 Key 计费归因」的依据——此前本链路构造 DTO 未写 {@code apiKeyId}，
+     * {@code token_usage.api_key_id} 恒 NULL。控制台 JWT 登录态没有 API Key，
+     * 传 {@code null} 是正确语义（勿用用户名顶替）。</p>
+     *
+     * @param virtualModel 请求命中的虚拟模型（模型分组 / 池名），可为 {@code null}
+     * @param userId       调用者（JWT 用户名 / 密钥持有人），可为 {@code null}（未知调用方）
+     * @param apiKeyId     命中的 API Key ID，可为 {@code null}（无密钥调用）
+     */
+    public void recordTokenUsageNoAuth(
+            final String serviceType,
+            final String modelName,
+            final String provider,
+            final String instanceName,
+            final String instanceUrl,
+            final Long promptTokens,
+            final Long completionTokens,
+            final Long totalTokens,
+            final String traceId,
+            final String clientIp,
+            final Boolean isSuccess,
+            final String errorCode,
+            final String errorMessage,
+            final Long responseTimeMs,
+            final String virtualModel,
+            final String userId,
+            final String apiKeyId) {
 
         // 阻塞 JPA 写入不得阻塞 EventLoop（issue #115）
         if (Schedulers.isInNonBlockingThread()) {
             Schedulers.boundedElastic().schedule(() -> doRecordTokenUsageWithClientIp(
                 serviceType, modelName, provider, instanceName, instanceUrl,
                 promptTokens, completionTokens, totalTokens, traceId,
-                clientIp, userId, isSuccess, errorCode, errorMessage, responseTimeMs, virtualModel
+                clientIp, userId, isSuccess, errorCode, errorMessage, responseTimeMs, virtualModel,
+                apiKeyId
             ));
             return;
         }
         doRecordTokenUsageWithClientIp(
             serviceType, modelName, provider, instanceName, instanceUrl,
             promptTokens, completionTokens, totalTokens, traceId,
-            clientIp, userId, isSuccess, errorCode, errorMessage, responseTimeMs, virtualModel
+            clientIp, userId, isSuccess, errorCode, errorMessage, responseTimeMs, virtualModel,
+            apiKeyId
         );
     }
 
@@ -239,7 +276,8 @@ public class TokenUsageRecorder {
             final String errorCode,
             final String errorMessage,
             final Long responseTimeMs,
-            final String virtualModel) {
+            final String virtualModel,
+            final String apiKeyId) {
 
         try {
             TokenUsageRecordDTO record = TokenUsageRecordDTO.builder()
@@ -255,6 +293,8 @@ public class TokenUsageRecorder {
                     .clientIp(clientIp)
                     .userId(userId)
                     .virtualModel(virtualModel)
+                    // issue #713: 计费归因——按 Key 统计的归属依据
+                    .apiKeyId(apiKeyId)
                     .isSuccess(isSuccess)
                     .errorCode(errorCode)
                     .errorMessage(errorMessage)

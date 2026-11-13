@@ -7,7 +7,11 @@ import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.unreal.modelrouter.persistence.jpa.entity.ExceptionEventEntity;
 import org.unreal.modelrouter.persistence.jpa.entity.ExceptionStatsHourlyEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.ExceptionEventRepository;
@@ -41,6 +45,15 @@ public class ExceptionPersistenceService {
     private final ObjectMapper objectMapper;
     private final ErrorCodeResolver errorCodeResolver;
 
+    /**
+     * 事务管理器：{@code this::} 定时任务与类内自调用不走 AOP 代理，
+     * 必须用它构造 TransactionTemplate 显式开启事务（issue #857）。
+     */
+    private final PlatformTransactionManager transactionManager;
+
+    /** 由 init() 初始化；TransactionTemplate 无状态，未初始化时按需创建 */
+    private TransactionTemplate transactionTemplate;
+
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -58,12 +71,14 @@ public class ExceptionPersistenceService {
      */
     @jakarta.annotation.PostConstruct
     public void init() {
-        // 每 5 分钟将缓存的小时统计数据写入数据库
-        scheduler.scheduleAtFixedRate(this::flushHourlyStatsToDatabase, 5, 5, TimeUnit.MINUTES);
-        
-        // 每小时清理一次聚合缓存
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+
+        // 每 5 分钟将缓存的小时统计数据写入数据库（自调用，走显式事务入口）
+        scheduler.scheduleAtFixedRate(this::flushHourlyStatsSafely, 5, 5, TimeUnit.MINUTES);
+
+        // 每小时清理一次聚合缓存（纯内存清理，不涉及 DB 写，无需事务）
         scheduler.scheduleAtFixedRate(this::cleanupAggregationCache, 1, 1, TimeUnit.HOURS);
-        
+
         log.info("ExceptionPersistenceService 定时任务已启动");
     }
 
@@ -233,33 +248,68 @@ public class ExceptionPersistenceService {
     }
 
     /**
-     * 将小时统计数据刷新到数据库
+     * 将小时统计数据刷新到数据库（供跨 Bean 代理调用；类内自调用请用 {@link #flushHourlyStatsSafely()}）。
      */
     @Transactional
     public void flushHourlyStatsToDatabase() {
+        doFlushHourlyStats();
+    }
+
+    /**
+     * 定时任务与关闭钩子的安全入口（issue #857）。
+     *
+     * <p>{@code this::} 与类内自调用绑定的是原始对象而非 AOP 代理，注解式事务不会生效，
+     * 无事务时 {@code entityManager.merge} 要么抛 TransactionRequiredException，要么静默不落库。
+     * 这里用 TransactionTemplate 显式开启事务；外层兜底日志位于事务之外，
+     * 既让异常触发整体回滚，也避免异常终止 scheduleAtFixedRate 的后续调度。</p>
+     */
+    public void flushHourlyStatsSafely() {
+        // 空缓存直接返回，避免每 5 分钟空转一个事务（此刻并发新增的条目留到下一轮，无数据丢失）
+        if (hourlyStatsCache.isEmpty()) {
+            return;
+        }
         try {
-            if (hourlyStatsCache.isEmpty()) {
-                return;
-            }
-
-            log.info("开始刷新小时统计数据到数据库，缓存大小：{}", hourlyStatsCache.size());
-
-            for (ExceptionStatsHourlyEntity stats : hourlyStatsCache.values()) {
-                try {
-                    // 这里使用简单的保存策略，实际生产环境可能需要使用 ON DUPLICATE KEY UPDATE
-                    // 由于是小时统计，可以直接保存新记录，查询时聚合
-                    entityManager.merge(stats);
-                } catch (Exception e) {
-                    log.warn("保存小时统计失败：{}", e.getMessage());
-                }
-            }
-
-            // 清空缓存
-            hourlyStatsCache.clear();
-            log.info("小时统计数据刷新完成");
-
+            transactionTemplate().executeWithoutResult(status -> doFlushHourlyStats());
         } catch (Exception e) {
-            log.error("刷新小时统计数据失败：{}", e.getMessage(), e);
+            // 事务已回滚、缓存仍保留，下一轮定时刷新会重试；@PreDestroy 阶段 tm 可能已关闭，同样在此兜底
+            log.error("刷新小时统计数据失败（已回滚，缓存保留待重试）：{}", e.getMessage(), e);
+        }
+    }
+
+    private TransactionTemplate transactionTemplate() {
+        // init() 未执行时（如直接单测调用）也能拿到模板；模板无状态，重复创建无副作用
+        return transactionTemplate != null ? transactionTemplate : new TransactionTemplate(transactionManager);
+    }
+
+    /**
+     * 实际刷新逻辑：不吞异常，保证失败时事务整体回滚。
+     * 缓存清理注册在 afterCommit，回滚时保留内存数据；且按快照逐条比对移除，
+     * 不会清掉刷新期间由 persistException 并发新增的统计。
+     */
+    private void doFlushHourlyStats() {
+        if (hourlyStatsCache.isEmpty()) {
+            return;
+        }
+
+        Map<String, ExceptionStatsHourlyEntity> snapshot = new HashMap<>(hourlyStatsCache);
+        log.info("开始刷新小时统计数据到数据库，缓存大小：{}", snapshot.size());
+
+        // 这里使用简单的保存策略，查询时按小时聚合；不再逐条 catch，任一条失败即整体回滚
+        for (ExceptionStatsHourlyEntity stats : snapshot.values()) {
+            entityManager.merge(stats);
+        }
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    snapshot.forEach((key, value) -> hourlyStatsCache.remove(key, value));
+                    log.info("小时统计数据刷新完成，提交后清理 {} 条缓存", snapshot.size());
+                }
+            });
+        } else {
+            // 正常链路不可达；保守起见不清缓存，宁可下次重复 merge 也不丢数据
+            log.warn("无事务同步上下文，小时统计缓存保留待下次刷新重试");
         }
     }
 
@@ -391,8 +441,8 @@ public class ExceptionPersistenceService {
     @jakarta.annotation.PreDestroy
     public void shutdown() {
         try {
-            // 刷新剩余数据
-            flushHourlyStatsToDatabase();
+            // 刷新剩余数据：自调用不走代理，必须走显式事务入口
+            flushHourlyStatsSafely();
             
             // 关闭调度器
             scheduler.shutdown();

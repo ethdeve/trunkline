@@ -50,6 +50,8 @@ public class ApiKeyService {
     private final Map<String, ApiKey> apiKeyCache = new ConcurrentHashMap<>();
     private final Map<String, String> keyIdIndex = new ConcurrentHashMap<>();
     private final SecurityProperties securityProperties;
+    /** #811/#715：用量冻结快照的序列化器（per-Key 锁内使用） */
+    private final ObjectMapper objectMapper;
 
     /** 是否定期从共享存储刷新本副本 API Key 缓存（#162） */
     @Value("${trunkline.security.api-key.cache-refresh-enabled:true}")
@@ -83,6 +85,7 @@ public class ApiKeyService {
     @Autowired
     public ApiKeyService(@Qualifier("jpaStoreManager") StoreManager sm,
                          ObjectMapper om, SecurityProperties sp) {
+        this.objectMapper = om;
         this.securityProperties = sp;
     }
 
@@ -726,20 +729,46 @@ public class ApiKeyService {
         if (kh == null) { log.warn("API Key不存在: {}", kid); return; }
         ApiKey ak = apiKeyCache.get(kh);
         if (ak == null) { log.warn("API Key不存在: {}", kid); return; }
-        if (ak.getUsage() == null) {
-            ak.setUsage(UsageStatistics.builder()
-                    .dailyUsage(new HashMap<>())
-                    .dailyTokenUsage(new HashMap<>())
-                    .hourlyUsage(new HashMap<>())
-                    .hourlyTokenUsage(new HashMap<>())
-                    .monthlyUsage(new HashMap<>())
-                    .monthlyTokenUsage(new HashMap<>())
-                    .totalRequests(0L).successfulRequests(0L).failedRequests(0L)
-                    .build());
+        // #811/#715：per-Key 锁内「改内存 → 冻结快照 → 单 Key 原子回写」。
+        // 回写必须也在锁内——否则同 Key 并发更新时，回写顺序可能与冻结顺序颠倒，
+        // 陈旧快照会覆盖新快照。锁序恒为 ak → storeManager，无反向获取，无死锁环。
+        synchronized (ak) {
+            if (ak.getUsage() == null) {
+                ak.setUsage(UsageStatistics.builder()
+                        .dailyUsage(new HashMap<>())
+                        .dailyTokenUsage(new HashMap<>())
+                        .hourlyUsage(new HashMap<>())
+                        .hourlyTokenUsage(new HashMap<>())
+                        .monthlyUsage(new HashMap<>())
+                        .monthlyTokenUsage(new HashMap<>())
+                        .totalRequests(0L).successfulRequests(0L).failedRequests(0L)
+                        .build());
+            }
+            ak.getUsage().incrementRequest(succ);
+            final String frozenJson = freezeUsageSnapshot(ak);
+            if (frozenJson != null) {
+                apiKeyPersistenceService.saveSingleApiKeyToStore(kh, frozenJson);
+            }
         }
-        UsageStatistics st = ak.getUsage(); st.incrementRequest(succ);
-        apiKeyPersistenceService.saveApiKeysToStore(apiKeyCache);
         log.debug("更新API Key使用统计: {} (成功: {})", kid, succ);
+    }
+
+    /**
+     * #811/#715：在 per-Key 锁内把 ApiKey 序列化为不可变 JSON 快照。
+     *
+     * <p>失败时返回 {@code null}（调用方跳过本次回写，下次用量更新会带上累计值补写）——
+     * 用量统计丢失一次增量远好于撕裂 JSON 或回写中间态。</p>
+     *
+     * @param ak 已在锁内的 ApiKey
+     * @return 冻结 JSON；序列化失败返回 {@code null}
+     */
+    private String freezeUsageSnapshot(ApiKey ak) {
+        try {
+            return objectMapper.writeValueAsString(ak);
+        } catch (Exception e) {
+            log.warn("冻结用量快照失败，跳过本次回写: {}", e.getMessage());
+            return null;
+        }
     }
 
     /**
@@ -781,8 +810,14 @@ public class ApiKeyService {
             log.warn("API Key或usage不存在: {}", kid);
             return;
         }
-        ak.getUsage().incrementTokens(tokens);
-        apiKeyPersistenceService.saveApiKeysToStore(apiKeyCache);
+        // #811/#715：per-Key 锁内「改内存 → 冻结快照 → 单 Key 原子回写」（同 doUpdateUsageStatistics）。
+        synchronized (ak) {
+            ak.getUsage().incrementTokens(tokens);
+            final String frozenJson = freezeUsageSnapshot(ak);
+            if (frozenJson != null) {
+                apiKeyPersistenceService.saveSingleApiKeyToStore(kh, frozenJson);
+            }
+        }
         log.debug("更新API Key Token使用量: {} (tokens: {})", kid, tokens);
     }
 

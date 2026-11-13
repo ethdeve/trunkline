@@ -189,7 +189,11 @@ public class NonStreamingRequestProcessor {
         }
 
         // 4. 根据响应类型处理
-        // v3.1 PR-2: 失败/取消时回滚配额预留（成功路径由 token 落库点结算，凭据保证恰一次）
+        // #719：attempt 级结算已删除——本 Mono 会被 BaseAdapter 的重试/故障转移消费，
+        // 首次可重试错误在此结算（CAS 置 settled=true）会导致后续 attempt 成功时
+        // settleSuccess 被 CAS 拒绝、账本漏计。结算收口到整条链末端：
+        // 成功 → token 落库点（TokenUsageExtractor）；最终失败/取消 → ServiceRequestHandler
+        // 末端的 doOnError/doOnCancel；重试耗尽转入降级 → BaseAdapter 降级入口。
         Mono<? extends ResponseEntity<?>> result;
         if (responseType == byte[].class) {
             result = processBinaryResponse(requestSpec, transformedRequest, path,
@@ -201,9 +205,7 @@ public class NonStreamingRequestProcessor {
                     capturedKeyId, responseCacheKey, requestedModel, capturedRequestBody, selectedInstance,
                     quotaReservation, isNativeResponse(httpRequest), httpRequest);
         }
-        return result
-                .doOnError(error -> QuotaReservation.settleFailure(quotaReservation))
-                .doOnCancel(() -> QuotaReservation.settleFailure(quotaReservation));
+        return result;
     }
 
     /**

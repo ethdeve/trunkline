@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -30,6 +31,7 @@ import org.unreal.modelrouter.auth.security.quota.QuotaUsage;
 import org.unreal.modelrouter.auth.security.quota.QuotaWindow;
 import org.unreal.modelrouter.auth.security.service.ApiKeyService;
 import org.unreal.modelrouter.common.dto.ChatDTO;
+import org.unreal.modelrouter.monitor.dto.TokenUsageRecordDTO;
 import org.unreal.modelrouter.monitor.service.TokenUsageRecorder;
 import org.unreal.modelrouter.monitor.service.TokenUsageService;
 import org.unreal.modelrouter.router.adapter.transformer.ResponseTransformer;
@@ -54,6 +56,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -164,6 +167,12 @@ class StreamingRequestProcessorQuotaSettleTest {
         assertEquals(REPORTED_TOKENS, tokenCount(QuotaWindow.MINUTE), "结算后 token 应为实际用量");
         assertEquals(1L, requestCount(QuotaWindow.MINUTE), "成功结算不改请求数");
         assertEquals(REPORTED_TOKENS, tokenCount(QuotaWindow.DAY), "四级窗口同步冲正");
+
+        // issue #713: 流式落库必须归因到 API Key（此前 token_usage.api_key_id 恒 NULL）
+        final ArgumentCaptor<TokenUsageRecordDTO> recordCaptor =
+            ArgumentCaptor.forClass(TokenUsageRecordDTO.class);
+        verify(tokenUsageService).recordTokenUsage(recordCaptor.capture());
+        assertEquals(KEY_ID, recordCaptor.getValue().getApiKeyId(), "流式用量行必须归因到命中的 API Key");
     }
 
     @Test

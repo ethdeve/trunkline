@@ -419,7 +419,8 @@ class ServiceRequestHandlerQuotaIntegrationTest {
     void processorFailure_withSafetyNet_shouldSettleExactlyOnce() throws Exception {
         registerApiKey(1L, 0L, 0);
         final ServiceRequestExecutor executor = mock(ServiceRequestExecutor.class);
-        // 模拟 NonStreamingRequestProcessor 既有的 doOnError 回滚（处理器内结算点）
+        // #719 后处理器自身不再 attempt 级结算；本用例模拟「链中任意点曾结算过」的场景
+        // （如降级入口的终端结算），验证 handler 末端兜底 net 与其叠加仍恰一次（CAS 去重）。
         when(executor.execute(any(), any(), any())).thenAnswer(invocation -> {
             final ServerHttpRequest request = invocation.getArgument(2);
             return Mono.<ResponseEntity<?>>error(new IllegalStateException("downstream failed"))
@@ -432,9 +433,34 @@ class ServiceRequestHandlerQuotaIntegrationTest {
                 .verify(Duration.ofSeconds(10));
 
         assertEquals(1, ledgerService.settleInvocations(),
-                "处理器回滚 + 处理器外兜底 net 不得重复冲正（恰一次结算）");
+                "链中结算 + 处理器外兜底 net 不得重复冲正（恰一次结算）");
         assertEquals(0L, requestCount(QuotaWindow.DAY));
         assertEquals(0L, tokenCount(QuotaWindow.DAY));
+    }
+
+    @Test
+    @DisplayName("#719: 重试中取消（链末端取消）按失败回滚预留恰一次，不泄漏额度")
+    void cancelDuringChain_shouldRollbackReservationExactlyOnce() throws Exception {
+        registerApiKey(1L, 0L, 0);
+        final ServiceRequestExecutor executor = mock(ServiceRequestExecutor.class);
+        // 下游永不完成——模拟「请求已进入处理器链但客户端断开」的重试中取消
+        when(executor.execute(any(), any(), any())).thenReturn(Mono.never());
+        final ServerWebExchange exchange = buildExchange(deterministicChat("hello!"));
+
+        final AtomicReference<Throwable> cancelSignal = new AtomicReference<>();
+        final reactor.core.Disposable subscription = invoke(exchange, executor)
+                .subscribe(ok -> { }, cancelSignal::set);
+        // 给链路时间进入 executor；随后模拟客户端断开
+        Thread.sleep(300);
+        subscription.dispose();
+        // 等待取消结算落地（boundedElastic 异步），最多 5 秒
+        final long deadline = System.currentTimeMillis() + 5_000L;
+        while (ledgerService.settleInvocations() < 1 && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50);
+        }
+        assertTrue(ledgerService.lastSettlement().failed(), "取消应按失败回滚");
+        assertEquals(0L, requestCount(QuotaWindow.DAY), "取消请求不得泄漏 DAY 请求数");
+        assertEquals(0L, tokenCount(QuotaWindow.DAY), "取消请求不得泄漏 DAY token");
     }
 
     // ==================== 辅助方法 ====================

@@ -1,5 +1,6 @@
 package org.unreal.modelrouter.auth.security.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -44,7 +45,10 @@ class ApiKeyServiceUpdateTokenUsageThreadingTest {
     private static final String KEY_HASH = "hash-1";
 
     /**
-     * 手写存根：捕获 {@code saveApiKeysToStore} 的执行线程与是否处于 Reactor 非阻塞线程。
+     * 手写存根：捕获 {@code saveSingleApiKeyToStore} 的执行线程与是否处于 Reactor 非阻塞线程。
+     *
+     * <p>#811/#715 后高频用量写入走单 Key 原子回写（冻结快照 JSON），
+     * 线程语义与旧整表写完全一致，本存根只换捕获点。</p>
      */
     private static final class CapturingPersistenceService extends ApiKeyPersistenceService {
 
@@ -53,11 +57,11 @@ class ApiKeyServiceUpdateTokenUsageThreadingTest {
         private final CountDownLatch latch = new CountDownLatch(1);
 
         CapturingPersistenceService() {
-            super(null, null);
+            super(null, new ObjectMapper().findAndRegisterModules());
         }
 
         @Override
-        public void saveApiKeysToStore(final Map<String, ApiKey> apiKeyCache) {
+        public void saveSingleApiKeyToStore(final String keyHash, final String frozenJson) {
             threadName.set(Thread.currentThread().getName());
             nonBlocking.set(Schedulers.isInNonBlockingThread());
             latch.countDown();
@@ -137,7 +141,8 @@ class ApiKeyServiceUpdateTokenUsageThreadingTest {
      * @return API Key 服务
      */
     private static ApiKeyService newApiKeyService(final CapturingPersistenceService persistence) {
-        final ApiKeyService apiKeyService = new ApiKeyService(null, null, null);
+        final ApiKeyService apiKeyService =
+                new ApiKeyService(null, new ObjectMapper().findAndRegisterModules(), null);
         ReflectionTestUtils.setField(apiKeyService, "apiKeyPersistenceService", persistence);
 
         final ApiKey apiKey = ApiKey.builder()

@@ -1,5 +1,6 @@
 package org.unreal.modelrouter.auth.security.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +12,7 @@ import org.unreal.modelrouter.persistence.store.StoreManager;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -56,6 +58,48 @@ public class ApiKeyPersistenceService {
             log.debug("保存了 {} 个API Key到存储", apiKeys.size());
         } catch (Exception e) {
             log.error("保存API Key数据失败", e);
+        }
+    }
+
+    /**
+     * #811/#715：单 Key 原子回写——替换存储中指定 keyHash 的单条记录，其余条目取自存储当前值。
+     *
+     * <p>背景：高频用量更新若走 {@link #saveApiKeysToStore}（内存缓存整表覆盖写），
+     * 并发期间其它 Key 的变更会被本副本的陈旧视图吞掉。本方法经
+     * {@link StoreManager#mutateConfig} 在读改写临界区内完成：
+     * 「读取存储当前整表 → 仅替换目标 keyHash → 写回」，其余条目永远以存储为准。</p>
+     *
+     * <p>目标 Key 必须以调用方在 per-Key 锁内冻结的 JSON 快照传入——
+     * 若直接传活对象，序列化期间并发的用量写入会撕裂 JSON 或写入中间态。</p>
+     *
+     * @param keyHash    目标 Key 的哈希（存储主键）
+     * @param frozenJson 目标 Key 的冻结 JSON 快照
+     */
+    public void saveSingleApiKeyToStore(final String keyHash, final String frozenJson) {
+        try {
+            storeManager.mutateConfig(API_KEYS_STORE_KEY, current -> {
+                // 其余条目以存储当前值为准（不取内存缓存），仅替换目标 keyHash
+                final Map<String, ApiKey> merged = new LinkedHashMap<>();
+                if (current != null && current.get(STORE_API_KEYS) instanceof List<?> items) {
+                    for (Object item : items) {
+                        final ApiKey existing = objectMapper.convertValue(item, ApiKey.class);
+                        if (existing.getKeyHash() != null && !keyHash.equals(existing.getKeyHash())) {
+                            merged.put(existing.getKeyHash(), existing);
+                        }
+                    }
+                }
+                try {
+                    merged.put(keyHash, objectMapper.readValue(frozenJson, ApiKey.class));
+                } catch (JsonProcessingException e) {
+                    throw new IllegalStateException("反序列化冻结快照失败: " + keyHash, e);
+                }
+                final Map<String, Object> config = new HashMap<>();
+                config.put(STORE_API_KEYS, new ArrayList<>(merged.values()));
+                return config;
+            });
+            log.debug("单Key原子回写完成: {}", keyHash);
+        } catch (Exception e) {
+            log.error("单Key原子回写失败: {}", keyHash, e);
         }
     }
 
