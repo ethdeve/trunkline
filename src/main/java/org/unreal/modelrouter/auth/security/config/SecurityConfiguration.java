@@ -120,6 +120,14 @@ public class SecurityConfiguration {
         final boolean docsPublic = ApiDocsAccessPolicy.isPublic(securityProperties.isDocsPublic());
         ExcludedPathsConfig.setApiDocsAuthExcluded(docsPublic);
 
+        // O5 出站 DLP 开源开关：把脱敏排除集的可配置覆盖注入 ExcludedPathsConfig。
+        // 默认 maskAiPaths=false（AI 路径保持排除、不脱敏），prod/企业版可显式开启。
+        final var responseSan = securityProperties.getSanitization().getResponse();
+        ExcludedPathsConfig.configureDataMasking(
+                responseSan.isMaskAiPaths(),
+                new java.util.HashSet<>(responseSan.getExtraMaskExclusions()),
+                responseSan.getExtraMaskExclusionPatterns());
+
         authorizeExchangeSpec
                 // 健康检查端点允许匿名访问。必须含 /actuator/health/** —— K8s 清单里的探针打的是
                 // /actuator/health/liveness、/actuator/health/readiness 这类**子路径**，只写精确路径

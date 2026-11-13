@@ -40,6 +40,50 @@ public class ExcludedPathsConfig {
     private static final AntPathMatcher pathMatcher = new AntPathMatcher();
 
     /**
+     * O5 出站 DLP 开源开关：AI 实时推理路径是否强制纳入脱敏。
+     * 默认 false（保持现状：AI 路径被排除，不进入脱敏过滤器）。
+     * 由 {@link #configureDataMasking} 在应用启动时注入，运行时只读。
+     */
+    private static volatile boolean dataMaskAiPaths = false;
+
+    /**
+     * O5 追加到默认脱敏排除集的「精确」路径（额外免于脱敏）。
+     */
+    private static volatile Set<String> dataMaskExtraExcludedPaths = Set.of();
+
+    /**
+     * O5 追加到默认脱敏排除集的 Ant 风格模式（额外免于脱敏）。
+     */
+    private static volatile List<String> dataMaskExtraExcludedPatterns = List.of();
+
+    /**
+     * 应用启动配置入口：注入可配置的脱敏排除覆盖。
+     * 与 {@link #setApiDocsAuthExcluded} 同属静态配置注入风格，由 SecurityConfiguration 调用。
+     *
+     * @param maskAiPaths              是否对 AI 实时推理路径强制纳入脱敏
+     * @param extraExcludedPaths       追加的精确排除路径（额外免于脱敏），可为空
+     * @param extraExcludedPatterns    追加的 Ant 模式排除（额外免于脱敏），可为空
+     */
+    public static void configureDataMasking(final boolean maskAiPaths,
+                                            final Set<String> extraExcludedPaths,
+                                            final List<String> extraExcludedPatterns) {
+        dataMaskAiPaths = maskAiPaths;
+        dataMaskExtraExcludedPaths = extraExcludedPaths == null
+                ? Set.of() : Set.copyOf(extraExcludedPaths);
+        dataMaskExtraExcludedPatterns = extraExcludedPatterns == null
+                ? List.of() : List.copyOf(extraExcludedPatterns);
+    }
+
+    /**
+     * 仅测试使用：重置 O5 配置覆盖到默认态，避免静态状态污染其他用例。
+     */
+    static void resetDataMaskingConfig() {
+        dataMaskAiPaths = false;
+        dataMaskExtraExcludedPaths = Set.of();
+        dataMaskExtraExcludedPatterns = List.of();
+    }
+
+    /**
      * R3-P1：API 文档路径是否排除认证（由 SecurityConfiguration 按 docs-public 设置）。
      * 默认 false —— 文档端点需要认证。
      */
@@ -169,16 +213,39 @@ public class ExcludedPathsConfig {
     }
     
     /**
-     * 检查路径是否在数据脱敏排除列表中（精确集合 + 显式 Ant 模式）。
+     * 检查路径是否在数据脱敏排除列表中（精确集合 + 显式 Ant 模式 + O5 可配置覆盖）。
+     *
+     * <p>覆盖优先级：{@code maskAiPaths=true} 时，AI 实时推理路径（{@code /v1/**}、
+     * {@code /api/v1/**}）强制纳入脱敏（即不返回排除）。其余路径先命中默认排除集，再命中
+     * 追加的 {@code extraMaskExclusions}/{@code extraMaskExclusionPatterns} 扩展集。</p>
      */
     public static boolean isDataMaskExcluded(final String path) {
         if (path == null) {
             return false;
         }
+        // O5：AI 实时推理路径在 maskAiPaths=true 时强制纳入脱敏，覆盖默认排除
+        if (dataMaskAiPaths && isAiInferencePath(path)) {
+            return false;
+        }
         if (DATA_MASKING_EXCLUDED_PATHS.contains(path)) {
             return true;
         }
-        return DATA_MASKING_EXCLUDED_PATTERNS.stream().anyMatch(pattern ->
+        if (dataMaskExtraExcludedPaths.contains(path)) {
+            return true;
+        }
+        if (DATA_MASKING_EXCLUDED_PATTERNS.stream().anyMatch(pattern ->
+                pathMatcher.match(pattern, path))) {
+            return true;
+        }
+        return dataMaskExtraExcludedPatterns.stream().anyMatch(pattern ->
             pathMatcher.match(pattern, path));
+    }
+
+    /**
+     * AI 实时推理路径判定（O5 强制脱敏语义覆盖的对象）。
+     */
+    private static boolean isAiInferencePath(final String path) {
+        return pathMatcher.match("/v1/**", path)
+                || pathMatcher.match("/api/v1/**", path);
     }
 }
