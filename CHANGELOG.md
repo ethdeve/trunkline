@@ -2,6 +2,17 @@
 
 本项目遵循语义化版本。这里只记录**已经落地**的变化，后续计划见 [README](README-ZH.md)。
 
+## 未发布（在研）— 集群事件广播装配修复（B3 多副本前置）
+
+- `RedisClusterEventBus` 有两个构造器且都没有标注注入点，Spring 无法确定用哪一个：
+  只要把 `trunkline.cluster.events.enabled=true` 打开就会抛
+  `BeanInstantiationException: No default constructor found` 并**阻断整个应用启动**
+  （真 PostgreSQL 隔离启动冒烟实测）。现给生产用两参构造器补 `@Autowired`；三参构造器
+  仍保留，供测试注入副本标识模拟多副本。
+- 新增 `RedisClusterEventBusWiringTest` 走真实容器 `refresh()` 覆盖装配路径 —— 此前
+  `ClusterEventBusTest` 全部直接 `new`，从未测到这一层。
+- 这是商业版 B3「改价跨副本缓存失效」的前置条件：未修时多副本一开 Redis 广播即启动失败。
+
 ## 未发布（在研）— [BREAKING-SPI] v3 真实账本幂等键
 
 - `BillingProvider.BillingEntry` 新增首组件 `traceId`，作为商业版 `enterprise_billing_ledger`
