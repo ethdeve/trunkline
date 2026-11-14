@@ -8,11 +8,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.HttpCookie;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.security.core.Authentication;
+import org.springframework.web.server.ServerWebExchange;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.common.dto.JwtTokenInfo;
 import org.unreal.modelrouter.common.dto.LoginRequest;
@@ -28,7 +34,11 @@ import org.unreal.modelrouter.enterprise.spi.SsoConnector;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.net.URI;
+import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import org.unreal.modelrouter.common.exception.ApiException;
 
 /**
@@ -56,6 +66,12 @@ public class JwtAuthController {
      */
     @Autowired(required = false)
     private SsoConnector ssoConnector;
+
+    /** SSO 授权流程 state cookie 名（HttpOnly / SameSite=Lax / 5 分钟一次性）。 */
+    private static final String SSO_STATE_COOKIE = "trunkline_sso_state";
+
+    /** state 生成器：32 字节密码学随机数，Base64-URL 无填充编码。 */
+    private static final SecureRandom STATE_RANDOM = new SecureRandom();
 
     /**
      * 用户登录获取JWT令牌
@@ -122,11 +138,18 @@ public class JwtAuthController {
             final org.springframework.web.server.ServerWebExchange exchange) {
 
         // v1.2 更正（O7-a 验收）：providerName() 为空串（Noop）→ SSO_UNSUPPORTED，不以 null 判别
-        if (ssoConnector == null || ssoConnector.providerName() == null
-                || ssoConnector.providerName().isBlank()) {
+        if (!ssoAvailable()) {
             return Mono.error(ApiException.of("SSO_UNSUPPORTED", "当前版本不支持 SSO",
-                    org.springframework.http.HttpStatus.BAD_REQUEST));
+                    HttpStatus.BAD_REQUEST));
         }
+        // A2 补链：/sso/authorize 种下的 state cookie 若存在，必须与回调回传的 state 逐字一致。
+        // 机会性校验——未走 front-channel（如服务端直接拿 IdP code 兑换、或 exchange 为 null 的
+        // 单元测试）时无 cookie 即跳过，保持既有 /sso 契约不变；一旦有 cookie 则 fail-closed。
+        if (!stateMatches(exchange, request.getState())) {
+            return Mono.error(ApiException.of("SSO_STATE_MISMATCH", "SSO 状态校验失败",
+                    HttpStatus.UNAUTHORIZED));
+        }
+        clearStateCookie(exchange);
         final String clientIp = getClientIpAddress(exchange);
         final String userAgent = exchange != null ? exchange.getRequest().getHeaders().getFirst("User-Agent") : null;
 
@@ -148,6 +171,60 @@ public class JwtAuthController {
                     // 随 A2（企业侧拿到映射用户名）一起补。
                     return Mono.just(RouterResponse.success(response, "登录成功"));
                 });
+    }
+
+    /**
+     * SSO 授权入口（A2 补链）：front-channel 第一步，302 跳转到企业 IdP 授权端点。
+     *
+     * <p>前端「使用企业 SSO 登录」按钮直接 {@code window.location.href} 到本端点，因此
+     * 本端点必须匿名可达（见 {@code SecurityConfiguration} 的 permitAll 与
+     * {@code ExcludedPathsConfig.AUTH_EXCLUDED_PATHS}）。完整流程：</p>
+     * <ol>
+     *   <li>生成 32 字节随机 {@code state}，经 {@link SsoConnector#authorizationRedirect}
+     *       向企业插件索取已拼好 state 的 IdP 授权 URL；</li>
+     *   <li>校验 URL 只能是绝对 http/https（防 open redirect，绝不跳 {@code javascript:}
+     *       或相对路径）；</li>
+     *   <li>把 state 写入 HttpOnly + SameSite=Lax 的一次性 cookie，再 302；</li>
+     *   <li>IdP 回跳 {@code redirectUri?code=...&state=...} 落到登录页，前端把
+     *       code + state POST 到 {@link #ssoLogin}，由 cookie 比对做 CSRF 校验。</li>
+     * </ol>
+     *
+     * <p>社区版（Noop 返回空串 providerName）→ {@code SSO_UNSUPPORTED}；企业版启用但
+     * {@code authorizationRedirect} 返回 empty 或非法 URL → {@code SSO_UNCONFIGURED}。
+     * 两者都 fail-closed，<b>绝不裸跳、绝不把 client_secret 暴露到 front-channel</b>。</p>
+     */
+    @GetMapping("/sso/authorize")
+    @Operation(summary = "SSO授权入口", description = "302跳转到企业IdP授权端点（社区版返回 SSO_UNSUPPORTED）")
+    public Mono<Void> ssoAuthorize(final ServerWebExchange exchange) {
+        if (!ssoAvailable()) {
+            return Mono.error(ApiException.of("SSO_UNSUPPORTED", "当前版本不支持 SSO",
+                    HttpStatus.BAD_REQUEST));
+        }
+        final String state = newState();
+        // 与 /sso 同一线程模型约定：SPI 实现可能读配置/拼 URI，统一切弹性线程
+        return Mono.fromCallable(() -> ssoConnector.authorizationRedirect(state))
+                .subscribeOn(Schedulers.boundedElastic())
+                .<Void>flatMap(redirect -> {
+                    if (redirect.isEmpty() || !isSafeRedirect(redirect.get())) {
+                        return Mono.error(ApiException.of("SSO_UNCONFIGURED",
+                                "SSO 授权端点未配置或不合法", HttpStatus.BAD_REQUEST));
+                    }
+                    final ServerHttpResponse response = exchange.getResponse();
+                    response.addCookie(ResponseCookie.from(SSO_STATE_COOKIE, state)
+                            .httpOnly(true)
+                            .sameSite("Lax")
+                            .path("/")
+                            .maxAge(Duration.ofMinutes(5))
+                            .build());
+                    response.setStatusCode(HttpStatus.FOUND);
+                    response.getHeaders().setLocation(URI.create(redirect.get()));
+                    return response.setComplete();
+                })
+                // 企业插件拼 URL 抛异常时也 fail-closed，绝不把 500/堆栈透给浏览器
+                .onErrorResume(ex -> ex instanceof ApiException
+                        ? Mono.error(ex)
+                        : Mono.error(ApiException.of("SSO_UNCONFIGURED",
+                                "SSO 授权端点未配置或不合法", HttpStatus.BAD_REQUEST)));
     }
 
     /**
@@ -240,5 +317,62 @@ public class JwtAuthController {
 
     private String getClientIpAddress(final org.springframework.web.server.ServerWebExchange exchange) {
         return org.unreal.modelrouter.auth.security.util.ClientIpUtils.getClientIpAddress(exchange);
+    }
+
+    /** 判别 SSO 是否可用：Noop 的 providerName() 为空串（非 null，OSS 恒注册兜底 Bean）。 */
+    private boolean ssoAvailable() {
+        return ssoConnector != null
+                && ssoConnector.providerName() != null
+                && !ssoConnector.providerName().isBlank();
+    }
+
+    /** 32 字节密码学随机数 → Base64-URL（无填充），URL 安全且不可预测。 */
+    private static String newState() {
+        final byte[] bytes = new byte[32];
+        STATE_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /**
+     * 只接受绝对 http/https URL：跳转目标虽来自企业侧配置，仍需在重定向点做
+     * open-redirect 兜底（拒绝 {@code javascript:}/{@code data:}/相对路径/无 host）。
+     * 保留 http 是为了私有化部署与 mock IdP（企业仓测试用本地 HttpServer）。
+     */
+    private static boolean isSafeRedirect(final String url) {
+        try {
+            final URI uri = URI.create(url);
+            final String scheme = uri.getScheme();
+            return uri.getHost() != null
+                    && ("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme));
+        } catch (final IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /**
+     * state CSRF 校验（机会性）：无 cookie 视为未走 front-channel，放行；有 cookie 则
+     * 必须逐字匹配回传值。exchange 为 null（单元测试直调）时同样放行，保持既有契约。
+     */
+    private static boolean stateMatches(final ServerWebExchange exchange, final String submittedState) {
+        if (exchange == null) {
+            return true;
+        }
+        final HttpCookie cookie = exchange.getRequest().getCookies().getFirst(SSO_STATE_COOKIE);
+        if (cookie == null || cookie.getValue() == null || cookie.getValue().isBlank()) {
+            return true;
+        }
+        return submittedState != null && cookie.getValue().equals(submittedState);
+    }
+
+    /** state 一次性：兑换请求到达即清除 cookie，无论后续 exchange 成功与否。 */
+    private static void clearStateCookie(final ServerWebExchange exchange) {
+        if (exchange != null) {
+            exchange.getResponse().addCookie(ResponseCookie.from(SSO_STATE_COOKIE, "")
+                    .httpOnly(true)
+                    .sameSite("Lax")
+                    .path("/")
+                    .maxAge(Duration.ZERO)
+                    .build());
+        }
     }
 }

@@ -11,6 +11,8 @@
     "langShortEn": "EN",
     "logout": "Log out",
     "clusterTipOk": "Multi-replica deployment: live counters on this page usually cover the current replica only",
-    "clusterTipGap": "Multi-replica deployment with cross-replica shared state disabled — data may differ between replicas. See State & Storage for details"
+    "clusterTipGap": "Multi-replica deployment with cross-replica shared state disabled — data may differ between replicas. See State & Storage for details",
+    "tenant": "Tenant",
+    "tenantSwitcher": "Switch tenant"
   }
 }

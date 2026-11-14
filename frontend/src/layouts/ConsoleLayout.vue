@@ -20,8 +20,12 @@ import { useTheme } from '@/composables/useTheme'
 import { useLocale } from '@/composables/useLocale'
 import { useUserStore } from '@/stores/user'
 import { useDeploymentStore } from '@/stores/deployment'
+import { useEnterpriseStore } from '@/stores/enterprise'
+import { useTenantStore } from '@/stores/tenant'
 import { getApiKeys, getQuotaAlerts } from '@/api/apiKey'
 import CommandPalette from '@/components/command/CommandPalette.vue'
+import TenantSwitcher from '@/components/TenantSwitcher.vue'
+import { ElMessage } from 'element-plus'
 
 const collapsed = ref(false)
 const paletteVisible = ref(false)
@@ -30,7 +34,9 @@ const router = useRouter()
 const { t } = useI18n()
 const userStore = useUserStore()
 const deployment = useDeploymentStore()
-const { hasPermission, filterMenuByPermission } = usePermission()
+const enterprise = useEnterpriseStore()
+const tenant = useTenantStore()
+const { hasPermission, filterMenuByPermission, filterMenuByFeature } = usePermission()
 const { isDark, toggleTheme } = useTheme()
 const { locale: appLocale, setLocale } = useLocale()
 
@@ -69,13 +75,25 @@ const canViewDocs = computed(() => userStore.hasLogicalRoleOneOf(['ops', 'admin'
  */
 const tr = (key: string) => (key.startsWith('nav.') || key.startsWith('menu.') ? t(key) : key)
 
-const filteredGroups = computed(() =>
-  filterMenuByPermission(menuGroups).map(g => ({
+const filteredGroups = computed(() => {
+  // 先按角色/权限过滤，再按企业功能位打「锁定」标记（不移除，仅灰态 + 锁图标）
+  const byPermission = filterMenuByPermission(menuGroups)
+  const byFeature = filterMenuByFeature(byPermission)
+  return byFeature.map(g => ({
     ...g,
     title: tr(g.title),
     children: g.children.map(c => ({ ...c, title: tr(c.title) }))
   }))
-)
+})
+
+/** 点击被商业版功能位锁定的菜单项：不跳转，提示需商业版授权 */
+function onLockedClick() {
+  ElMessage({
+    message: t('nav.feature.lockedHint'),
+    type: 'info',
+    showClose: true
+  })
+}
 
 /** 面包屑右半段：router meta.title 存的是 i18n key，同样随语言实时切换 */
 const currentPageTitle = computed(() => tr((route.meta.title as string) || ''))
@@ -155,6 +173,11 @@ onMounted(() => {
   badgeTimer = setInterval(loadNavBadges, 60_000)
   // 部署形态只请求一次（store 内部幂等），失败静默按单机处理
   void deployment.ensureLoaded()
+  // 企业功能位只请求一次（store 内部幂等），失败静默按社区版渲染（全部未解锁）
+  void enterprise.ensureLoaded().then(() => {
+    // 功能位加载完成后，多租户可用性才确定 → 再加载租户列表
+    void tenant.ensureLoaded()
+  })
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', syncCollapsed)
@@ -189,32 +212,47 @@ async function onLogout() {
                 item.path，随后路由守卫判定无权 → 跳 403 页说明缺什么权限。
                 置灰 + 可点 = 「可解释、可点击、指向答案」的入口，而不是死路。
               -->
-              <el-menu-item
-                v-for="item in group.children"
-                :key="item.path"
-                :index="item.path"
-                :class="{ 'is-greyed': item.greyed }"
-              >
-                <el-icon><component :is="item.icon" /></el-icon>
-                <template #title>
-                  {{ item.title }}
-                  <el-tag v-if="item.greyed" size="small" type="info" class="nav-grey-tag">
-                    {{ t('forbidden.roleAdmin') }}
-                  </el-tag>
-                  <el-badge
-                    v-if="item.path === '/all-keys' && expiringKeysCount > 0"
-                    :value="expiringKeysCount"
-                    type="warning"
-                    class="nav-badge"
-                  />
-                  <el-badge
-                    v-else-if="item.path === '/observability' && quotaAlertCount > 0"
-                    is-dot
-                    type="danger"
-                    class="nav-badge"
-                  />
-                </template>
-              </el-menu-item>
+              <template v-for="item in group.children" :key="item.path">
+                <el-menu-item
+                  v-if="!item.locked"
+                  :index="item.path"
+                  :class="{ 'is-greyed': item.greyed }"
+                >
+                  <el-icon><component :is="item.icon" /></el-icon>
+                  <template #title>
+                    {{ item.title }}
+                    <el-tag v-if="item.greyed" size="small" type="info" class="nav-grey-tag">
+                      {{ t('forbidden.roleAdmin') }}
+                    </el-tag>
+                    <el-badge
+                      v-if="item.path === '/all-keys' && expiringKeysCount > 0"
+                      :value="expiringKeysCount"
+                      type="warning"
+                      class="nav-badge"
+                    />
+                    <el-badge
+                      v-else-if="item.path === '/observability' && quotaAlertCount > 0"
+                      is-dot
+                      type="danger"
+                      class="nav-badge"
+                    />
+                  </template>
+                </el-menu-item>
+                <!-- 商业版功能位未解锁：灰态 + 锁图标 + 商业版徽章，点击提示需授权 -->
+                <div
+                  v-else
+                  class="nav-menu__locked"
+                  @click="onLockedClick"
+                >
+                  <el-icon><component :is="item.icon" /></el-icon>
+                  <span class="nav-menu__locked-title">{{ item.title }}</span>
+                  <el-tooltip :content="t('nav.feature.lockedTooltip')" placement="top">
+                    <el-tag size="small" type="warning" class="nav-enterprise-tag">
+                      <el-icon><Lock /></el-icon>{{ t('nav.feature.enterpriseBadge') }}
+                    </el-tag>
+                  </el-tooltip>
+                </div>
+              </template>
             </template>
           </template>
         </el-menu>
@@ -252,6 +290,9 @@ async function onLogout() {
             <span v-if="deployment.hasSharedStateGap" class="topbar-cluster__warn">!</span>
           </el-tag>
         </el-tooltip>
+
+        <!-- 租户切换器（多租户且已开通租户管理时显示） -->
+        <TenantSwitcher />
 
         <div class="palette-trigger" @click="paletteVisible = true">
           <el-icon><Search /></el-icon>
@@ -409,6 +450,37 @@ async function onLogout() {
   transform: scale(0.85);
   transform-origin: left center;
   vertical-align: middle;
+}
+
+/* 商业版功能位未解锁的菜单项：灰态不可点，视觉与正常项对齐但明显「锁住」 */
+.nav-menu__locked {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 12px;
+  margin: 0 8px;
+  height: 40px;
+  border-radius: 8px;
+  color: var(--ja-text-placeholder);
+  font-size: 13.5px;
+  cursor: not-allowed;
+  user-select: none;
+}
+.nav-menu__locked:hover {
+  background-color: var(--ja-bg-secondary, #f5f6f8);
+}
+.nav-menu__locked-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-enterprise-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  transform: scale(0.85);
+  transform-origin: right center;
 }
 .topbar-crumb {
   font-size: 13px;

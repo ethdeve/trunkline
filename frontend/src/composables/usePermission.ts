@@ -1,4 +1,5 @@
 import { useUserStore } from '@/stores/user'
+import { useEnterpriseStore } from '@/stores/enterprise'
 import type { MenuGroup, MenuItem } from '@/config/menu'
 
 /**
@@ -13,6 +14,7 @@ import type { MenuGroup, MenuItem } from '@/config/menu'
  */
 export function usePermission() {
   const userStore = useUserStore()
+  const enterprise = useEnterpriseStore()
 
   /**
    * 判断当前用户是否拥有权限码
@@ -64,8 +66,31 @@ export function usePermission() {
       .filter(group => group.children.length > 0)
   }
 
+  /**
+   * 按企业功能位过滤菜单（商业版功能门控，S2 机制）。
+   *
+   * 带 `feature` 标记的项在对应功能位未解锁时标记为 `locked`（灰态 + 锁图标 +
+   * 「商业版」徽章），点击由 ConsoleLayout 拦截并提示需商业版授权；已解锁则正常渲染。
+   * 该函数<b>不移除</b>任何项——锁定项仍可见，只是不可用，符合「用户知道自己缺什么」原则。
+   *
+   * 一般紧跟 filterMenuByPermission 之后调用（先按角色过滤，再按功能位打锁标记）。
+   *
+   * @param groups 经 filterMenuByPermission 过滤后的菜单
+   * @returns 同一份菜单，带 locked 运行时标记的 children
+   */
+  const filterMenuByFeature = (groups: MenuGroup[]): MenuGroup[] => {
+    return groups.map(group => ({
+      ...group,
+      children: group.children.map((item): MenuItem => ({
+        ...item,
+        locked: !enterprise.isMenuFeatureEnabled(item.feature)
+      }))
+    }))
+  }
+
   return {
     hasPermission,
-    filterMenuByPermission
+    filterMenuByPermission,
+    filterMenuByFeature
   }
 }

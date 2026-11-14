@@ -54,9 +54,17 @@ export interface MenuItem {
    * 取值：'billing' | 'sso' | 'moderation' | 'multi-tenant' | 'audit-proof' | 'alerting'。
    * 社区版当前无 ENT 专属菜单，故尚无菜单项使用此字段；等商业版功能上线后，
    * 带此标记的菜单项在 license 未解锁时应渲染为灰态 + 锁图标 + 「商业版」徽章，
-   * 点击弹出升级说明抽屉（渲染逻辑随 ENT-MVP 落地）。
+   * 点击弹出升级说明（渲染逻辑见 ConsoleLayout 的 locked 分支）。
+   *
+   * 取值与后端功能位键的映射见 api/enterprise.ts 的 MENU_FEATURE_TO_KEY：
+   * 'billing' | 'sso' | 'moderation' | 'multi-tenant' | 'tenant-management'。
    */
   feature?: string
+  /**
+   * 运行时标记：该项所属商业功能位未解锁（由 filterMenuByFeature 写入）。
+   * 不是配置字段 —— menu.ts 里不写它。渲染层据此显示锁图标 + 「商业版」徽章并拦截点击。
+   */
+  locked?: boolean
 }
 
 export interface MenuGroup {
@@ -115,7 +123,9 @@ export const menuGroups: MenuGroup[] = [
         title: 'nav.myBills.title',
         roles: ['user', 'ops', 'admin'],
         icon: 'money',
-        subtitle: 'nav.myBills.subtitle'
+        subtitle: 'nav.myBills.subtitle',
+        // 商业计费功能位（合规包）：未购买 license 时渲染为灰态 + 锁图标 + 「商业版」徽章
+        feature: 'billing'
       }
     ]
   },

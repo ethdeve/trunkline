@@ -11,6 +11,8 @@
     "langShortEn": "EN",
     "logout": "退出登录",
     "clusterTipOk": "多副本部署：页面上的实时计数通常只含当前副本",
-    "clusterTipGap": "多副本部署，但有跨副本共享态未开启，副本间数据可能不一致。到「状态监控」查看详情"
+    "clusterTipGap": "多副本部署，但有跨副本共享态未开启，副本间数据可能不一致。到「状态监控」查看详情",
+    "tenant": "租户",
+    "tenantSwitcher": "切换租户"
   }
 }

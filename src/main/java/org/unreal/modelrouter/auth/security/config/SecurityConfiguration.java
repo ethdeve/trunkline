@@ -164,6 +164,10 @@ public class SecurityConfiguration {
                 .pathMatchers(org.springframework.http.HttpMethod.POST, "/api/auth/jwt/login").permitAll()
                 // JWT验证端点允许匿名访问（用于验证令牌有效性）
                 .pathMatchers(org.springframework.http.HttpMethod.POST, "/api/auth/jwt/validate").permitAll()
+                // A2 SSO 授权入口（front-channel 302）：登录前匿名可达。
+                // 必须放在 /api/** 固定角色矩阵之前——未登记端点 fail-closed 仅 ADMIN，
+                // 否则登录页点击「使用企业 SSO 登录」会先吃 403，链路根本走不到 IdP。
+                .pathMatchers(org.springframework.http.HttpMethod.GET, "/api/auth/jwt/sso/authorize").permitAll()
                 // 首次部署初始化向导：未创建管理员前必须匿名可达，否则无法登录也无法初始化。
                 // 必须放在 /api/** 固定角色矩阵之前；完成初始化后由 SetupService 返回 409 关闸。
                 .pathMatchers("/api/setup/**").permitAll()

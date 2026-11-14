@@ -318,7 +318,9 @@
       "t008": "Unified access · Routing · Usage observability",
       "t009": "Username",
       "t010": "Password",
-      "t011": "Sign in"
+      "t011": "Sign in",
+      "ssoButton": "Sign in with Enterprise SSO",
+      "ssoFailed": "SSO sign-in failed, please use your account and password"
     },
     "ov": {
       "t001": "Hide advanced settings",

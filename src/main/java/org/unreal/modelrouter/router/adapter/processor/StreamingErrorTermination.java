@@ -72,8 +72,13 @@ final class StreamingErrorTermination {
         if (!isOpenAiFace(clientPath)) {
             return null;
         }
+        // B5-out: 输出侧审核拦截回显为可解析的 CONTENT_BLOCKED（400 / invalid_request_error）。
+        // 仍以原异常终止、不补 [DONE]，避免客户端把「内容被拦」读成正常结束。
+        final boolean contentBlocked = throwable instanceof OutputModerationBlockedException;
+        final int status = contentBlocked ? 400 : statusOf(throwable);
+        final String errorCode = contentBlocked ? "CONTENT_BLOCKED" : null;
         final Map<String, Object> body = V1ErrorBodyMapper.toErrorBody(
-                clientPath, statusOf(throwable), messageOf(throwable), null);
+                clientPath, status, messageOf(throwable), errorCode);
         if (body == null) {
             return null;
         }

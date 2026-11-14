@@ -7,15 +7,19 @@
 /**
  * 登录页（新台重写：浅色卡片视觉，复用 user store 登录逻辑）
  */
-import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { reactive, ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useLocale } from '@/composables/useLocale'
 import { useI18n } from 'vue-i18n'
+import { useEnterpriseStore } from '@/stores/enterprise'
+import request from '@/utils/request'
 
 const router = useRouter()
+const route = useRoute()
 const { t } = useI18n()
 const userStore = useUserStore()
+const enterprise = useEnterpriseStore()
 const { locale, setLocale } = useLocale()
 
 const form = reactive({ username: '', password: '' })
@@ -54,6 +58,8 @@ async function onSubmit() {
   errMsg.value = ''
   try {
     await userStore.login(form.username, form.password)
+    // 本地登录成功后补齐企业功能位（SSO/租户等入口依赖），控制台挂载时也会再加载一次
+    void enterprise.ensureLoaded()
     router.push('/my-quota')
   } catch (e: any) {
     errMsg.value = friendlyLoginError(e)
@@ -65,6 +71,45 @@ async function onSubmit() {
 function switchLocale() {
   const next = locale.value === 'zh-CN' ? 'en-US' : 'zh-CN'
   setLocale(next)
+}
+
+/**
+ * 挂载时：处理 SSO 回调兑换，或预取企业功能位以决定 SSO 入口是否展示。
+ * 功能位端点若对匿名不可达，ensureLoaded 静默降级（返回空），SSO 按钮不显示。
+ */
+onMounted(async () => {
+  const code = route.query.code as string | undefined
+  if (code) {
+    // IdP 回调同时带回 state；与后端 /sso/authorize 种下的 cookie 一起做 CSRF 校验
+    await handleSsoCallback(code, route.query.state as string | undefined)
+    return
+  }
+  await enterprise.ensureLoaded()
+})
+
+/** 发起企业 SSO 授权码流程：交由后端 front-channel 重定向到 IdP。
+ *  后端 GET /api/auth/jwt/sso/authorize 生成 state、种 Cookie 并 302 到 IdP。 */
+function startSsoLogin() {
+  window.location.href = '/api/auth/jwt/sso/authorize'
+}
+
+/** SSO 回调：用授权码 + state 兑换本地 JWT */
+async function handleSsoCallback(code: string, state?: string) {
+  loading.value = true
+  errMsg.value = ''
+  try {
+    const res = await request.post('/auth/jwt/sso', { code, ...(state ? { state } : {}) })
+    const token = (res.data?.data?.token ?? res.data?.token) as string | undefined
+    if (!token) throw new Error('SSO_NO_TOKEN')
+    userStore.setToken(token)
+    userStore.startTokenRefresh()
+    await enterprise.ensureLoaded()
+    await router.replace('/my-quota')
+  } catch (e: any) {
+    errMsg.value = t('v.lg.ssoFailed')
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -103,6 +148,17 @@ function switchLocale() {
 
         <el-button type="primary" size="large" style="width: 100%" :loading="loading" native-type="submit">
           {{ t('v.lg.t011') }}
+        </el-button>
+
+        <el-divider v-if="enterprise.sso">或</el-divider>
+        <el-button
+          v-if="enterprise.sso"
+          size="large"
+          style="width: 100%"
+          :loading="loading"
+          @click="startSsoLogin"
+        >
+          <el-icon style="margin-right: 6px"><Key /></el-icon>{{ t('v.lg.ssoButton') }}
         </el-button>
       </el-form>
 

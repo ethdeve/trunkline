@@ -107,6 +107,8 @@ public class ExcludedPathsConfig {
             "/metrics",
             "/api/auth/jwt/login",
             "/api/auth/jwt/sso",
+            // A2 SSO front-channel 第一步：登录前匿名 302 到 IdP，必须与 /sso 一同排除
+            "/api/auth/jwt/sso/authorize",
             "/api/auth/jwt/validate",
             "/favicon.ico",
             "/.well-known"

@@ -8,7 +8,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
+import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
+import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.security.core.Authentication;
 import org.unreal.modelrouter.auth.security.config.properties.JwtConfig;
 import org.unreal.modelrouter.auth.security.config.properties.SecurityProperties;
@@ -26,10 +30,13 @@ import org.unreal.modelrouter.enterprise.spi.SsoConnector;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.net.URI;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -244,6 +251,163 @@ class JwtAuthControllerTest {
             StepVerifier.create(controller.ssoLogin(requestWithCode(), null))
                     .expectNextMatches(response -> response.isSuccess()
                             && response.getData().getToken().equals("sso-jwt-token"))
+                    .verifyComplete();
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/auth/jwt/sso/authorize（A2 补链）")
+    class SsoAuthorizeTests {
+
+        private MockServerWebExchange exchange() {
+            return MockServerWebExchange.from(
+                    MockServerHttpRequest.get("/api/auth/jwt/sso/authorize").build());
+        }
+
+        @Test
+        @DisplayName("Noop（providerName 空串）→ SSO_UNSUPPORTED")
+        void noopReturnsUnsupported() {
+            lenient().when(ssoConnector.providerName()).thenReturn("");
+
+            StepVerifier.create(controller.ssoAuthorize(exchange()))
+                    .expectErrorSatisfies(ex -> {
+                        assertInstanceOf(ApiException.class, ex);
+                        assertEquals("SSO_UNSUPPORTED", ((ApiException) ex).getErrorCode());
+                    })
+                    .verify();
+        }
+
+        @Test
+        @DisplayName("企业连接器返回 empty → SSO_UNCONFIGURED（fail-closed，不裸跳）")
+        void emptyRedirectReturnsUnconfigured() {
+            lenient().when(ssoConnector.providerName()).thenReturn("oidc");
+            lenient().when(ssoConnector.authorizationRedirect(anyString())).thenReturn(Optional.empty());
+
+            StepVerifier.create(controller.ssoAuthorize(exchange()))
+                    .expectErrorSatisfies(ex -> {
+                        assertInstanceOf(ApiException.class, ex);
+                        assertEquals("SSO_UNCONFIGURED", ((ApiException) ex).getErrorCode());
+                    })
+                    .verify();
+        }
+
+        @Test
+        @DisplayName("javascript: / 相对路径 → 拒绝（防 open redirect）")
+        void unsafeRedirectsAreRejected() {
+            lenient().when(ssoConnector.providerName()).thenReturn("oidc");
+            lenient().when(ssoConnector.authorizationRedirect(anyString()))
+                    .thenReturn(Optional.of("javascript:alert(1)"), Optional.of("/evil"));
+
+            for (int i = 0; i < 2; i++) {
+                StepVerifier.create(controller.ssoAuthorize(exchange()))
+                        .expectErrorSatisfies(ex -> {
+                            assertInstanceOf(ApiException.class, ex);
+                            assertEquals("SSO_UNCONFIGURED", ((ApiException) ex).getErrorCode());
+                        })
+                        .verify();
+            }
+        }
+
+        @Test
+        @DisplayName("合法 https URL → 302 + HttpOnly/SameSite state cookie")
+        void safeRedirectReturns302WithStateCookie() {
+            final String idp = "https://idp.example.com/authorize?client_id=abc&state=STATE";
+            lenient().when(ssoConnector.providerName()).thenReturn("oidc");
+            lenient().when(ssoConnector.authorizationRedirect(anyString())).thenReturn(Optional.of(idp));
+
+            final MockServerWebExchange ex = exchange();
+            StepVerifier.create(controller.ssoAuthorize(ex)).verifyComplete();
+
+            assertEquals(HttpStatus.FOUND, ex.getResponse().getStatusCode());
+            assertEquals(URI.create(idp), ex.getResponse().getHeaders().getLocation());
+            final ResponseCookie cookie = ex.getResponse().getCookies().getFirst("trunkline_sso_state");
+            assertNotNull(cookie);
+            assertTrue(cookie.isHttpOnly());
+            assertEquals("Lax", cookie.getSameSite());
+            assertTrue(cookie.getValue() != null && !cookie.getValue().isBlank());
+        }
+
+        @Test
+        @DisplayName("SPI 抛异常 → SSO_UNCONFIGURED，不透 500/堆栈")
+        void spiExceptionIsFailClosed() {
+            lenient().when(ssoConnector.providerName()).thenReturn("oidc");
+            lenient().when(ssoConnector.authorizationRedirect(anyString()))
+                    .thenThrow(new IllegalStateException("bad config"));
+
+            StepVerifier.create(controller.ssoAuthorize(exchange()))
+                    .expectErrorSatisfies(ex -> {
+                        assertInstanceOf(ApiException.class, ex);
+                        assertEquals("SSO_UNCONFIGURED", ((ApiException) ex).getErrorCode());
+                    })
+                    .verify();
+        }
+    }
+
+    @Nested
+    @DisplayName("SSO state CSRF 校验（A2 补链）")
+    class SsoStateTests {
+
+        private SsoLoginRequest requestWith(final String state) {
+            final SsoLoginRequest request = new SsoLoginRequest();
+            request.setCode("auth-code");
+            request.setState(state);
+            return request;
+        }
+
+        private MockServerWebExchange exchangeWithState(final String cookieState) {
+            return MockServerWebExchange.from(MockServerHttpRequest.post("/api/auth/jwt/sso")
+                    .cookie(new HttpCookie("trunkline_sso_state", cookieState))
+                    .build());
+        }
+
+        @Test
+        @DisplayName("cookie 与回传 state 不一致 → SSO_STATE_MISMATCH，不换 token")
+        void mismatchIsRejected() {
+            lenient().when(ssoConnector.providerName()).thenReturn("oidc");
+
+            StepVerifier.create(controller.ssoLogin(requestWith("tampered"), exchangeWithState("expected")))
+                    .expectErrorSatisfies(ex -> {
+                        assertInstanceOf(ApiException.class, ex);
+                        assertEquals("SSO_STATE_MISMATCH", ((ApiException) ex).getErrorCode());
+                    })
+                    .verify();
+            verifyNoInteractions(accountManager);
+        }
+
+        @Test
+        @DisplayName("state 一致 → 正常签发 JWT，并清除 cookie")
+        void matchingStateIssuesToken() {
+            final SsoConnector.EnterpriseUser user =
+                    new SsoConnector.EnterpriseUser("ext-1", "张三", "zhangsan@corp.example", "IT");
+            lenient().when(ssoConnector.providerName()).thenReturn("oidc");
+            lenient().when(ssoConnector.exchange(anyString())).thenReturn(Optional.of(user));
+            lenient().when(accountManager.authenticateExternal(any(), any(), any()))
+                    .thenReturn(Mono.just("sso-jwt-token"));
+
+            final MockServerWebExchange ex = exchangeWithState("expected");
+            StepVerifier.create(controller.ssoLogin(requestWith("expected"), ex))
+                    .expectNextMatches(response -> response.isSuccess()
+                            && response.getData().getToken().equals("sso-jwt-token"))
+                    .verifyComplete();
+            final ResponseCookie cleared = ex.getResponse().getCookies().getFirst("trunkline_sso_state");
+            assertNotNull(cleared);
+            assertEquals(java.time.Duration.ZERO, cleared.getMaxAge());
+        }
+
+        @Test
+        @DisplayName("无 state cookie（未走 front-channel）→ 跳过校验，保持既有 /sso 契约")
+        void noCookieSkipsCheck() {
+            final SsoConnector.EnterpriseUser user =
+                    new SsoConnector.EnterpriseUser("ext-1", "张三", "zhangsan@corp.example", "IT");
+            lenient().when(ssoConnector.providerName()).thenReturn("oidc");
+            lenient().when(ssoConnector.exchange(anyString())).thenReturn(Optional.of(user));
+            lenient().when(accountManager.authenticateExternal(any(), any(), any()))
+                    .thenReturn(Mono.just("sso-jwt-token"));
+
+            final MockServerWebExchange ex = MockServerWebExchange.from(
+                    MockServerHttpRequest.post("/api/auth/jwt/sso").build());
+            StepVerifier.create(controller.ssoLogin(requestWith(null), ex))
+                    .expectNextMatches(response -> response.isSuccess())
                     .verifyComplete();
         }
     }

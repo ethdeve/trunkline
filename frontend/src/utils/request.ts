@@ -42,6 +42,13 @@ request.interceptors.request.use(
     if (token && config.headers && !isTokenEndpoint) {
       config.headers['Trunkline_Token'] = token
     }
+    // 多租户：注入当前选中租户（无选中则为空，不注入）。
+    // 后端仅在 trunkline.enterprise.tenant.header-enabled 时解析该头；社区版该过滤器未注册，
+    // 携带此头也无副作用。
+    const tenantId = localStorage.getItem('trunkline_tenant_id')
+    if (tenantId && config.headers) {
+      config.headers['X-Tenant-Id'] = tenantId
+    }
     return config
   },
   error => {

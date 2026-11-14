@@ -12,6 +12,9 @@ package org.unreal.modelrouter.common.dto;
 public final class SsoLoginRequest {
     private String code;
 
+    /** SSO 授权流程的 state（CSRF 校验用）；由 /sso/authorize 生成并种入 cookie，回调时原样回传 */
+    private String state;
+
     public SsoLoginRequest() {
     }
 
@@ -23,9 +26,17 @@ public final class SsoLoginRequest {
         this.code = code;
     }
 
+    public String getState() {
+        return this.state;
+    }
+
+    public void setState(final String state) {
+        this.state = state;
+    }
+
     @Override
     public String toString() {
-        // 授权码是短期凭证，禁止进日志
-        return "SsoLoginRequest(code=***)";
+        // 授权码与 state 都是短期凭证，禁止进日志
+        return "SsoLoginRequest(code=***, state=***)";
     }
 }

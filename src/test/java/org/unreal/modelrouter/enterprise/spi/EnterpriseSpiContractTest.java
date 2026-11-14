@@ -54,10 +54,28 @@ class EnterpriseSpiContractTest {
     }
 
     @Test
-    @DisplayName("NoopSsoConnector：providerName 空串（O7-a 判别依据）、exchange 返回空")
+    @DisplayName("B5-out：NoopModerationProvider 输出侧会话默认空（社区版逐字节零行为变化）")
+    void noopOutputSessionDisabledByDefault() {
+        assertEquals(Optional.empty(), new NoopModerationProvider()
+                .openOutputSession(new ModerationProvider.ModerationInput("m", "", "u", "t")));
+    }
+
+    @Test
+    @DisplayName("B5-out：输出侧 SPI 为 default 方法扩展，VERSION 保持 v2（企业 jar 二进制兼容）")
+    void outputSessionDoesNotBumpSpiVersion() {
+        assertEquals(2, EnterpriseSpiVersion.VERSION);
+        // 显式以接口类型调用，确认 default 方法在旧实现类上可用
+        final ModerationProvider noop = new NoopModerationProvider();
+        assertEquals(Optional.empty(), noop.openOutputSession(null));
+    }
+
+    @Test
+    @DisplayName("NoopSsoConnector：providerName 空串、exchange 空、authorizationRedirect 默认空")
     void noopSsoContract() {
         final NoopSsoConnector noop = new NoopSsoConnector();
         assertEquals("", noop.providerName());
         assertEquals(Optional.empty(), noop.exchange("any-code"));
+        // A2 补链：SPI 新增的是 default 方法，Noop 无需覆写即安全关闭跳转入口
+        assertEquals(Optional.empty(), noop.authorizationRedirect("any-state"));
     }
 }

@@ -79,6 +79,11 @@
       "observeCenter": "观测中心",
       "usageQuota": "用量配额",
       "forbidden": "无权访问"
+    },
+    "feature": {
+      "enterpriseBadge": "商业版",
+      "lockedTooltip": "需商业版授权",
+      "lockedHint": "该功能需要商业版授权，请联系管理员开通"
     }
   },
   "app": {

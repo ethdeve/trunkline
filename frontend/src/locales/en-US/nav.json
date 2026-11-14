@@ -79,6 +79,11 @@
       "observeCenter": "Observability",
       "usageQuota": "Usage Quota",
       "forbidden": "Access Denied"
+    },
+    "feature": {
+      "enterpriseBadge": "Enterprise",
+      "lockedTooltip": "Requires enterprise license",
+      "lockedHint": "This feature requires an enterprise license. Contact your admin to enable it."
     }
   },
   "app": {

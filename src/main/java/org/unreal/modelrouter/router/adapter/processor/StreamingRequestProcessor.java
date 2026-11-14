@@ -18,6 +18,8 @@ import org.unreal.modelrouter.auth.security.quota.QuotaReservation;
 import org.unreal.modelrouter.auth.security.service.ApiKeyService;
 import org.unreal.modelrouter.auth.sanitization.SanitizationService;
 import org.unreal.modelrouter.config.core.StreamingSafetyProperties;
+import org.unreal.modelrouter.enterprise.config.TenantContextHolder;
+import org.unreal.modelrouter.enterprise.spi.ModerationProvider;
 import org.unreal.modelrouter.monitor.callhistory.ApiCallHistoryRecorder;
 import org.unreal.modelrouter.monitor.callhistory.config.CallHistoryProperties;
 import org.unreal.modelrouter.monitor.callhistory.config.RecordLevel;
@@ -112,6 +114,11 @@ public class StreamingRequestProcessor {
     @Autowired(required = false)
     private ResponseCacheService responseCacheService;
     
+    // B5-out: 输出侧（流式增量）审核扩展点。社区版 Noop 的 openOutputSession 默认返回 empty，
+    // 主干逐字节返回原始 chunk 流（零解析、零拷贝、零行为变化）。
+    @Autowired(required = false)
+    private ModerationProvider moderationProvider;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public StreamingRequestProcessor(final ResponseTransformer responseTransformer) {
@@ -318,12 +325,25 @@ public class StreamingRequestProcessor {
             requestSpec = requestSpec.header("Authorization", authorization);
         }
 
+        // B5-out: 输出侧审核的输入上下文只构造一次（不在每帧解析调用者 / 租户）。
+        final ModerationProvider.ModerationInput outputModerationInput = moderationProvider == null
+                ? null
+                : new ModerationProvider.ModerationInput(
+                        adapterType, "", resolveCallerUser(httpRequest, capturedKeyId),
+                        TenantContextHolder.currentTenantId());
+
         // 使用 ServerSentEvent 包装每个数据块，确保 SSE 格式正确。
         // 摘自上游 v3.2.x (#257 A)：后处理链抽成局部 lambda —— /v1 面需要在**订阅响应体之前**先看下游状态，
         // 因此链路入口从「固定 retrieve()」改为「由调用方传入原始 chunk 流」；
         // legacy /api/** 面仍以同样的 retrieve().onStatus(...) 进入（见下方分支），语义逐字节不变。
         final Function<Flux<String>, Flux<ServerSentEvent<String>>> decorateChunks = rawChunks -> {
-            Flux<ServerSentEvent<String>> streamResponse = rawChunks
+            // B5-out: 挂在原始 chunk 层（SSE 包装之前），一处覆盖 /v1、legacy 与 Anthropic translator
+            // 的下游。拦截以异常终止 → doOnComplete 不触发（不写流式缓存、不记成功、不落违规响应体），
+            // 由既有 onErrorResume / StreamingErrorTermination 补协议 error 帧。
+            // 社区版 Noop 返回空会话，apply 原样返回 rawChunks，此处零开销。
+            final Flux<String> moderatedChunks = StreamingOutputModeration.apply(
+                    rawChunks, moderationProvider, outputModerationInput, objectMapper);
+            Flux<ServerSentEvent<String>> streamResponse = moderatedChunks
                 .map(chunk -> {
                     // 摘自上游 #356：标记已产出首块（决定失败时是否可补协议 error 帧）
                     firstChunkEmitted.set(true);
