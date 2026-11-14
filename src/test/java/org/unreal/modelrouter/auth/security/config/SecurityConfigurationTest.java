@@ -62,6 +62,10 @@ class SecurityConfigurationTest {
     @Test
     void testSecurityWebFilterChainCreation() {
         // Given
+        // O5 出站 DLP 开关在 securityWebFilterChain 中读取 sanitization.response，
+        // mock 需打桩返回默认配置（真实绑定场景由 @ConfigurationProperties 提供）
+        when(securityProperties.getSanitization()).thenReturn(
+                new org.unreal.modelrouter.auth.security.config.properties.SanitizationConfig());
         SecurityConfiguration securityConfiguration = new SecurityConfiguration(
                 securityProperties, apiKeyService, fixedRoleAuthorizationManager, applicationContext
         );

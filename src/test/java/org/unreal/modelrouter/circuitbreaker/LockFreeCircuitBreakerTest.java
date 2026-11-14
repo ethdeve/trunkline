@@ -311,6 +311,6 @@ class LockFreeCircuitBreakerTest {
         System.out.println("  每线程操作数：" + operationsPerThread);
         System.out.println("  总操作数：" + (threadCount * operationsPerThread));
         System.out.println("  总耗时：" + duration + "ms");
-        System.out.println("  吞吐量：" + (threadCount * operationsPerThread * 1000 / duration) + " ops/s");
+        System.out.println("  吞吐量：" + (duration > 0 ? threadCount * operationsPerThread * 1000 / duration : -1) + " ops/s");
     }
 }

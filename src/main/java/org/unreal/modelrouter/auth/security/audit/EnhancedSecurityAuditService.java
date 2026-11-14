@@ -5,6 +5,7 @@ import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Primary;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.unreal.modelrouter.auth.security.model.SecurityAuditEvent;
@@ -49,6 +50,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 @Slf4j
 @Service("enhancedSecurityAuditService")
+@Primary
 @ConditionalOnProperty(name = "trunkline.security.audit.enhanced", havingValue = "true", matchIfMissing = false)
 public class EnhancedSecurityAuditService implements SecurityAuditService {
 

@@ -1,9 +1,8 @@
 # ========================================
-# 生产环境配置（v2.8.x 精简版）
+# 生产环境配置
 # ========================================
-# 此文件仅包含生产环境特定的差异化配置
-# 基础配置通过模块化导入，详见 application.yml
-# 敏感配置必须使用环境变量！
+# 此文件仅包含生产环境特定的差异化配置；基础配置通过模块化导入，详见 application.yml。
+# 敏感配置必须使用环境变量！多副本部署基线详见 deploy/README.md。
 
 # 日志配置（生产环境最小化）
 logging:
@@ -41,33 +40,21 @@ management:
 
 # 安全配置（生产环境）
 trunkline:
-  # 多副本共享态自检：生产环境默认 FAIL（多副本 + 共享态开关未开时 fail-fast，禁止带病上线）。
-  # 单副本部署（replicas=1 或无 K8s 环境）不受影响；确需容忍时显式设为 WARN / OFF。
-  #
-  # 【多副本部署基线（A3-pre）】下方 5 个共享态开关默认全关、且共享态自检只在
-  # 确认多副本时才触发。多副本部署必须：① 显式配置 trunkline.cluster.replicas（见下）；
-  # ② 在部署清单中显式开启以下 5 个开关（Redis 必须可用），否则下方 mode=FAIL 会
-  # 令应用启动失败（fail-fast，禁止带病上线），修正配置后重启：
-  #   trunkline.security.jwt.blacklist.redis.enabled=true    # 否则副本 A 吊销的令牌副本 B 仍放行
-  #   trunkline.security.jwt.persistence.redis.enabled=true  # 否则令牌状态各副本独立
-  #   trunkline.security.cache.redis.enabled=true            # 否则 API Key 缓存吊销不跨副本生效
-  #   trunkline.quota.distributed.enabled=true               # 否则配额计数按副本数放大
-  #   trunkline.persistence.redis.enabled=true               # 否则状态持久化退坡本机
-  # 完整后果对照表、自检门闩语义与部署清单模板见 deploy/README.md（HA 多副本部署基线）。
+  # 【A3-pre · 多副本部署基线】5 个共享态开关默认全关、自检只在确认多副本时触发。
+  # 多副本必须：① 显式 replicas（见下）；② 部署清单开启 5 开关（jwt blacklist/persistence redis、
+  # cache redis、quota distributed、persistence redis，Redis 须可达），否则 mode=FAIL 启动失败。
+  # 后果对照表与清单模板见 deploy/README.md。
   cluster:
-    # 【A3-pre · 关键修复】副本数显式声明，默认单副本（=1）。
-    # 刻意不设 0：0 会回退 K8s 环境探测（KUBERNETES_SERVICE_HOST / POD_NAME），
-    # 把「单副本 K8s Pod」误判为多副本，在下方 mode=FAIL 下直接启动失败（误伤）。
-    # 多副本部署必须由运维显式设置 TRUNKLINE_REPLICAS=N（N>1），才能触发共享态自检。
+    # 副本数显式声明，默认单副本（=1）。刻意不设 0：0 会回退 K8s 环境探测
+    # （KUBERNETES_SERVICE_HOST / POD_NAME），把单副本 K8s Pod 误判为多副本、在 FAIL 下误伤启动。
+    # 多副本部署必须由运维显式设置 TRUNKLINE_REPLICAS=N（N>1）才能触发共享态自检。
     replicas: ${TRUNKLINE_REPLICAS:1}
     shared-state-check:
-      # 生产环境默认 FAIL：多副本 + 共享态开关未开 → 启动失败（fail-fast，禁止带病上线）。
-      # 单副本（replicas=1 或未触发 K8s 探测）不受影响，保持静默。
+      # 生产默认 FAIL：多副本 + 共享态开关未开 → 启动失败（fail-fast，禁止带病上线）；单副本静默。
       mode: FAIL
 
-  # 调用记录加密密钥（O4 · fail-closed）：生产禁止 auto 模式明文密钥落盘，
-  # 密钥必须经环境变量 TRUNKLINE_CALL_HISTORY_KEY 注入（Base64 编码的 32 字节 AES-256 密钥）。
-  # 缺失时启动失败（不静默降级）。多副本部署各副本必须同值，否则 A 副本加密的调用记录 B 副本无法解密。
+  # 调用记录加密密钥（O4 · fail-closed）：生产禁止 auto 模式明文密钥落盘，密钥必须经
+  # TRUNKLINE_CALL_HISTORY_KEY 注入（Base64 编码的 32 字节 AES-256）；缺失启动失败，多副本各副本同值。
   call-history:
     encryption-key-required: true
 
@@ -75,28 +62,23 @@ trunkline:
     # 生产环境安全功能
     enabled: true
 
-    # 【O3 · 安全开关化】安全日志归档 production 默认开（基础默认关：开源主干 matchIfMissing=false，
-    # dev 零配置不装配；切 production profile 即激活）。统一口径：基础默认关 + prod 显式开。
+    # 【O3 · 安全开关化】统一口径：基础默认关（matchIfMissing=false）+ prod 显式开。
     archive:
       enabled: true
 
     jwt:
       enabled: true
       # 生产必须显式注入强密钥；别名顺序 JWT_SECRET > PROD_JWT_SECRET > DEV_JWT_SECRET，
-      # 与 StartupSecretKeyChecker 的「显式注入」判定完全同口径（issue #674）。
-      # 三者皆无时门闩 fail-fast：即使启动期处理器生成了随机密钥，生产也不接受未显式注入。
+      # 与 StartupSecretKeyChecker 的「显式注入」判定同口径（issue #674）；三者皆无时 fail-fast。
       secret: "${JWT_SECRET:${PROD_JWT_SECRET:${DEV_JWT_SECRET:}}}"
       issuer: "trunkline-prod"
 
-      # 【生产安全默认·fail-closed】黑名单存储不可用/降级期间，已撤销/登出的令牌
-      # 一律按“在黑名单”拒绝（401），而非放行。基础模块 config/auth/jwt.yml 与 dev profile
-      # 刻意保持 false（可用性优先，issue #76/#118）；生产收紧为 true 才是完整安全态。
-      # 最高优先级仍可被环境变量 TRUNKLINE_SECURITY_JWT_BLACKLIST_FAIL_CLOSED_WHEN_UNAVAILABLE 覆盖。
+      # 【生产 fail-closed】黑名单存储不可用/降级期间，已撤销/登出令牌一律按“在黑名单”拒绝（401）。
+      # 基础模块与 dev 刻意 false（可用性优先，issue #76/#118）；可被 TRUNKLINE_SECURITY_JWT_BLACKLIST_FAIL_CLOSED_WHEN_UNAVAILABLE 覆盖。
       blacklist-fail-closed-when-unavailable: true
 
-      # 【issue #676】此处是 profile 级显式收紧，覆盖唯一真源 persistence-base.yml；
-      # 取值与真源默认值一致，保留是为了让「生产不开令牌台账」的安全意图可读。
-      # 黑名单持久化不由这里控制（见 persistence-base.yml 头部说明）。
+      # 【issue #676】profile 级显式收紧，覆盖唯一真源 persistence-base.yml；取值与真源默认一致，
+      # 保留是为让「生产不开令牌台账」的安全意图可读。黑名单持久化不由这里控制。
       persistence:
         enabled: false
         redis:
@@ -105,16 +87,14 @@ trunkline:
     api-key:
       enabled: true
       default-expiration-days: 365
-      # 【O3 · 安全开关化】密钥过期清理与轮换 production 默认开（基础默认关）。
-      # 过期清理为幂等操作，多副本重复执行危害小；轮换已带跨副本 ScheduledTaskLock，仅单副本执行。
+      # 【O3】过期清理（幂等）与轮换（带 ScheduledTaskLock）production 默认开，基础默认关。
       expiration-cleanup:
         enabled: true
       rotation:
         enabled: true
 
     audit:
-      # 【O3 · 安全开关化】增强审计 production 默认开（基础默认关：开源主干 matchIfMissing=false，
-      # dev 零配置不装配；切 production profile 即激活真实落库 + 死信兜底链路，不静默丢事件）。
+      # 【O3 · 安全开关化】增强审计 production 默认开：真实落库 + 死信兜底链路，不静默丢事件。
       enhanced: true
       log-level: "WARN"
       include-request-body: false
@@ -132,9 +112,7 @@ trunkline:
 
     monitoring:
       enabled: true
-      # 安全告警（SecurityAlertService / SecurityAlertScheduler）：阈值语义 = 「窗口内计数」
-      # 原比率键（authentication-failure-rate 等）从未有实现，已移除；
-      # 原 email / webhook 通知从未有实现，按出口契约（指标 + 日志）移除。
+      # 安全告警阈值语义 = 「窗口内计数」；原比率键与 email/webhook 通知从未实现，已按出口契约移除。
       alerts:
         enabled: true
         window-check-interval-ms: 300000

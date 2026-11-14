@@ -1,5 +1,5 @@
 # ========================================
-# 迁移专用模式（issue #193）
+# 迁移专用模式
 # ========================================
 # 用法：以 `--spring.profiles.active=prod,migrate`（或 SPRING_PROFILES_ACTIVE=prod,migrate）启动。
 #
