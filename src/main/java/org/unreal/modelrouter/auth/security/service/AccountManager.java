@@ -17,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.unreal.modelrouter.auth.security.config.properties.JwtAccountProperties;
 import org.unreal.modelrouter.auth.security.config.properties.SecurityProperties;
+import org.unreal.modelrouter.auth.security.config.properties.SsoConfig;
 import org.unreal.modelrouter.auth.security.audit.ExtendedSecurityAuditService;
 import org.unreal.modelrouter.common.exception.ApiException;
 import org.unreal.modelrouter.enterprise.spi.SsoConnector;
@@ -161,12 +162,14 @@ public class AccountManager implements UserDetailsService {
     }
 
     /**
-     * 外部身份认证并签发 JWT（O7-a，SSO 调用点）。
+     * 外部身份认证并签发 JWT（O7-a 调用点，A2 增加 JIT 自动建号）。
      *
-     * <p>映射规则（社区版最小实现）：外部身份只映射到「已存在且启用」的本地账号——
-     * 依次尝试 {@code externalId} → {@code email} → {@code email 本地前缀}；
-     * 无映射则拒绝（不自动建号，自动建号/角色映射是企业版 A2 的 {@code SsoUserMapper} 范围）。
-     * <b>安全约束</b>：签发角色完全来自本地账号配置，禁止从 IdP 返回的角色字符串透传。</p>
+     * <p>映射规则：外部身份先尝试映射到「已存在且启用」的本地账号
+     * （{@code externalId} → {@code email} → {@code email 本地前缀}）；无映射时，若
+     * {@code trunkline.security.sso.auto-provision=true}（默认），则 JIT 创建本地账号并签发，
+     * 否则拒绝（{@code EXTERNAL_ACCOUNT_NOT_MAPPED}，须管理员预置）。
+     * <b>安全约束</b>：签发角色完全来自本地账号配置（JIT 用 {@code default-role}），
+     * 禁止从 IdP 返回的角色字符串透传。</p>
      *
      * @param externalUser IdP 交换出的企业用户身份
      * @param ipAddress    客户端 IP（审计）
@@ -175,25 +178,111 @@ public class AccountManager implements UserDetailsService {
      */
     public Mono<String> authenticateExternal(final SsoConnector.EnterpriseUser externalUser,
                                              final String ipAddress, final String userAgent) {
-        return Mono.fromCallable(() -> resolveExternalLocalUsername(externalUser))
-                .flatMap(username -> {
-                    if (username == null) {
-                        log.warn("外部身份无映射本地账号: externalId={}, email={}",
-                                externalUser.externalId(), externalUser.email());
-                        if (auditService != null) {
-                            auditService.auditSecurityEvent("AUTHENTICATION_FAILED",
+        // 注意：不能用 Mono.fromCallable(() -> resolve...返回 null)，Reactor 下 callable 返回 null
+        // 会空完成（onComplete）而非把 null 传入 flatMap，导致「无映射→拒绝」分支变成死代码。
+        // 故用 Mono.defer 显式处理 null → EXTERNAL_ACCOUNT_NOT_MAPPED。
+        return Mono.defer(() -> {
+            final String username = resolveOrProvisionLocalUsername(externalUser);
+            if (username == null) {
+                log.warn("外部身份无映射本地账号: externalId={}, email={}",
+                        externalUser.externalId(), externalUser.email());
+                if (auditService != null) {
+                    auditService.auditSecurityEvent("AUTHENTICATION_FAILED",
                                     "外部身份无映射本地账号: " + externalUser.externalId(),
                                     externalUser.email(), ipAddress)
-                                    .onErrorResume(ex -> Mono.empty())
-                                    .subscribe();
-                        }
-                        return Mono.error(ApiException.of("EXTERNAL_ACCOUNT_NOT_MAPPED",
-                                "外部账号未映射到本地账号，请联系管理员开通",
-                                org.springframework.http.HttpStatus.UNAUTHORIZED));
-                    }
-                    log.info("外部身份已映射本地账号并签发令牌: username={}, ip={}", username, ipAddress);
-                    return Mono.just(generateJwtToken(username, securityProperties));
-                });
+                            .onErrorResume(ex -> Mono.empty())
+                            .subscribe();
+                }
+                return Mono.error(ApiException.of("EXTERNAL_ACCOUNT_NOT_MAPPED",
+                        "外部账号未映射到本地账号，请联系管理员开通",
+                        org.springframework.http.HttpStatus.UNAUTHORIZED));
+            }
+            log.info("外部身份已映射/开通本地账号并签发令牌: username={}, ip={}", username, ipAddress);
+            return Mono.just(generateJwtToken(username, securityProperties));
+        });
+    }
+
+    /**
+     * 外部身份 → 本地用户名：先尝试映射到已存在且启用的账号，无映射时按策略 JIT 自动建号。
+     * 返回 null 表示既无映射又不开通（调用方据此拒绝）。
+     */
+    private String resolveOrProvisionLocalUsername(final SsoConnector.EnterpriseUser user) {
+        final String existing = resolveExternalLocalUsername(user);
+        if (existing != null) {
+            return existing;
+        }
+        final SsoConfig sso = securityProperties.getSso();
+        if (sso == null || !sso.isAutoProvision()) {
+            return null; // 沿用现状：须管理员预置
+        }
+        final String username = deriveSsoUsername(user);
+        if (username == null) {
+            return null; // 既无 email 也无 externalId，无法派生用户名
+        }
+        // 同名但被禁用的账号不自动启用（避免把禁用账号复活）
+        final Optional<JwtAccountEntity> collision = jwtAccountRepository.findByUsername(username);
+        if (collision.isPresent() && Boolean.FALSE.equals(collision.get().getEnabled())) {
+            log.warn("SSO JIT 跳过：本地账号 {} 已存在但被禁用，不自动启用", username);
+            return null;
+        }
+        if (collision.isPresent()) {
+            return username; // 已存在且启用（兜底，正常不会到这）
+        }
+        provisionLocalAccount(user, username, sso.getDefaultRole());
+        return username;
+    }
+
+    /**
+     * 派生 JIT 本地用户名：优先 email 本地前缀（{@code alice@corp.com} → {@code alice}），
+     * 其次 externalId；两者皆空返回 null。
+     */
+    private String deriveSsoUsername(final SsoConnector.EnterpriseUser user) {
+        if (user.email() != null && !user.email().isBlank()) {
+            final int at = user.email().indexOf('@');
+            if (at > 0) {
+                return user.email().substring(0, at);
+            }
+            return user.email(); // 无 @ 的退化情况
+        }
+        if (user.externalId() != null && !user.externalId().isBlank()) {
+            return user.externalId();
+        }
+        return null;
+    }
+
+    /**
+     * JIT 创建本地账号：随机密码（密码登录不可用）、角色取 default-role、启用、填名称/部门、
+     * 归属默认租户。绝不持久化 IdP 令牌或原始声明。
+     */
+    private void provisionLocalAccount(final SsoConnector.EnterpriseUser user,
+                                      final String username, final String defaultRole) {
+        final JwtAccountEntity entity = JwtAccountEntity.builder()
+                .username(username)
+                .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                .roles(toRolesJson(defaultRole))
+                .name(user.displayName())
+                .department(user.department())
+                .enabled(true)
+                .tenantId("default")
+                .build();
+        jwtAccountRepository.save(entity);
+        log.info("SSO JIT 首次登录自动建号: username={}, email={}, defaultRole={}",
+                username, user.email(), defaultRole);
+        if (auditService != null) {
+            auditService.auditSecurityEvent("ACCOUNT_PROVISIONED",
+                            "SSO 自动建号: " + username, username, null)
+                    .onErrorResume(ex -> Mono.empty())
+                    .subscribe();
+        }
+    }
+
+    private String toRolesJson(final String role) {
+        try {
+            return objectMapper.writeValueAsString(List.of(role));
+        } catch (final JsonProcessingException e) {
+            log.warn("序列化 SSO default-role 失败，降级为空角色: {}", e.getMessage());
+            return "[]";
+        }
     }
 
     /**

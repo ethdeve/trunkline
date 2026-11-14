@@ -44,17 +44,25 @@ trunkline:
   # 多副本共享态自检：生产环境默认 FAIL（多副本 + 共享态开关未开时 fail-fast，禁止带病上线）。
   # 单副本部署（replicas=1 或无 K8s 环境）不受影响；确需容忍时显式设为 WARN / OFF。
   #
-  # 【多副本部署基线（A3-pre）】下方 5 个共享态开关默认全关、且多副本探测只认显式 replicas 与
-  # K8s 环境变量——裸机多进程 / docker-compose 多副本 / VM 双机会被判为单副本而静默通过。
-  # 部署多副本时必须：① 显式配置 trunkline.cluster.replicas；② 显式开启以下开关
-  # （Redis 必须可用），否则自检 FAIL 属预期，修正配置后重启：
+  # 【多副本部署基线（A3-pre）】下方 5 个共享态开关默认全关、且共享态自检只在
+  # 确认多副本时才触发。多副本部署必须：① 显式配置 trunkline.cluster.replicas（见下）；
+  # ② 在部署清单中显式开启以下 5 个开关（Redis 必须可用），否则下方 mode=FAIL 会
+  # 令应用启动失败（fail-fast，禁止带病上线），修正配置后重启：
   #   trunkline.security.jwt.blacklist.redis.enabled=true    # 否则副本 A 吊销的令牌副本 B 仍放行
   #   trunkline.security.jwt.persistence.redis.enabled=true  # 否则令牌状态各副本独立
   #   trunkline.security.cache.redis.enabled=true            # 否则 API Key 缓存吊销不跨副本生效
   #   trunkline.quota.distributed.enabled=true               # 否则配额计数按副本数放大
   #   trunkline.persistence.redis.enabled=true               # 否则状态持久化退坡本机
+  # 完整后果对照表、自检门闩语义与部署清单模板见 deploy/README.md（HA 多副本部署基线）。
   cluster:
+    # 【A3-pre · 关键修复】副本数显式声明，默认单副本（=1）。
+    # 刻意不设 0：0 会回退 K8s 环境探测（KUBERNETES_SERVICE_HOST / POD_NAME），
+    # 把「单副本 K8s Pod」误判为多副本，在下方 mode=FAIL 下直接启动失败（误伤）。
+    # 多副本部署必须由运维显式设置 TRUNKLINE_REPLICAS=N（N>1），才能触发共享态自检。
+    replicas: ${TRUNKLINE_REPLICAS:1}
     shared-state-check:
+      # 生产环境默认 FAIL：多副本 + 共享态开关未开 → 启动失败（fail-fast，禁止带病上线）。
+      # 单副本（replicas=1 或未触发 K8s 探测）不受影响，保持静默。
       mode: FAIL
 
   # 调用记录加密密钥（O4 · fail-closed）：生产禁止 auto 模式明文密钥落盘，

@@ -60,6 +60,13 @@ public class SecurityProperties {
     @NotNull
     private CacheConfig cache = new CacheConfig();
 
+    /**
+     * SSO 本地账号开通策略（A2）
+     */
+    @Valid
+    @NotNull
+    private SsoConfig sso = new SsoConfig();
+
     public SecurityProperties() {
     }
 
@@ -117,6 +124,14 @@ public class SecurityProperties {
 
     public void setCache(@Valid @NotNull final CacheConfig cache) {
         this.cache = cache;
+    }
+
+    public @Valid @NotNull SsoConfig getSso() {
+        return this.sso;
+    }
+
+    public void setSso(@Valid @NotNull final SsoConfig sso) {
+        this.sso = sso;
     }
 
     public String toString() {
