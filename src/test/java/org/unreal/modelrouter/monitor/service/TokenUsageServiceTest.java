@@ -338,10 +338,11 @@ class TokenUsageServiceTest {
         @Test
         @DisplayName("PriceResolver 命中 → 快照固化（input/output/version，missing=false）")
         void resolverHitSnapshotsPrice() {
-            when(priceResolver.resolve("instance-1")).thenReturn(java.util.Optional.of(
-                    new org.unreal.modelrouter.billing.price.PriceQuote(
-                            new java.math.BigDecimal("0.01"),
-                            new java.math.BigDecimal("0.03"), "flat")));
+            when(priceResolver.resolve(any(PriceResolver.PricingContext.class)))
+                    .thenReturn(java.util.Optional.of(
+                            new org.unreal.modelrouter.billing.price.PriceQuote(
+                                    new java.math.BigDecimal("0.01"),
+                                    new java.math.BigDecimal("0.03"), "flat")));
             when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
@@ -360,7 +361,8 @@ class TokenUsageServiceTest {
         @Test
         @DisplayName("计价键取 instance_name 优先，instance 为空回落 model_name")
         void resolverKeyPrefersInstanceName() {
-            when(priceResolver.resolve(any())).thenReturn(java.util.Optional.empty());
+            when(priceResolver.resolve(any(PriceResolver.PricingContext.class)))
+                    .thenReturn(java.util.Optional.empty());
             when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
@@ -368,13 +370,48 @@ class TokenUsageServiceTest {
             noInstance.setInstanceName(null);
             tokenUsageService.recordTokenUsage(noInstance);
 
-            verify(priceResolver).resolve("gpt-4");
+            org.mockito.ArgumentCaptor<PriceResolver.PricingContext> ctxCaptor =
+                    org.mockito.ArgumentCaptor.forClass(PriceResolver.PricingContext.class);
+            verify(priceResolver).resolve(ctxCaptor.capture());
+            assertEquals("gpt-4", ctxCaptor.getValue().modelName());
+            // B1 / P0-6：租户上下文确已进入取价链路
+            assertEquals(org.unreal.modelrouter.enterprise.config.TenantContextHolder.currentTenantId(),
+                    ctxCaptor.getValue().tenantId());
+        }
+
+        @Test
+        @DisplayName("P0-6：非默认租户 ID 透传进取价上下文（议价能力前置）")
+        void nonDefaultTenantIsPassedToPricingContext() {
+            final org.unreal.modelrouter.enterprise.spi.TenantContext tenantContext =
+                    mock(org.unreal.modelrouter.enterprise.spi.TenantContext.class);
+            when(tenantContext.currentTenantId()).thenReturn("acme");
+            org.unreal.modelrouter.enterprise.config.TenantContextHolder.setDelegate(tenantContext);
+            try {
+                when(priceResolver.resolve(any(PriceResolver.PricingContext.class)))
+                        .thenReturn(java.util.Optional.empty());
+                when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
+                        .thenAnswer(inv -> inv.getArgument(0));
+
+                tokenUsageService.recordTokenUsage(createTestRecord());
+
+                org.mockito.ArgumentCaptor<PriceResolver.PricingContext> captor =
+                        org.mockito.ArgumentCaptor.forClass(PriceResolver.PricingContext.class);
+                verify(priceResolver).resolve(captor.capture());
+                assertEquals("acme", captor.getValue().tenantId());
+                assertEquals("instance-1", captor.getValue().modelName());
+                assertEquals(0L, captor.getValue().cachedTokens());
+                assertEquals("CNY", captor.getValue().currency());
+            } finally {
+                // 静态持有器必须复位，避免污染全量测试的其他用例
+                org.unreal.modelrouter.enterprise.config.TenantContextHolder.setDelegate(null);
+            }
         }
 
         @Test
         @DisplayName("PriceResolver 未命中 → priceMissing=true，不虚构 ¥0 快照")
         void resolverMissMarksMissing() {
-            when(priceResolver.resolve(any())).thenReturn(java.util.Optional.empty());
+            when(priceResolver.resolve(any(PriceResolver.PricingContext.class)))
+                    .thenReturn(java.util.Optional.empty());
             when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
@@ -402,7 +439,8 @@ class TokenUsageServiceTest {
             record.setPriceVersion("negotiated");
             tokenUsageService.recordTokenUsage(record);
 
-            verify(priceResolver, never()).resolve(any());
+            verify(priceResolver, never()).resolve(org.mockito.ArgumentMatchers.anyString());
+            verify(priceResolver, never()).resolve(any(PriceResolver.PricingContext.class));
             org.mockito.ArgumentCaptor<TokenUsageEntity> captor =
                     org.mockito.ArgumentCaptor.forClass(TokenUsageEntity.class);
             verify(tokenUsageRepository).save(captor.capture());
@@ -413,7 +451,8 @@ class TokenUsageServiceTest {
         @Test
         @DisplayName("PriceResolver 抛异常 → 按缺失处理，计量永不阻断")
         void resolverExceptionDoesNotBlockMetering() {
-            when(priceResolver.resolve(any())).thenThrow(new RuntimeException("price db down"));
+            when(priceResolver.resolve(any(PriceResolver.PricingContext.class)))
+                    .thenThrow(new RuntimeException("price db down"));
             when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
@@ -463,6 +502,8 @@ class TokenUsageServiceTest {
 
                 // cost = (100×0.01 + 50×0.03)/1000 = 0.0025
                 var entry = chargeCaptor();
+                assertEquals("trace-001", entry.traceId(),
+                        "B2：traceId 必须透传到 BillingEntry，作为真实账本的幂等键");
                 assertEquals(new java.math.BigDecimal("0.002500"), entry.cost());
                 assertEquals("user-001", entry.username());
                 assertEquals("instance-1", entry.model());
@@ -473,6 +514,21 @@ class TokenUsageServiceTest {
                     org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
                 }
             }
+        }
+
+        @Test
+        @DisplayName("B2：不同 traceId 生成不同幂等键（与落库用量同源）")
+        void traceIdIsPropagatedAsIdempotencyKey() {
+            when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+            final TokenUsageRecordDTO record = createTestRecord();
+            record.setTraceId("trace-unique-42");
+            record.setPriceInputSnapshot(new java.math.BigDecimal("0.01"));
+            record.setPriceOutputSnapshot(new java.math.BigDecimal("0.03"));
+
+            tokenUsageService.recordTokenUsage(record);
+
+            assertEquals("trace-unique-42", chargeCaptor().traceId());
         }
 
         @Test
@@ -493,7 +549,8 @@ class TokenUsageServiceTest {
         @Test
         @DisplayName("未定价（priceMissing）→ 不扣费，绝不按 ¥0 计")
         void unpricedNeverChargedAsZero() {
-            when(priceResolver.resolve(any())).thenReturn(java.util.Optional.empty());
+            when(priceResolver.resolve(any(PriceResolver.PricingContext.class)))
+                    .thenReturn(java.util.Optional.empty());
             when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 

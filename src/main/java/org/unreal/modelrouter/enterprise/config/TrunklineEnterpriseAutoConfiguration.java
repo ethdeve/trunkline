@@ -11,6 +11,8 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.unreal.modelrouter.enterprise.noop.CommunityFeaturesProvider;
+import org.unreal.modelrouter.billing.price.CommunityPriceResolver;
+import org.unreal.modelrouter.billing.price.PriceResolver;
 import org.unreal.modelrouter.enterprise.noop.NoopBillingProvider;
 import org.unreal.modelrouter.enterprise.noop.NoopLicenseVerifier;
 import org.unreal.modelrouter.enterprise.noop.NoopModerationProvider;
@@ -58,6 +60,21 @@ public class TrunklineEnterpriseAutoConfiguration {
     @ConditionalOnMissingBean(ModerationProvider.class)
     public NoopModerationProvider noopModerationProvider() {
         return new NoopModerationProvider();
+    }
+
+    /**
+     * 价格解析 SPI 兜底（O2「价格可演进」）：社区版不含单价配置，恒返回空价。
+     *
+     * <p>商业版 {@code EnterpriseAutoConfiguration.flatPriceResolver()} 通过
+     * {@code @AutoConfiguration(before = TrunklineEnterpriseAutoConfiguration.class)}
+     * 先于本 Bean 注册企业版实现；本 Bean 随即因 {@code @ConditionalOnMissingBean(PriceResolver.class)}
+     * 退位，使「classpath 有企业版 jar 且 billing 功能位开启 → 覆盖默认实现」确定生效，
+     * 与 {@link #noopBillingProvider()} 完全同构。</p>
+     */
+    @Bean
+    @ConditionalOnMissingBean(PriceResolver.class)
+    public CommunityPriceResolver communityPriceResolver() {
+        return new CommunityPriceResolver();
     }
 
     @Bean

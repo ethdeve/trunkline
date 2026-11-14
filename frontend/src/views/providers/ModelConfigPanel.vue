@@ -89,6 +89,17 @@
       :title="t('modelConfig.readOnlyTip')"
     />
 
+    <!--
+      额度 / 价格 分栏（方案 B：单价属商业能力，已拆到企业版 /api/config/prices）。
+      - 额度与限速：开源基础能力（/api/config/quota），常驻「额度与限速」tab。
+      - 价格：商业能力（/api/config/prices），仅当 enterprise.billing 功能位解锁时出现「价格」tab。
+      两 tab 共享同一张实例表，仅按 activeTab 切换可见列，避免重复渲染整表。
+    -->
+    <el-tabs v-model="activeTab" class="config-tabs">
+      <el-tab-pane :label="t('modelConfig.tabQuota')" name="quota" />
+      <el-tab-pane v-if="enterpriseStore.billing" :label="t('modelConfig.tabPrice')" name="price" />
+    </el-tabs>
+
     <el-table
       ref="modelConfigTableRef"
       :data="paginated"
@@ -214,8 +225,9 @@
 
       <!-- 单价：输入 / 输出 / 缓存 竖排。改完即存（el-input-number 的 change 在值变化并失焦时触发一次），
            不再单列「保存价格」按钮 —— 少一个要找的按钮。
-           列宽给足（210px）：既容纳「输入/输出/缓存」完整标签，又让 6 位小数的单价不被截断。 -->
-      <el-table-column :label="t('modelConfig.columnPrice')" width="210" align="right" header-align="center">
+           列宽给足（210px）：既容纳「输入/输出/缓存」完整标签，又让 6 位小数的单价不被截断。
+           仅「价格」tab 可见（商业能力，activeTab 控制）。 -->
+      <el-table-column v-if="activeTab === 'price'" :label="t('modelConfig.columnPrice')" width="210" align="right" header-align="center">
         <template #default="scope">
           <div class="price-stack">
             <div class="price-row">
@@ -264,8 +276,8 @@
         </template>
       </el-table-column>
 
-      <!-- 计价开关：关闭 → 该模型不参与账单计价（¥0） -->
-      <el-table-column :label="t('modelConfig.columnBilling')" width="86" align="center">
+      <!-- 计价开关：关闭 → 该模型不参与账单计价（¥0）。仅「价格」tab 可见 -->
+      <el-table-column v-if="activeTab === 'price'" :label="t('modelConfig.columnBilling')" width="86" align="center">
         <template #header>
           <span>{{ t('modelConfig.columnBilling') }}</span>
           <el-tooltip :content="t('modelConfig.billingTip')" placement="top">
@@ -277,8 +289,8 @@
         </template>
       </el-table-column>
 
-      <!-- 额度与限速（摘要 chips，明细在弹窗里改） -->
-      <el-table-column min-width="190" header-align="center">
+      <!-- 额度与限速（摘要 chips，明细在弹窗里改）。仅「额度与限速」tab 可见（开源基础能力） -->
+      <el-table-column v-if="activeTab === 'quota'" min-width="190" header-align="center">
         <template #header>{{ t('modelConfig.columnQuota') }} <TermHelp term="rateLimit" /></template>
         <template #default="scope">
           <div class="limit-summary">
@@ -522,6 +534,12 @@ import { getAdapters, getAllConfigurations } from '@/api/service'
 import { getProviders, type ModelProvider } from '@/api/provider'
 import { getPoolList, type PoolDefinition } from '@/api/pools'
 import { getPriceCatalog, upsertModelPrice, type ModelPriceCatalogItem } from '@/api/providerPrice'
+import {
+  getModelQuotaCatalog,
+  upsertModelQuota,
+  type ModelQuotaCatalogItem
+} from '@/api/modelQuota'
+import { useEnterpriseStore } from '@/stores/enterprise'
 import { clearCache } from '@/stores/playgroundCache'
 import { exportCsv, datedFilename } from '@/utils/csvExport'
 import {
@@ -541,6 +559,10 @@ import { useQuotaLedger } from '@/composables/useQuotaLedger'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 
 const { t } = useI18n()
+// 企业功能位（billing 决定是否显示「价格」tab）
+const enterpriseStore = useEnterpriseStore()
+/** 当前分栏：quota=额度与限速（开源）/ price=单价（商业，需 billing 功能位） */
+const activeTab = ref<'quota' | 'price'>('quota')
 // 本面板只作为聚合页（接入管理）的 tab 内容嵌入，自身无页头——
 // 走 PageSkeleton 嵌入模式：隐藏空页头、去掉自带 padding，搜索框贴紧 tab 栏
 provide('skeletonEmbedded', true)
@@ -836,7 +858,7 @@ const load = async () => {
   loading.value = true
   try {
     const types = serviceTypes.value.length ? serviceTypes.value : ['chat']
-    const [instanceResults, priceResult] = await Promise.all([
+    const [instanceResults, priceResult, quotaResult] = await Promise.all([
       Promise.all(
         types.map(async st => {
           try {
@@ -851,14 +873,26 @@ const load = async () => {
       getPriceCatalog().catch(error => {
         console.error('获取模型价格目录失败:', error)
         return null
+      }),
+      getModelQuotaCatalog().catch(error => {
+        console.error('获取模型额度目录失败:', error)
+        return null
       })
     ])
 
-    // 价格索引：模型名 → 价格行
+    // 单价索引：模型名 → 单价行（商业能力，来自企业版 /api/config/prices）
     const priceIndex = new Map<string, ModelPriceCatalogItem>()
     if (priceResult?.data?.success) {
       for (const item of (priceResult.data.data || [])) {
         if (item?.modelName) priceIndex.set(item.modelName, item)
+      }
+    }
+
+    // 额度索引：模型名 → 额度行（开源基础能力，来自 /api/config/quota）
+    const quotaIndex = new Map<string, ModelQuotaCatalogItem>()
+    if (quotaResult?.data?.success) {
+      for (const item of (quotaResult.data.data || [])) {
+        if (item?.modelName) quotaIndex.set(item.modelName, item)
       }
     }
 
@@ -869,6 +903,7 @@ const load = async () => {
         const name = item.name
         if (!name) continue
         const price = priceIndex.get(name)
+        const quota = quotaIndex.get(name)
         merged.push({
           id: item.id,
           runtimeInstanceId: item.runtimeInstanceId,
@@ -888,21 +923,27 @@ const load = async () => {
           circuitBreaker: item.circuitBreaker,
           rateLimit: item.rateLimit,
           ...emptyPriceOf(),
+          // 单价字段仅来自价格目录（商业能力）；未配价时回落 emptyPriceOf 默认值
           ...(price
             ? {
                 priceInput: Number(price.priceInput ?? 0),
                 priceOutput: Number(price.priceOutput ?? 0),
                 priceCache: Number(price.priceCache ?? 0),
                 currency: price.currency || 'CNY',
-                priceEnabled: price.enabled !== false,
-                rateLimitPerMinute: Number(price.rateLimitPerMinute ?? 0),
-                hourlyRequestLimit: Number(price.hourlyRequestLimit ?? 0),
-                hourlyTokenLimit: Number(price.hourlyTokenLimit ?? 0),
-                dailyRequestLimit: Number(price.dailyRequestLimit ?? 0),
-                dailyTokenLimit: Number(price.dailyTokenLimit ?? 0),
-                monthlyRequestLimit: Number(price.monthlyRequestLimit ?? 0),
-                monthlyTokenLimit: Number(price.monthlyTokenLimit ?? 0),
-                quotaAlertThreshold: Number(price.quotaAlertThreshold ?? 0.8)
+                priceEnabled: price.enabled !== false
+              }
+            : {}),
+          // 额度与限速字段仅来自额度目录（开源基础能力）
+          ...(quota
+            ? {
+                rateLimitPerMinute: Number(quota.rateLimitPerMinute ?? 0),
+                hourlyRequestLimit: Number(quota.hourlyRequestLimit ?? 0),
+                hourlyTokenLimit: Number(quota.hourlyTokenLimit ?? 0),
+                dailyRequestLimit: Number(quota.dailyRequestLimit ?? 0),
+                dailyTokenLimit: Number(quota.dailyTokenLimit ?? 0),
+                monthlyRequestLimit: Number(quota.monthlyRequestLimit ?? 0),
+                monthlyTokenLimit: Number(quota.monthlyTokenLimit ?? 0),
+                quotaAlertThreshold: Number(quota.quotaAlertThreshold ?? 0.8)
               }
             : {}),
           circuitBreakerEnabled: item.circuitBreaker?.enabled === true,
@@ -990,12 +1031,13 @@ const openQuotaDialog = (row: ModelRow) => {
 /**
  * 保存额度与限速（只提交额度相关字段，不动单价与计价开关）。
  * 后端 upsert 语义为「null = 不修改」，故这里不传价格字段。
+ * 额度属开源基础能力，落库到 /api/config/quota（ModelQuotaController）。
  */
 const saveQuota = async () => {
   if (!quotaForm.value) return
   savingQuota.value = true
   try {
-    const res = await upsertModelPrice(quotaForm.value.name, {
+    const res = await upsertModelQuota(quotaForm.value.name, {
       rateLimitPerMinute: quotaForm.value.rateLimitPerMinute,
       hourlyRequestLimit: quotaForm.value.hourlyRequestLimit,
       hourlyTokenLimit: quotaForm.value.hourlyTokenLimit,
@@ -1414,10 +1456,15 @@ const handleExport = () => {
       { header: t('instance.status'), value: r => (r.status === 'active' ? t('instance.enabled') : t('instance.disabled')) },
       { header: t('instance.exportColumnHealth'), value: r => healthOf(r) },
       { header: t('instance.exportColumnCircuit'), value: r => circuitStateOf(r) || 'CLOSED' },
-      { header: t('modelConfig.columnPriceInput'), value: r => r.priceInput },
-      { header: t('modelConfig.columnPriceOutput'), value: r => r.priceOutput },
-      { header: t('modelConfig.columnPriceCache'), value: r => r.priceCache },
-      { header: t('modelConfig.columnBilling'), value: r => (r.priceEnabled ? 'Y' : 'N') },
+      // 单价 / 计价开关仅商业版（billing 功能位解锁）导出
+      ...(enterpriseStore.billing
+        ? [
+            { header: t('modelConfig.columnPriceInput'), value: (r: ModelRow) => r.priceInput },
+            { header: t('modelConfig.columnPriceOutput'), value: (r: ModelRow) => r.priceOutput },
+            { header: t('modelConfig.columnPriceCache'), value: (r: ModelRow) => r.priceCache },
+            { header: t('modelConfig.columnBilling'), value: (r: ModelRow) => (r.priceEnabled ? 'Y' : 'N') }
+          ]
+        : []),
       { header: t('circuitBreakerConfig.title'), value: r => (r.circuitBreakerEnabled ? 'Y' : 'N') },
       { header: t('rateLimitConfig.title'), value: r => (r.rateLimitEnabled ? 'Y' : 'N') },
       { header: t('instance.weight'), value: r => r.weight ?? '' }
@@ -1432,6 +1479,8 @@ const handleExport = () => {
 onMounted(async () => {
   // 探测配额账本开关 → 决定额度配置弹窗里每月字段是否禁用
   void loadQuotaLedgerState()
+  // 探测企业功能位（billing 决定是否显示「价格」tab）
+  void enterpriseStore.ensureLoaded()
   await fetchServiceTypes()
   await Promise.all([
     load(),

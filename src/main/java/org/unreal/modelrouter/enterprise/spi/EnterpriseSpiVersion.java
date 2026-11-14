@@ -29,6 +29,11 @@ package org.unreal.modelrouter.enterprise.spi;
  *   <li>{@code v2}（O7-c）：{@code ModerationInput} 新增 {@code tenantId} 组件——多租户
  *       「按租户配置审核策略」需要；保留三参兼容构造器（tenantId=null），存量编译不受影响，
  *       但企业实现应改用四参构造以参与多租户隔离判定。</li>
+ *   <li>{@code v3}（B2，{@code [BREAKING-SPI]}）：{@code BillingProvider.BillingEntry} 新增
+ *       {@code traceId} 首组件作为真实账本幂等键（一次调用一条，重放不重复扣费）；保留五参
+ *       兼容构造器，但 record 组件变化破坏了二进制兼容。同批新增 {@code precheck(BillingPrecheck)}
+ *       default 方法与两个新 record（属兼容扩展，不额外推版本）。企业仓
+ *       {@code EXPECTED_SPI_VERSION} 必须同步改为 3，两仓同批发版。</li>
  * </ul>
  *
  * @author Trunkline Team
@@ -36,7 +41,7 @@ package org.unreal.modelrouter.enterprise.spi;
 public final class EnterpriseSpiVersion {
 
     /** 当前 SPI 契约版本。破坏性变更必须 +1 并在类注释登记。 */
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
 
     private EnterpriseSpiVersion() {
     }

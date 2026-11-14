@@ -2,20 +2,17 @@
  * Copyright (c) 2026 Trunkline Team. All Rights Reserved.
  */
 
-package org.unreal.modelrouter.common.dto;
+package org.unreal.modelrouter.config.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
 /**
- * 模型价格 DTO（v3.5 Trunkline UI 改造，接入管理「价格与额度」tab）。
+ * 厂商模型额度目录条目（开源基础能力，接入管理「额度与限速」tab）。
  *
- * <p>单价口径：¥ / 千 token。价格来源一期手工配置（用户决策 #2）。</p>
+ * <p><b>一行 = 一个厂商模型</b>。单价属商业能力，不在本条目内（企业版另行提供）。</p>
  *
  * @author Trunkline Team
  */
@@ -23,32 +20,39 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public final class ModelPriceDTO {
+public final class ModelQuotaCatalogItemDTO {
 
-    private Long id;
+    /** 条目种类：PROVIDER_MODEL（厂商模型） */
+    public static final String KIND_PROVIDER_MODEL = "PROVIDER_MODEL";
 
-    /** 模型名 / 虚拟模型名（对外路由名） */
+    /** 厂商模型名（= model_quota 表主键 = service_instance.instance_name） */
     private String modelName;
 
-    /** 服务分类（chat/embedding/imgGen…，可选） */
+    /** 条目种类 */
+    private String kind;
+
+    /** 所属供应商名 */
+    private String providerName;
+
+    /** 服务分类 */
     private String serviceType;
 
-    /** 输入单价（¥ / 千 token） */
-    private BigDecimal priceInput;
+    /**
+     * 代表实例主键（Long PK，= service_instance.id）。
+     * 熔断/限流配置按实例粒度存储，前端据此跳转实例级配置。
+     */
+    private Long instanceId;
 
-    /** 输出单价（¥ / 千 token） */
-    private BigDecimal priceOutput;
+    /** 代表实例的熔断器是否已启用 */
+    private Boolean circuitBreakerEnabled;
 
-    /** 缓存单价（¥ / 千 token），未配置为 0 */
-    private BigDecimal priceCache;
+    /** 代表实例的限流器是否已启用 */
+    private Boolean rateLimitEnabled;
 
-    /** 币种（默认 CNY） */
-    private String currency;
-
-    /** 是否启用（停用后不参与账单计价） */
+    /** 是否启用额度配置 */
     private Boolean enabled;
 
-    /** 说明（可选） */
+    /** 说明 */
     private String description;
 
     // ==================== 额度与限速（厂商模型维度）====================
@@ -76,7 +80,4 @@ public final class ModelPriceDTO {
 
     /** 配额告警阈值（0.0-1.0），默认 0.8 */
     private Double quotaAlertThreshold;
-
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 }

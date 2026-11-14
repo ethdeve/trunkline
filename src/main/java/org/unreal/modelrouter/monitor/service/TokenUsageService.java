@@ -40,9 +40,9 @@ public class TokenUsageService {
     /**
      * 价格解析 SPI（O1 成交价快照 + O2 未定价 ≠ ¥0）。
      *
-     * <p>落库时点取价固化进快照列；开源默认 {@code FlatPriceResolver}（读 {@code model_price}），
-     * 企业版可覆盖为阶梯 / 时段 / 议价策略。取不到价 → {@code priceMissing=true} 单列「待定价」，
-     * <b>绝不静默按 ¥0</b>。</p>
+     * <p>落库时点取价固化进快照列；社区版默认 {@code CommunityPriceResolver}（恒空价，
+     * 用量按「待定价」记录），商业版可覆盖为阶梯 / 时段 / 议价策略。取不到价 →
+     * {@code priceMissing=true} 单列「待定价」，<b>绝不静默按 ¥0</b>。</p>
      */
     private final PriceResolver priceResolver;
 
@@ -159,8 +159,11 @@ public class TokenUsageService {
                 .divide(BigDecimal.valueOf(1000), 6, RoundingMode.HALF_UP);
         final String pricingKey = record.getInstanceName() != null && !record.getInstanceName().isBlank()
                 ? record.getInstanceName() : record.getModelName();
+        // B2：traceId 是真实账本的幂等键，必须与落库的 token_usage.trace_id 同源，
+        // 否则调用方重试 / 事务补偿会导致同一笔用量被重复扣费（3.2 #8a）。
         return new BillingProvider.BillingEntry(
-                TenantContextHolder.currentTenantId(), record.getUserId(), pricingKey, cost, total);
+                record.getTraceId(), TenantContextHolder.currentTenantId(),
+                record.getUserId(), pricingKey, cost, total);
     }
 
     /**
@@ -176,8 +179,9 @@ public class TokenUsageService {
      * 解析成交价快照：显式快照优先 → PriceResolver 取价 → 取不到则标缺失（未定价 ≠ ¥0）。
      */
     private PriceSnapshot resolvePriceSnapshot(final TokenUsageRecordDTO record) {
-        // 1) 调用方显式携带的快照（企业链路透传议价结果等）优先
-        if (record.getPriceInputSnapshot() != null || record.getPriceOutputSnapshot() != null) {
+        // 1) 调用方显式携带的快照优先。P0-5：必须两侧同时齐全，半价快照按「未定价」处理，
+        //    绝不按 0 补齐（completionTokens * NULL 在 SQL 里会变 NULL，金额失真）。
+        if (record.getPriceInputSnapshot() != null && record.getPriceOutputSnapshot() != null) {
             return new PriceSnapshot(record.getPriceInputSnapshot(), record.getPriceOutputSnapshot(),
                     record.getPriceVersion() != null ? record.getPriceVersion() : "explicit", false);
         }
@@ -185,7 +189,12 @@ public class TokenUsageService {
         final String pricingKey = record.getInstanceName() != null && !record.getInstanceName().isBlank()
                 ? record.getInstanceName() : record.getModelName();
         try {
-            final PriceQuote quote = priceResolver != null ? priceResolver.resolve(pricingKey).orElse(null) : null;
+            // B1 / P0-6：租户 ID 随取价上下文进入 PriceResolver，企业实现可按 (tenant_id, model_name)
+            // 命中租户专属价并回落 default 公共价；社区实现走 default 方法委托旧签名，行为不变。
+            final PriceQuote quote = priceResolver != null
+                    ? priceResolver.resolve(PriceResolver.PricingContext.of(
+                            TenantContextHolder.currentTenantId(), pricingKey)).orElse(null)
+                    : null;
             if (quote != null) {
                 return new PriceSnapshot(quote.priceInput(), quote.priceOutput(), quote.version(), false);
             }

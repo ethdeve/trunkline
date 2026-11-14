@@ -84,6 +84,15 @@ public final class TeamUsageVO {
     /** 成功率（0~1，无调用时为 0） */
     private double successRate;
 
+    /**
+     * 待定价 token 总量（O2：未定价 ≠ ¥0）。双列快照不齐全的行 token 照常计入
+     * {@link #totalTokens}，但金额不计入 {@link #totalAmount}，其 token 汇总到这里单列展示。
+     */
+    private long unpricedTokenTotal;
+
+    /** 是否存在待定价用量（前端据此显示「待定价」提示）。 */
+    private boolean hasUnpriced;
+
     /** 分组明细（按部门 或 按人） */
     private List<GroupUsage> groups;
 

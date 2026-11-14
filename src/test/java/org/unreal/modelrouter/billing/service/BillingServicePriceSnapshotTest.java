@@ -13,7 +13,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.unreal.modelrouter.billing.dto.MyBillsVO;
 import org.unreal.modelrouter.persistence.jpa.repository.JwtAccountRepository;
-import org.unreal.modelrouter.persistence.jpa.repository.ModelPriceRepository;
 import org.unreal.modelrouter.persistence.jpa.repository.TokenUsageRepository;
 
 import java.math.BigDecimal;
@@ -32,7 +31,7 @@ import static org.mockito.Mockito.when;
  * 「我的账单」成交价快照计价单元测试（O1 / O2）。
  *
  * <p>核心断言：<b>改价不影响历史账单金额</b>——金额完全来自
- * {@code token_usage} 聚合行的快照列，{@code model_price} 当前价根本不参与；
+ * {@code token_usage} 聚合行的快照列，当前价格表根本不参与；
  * 以及<b>未定价 ≠ ¥0</b>——无价用量单列，不混入总额。</p>
  *
  * @author Trunkline Team
@@ -45,16 +44,13 @@ class BillingServicePriceSnapshotTest {
     private TokenUsageRepository tokenUsageRepository;
 
     @Mock
-    private ModelPriceRepository modelPriceRepository;
-
-    @Mock
     private JwtAccountRepository jwtAccountRepository;
 
     private BillingService billingService;
 
     @BeforeEach
     void setUp() {
-        billingService = new BillingService(tokenUsageRepository, modelPriceRepository, jwtAccountRepository);
+        billingService = new BillingService(tokenUsageRepository, jwtAccountRepository);
     }
 
     /**
@@ -83,7 +79,7 @@ class BillingServicePriceSnapshotTest {
     }
 
     @Test
-    @DisplayName("金额只读快照列：model_price 当前价完全不参与（改价不影响历史账单）")
+    @DisplayName("金额只读快照列：当前价格表完全不参与（改价不影响历史账单）")
     void amountComesFromSnapshotOnly() {
         stubDefaults(2026, 10);
         // 1000 prompt × snapshot 0.01/千 + 1000 completion × 0.03/千 = 0.04
@@ -92,10 +88,10 @@ class BillingServicePriceSnapshotTest {
 
         final MyBillsVO vo = billingService.getMyBills("admin", 2026, 10);
 
-        // 当前价表彻底不参与：既没有被读取（verify never），金额也只来自快照列
-        org.mockito.Mockito.verify(modelPriceRepository, org.mockito.Mockito.never())
-                .findAllByEnabledTrue();
-
+        // P0-3：服务层连 PriceResolver 字段都已删除，当前价在结构上就不可能参与历史金额
+        assertTrue(java.util.Arrays.stream(BillingService.class.getDeclaredFields())
+                .noneMatch(f -> f.getType().getName()
+                        .equals("org.unreal.modelrouter.billing.price.PriceResolver")));
         assertEquals(new BigDecimal("0.0400"), vo.getTotalAmount());
         assertEquals(1, vo.getByModel().size());
         assertEquals(new BigDecimal("0.0400"), vo.getByModel().get(0).getAmount());

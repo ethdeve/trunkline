@@ -161,10 +161,12 @@ public interface TokenUsageRepository extends JpaRepository<TokenUsageEntity, Lo
            + "COALESCE(SUM(t.promptTokens), 0), COALESCE(SUM(t.completionTokens), 0), "
            + "COALESCE(SUM(t.totalTokens), 0), COUNT(t), "
            + "COALESCE(SUM(CASE WHEN t.isSuccess = true THEN 1 ELSE 0 END), 0), "
-           + "COALESCE(SUM((t.promptTokens * t.priceInputSnapshot "
-           + "+ t.completionTokens * t.priceOutputSnapshot) / 1000), 0), "
+           + "COALESCE(SUM(CASE WHEN t.priceMissing = false "
+           + "AND t.priceInputSnapshot IS NOT NULL AND t.priceOutputSnapshot IS NOT NULL "
+           + "THEN (t.promptTokens * t.priceInputSnapshot "
+           + "+ t.completionTokens * t.priceOutputSnapshot) / 1000 ELSE 0 END), 0), "
            + "COALESCE(SUM(CASE WHEN t.priceMissing = false AND t.priceInputSnapshot IS NOT NULL "
-           + "THEN 1 ELSE 0 END), 0) "
+           + "AND t.priceOutputSnapshot IS NOT NULL THEN 1 ELSE 0 END), 0) "
            + "FROM TokenUsageEntity t "
            + "WHERE t.userId = :userId AND t.year = :year AND t.month = :month "
            + "AND t.isSuccess = true "
@@ -184,12 +186,15 @@ public interface TokenUsageRepository extends JpaRepository<TokenUsageEntity, Lo
      * @param month  月份（1-12）
      * @return 单行单列：成交金额合计（无记录时 0）
      */
-    @Query("SELECT COALESCE(SUM((t.promptTokens * t.priceInputSnapshot "
-           + "+ t.completionTokens * t.priceOutputSnapshot) / 1000), 0) "
+    @Query("SELECT COALESCE(SUM(CASE WHEN t.priceMissing = false "
+           + "AND t.priceInputSnapshot IS NOT NULL AND t.priceOutputSnapshot IS NOT NULL "
+           + "THEN (t.promptTokens * t.priceInputSnapshot "
+           + "+ t.completionTokens * t.priceOutputSnapshot) / 1000 ELSE 0 END), 0) "
            + "FROM TokenUsageEntity t "
            + "WHERE t.userId = :userId AND t.year = :year AND t.month = :month "
            + "AND t.isSuccess = true "
-           + "AND t.priceMissing = false AND t.priceInputSnapshot IS NOT NULL")
+           + "AND t.priceMissing = false AND t.priceInputSnapshot IS NOT NULL "
+           + "AND t.priceOutputSnapshot IS NOT NULL")
     List<Object[]> sumPricedAmountByUserMonth(
             @Param("userId") String userId,
             @Param("year") Integer year,
@@ -355,11 +360,14 @@ public interface TokenUsageRepository extends JpaRepository<TokenUsageEntity, Lo
      *
      * <p>返回每行：
      * {@code [userId, virtualModel, instanceName, serviceType, promptTokens, completionTokens,
-     * totalTokens, requestCount, successCount]}。其中</p>
+     * totalTokens, requestCount, successCount, snapshotAmount, pricedCount]}。其中</p>
      * <ul>
      *   <li>{@code virtualModel} 为 {@code null} 表示未命中任何虚拟模型（历史数据 /
      *       规则锁定实例等内部路径），服务层归入「未归类」，<b>不丢数据</b>；</li>
-     *   <li>{@code successCount} 为该行成功调用数，失败数 = requestCount − successCount。</li>
+     *   <li>{@code successCount} 为该行成功调用数，失败数 = requestCount − successCount；</li>
+     *   <li>{@code snapshotAmount} / {@code pricedCount} 为 P0-3 追加的两列：仅当
+     *       {@code priceMissing=false} 且<b>双列快照同时非空</b>时才累加成交金额并计数，
+     *       供「团队用量」与「我的账单」共用同一套快照口径，半价行不会被当成已定价。</li>
      * </ul>
      *
      * @param year  年份
@@ -369,7 +377,14 @@ public interface TokenUsageRepository extends JpaRepository<TokenUsageEntity, Lo
     @Query("SELECT t.userId, t.virtualModel, COALESCE(t.instanceName, t.modelName), t.serviceType, "
            + "COALESCE(SUM(t.promptTokens), 0), COALESCE(SUM(t.completionTokens), 0), "
            + "COALESCE(SUM(t.totalTokens), 0), COUNT(t), "
-           + "COALESCE(SUM(CASE WHEN t.isSuccess = true THEN 1 ELSE 0 END), 0) "
+           + "COALESCE(SUM(CASE WHEN t.isSuccess = true THEN 1 ELSE 0 END), 0), "
+           + "COALESCE(SUM(CASE WHEN t.priceMissing = false "
+           + "  AND t.priceInputSnapshot IS NOT NULL AND t.priceOutputSnapshot IS NOT NULL "
+           + "  THEN (t.promptTokens * t.priceInputSnapshot "
+           + "      + t.completionTokens * t.priceOutputSnapshot) / 1000 ELSE 0 END), 0), "
+           + "COALESCE(SUM(CASE WHEN t.priceMissing = false "
+           + "  AND t.priceInputSnapshot IS NOT NULL AND t.priceOutputSnapshot IS NOT NULL "
+           + "  THEN 1 ELSE 0 END), 0) "
            + "FROM TokenUsageEntity t "
            + "WHERE t.year = :year AND t.month = :month "
            + "AND t.userId IS NOT NULL "

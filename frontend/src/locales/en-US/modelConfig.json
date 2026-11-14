@@ -34,6 +34,8 @@
     "readOnlyTip": "You have read-only access; price, quota, circuit breaker and rate limit are managed by administrators.",
     "openServiceConfig": "Open model categories",
     "columnGuard": "Circuit Breaker / Rate Limit",
+    "tabQuota": "Quota & Rate Limit",
+    "tabPrice": "Price",
     "columnPrice": "Price",
     "cbShort": "CB",
     "rlShort": "RL",

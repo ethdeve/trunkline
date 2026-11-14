@@ -4,6 +4,7 @@
 
 package org.unreal.modelrouter.enterprise.config;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -32,6 +33,16 @@ class TrunklineEnterpriseAutoConfigurationTest {
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
         .withConfiguration(AutoConfigurations.of(TrunklineEnterpriseAutoConfiguration.class));
+
+    /**
+     * {@code tenantContextHolderBinder} 会把「实际生效」的 TenantContext 写进静态
+     * {@link TenantContextHolder}；模拟商业版的实现返回 "acme"，若不还原会污染同一 JVM
+     * 后续所有测试的租户断言（典型 static mutable 状态坑）。
+     */
+    @AfterEach
+    void resetTenantContextHolder() {
+        TenantContextHolder.setDelegate(null);
+    }
 
     @Test
     @DisplayName("默认装配：五个扩展点全部 Noop 兜底，租户恒为 default")

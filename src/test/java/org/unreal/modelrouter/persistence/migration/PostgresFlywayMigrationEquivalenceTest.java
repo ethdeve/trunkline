@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -31,8 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li>同一份 V1 基线经两条路径建立后 schema 完全一致 —— {@code fresh} 由 Flyway 从头执行 V1
  *       （历史记 {@code 1|SQL}），{@code legacy_v1} 先手工按 V1 建库再让 baseline-on-migrate 记为
  *       基线 1（历史记 {@code 1|BASELINE}，V1 不重放）；</li>
- *   <li>两条路径的 {@code model_price} 都带 {@code price_cache} 列 —— 守住缓存单价确实进了 V1 基线，
- *       防止它被误留成独立增量脚本或在基线里漏建。</li>
+ *   <li>两条路径都有 {@code model_quota} 表（开源基础能力：厂商模型额度与限速），
+ *       守住额度配置确实进了 V1 基线，且单价（商业能力）已从开源版移除。</li>
  * </ol>
  *
  * <p>与 {@code H2FlywayMigrationEquivalenceTest} 的区别：后者模拟「老库缺补丁列→靠后续迁移补回」，
@@ -77,13 +78,21 @@ class PostgresFlywayMigrationEquivalenceTest {
             // 反向也断言一次，避免只有一边为空时的假等价
             assertEquals(fresh.keySet(), legacy.keySet(), "快照分节不同");
 
-            // 两条路径的 model_price 都必须带缓存单价列 —— 守住 price_cache 确实并入了 V1 基线
+            // 两条路径都必须建出 model_quota 表（开源基础能力：厂商模型额度与限速）
             assertTrue(fresh.get("columns").stream()
-                            .anyMatch(c -> c.startsWith("model_price.price_cache ")),
-                    "空库执行 V1 后应含 model_price.price_cache（已并入基线）");
+                            .anyMatch(c -> c.startsWith("model_quota.model_name ")),
+                    "空库执行 V1 后应含 model_quota.model_name（开源额度表已并入基线）");
             assertTrue(legacy.get("columns").stream()
-                            .anyMatch(c -> c.startsWith("model_price.price_cache ")),
-                    "手工按 V1 建库后应含 model_price.price_cache（已并入基线）");
+                            .anyMatch(c -> c.startsWith("model_quota.model_name ")),
+                    "手工按 V1 建库后应含 model_quota.model_name（开源额度表已并入基线）");
+
+            // [BREAKING-SCHEMA] P0-2：单价已整体移出开源版，两条路径都不得再出现 model_price 表
+            assertFalse(fresh.get("columns").stream()
+                            .anyMatch(c -> c.startsWith("model_price.")),
+                    "空库执行 V1 后不应存在 model_price（单价属商业能力，已拆表）");
+            assertFalse(legacy.get("columns").stream()
+                            .anyMatch(c -> c.startsWith("model_price.")),
+                    "手工按 V1 建库后不应存在 model_price（单价属商业能力，已拆表）");
 
             // 迁移历史：单一基线 —— 空库记 1|SQL；老库记基线 1（V1 不重放），无后续增量
             assertEquals(List.of("1|SQL|true"), history(connection, FRESH),

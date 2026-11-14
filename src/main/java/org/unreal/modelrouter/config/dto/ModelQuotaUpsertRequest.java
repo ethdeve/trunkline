@@ -9,13 +9,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-
 /**
- * 模型价格写入请求（v3.5 Trunkline UI 改造，接入管理「价格与额度」tab）。
+ * 厂商模型额度写入请求（开源基础能力，接入管理「额度与限速」tab）。
  *
  * <p>按 {@code modelName} upsert：存在则更新，不存在则新建。
- * 单价口径 ¥ / 千 token；null 视为「不修改该字段」。</p>
+ * 语义与 PoolDefinition 一致：0 = 不限制；null = 不修改该字段。</p>
  *
  * @author Trunkline Team
  */
@@ -23,22 +21,10 @@ import java.math.BigDecimal;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public final class ModelPriceUpsertRequest {
+public final class ModelQuotaUpsertRequest {
 
     /** 服务分类（可选，便于按分类筛选） */
     private String serviceType;
-
-    /** 输入单价（¥ / 千 token） */
-    private BigDecimal priceInput;
-
-    /** 输出单价（¥ / 千 token） */
-    private BigDecimal priceOutput;
-
-    /** 缓存单价（¥ / 千 token），命中缓存的 token 单独计价时使用 */
-    private BigDecimal priceCache;
-
-    /** 币种（缺省 CNY） */
-    private String currency;
 
     /** 是否启用（缺省 true） */
     private Boolean enabled;

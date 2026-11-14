@@ -13,34 +13,30 @@ import org.unreal.modelrouter.auth.security.quota.QuotaLimitSet;
 import java.util.Optional;
 
 /**
- * 厂商模型维度配额限额解析器（v3.5 Trunkline UI 改造）。
+ * 厂商模型维度配额限额解析器（开源基础能力，v3.5 Trunkline UI 改造）。
  *
- * <p>把「价格与额度」表（{@code model_price}）中挂在<b>厂商模型</b>上的额度与限速配置
+ * <p>把 {@code model_quota} 表挂在<b>厂商模型</b>上的额度与限速配置
  * 打包为 {@link QuotaLimitSet}，供配额执行层在请求路由到具体厂商模型后按该维度独立判定。</p>
  *
  * <p><b>与分组维度的分工</b>：</p>
  * <ul>
  *   <li>分组（虚拟模型 / 模型分组）维度的限额落在 {@code PoolDefinition} 上，
  *       由 {@code PoolQuotaLimitResolver}（{@code @Qualifier("group")}）解析；</li>
- *   <li>厂商模型维度的限额落在 {@code model_price} 行上（本解析器，
+ *   <li>厂商模型维度的限额落在 {@code model_quota} 行上（本解析器，
  *       {@code @Qualifier("model")}）——同一厂商模型被多个虚拟模型引用时<b>共享</b>这一份额度。</li>
  * </ul>
- *
- * <p>放在 {@code config.service} 包下：本解析器的数据源就是同包的
- * {@link ModelPriceService}，而 {@code auth.security.quota} 包不反向依赖
- * {@code config.service}，因此不会形成包依赖环。</p>
  *
  * @author Trunkline Team
  */
 @Component
 @Qualifier("model")
-public class ModelPriceQuotaLimitResolver implements QuotaLimitResolver {
+public class ModelQuotaLimitResolver implements QuotaLimitResolver {
 
-    private final ModelPriceService modelPriceService;
+    private final ModelQuotaService modelQuotaService;
 
     @Autowired
-    public ModelPriceQuotaLimitResolver(final ModelPriceService modelPriceService) {
-        this.modelPriceService = modelPriceService;
+    public ModelQuotaLimitResolver(final ModelQuotaService modelQuotaService) {
+        this.modelQuotaService = modelQuotaService;
     }
 
     /**
@@ -52,9 +48,9 @@ public class ModelPriceQuotaLimitResolver implements QuotaLimitResolver {
      */
     @Override
     public Optional<QuotaLimitSet> resolve(final String scopeId) {
-        if (scopeId == null || scopeId.isEmpty() || modelPriceService == null) {
+        if (scopeId == null || scopeId.isEmpty() || modelQuotaService == null) {
             return Optional.empty();
         }
-        return Optional.of(modelPriceService.resolveQuotaLimit(scopeId));
+        return Optional.of(modelQuotaService.resolveQuotaLimit(scopeId));
     }
 }

@@ -3,9 +3,9 @@
 -- ========================================
 -- 合并基线（2026-11-09）：在原始 V1（issue #191）的基础上，纳入了原 V2–V18
 --   的全部演进，使本文件即「项目当前完善表结构」的单文件表达：
---     * model_provider / model_price 新建表；
---     * model_price 增加缓存单价列 price_cache（2026-11-11 并入基线；
---       原为 V2__model_price_cache.sql，因尚未发版而直接收进 V1，不留增量脚本）；
+--     * model_provider 新建表；
+--     * model_quota 新建表（厂商模型额度与限速，开源基础能力；
+--       原 model_price 的价格列已随单价（商业能力）移出开源版而剔除）；
 --     * jwt_accounts 增加 department / name / tenant_id；
 --     * 7 张业务表预埋 tenant_id（多租户数据层，社区版=商业版特例）；
 --     * token_usage / api_call_history 增加 virtual_model 维度；
@@ -271,15 +271,11 @@
         primary key (id)
     );
 
-    create table model_price (
+    create table model_quota (
         enabled boolean not null,
-        price_input DECIMAL(12,6) not null,
-        price_output DECIMAL(12,6) not null,
-        price_cache DECIMAL(12,6) not null default 0,
         quota_alert_threshold float(53),
         rate_limit_per_minute integer,
         created_at timestamp(6),
-        currency varchar(8) not null,
         daily_request_limit bigint,
         daily_token_limit bigint,
         hourly_request_limit bigint,
@@ -292,7 +288,7 @@
         description varchar(512),
         model_name varchar(255) not null,
         primary key (id),
-        constraint uk_model_price_model_name unique (model_name)
+        constraint uk_model_quota_model_name unique (model_name)
     );
 
     create table model_provider (
@@ -558,8 +554,8 @@
     create index idx_jwt_accounts_tenant 
        on jwt_accounts (tenant_id);
 
-    create index idx_model_price_service_type 
-       on model_price (service_type);
+    create index idx_model_quota_service_type 
+       on model_quota (service_type);
 
     create index idx_model_provider_tenant 
        on model_provider (tenant_id);

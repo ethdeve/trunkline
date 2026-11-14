@@ -8,8 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyModelScopeVO;
-import org.unreal.modelrouter.persistence.jpa.entity.ModelPriceEntity;
-import org.unreal.modelrouter.persistence.jpa.repository.ModelPriceRepository;
+import org.unreal.modelrouter.billing.price.PriceQuote;
+import org.unreal.modelrouter.billing.price.PriceResolver;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
 import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 import org.unreal.modelrouter.router.pool.PoolDefinitionProperties;
@@ -61,7 +61,7 @@ public class ApiKeyModelScopeResolver {
 
     private final ObjectProvider<PoolDefinitionProperties> poolPropertiesProvider;
     private final ObjectProvider<PoolPersistenceService> poolPersistenceServiceProvider;
-    private final ObjectProvider<ModelPriceRepository> modelPriceRepositoryProvider;
+    private final ObjectProvider<PriceResolver> priceResolverProvider;
     private final ObjectProvider<ModelServiceRegistry> modelServiceRegistryProvider;
 
     /**
@@ -69,17 +69,17 @@ public class ApiKeyModelScopeResolver {
      *
      * @param poolPropertiesProvider        YAML 默认池属性（可选）
      * @param poolPersistenceServiceProvider 持久化池服务（可选）
-     * @param modelPriceRepositoryProvider   模型价格仓库（可选）
+     * @param priceResolverProvider          价格解析器（可选，单价属商业能力，社区版返回空价）
      * @param modelServiceRegistryProvider   实例注册表（可选，用于 instanceId → 实例名解析）
      */
     public ApiKeyModelScopeResolver(
             final ObjectProvider<PoolDefinitionProperties> poolPropertiesProvider,
             final ObjectProvider<PoolPersistenceService> poolPersistenceServiceProvider,
-            final ObjectProvider<ModelPriceRepository> modelPriceRepositoryProvider,
+            final ObjectProvider<PriceResolver> priceResolverProvider,
             final ObjectProvider<ModelServiceRegistry> modelServiceRegistryProvider) {
         this.poolPropertiesProvider = poolPropertiesProvider;
         this.poolPersistenceServiceProvider = poolPersistenceServiceProvider;
-        this.modelPriceRepositoryProvider = modelPriceRepositoryProvider;
+        this.priceResolverProvider = priceResolverProvider;
         this.modelServiceRegistryProvider = modelServiceRegistryProvider;
     }
 
@@ -96,15 +96,15 @@ public class ApiKeyModelScopeResolver {
             return List.of();
         }
         final Map<String, PoolDefinition> pools = poolIndex();
-        final Map<String, ModelPriceEntity> priceIndex = priceIndex();
+        final PriceResolver priceResolver = priceResolverProvider.getIfAvailable();
         final Map<String, String> instanceNameIndex = instanceNameIndex();
 
         // 应修9：依赖缺失时置 modelScopeAvailable=false，前端据此显示提示
-        final boolean scopeAvailable = !pools.isEmpty() || !priceIndex.isEmpty() || !instanceNameIndex.isEmpty();
+        final boolean scopeAvailable = !pools.isEmpty() || priceResolver != null || !instanceNameIndex.isEmpty();
 
         final List<List<ApiKeyModelScopeVO>> result = new ArrayList<>(allowedGroupsList.size());
         for (final List<String> groups : allowedGroupsList) {
-            result.add(resolveOne(groups, pools, priceIndex, instanceNameIndex, scopeAvailable));
+            result.add(resolveOne(groups, pools, priceResolver, instanceNameIndex, scopeAvailable));
         }
         return result;
     }
@@ -123,17 +123,17 @@ public class ApiKeyModelScopeResolver {
             return List.of();
         }
         final Map<String, PoolDefinition> pools = poolIndex();
-        final Map<String, ModelPriceEntity> priceIndex = priceIndex();
+        final PriceResolver priceResolver = priceResolverProvider.getIfAvailable();
         final Map<String, String> instanceNameIndex = instanceNameIndex();
 
         // 应修9：依赖缺失时置 modelScopeAvailable=false，前端据此显示提示
-        final boolean scopeAvailable = !pools.isEmpty() || !priceIndex.isEmpty() || !instanceNameIndex.isEmpty();
+        final boolean scopeAvailable = !pools.isEmpty() || priceResolver != null || !instanceNameIndex.isEmpty();
 
         final List<ResolvedKeyScope> result = new ArrayList<>(allowedGroupsList.size());
         for (final List<String> groups : allowedGroupsList) {
             final List<ApiKeyModelScopeVO> scope =
-                    resolveOne(groups, pools, priceIndex, instanceNameIndex, scopeAvailable);
-            final Double keyPrice = keyLevelMixedPrice(groups, pools, priceIndex, instanceNameIndex);
+                    resolveOne(groups, pools, priceResolver, instanceNameIndex, scopeAvailable);
+            final Double keyPrice = keyLevelMixedPrice(groups, pools, priceResolver, instanceNameIndex);
             result.add(new ResolvedKeyScope(scope, keyPrice));
         }
         return result;
@@ -170,7 +170,7 @@ public class ApiKeyModelScopeResolver {
      */
     private List<ApiKeyModelScopeVO> resolveOne(final List<String> allowedGroups,
                                                 final Map<String, PoolDefinition> pools,
-                                                final Map<String, ModelPriceEntity> priceIndex,
+                                                final PriceResolver priceResolver,
                                                 final Map<String, String> instanceNameIndex,
                                                 final boolean scopeAvailable) {
         final List<ApiKeyModelScopeVO> result = new ArrayList<>();
@@ -195,7 +195,7 @@ public class ApiKeyModelScopeResolver {
             if (pool == null) {
                 continue;
             }
-            result.add(toScopeVO(pool, priceIndex, instanceNameIndex, scopeAvailable));
+            result.add(toScopeVO(pool, priceResolver, instanceNameIndex, scopeAvailable));
         }
         return result;
     }
@@ -226,14 +226,14 @@ public class ApiKeyModelScopeResolver {
      * <p><b>应修9</b>：{@code modelScopeAvailable} 由调用方传入，依赖缺失时置 false。</p>
      */
     private ApiKeyModelScopeVO toScopeVO(final PoolDefinition pool,
-                                          final Map<String, ModelPriceEntity> priceIndex,
+                                          final PriceResolver priceResolver,
                                           final Map<String, String> instanceNameIndex,
                                           final boolean scopeAvailable) {
         return ApiKeyModelScopeVO.builder()
                 .poolName(pool.getPoolName())
                 .displayName(pool.getName())
                 .serviceType(pool.getServiceType())
-                .mixedPrice(mixedPrice(pool, priceIndex, instanceNameIndex))
+                .mixedPrice(mixedPrice(pool, priceResolver, instanceNameIndex))
                 .modelScopeAvailable(scopeAvailable)
                 .build();
     }
@@ -251,13 +251,13 @@ public class ApiKeyModelScopeResolver {
      *
      * @param allowedGroups 该密钥的白名单分组（{@code null} / 空 = 不限制模型）
      * @param pools 生效资源池索引（小写池名 → 池定义）
-     * @param priceIndex 已启用价格索引（实例名 → 价格行）
+     * @param priceResolver 价格解析器（社区版返回空价 ⇒ 未配价）
      * @param instanceNameIndex 实例索引（instanceId 或实例名 → 实例名）
      * @return 密钥级合计均价；无法计算时返回 {@code null}
      */
     public Double keyLevelMixedPrice(final List<String> allowedGroups,
                                      final Map<String, PoolDefinition> pools,
-                                     final Map<String, ModelPriceEntity> priceIndex,
+                                     final PriceResolver priceResolver,
                                      final Map<String, String> instanceNameIndex) {
         // 白名单为空 = 不限制模型 → 不下发（应修7）
         if (allowedGroups == null || allowedGroups.isEmpty()) {
@@ -285,21 +285,10 @@ public class ApiKeyModelScopeResolver {
                 if (instanceName == null) {
                     continue;
                 }
-                final ModelPriceEntity price = priceIndex.get(instanceName);
-                if (price == null) {
+                final BigDecimal unit = mixedUnitForInstance(priceResolver, instanceName);
+                if (unit == null) {
                     continue;
                 }
-                final BigDecimal priceInput = price.getPriceInput();
-                final BigDecimal priceOutput = price.getPriceOutput();
-                if (priceInput == null || priceOutput == null) {
-                    continue;
-                }
-                // 输入价与输出价都为 0 视为「未配价」——与 mixedPrice 口径一致
-                if (priceInput.signum() <= 0 && priceOutput.signum() <= 0) {
-                    continue;
-                }
-                final BigDecimal unit = priceInput.add(priceOutput)
-                        .divide(TWO, PRICE_SCALE, RoundingMode.HALF_UP);
                 final BigDecimal weight = BigDecimal.valueOf(member.getWeight() > 0 ? member.getWeight() : 1);
                 weighted = weighted.add(unit.multiply(weight));
                 weightSum = weightSum.add(weight);
@@ -326,10 +315,10 @@ public class ApiKeyModelScopeResolver {
      * <p>成员价格缺失（未配价）或实例已不存在时跳过该成员，不计入权重。</p>
      */
     private Double mixedPrice(final PoolDefinition pool,
-                               final Map<String, ModelPriceEntity> priceIndex,
+                               final PriceResolver priceResolver,
                                final Map<String, String> instanceNameIndex) {
         final List<PoolMember> members = pool.getMembers();
-        if (members == null || members.isEmpty() || priceIndex.isEmpty()) {
+        if (members == null || members.isEmpty() || priceResolver == null) {
             return null;
         }
         BigDecimal weighted = BigDecimal.ZERO;
@@ -342,21 +331,10 @@ public class ApiKeyModelScopeResolver {
             if (instanceName == null) {
                 continue;
             }
-            final ModelPriceEntity price = priceIndex.get(instanceName);
-            if (price == null) {
+            final BigDecimal unit = mixedUnitForInstance(priceResolver, instanceName);
+            if (unit == null) {
                 continue;
             }
-            final BigDecimal priceInput = price.getPriceInput();
-            final BigDecimal priceOutput = price.getPriceOutput();
-            if (priceInput == null || priceOutput == null) {
-                continue;
-            }
-            // 输入价与输出价都为 0 视为「未配价」——与前端 hasPrice 口径一致
-            if (priceInput.signum() <= 0 && priceOutput.signum() <= 0) {
-                continue;
-            }
-            final BigDecimal unit = priceInput.add(priceOutput)
-                    .divide(TWO, PRICE_SCALE, RoundingMode.HALF_UP);
             final BigDecimal weight = BigDecimal.valueOf(member.getWeight() > 0 ? member.getWeight() : 1);
             weighted = weighted.add(unit.multiply(weight));
             weightSum = weightSum.add(weight);
@@ -365,6 +343,36 @@ public class ApiKeyModelScopeResolver {
             return null;
         }
         return weighted.divide(weightSum, PRICE_SCALE, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    /**
+     * 取某实例名（= 厂商模型名）的「(输入价 + 输出价) / 2」单元均价（¥ / 千 token）。
+     *
+     * <p>单价经 {@link PriceResolver} SPI 取得（社区版返回空价 ⇒ 该成员未配价、跳过）；
+     * 与 {@code BillingService} 计价口径一致。输入/输出价缺失或同为 0 视为「未配价」。</p>
+     *
+     * @param resolver    价格解析器（可为 {@code null}）
+     * @param instanceName 实例名（= 厂商模型名 = 计价键）
+     * @return 单元均价；未配价或缺价时返回 {@code null}
+     */
+    private BigDecimal mixedUnitForInstance(final PriceResolver resolver, final String instanceName) {
+        if (resolver == null || instanceName == null) {
+            return null;
+        }
+        final PriceQuote price = resolver.resolve(instanceName).orElse(null);
+        if (price == null) {
+            return null;
+        }
+        final BigDecimal priceInput = price.priceInput();
+        final BigDecimal priceOutput = price.priceOutput();
+        if (priceInput == null || priceOutput == null) {
+            return null;
+        }
+        // 输入价与输出价都为 0 视为「未配价」
+        if (priceInput.signum() <= 0 && priceOutput.signum() <= 0) {
+            return null;
+        }
+        return priceInput.add(priceOutput).divide(TWO, PRICE_SCALE, RoundingMode.HALF_UP);
     }
 
     /**
@@ -406,33 +414,6 @@ public class ApiKeyModelScopeResolver {
             }
         }
         return pools;
-    }
-
-    /**
-     * 已启用价格索引（实例名 → 价格行）。
-     *
-     * <p>键 = {@code model_price.model_name} = 厂商模型名 = 实例名，
-     * 与 {@code BillingService} 的计价口径一致。</p>
-     */
-    private Map<String, ModelPriceEntity> priceIndex() {
-        final Map<String, ModelPriceEntity> index = new HashMap<>();
-        final ModelPriceRepository repository = modelPriceRepositoryProvider.getIfAvailable();
-        if (repository == null) {
-            return index;
-        }
-        try {
-            final List<ModelPriceEntity> prices = repository.findAllByEnabledTrue();
-            if (prices != null) {
-                for (final ModelPriceEntity price : prices) {
-                    if (price != null && price.getModelName() != null) {
-                        index.put(price.getModelName(), price);
-                    }
-                }
-            }
-        } catch (RuntimeException e) {
-            log.warn("加载模型价格失败，分组加权均价将不可用: {}", e.getMessage());
-        }
-        return index;
     }
 
     /**

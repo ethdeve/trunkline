@@ -2,6 +2,32 @@
 
 本项目遵循语义化版本。这里只记录**已经落地**的变化，后续计划见 [README](README-ZH.md)。
 
+## 未发布（在研）— [BREAKING-SPI] v3 真实账本幂等键
+
+- `BillingProvider.BillingEntry` 新增首组件 `traceId`，作为商业版 `enterprise_billing_ledger`
+  的幂等键（一次调用一条，重放不重复扣费）；保留五参兼容构造器，存量调用方源码不改也能编译，
+  但 **record 组件数量变化属二进制破坏性变更**，`EnterpriseSpiVersion.VERSION` 2→3，企业仓
+  `EXPECTED_SPI_VERSION` 必须同步改为 3 并**同批发版**，否则 `spiVersionGate()` 会 fail-fast
+  拒绝启动。
+- 同批新增 `BillingProvider.precheck(BillingPrecheck)` default 方法（预算前置熔断，社区版恒放行）
+  与 `BillingPrecheck` / `PrecheckResult` 两个 record —— 带默认实现的方法与新增类型属兼容扩展，
+  不额外推版本。
+- `TokenUsageService.toBillingEntry()` 透传 `token_usage.trace_id`；`ServiceRequestHandler`
+  在实例选择之前调用 `BillingPrecheckService`，预算耗尽返回 402，异常 fail-open 放行。
+- 细则见《Trunkline-计价能力商业化代码改造方案》3.7 / 3.2 #7、#8、#8a。
+
+## 未发布（在研）— [BREAKING-SCHEMA] 计价拆表
+
+- 开源 Flyway 基线 `V1__baseline.sql`（H2 / PostgreSQL）中的 `model_price` 表已改写为
+  `model_quota`，只保留额度与限速列；单价列全部移出开源版，改由商业版
+  `enterprise_model_price` 表（JDBC 自举）承载。
+- **破坏性**：V1 是 Flyway 基线，内容改写会导致 checksum 变化，**仅适用于尚未执行过 V1 的
+  全新安装**（本项目尚未发版，当前内测形态为零存量）。任何已执行过 V1 的存量库，升级前
+  必须先执行 `SELECT version, checksum, success FROM flyway_schema_history WHERE version = '1'`
+  确认，并改走 `V4__split_model_price_to_quota.sql` 路径（先导出旧价格归档，再 rename +
+  drop 价格列 + 改约束名），**禁止直接覆盖升级**。
+- 判定与迁移细则见《Trunkline-计价能力商业化代码改造方案》P0-2 / 3.4。
+
 ## v0.1.0 — 首个公开基线
 
 ### 现在就能用

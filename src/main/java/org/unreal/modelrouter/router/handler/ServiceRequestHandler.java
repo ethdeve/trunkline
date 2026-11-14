@@ -41,8 +41,10 @@ import org.unreal.modelrouter.auth.security.quota.QuotaLimitSet;
 import org.unreal.modelrouter.auth.security.quota.QuotaLimitViolation;
 import org.unreal.modelrouter.auth.security.quota.QuotaReservation;
 import org.unreal.modelrouter.auth.security.quota.QuotaTokenEstimator;
+import org.unreal.modelrouter.billing.service.BillingPrecheckService;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.common.util.IpUtils;
+import org.unreal.modelrouter.enterprise.spi.BillingProvider.PrecheckResult;
 import org.unreal.modelrouter.monitor.monitoring.collector.MetricsCollector;
 import org.unreal.modelrouter.monitor.tracing.TracingConstants;
 import org.unreal.modelrouter.monitor.tracing.TracingContext;
@@ -204,6 +206,16 @@ public class ServiceRequestHandler {
      */
     @Autowired(required = false)
     private QuotaEnforcementService quotaEnforcementService;
+
+    /**
+     * B2 / 方案 3.7：预算前置校验服务（可选注入）。
+     *
+     * <p>必须在实例选择与下游调用之前执行——{@code BillingProvider.charge()} 是请求成功、
+     * 事务提交之后的事后记账，无法拒绝已发生的调用。社区版 Noop 走 SPI default 恒放行；
+     * 本服务未装配（精简上下文 / 直接 new 的单测）时整段跳过，零行为变化。</p>
+     */
+    @Autowired(required = false)
+    private BillingPrecheckService billingPrecheckService;
 
     /**
      * v3.1 PR-4c: 全局 ObjectMapper（可选注入）。
@@ -440,6 +452,16 @@ public class ServiceRequestHandler {
                     tryReadCachedResponse(httpRequest, serviceType, modelName, exchange);
             if (cachedResponse != null) {
                 return Mono.just(cachedResponse);
+            }
+
+            // B2 / 方案 3.7: 预算前置熔断 — 必须早于实例选择与下游调用。
+            // 缓存命中已先行短路（不产生新费用，无需校验）；社区版 Noop default 放行。
+            if (billingPrecheckService != null) {
+                final Optional<PrecheckResult> billingDenial =
+                        billingPrecheckService.evaluate(toUsername(callerId), modelName);
+                if (billingDenial.isPresent()) {
+                    return rejectByBillingPrecheck(billingDenial.get(), callerId, modelName);
+                }
             }
 
             // v3.1 PR-2: 配额限额判定 + 预留 — selectInstance 之前（缓存命中已先行短路）
@@ -739,6 +761,18 @@ public class ServiceRequestHandler {
     }
 
     /**
+     * B2：把调用主体标识还原成可读用户名（去掉 {@code jwt:} 前缀）。
+     * API Key 调用保留 keyId 原值；仅用于预算前置校验的上下文，不参与用量归因。
+     */
+    private static String toUsername(final String callerId) {
+        if (callerId == null) {
+            return null;
+        }
+        return isJwtCaller(callerId)
+                ? callerId.substring(JWT_CALLER_ID_PREFIX.length()) : callerId;
+    }
+
+    /**
      * v3.5 Trunkline: 把本次请求命中的<b>虚拟模型</b>（模型分组 / 池名）挂到请求属性。
      *
      * <p>解析口径与配额分组维度一致（{@code resolvePoolName} → 显式创建的分组），
@@ -919,6 +953,24 @@ public class ServiceRequestHandler {
                     instanceName, violation.get().describe());
         }
         return violation;
+    }
+
+    /**
+     * B2 / 方案 3.7：预算耗尽响应（402 Payment Required）。
+     *
+     * <p>与配额 429 区分：429 是「请求太密 / token 超额」，402 是「钱不够」。
+     * 响应体沿用 {@link ResponseStatusException} → 全局异常处理器的既有错误格式，
+     * {@code reason} 由企业实现给出可读原因（不得含密钥、余额明细等敏感信息）。</p>
+     *
+     * <p>此处位于实例选择之前，因此没有配额预留需要回滚（{@code reserveQuota} 尚未调用）。</p>
+     */
+    private Mono<ResponseEntity<?>> rejectByBillingPrecheck(final PrecheckResult denial,
+                                                            final String callerId,
+                                                            final String modelName) {
+        final String reason = denial.reason() != null && !denial.reason().isBlank()
+                ? denial.reason() : "预算已耗尽，请求已被拒绝";
+        logger.warn("预算前置校验拒绝请求: caller={}, model={}, reason={}", callerId, modelName, reason);
+        return Mono.error(new ResponseStatusException(HttpStatus.PAYMENT_REQUIRED, reason));
     }
 
     /**

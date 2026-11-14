@@ -159,7 +159,9 @@
       "x002": " spend details",
       "x003": "💡 Each column is a model name you enter in your AI tool. Different provider models may sit behind it (switched automatically) — no need to know which, just watch the ¥.",
       "x004": "{m}/{d}",
-      "x005": " (today)"
+      "x005": " (today)",
+      "x007": "Unpriced",
+      "t017": "Billing is not enabled (community edition): usage is still visible, but amounts show as 'Unpriced'. In the commercial edition with the billing feature enabled, an admin can configure unit prices under 'Connections → Price & Quota' to see real amounts."
     },
     "tu": {
       "t001": "Company",

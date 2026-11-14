@@ -12,9 +12,7 @@ import org.unreal.modelrouter.billing.dto.MyBillsVO;
 import org.unreal.modelrouter.billing.dto.MyRecentUsageVO;
 import org.unreal.modelrouter.billing.dto.TeamUsageVO;
 import org.unreal.modelrouter.persistence.jpa.entity.JwtAccountEntity;
-import org.unreal.modelrouter.persistence.jpa.entity.ModelPriceEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.JwtAccountRepository;
-import org.unreal.modelrouter.persistence.jpa.repository.ModelPriceRepository;
 import org.unreal.modelrouter.persistence.jpa.repository.TokenUsageRepository;
 
 import java.math.BigDecimal;
@@ -28,22 +26,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * 账单聚合服务（v3.5 Trunkline UI 改造，「我的账单」，§4.3）。
+/** 账单聚合服务（v3.5 Trunkline UI 改造，「我的账单」/「团队用量」，§4.3）。
  *
- * <p>聚合口径：以 {@code token_usage} 的成功调用为事实来源，按「用户 + 月份 + 厂商模型」
- * 汇总 token 用量；再与 {@code model_price} 表的模型单价合并，按
- * {@code promptTokens × priceInput / 1000 + completionTokens × priceOutput / 1000}
- * 计算花费（单价为 ¥ / 千 token）。</p>
+ * <p>聚合口径：以 {@code token_usage} 的成功调用为唯一事实来源，按「用户 + 月份 +
+ * 厂商模型」汇总 token 用量与成交金额。<b>所有金额一律只读落库时点固化的成交价快照列</b>
+ * （{@code token_usage.price_*_snapshot}），永不回查价格表——商业版「给什么价」与
+ * 开源版「账记得对不对」在此解耦（O1）。</p>
  *
- * <p><b>计价口径（O1 成交价快照 / O2 未定价 ≠ ¥0）</b>：「我的账单」「我的额度」的金额
- * 在 SQL 内按<b>落库时点固化的快照单价</b>求和（{@code token_usage.price_*_snapshot}），
- * 不再读当前 {@code model_price}——改价不影响历史账单金额。落库时无价可固的用量
- * （{@code priceMissing=true}）金额不入总额，经 {@code unpricedTokenTotal / hasUnpriced}
- * 单列「待定价」，绝不静默按 ¥0。</p>
- *
- * <p>「团队用量」（{@link #getTeamUsage}）暂仍按当前价内存计价（快照化改造待做，
- * 见《开源版待改造清单》O1 剩余项）；未定价模型按 ¥0 计入，前端给空态提示。</p>
+ * <p><b>计价口径（O1 成交价快照 / O2 未定价 ≠ ¥0）</b>：「我的账单」「团队用量」
+ * 共用同一套快照聚合口径：只有双列快照齐全且 {@code priceMissing=false} 的行金额才计入
+ * 总额；落库时无价可固的用量（{@code priceMissing=true}）金额不入总额，经
+ * {@code unpricedTokenTotal / hasUnpriced} 单列「待定价」，绝不静默按 ¥0。
+ * 因此改单价不会影响任何历史月份金额，两个账单页面也不会出现两套数字。</p>
  *
  * @author Trunkline Team
  */
@@ -52,11 +46,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class BillingService {
 
-    /** 单价为「每千 token」，token 数除以此常量换算为金额 */
-    private static final BigDecimal TOKENS_PER_UNIT = new BigDecimal("1000");
-
     private final TokenUsageRepository tokenUsageRepository;
-    private final ModelPriceRepository modelPriceRepository;
     private final JwtAccountRepository jwtAccountRepository;
 
     /**
@@ -269,7 +259,6 @@ public class BillingService {
      * @param userId     用户名
      * @param year       年份
      * @param month      月份
-     * @param priceIndex 厂商模型 → 单价的索引
      * @return 按日期倒序的每日明细
      */
     private List<MyBillsVO.DailyBill> buildDailyBills(final String userId, final int year, final int month) {
@@ -337,15 +326,7 @@ public class BillingService {
         final String effDimension = byDepartment
                 ? TeamUsageVO.DIMENSION_DEPARTMENT : TeamUsageVO.DIMENSION_COMPANY;
 
-        // 1. 价格索引
-        final Map<String, ModelPriceEntity> priceIndex = new HashMap<>();
-        for (final ModelPriceEntity price : modelPriceRepository.findAllByEnabledTrue()) {
-            if (price.getModelName() != null) {
-                priceIndex.put(price.getModelName(), price);
-            }
-        }
-
-        // 2. 账号索引（用户名 → 部门/显示名）
+        // 1. 账号索引（用户名 → 部门/显示名）
         final Map<String, JwtAccountEntity> accounts = new HashMap<>();
         for (final JwtAccountEntity account : jwtAccountRepository.findAll()) {
             if (account.getUsername() != null) {
@@ -367,6 +348,8 @@ public class BillingService {
         BigDecimal totalAmount = BigDecimal.ZERO;
         long totalTokens = 0L, promptTokens = 0L, completionTokens = 0L, requestCount = 0L;
         long successCount = 0L, failedCount = 0L;
+        long unpricedTokens = 0L;
+        boolean hasUnpriced = false;
 
         for (final Object[] row : rows) {
             final String userId = (String) row[0];
@@ -393,12 +376,20 @@ public class BillingService {
                 continue;
             }
 
-            final ModelPriceEntity price = priceIndex.get(modelName);
-            final BigDecimal priceIn = price != null && price.getPriceInput() != null
-                    ? price.getPriceInput() : BigDecimal.ZERO;
-            final BigDecimal priceOut = price != null && price.getPriceOutput() != null
-                    ? price.getPriceOutput() : BigDecimal.ZERO;
-            final BigDecimal amount = computeAmount(prompt, completion, priceIn, priceOut);
+            // P0-3：与「我的账单」共用快照口径。聚合 SQL 追加的两列是
+            // [9]=快照成交金额、[10]=双列快照齐全的行数；当前价不参与任何历史金额计算。
+            final BigDecimal snapshotAmount = row.length > 9 && row[9] instanceof Number n
+                    ? BigDecimal.valueOf(n.doubleValue()) : BigDecimal.ZERO;
+            final long pricedCount = row.length > 10 && row[10] instanceof Number n2
+                    ? n2.longValue() : 0L;
+            final boolean priced = pricedCount > 0;
+            final BigDecimal amount = priced
+                    ? snapshotAmount.setScale(4, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+            // 未定价：token 照常计入总量，金额不计入总额，并汇总到待定价单列（O2）
+            if (!priced) {
+                unpricedTokens += total;
+                hasUnpriced = true;
+            }
 
             // 分组键：按部门 = 部门名；全公司 = 用户名
             final String groupKey = byDepartment ? dept : userId;
@@ -577,6 +568,8 @@ public class BillingService {
                 .successCount(successCount)
                 .failedCount(failedCount)
                 .successRate(requestCount > 0 ? (double) successCount / requestCount : 0.0d)
+                .unpricedTokenTotal(unpricedTokens)
+                .hasUnpriced(hasUnpriced)
                 .groups(groupList)
                 .byModel(modelList)
                 .byVirtualModel(virtualModelList)
@@ -729,23 +722,5 @@ public class BillingService {
             this.requests += requestCount;
             this.amount = this.amount.add(lineAmount);
         }
-    }
-
-    /**
-     * 计算单个模型的花费：{@code prompt/1000 × priceInput + completion/1000 × priceOutput}。
-     *
-     * @param prompt     输入 token
-     * @param completion 输出 token
-     * @param priceIn    输入单价（¥ / 千 token）
-     * @param priceOut   输出单价（¥ / 千 token）
-     * @return 花费（¥，4 位小数）
-     */
-    private static BigDecimal computeAmount(final long prompt, final long completion,
-                                            final BigDecimal priceIn, final BigDecimal priceOut) {
-        BigDecimal amount = priceIn.multiply(BigDecimal.valueOf(prompt))
-                .divide(TOKENS_PER_UNIT, 8, RoundingMode.HALF_UP)
-                .add(priceOut.multiply(BigDecimal.valueOf(completion))
-                        .divide(TOKENS_PER_UNIT, 8, RoundingMode.HALF_UP));
-        return amount.setScale(4, RoundingMode.HALF_UP);
     }
 }

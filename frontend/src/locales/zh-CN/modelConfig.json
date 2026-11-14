@@ -34,6 +34,8 @@
     "readOnlyTip": "你只有查看权限，单价、额度、熔断和限流由管理员配置。",
     "openServiceConfig": "打开模型分类",
     "columnGuard": "熔断 / 限流",
+    "tabQuota": "额度与限速",
+    "tabPrice": "价格",
     "columnPrice": "单价",
     "cbShort": "熔断",
     "rlShort": "限流",

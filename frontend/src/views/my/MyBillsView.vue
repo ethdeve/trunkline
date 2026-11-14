@@ -27,9 +27,11 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import { menuSubtitle } from '@/config/menu'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { useI18n } from 'vue-i18n'
+import { useEnterpriseStore } from '@/stores/enterprise'
 
 const router = useRouter()
 const { t } = useI18n()
+const enterpriseStore = useEnterpriseStore()
 const goPlayground = () => router.push('/playground')
 
 /** 员工侧用量单位（替代「tokens」），与「我的额度」「我的密钥」两页同一文案 */
@@ -129,11 +131,11 @@ const grandTotal = computed(() => Number(bills.value.totalAmount || 0))
 const summaryMethod = ({ columns, data }: { columns: any[]; data: any[] }) => {
   return columns.map((col, index) => {
     if (index === 0) return t('v.mb.t015')
-    if (index === columns.length - 1) return `¥${formatAmount(grandTotal.value)}`
+    if (index === columns.length - 1) return money(grandTotal.value)
     const vm = virtualModelColumns.value[index - 1]
     if (!vm) return ''
     const total = columnTotals.value[vm]
-    return total === undefined ? '' : `¥${formatAmount(total)}`
+    return total === undefined ? '' : money(total)
   })
 }
 
@@ -157,6 +159,18 @@ const loadBills = async () => {
 const formatAmount = (value?: number): string => (Number(value) || 0).toFixed(2)
 const formatNumber = (value?: number): string => (Number(value) || 0).toLocaleString('zh-CN')
 
+/**
+ * 金额渲染（按 open-core 分法受 {@code enterprise.billing} 门控）。
+ *
+ * <p>计费是商业版功能位：开启时按真实单价显示 ¥ 金额；关闭时（社区版 / 企业版未购计费）
+ * 全链路无单价来源，账单 100% 走「待定价」——此时绝不应显示 ¥0 冒充真实花费，
+ * 改为显式「待定价」以免误导员工。侧边栏 {@code my-bills} 菜单项已按 {@code feature:'billing'}
+ * 隐藏本页，故本分支仅在「直接敲 URL 进入」的防御场景下触发。</p>
+ */
+const billingEnabled = computed(() => enterpriseStore.billing)
+const money = (value?: number): string =>
+  billingEnabled.value ? `¥${formatAmount(value)}` : t('v.mb.x007')
+
 /** 日期展示：今天标「（今天）」，其余去掉年份 */
 const formatDate = (dateStr?: string): string => {
   if (!dateStr) return '-'
@@ -168,6 +182,8 @@ const formatDate = (dateStr?: string): string => {
 }
 
 onMounted(() => {
+  // 拉取企业功能位，使 billingEnabled 反映真实计费开关（社区版接口不可用 → 静默降级为 false）
+  void enterpriseStore.ensureLoaded()
   loadBills()
 })
 </script>
@@ -176,6 +192,20 @@ onMounted(() => {
   <div>
     <!-- P0-I：页面目标说明统一取自 menu.ts（单一文案源），与侧边栏 tooltip 同源 -->
     <PageHeader :title="t('nav.myBills.title')" :subtitle="t(menuSubtitle('/my-bills'))" />
+
+    <!--
+      计费未启用（社区版 / 企业版未购计费功能位）的防御提示：侧边栏 my-bills 菜单已按
+      feature:'billing' 隐藏本页，此分支仅在「直接敲 URL 进入」时触发。此时全链路无单价来源，
+      金额一律「待定价」，不应显示 ¥0 冒充真实花费。
+    -->
+    <el-alert
+      v-if="!billingEnabled"
+      type="info"
+      :closable="false"
+      show-icon
+      class="price-hint"
+      :title="t('v.mb.t017')"
+    />
 
     <!-- ---------- 工具条 ---------- -->
     <div class="toolbar">
@@ -200,7 +230,7 @@ onMounted(() => {
         <el-card shadow="never">
           <div class="stat-k">{{ t('v.mb.t002') }}</div>
           <div class="stat-v">
-            ¥{{ formatAmount(bills.totalAmount) }}
+            {{ money(bills.totalAmount) }}
             <span class="stat-em">/ {{ bills.month || '-' }}</span>
           </div>
           <div class="stat-foot">{{ formatNumber(bills.totalTokens) }} {{ amountUnit }}</div>
@@ -232,7 +262,7 @@ onMounted(() => {
       员工既看不到那个页面也没有权限，照着点只会撞 403。改为只说明现象 + 指向管理员。
     -->
     <el-alert
-      v-if="!hasAnyPrice && bills.byModel.length > 0"
+      v-if="billingEnabled && !hasAnyPrice && bills.byModel.length > 0"
       type="info"
       :closable="false"
       show-icon
@@ -264,7 +294,7 @@ onMounted(() => {
         >
           <template #default="{ row }">
             <span v-if="cellAmount(row, vm) !== null" class="cell-amount">
-              ¥{{ formatAmount(cellAmount(row, vm) ?? 0) }}
+              {{ money(cellAmount(row, vm) ?? 0) }}
             </span>
             <span v-else class="cell-none">—</span>
           </template>
@@ -272,7 +302,7 @@ onMounted(() => {
 
         <el-table-column :label="t('v.mb.t013')" width="120" align="right">
           <template #default="{ row }">
-            <b>¥{{ formatAmount(row.amount) }}</b>
+            <b>{{ money(row.amount) }}</b>
           </template>
         </el-table-column>
       </el-table>

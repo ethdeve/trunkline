@@ -7,12 +7,12 @@ package org.unreal.modelrouter.auth.security.quota;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.unreal.modelrouter.config.service.ModelPriceQuotaLimitResolver;
-import org.unreal.modelrouter.config.service.ModelPriceService;
-import org.unreal.modelrouter.persistence.jpa.entity.ModelPriceEntity;
+import org.unreal.modelrouter.config.service.ModelQuotaLimitResolver;
+import org.unreal.modelrouter.config.service.ModelQuotaService;
+import org.unreal.modelrouter.persistence.jpa.entity.ModelQuotaEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.InstanceCircuitBreakerRepository;
 import org.unreal.modelrouter.persistence.jpa.repository.InstanceRateLimitRepository;
-import org.unreal.modelrouter.persistence.jpa.repository.ModelPriceRepository;
+import org.unreal.modelrouter.persistence.jpa.repository.ModelQuotaRepository;
 import org.unreal.modelrouter.persistence.jpa.repository.ModelProviderRepository;
 import org.unreal.modelrouter.persistence.jpa.repository.ServiceConfigRepository;
 import org.unreal.modelrouter.persistence.jpa.repository.ServiceInstanceRepository;
@@ -20,7 +20,6 @@ import org.unreal.modelrouter.persistence.jpa.repository.ServiceInstanceReposito
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -37,13 +36,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 厂商模型维度额度与限速的执行落地测试（v3.5 Trunkline UI 改造）。
  *
- * <p>被测链路：{@code ModelPriceService}（价格与额度合一表）→
- * {@link ModelPriceQuotaLimitResolver}（{@code @Qualifier("model")} 解析器）→
+ * <p>被测链路：{@code ModelQuotaService}（额度与限速表）→
+ * {@link ModelQuotaLimitResolver}（{@code @Qualifier("model")} 解析器）→
  * {@link QuotaReservation#appendDimensionWithLimits(QuotaDimension, QuotaLimitSet)}
  * （判定 + 记账一次完成）。</p>
  *
  * <p>全部用真实对象 + 动态代理替身（不依赖 Mockito）：账本用
- * {@link InMemoryQuotaLedgerRepository}，价格表用手写的 {@link ModelPriceRepository} 代理。</p>
+ * {@link InMemoryQuotaLedgerRepository}，额度表用手写的 {@link ModelQuotaRepository} 代理。</p>
  *
  * @author Trunkline Team
  */
@@ -54,22 +53,22 @@ class ModelDimensionQuotaEnforcementTest {
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 3, 14, 13, 45, 30);
 
-    private FakeModelPriceRepository prices;
-    private ModelPriceService modelPriceService;
-    private ModelPriceQuotaLimitResolver resolver;
+    private FakeModelQuotaRepository quotas;
+    private ModelQuotaService modelQuotaService;
+    private ModelQuotaLimitResolver resolver;
     private QuotaLedgerService ledgerService;
 
     @BeforeEach
     void setUp() {
-        prices = new FakeModelPriceRepository();
-        modelPriceService = new ModelPriceService(
-                prices.proxy(),
+        quotas = new FakeModelQuotaRepository();
+        modelQuotaService = new ModelQuotaService(
+                quotas.proxy(),
                 emptyProxy(ModelProviderRepository.class),
                 emptyProxy(ServiceInstanceRepository.class),
                 emptyProxy(ServiceConfigRepository.class),
                 emptyProxy(InstanceCircuitBreakerRepository.class),
                 emptyProxy(InstanceRateLimitRepository.class));
-        resolver = new ModelPriceQuotaLimitResolver(modelPriceService);
+        resolver = new ModelQuotaLimitResolver(modelQuotaService);
 
         final QuotaProperties properties = new QuotaProperties();
         properties.setEnabled(true);
@@ -83,10 +82,9 @@ class ModelDimensionQuotaEnforcementTest {
     @Test
     @DisplayName("解析器：返回厂商模型配置的限额；未配置的模型为不限额")
     void resolver_shouldReturnConfiguredLimits() {
-        final ModelPriceUpsertRequestHolder holder = new ModelPriceUpsertRequestHolder();
+        final ModelQuotaUpsertRequestHolder holder = new ModelQuotaUpsertRequestHolder();
         holder.dailyRequestLimit = 5L;
-        holder.priceInput = new BigDecimal("1.5");
-        modelPriceService.upsert(MODEL, holder.build());
+        modelQuotaService.upsert(MODEL, holder.build());
 
         final QuotaLimitSet limits = resolver.resolve(MODEL).orElseThrow();
         assertEquals(5L, limits.dayRequests());
@@ -98,17 +96,17 @@ class ModelDimensionQuotaEnforcementTest {
     @Test
     @DisplayName("限额缓存：upsert / delete 后立即生效，无需等缓存失效")
     void limitCache_shouldRefreshOnUpsertAndDelete() {
-        final ModelPriceUpsertRequestHolder holder = new ModelPriceUpsertRequestHolder();
+        final ModelQuotaUpsertRequestHolder holder = new ModelQuotaUpsertRequestHolder();
         holder.dailyRequestLimit = 5L;
-        modelPriceService.upsert(MODEL, holder.build());
+        modelQuotaService.upsert(MODEL, holder.build());
         assertEquals(5L, resolver.resolve(MODEL).orElseThrow().dayRequests());
 
         holder.dailyRequestLimit = 9L;
-        modelPriceService.upsert(MODEL, holder.build());
+        modelQuotaService.upsert(MODEL, holder.build());
         assertEquals(9L, resolver.resolve(MODEL).orElseThrow().dayRequests(),
                 "改额度后必须立即生效");
 
-        modelPriceService.delete(MODEL);
+        modelQuotaService.delete(MODEL);
         assertEquals(QuotaLimitSet.UNLIMITED, resolver.resolve(MODEL).orElseThrow(),
                 "删除后应回到不限额");
     }
@@ -211,17 +209,17 @@ class ModelDimensionQuotaEnforcementTest {
     }
 
     /**
-     * 手写的价格表仓库替身（动态代理，避免为 JpaRepository 的数十个方法写样板）。
+     * 手写的额度表仓库替身（动态代理，避免为 JpaRepository 的数十个方法写样板）。
      */
-    private static final class FakeModelPriceRepository implements InvocationHandler {
+    private static final class FakeModelQuotaRepository implements InvocationHandler {
 
-        private final Map<String, ModelPriceEntity> rows = new LinkedHashMap<>();
+        private final Map<String, ModelQuotaEntity> rows = new LinkedHashMap<>();
         private long nextId = 1L;
 
-        ModelPriceRepository proxy() {
-            return (ModelPriceRepository) Proxy.newProxyInstance(
-                    ModelPriceRepository.class.getClassLoader(),
-                    new Class<?>[]{ModelPriceRepository.class}, this);
+        ModelQuotaRepository proxy() {
+            return (ModelQuotaRepository) Proxy.newProxyInstance(
+                    ModelQuotaRepository.class.getClassLoader(),
+                    new Class<?>[]{ModelQuotaRepository.class}, this);
         }
 
         @Override
@@ -236,7 +234,7 @@ class ModelDimensionQuotaEnforcementTest {
                 case "findByModelName":
                     return Optional.ofNullable(rows.get((String) args[0]));
                 case "save": {
-                    final ModelPriceEntity entity = (ModelPriceEntity) args[0];
+                    final ModelQuotaEntity entity = (ModelQuotaEntity) args[0];
                     if (entity.getId() == null) {
                         entity.setId(nextId++);
                     }
@@ -244,10 +242,10 @@ class ModelDimensionQuotaEnforcementTest {
                     return entity;
                 }
                 case "delete":
-                    rows.remove(((ModelPriceEntity) args[0]).getModelName());
+                    rows.remove(((ModelQuotaEntity) args[0]).getModelName());
                     return null;
                 case "toString":
-                    return "FakeModelPriceRepository";
+                    return "FakeModelQuotaRepository";
                 case "hashCode":
                     return System.identityHashCode(proxy);
                 case "equals":
@@ -259,16 +257,14 @@ class ModelDimensionQuotaEnforcementTest {
     }
 
     /**
-     * 价格 + 额度写入请求的便捷构造（避免在测试里铺开全部字段）。
+     * 额度写入请求的便捷构造（避免在测试里铺开全部字段）。
      */
-    private static final class ModelPriceUpsertRequestHolder {
+    private static final class ModelQuotaUpsertRequestHolder {
         private Long dailyRequestLimit;
-        private BigDecimal priceInput;
 
-        org.unreal.modelrouter.config.dto.ModelPriceUpsertRequest build() {
-            return org.unreal.modelrouter.config.dto.ModelPriceUpsertRequest.builder()
+        org.unreal.modelrouter.config.dto.ModelQuotaUpsertRequest build() {
+            return org.unreal.modelrouter.config.dto.ModelQuotaUpsertRequest.builder()
                     .dailyRequestLimit(dailyRequestLimit)
-                    .priceInput(priceInput)
                     .build();
         }
     }
