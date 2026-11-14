@@ -870,10 +870,15 @@ const load = async () => {
           }
         })
       ),
-      getPriceCatalog().catch(error => {
-        console.error('获取模型价格目录失败:', error)
-        return null
-      }),
+      // 单价目录属商业能力：社区版（billing 未解锁）绝不请求 /config/prices/catalog，
+      // 否则端点不存在必然 404 并刷控制台错误（方案 3.6 / DoD 8：不渲染、也不 404）。
+      // enterpriseStore.billing 在 onMounted 里已 await ensureLoaded() 就绪，不会误伤企业版首屏。
+      enterpriseStore.billing
+        ? getPriceCatalog().catch(error => {
+            console.error('获取模型价格目录失败:', error)
+            return null
+          })
+        : Promise.resolve(null),
       getModelQuotaCatalog().catch(error => {
         console.error('获取模型额度目录失败:', error)
         return null
@@ -1479,8 +1484,10 @@ const handleExport = () => {
 onMounted(async () => {
   // 探测配额账本开关 → 决定额度配置弹窗里每月字段是否禁用
   void loadQuotaLedgerState()
-  // 探测企业功能位（billing 决定是否显示「价格」tab）
-  void enterpriseStore.ensureLoaded()
+  // 探测企业功能位（billing 决定是否显示「价格」tab / 是否请求价格目录）。
+  // 必须 await：load() 依赖 billing 决定是否取价，fire-and-forget 会让企业版首屏
+  // 拿到空单价索引、社区版误发 404 请求。ensureLoaded() 内部已 catch 降级，不会阻断页面。
+  await enterpriseStore.ensureLoaded()
   await fetchServiceTypes()
   await Promise.all([
     load(),

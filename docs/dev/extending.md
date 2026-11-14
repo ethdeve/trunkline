@@ -120,7 +120,7 @@ Trunkline 的权限是**两道闸门、同口径**，这是最容易踩坑的地
 
 ## 5. 实体变更与数据库迁移
 
-**已发布基线不可改**。`db/migration/{h2,postgres}/V1__baseline.sql` 文件头明确：Flyway 按校验和判定，schema 变更新增 `V2__…` / `V3__…`。原 V2–V18 已归档到 `db-migration-archive/`（不进 jar）。
+**当前状态（2026-11-14）：项目尚未发版、零存量，V1 是唯一基线** —— `db/migration/{h2,postgres}` 下各只有 `V1__baseline.sql`，schema 变更直接改两侧 V1（见下表「尚未发版」行），不留增量脚本、不留存量升级包。原 V2–V18 已归档到 `db-migration-archive/`（不进 jar）；原 V2/V3（#653 索引、成交价快照列）已并入 V1，`db/stock-upgrade/` 存量升级包已删除。**正式发版后**才切换为「已发布基线不可改」：Flyway 按校验和判定，schema 变更新增 `V2__…` / `V3__…`。
 
 | 情形 | 操作 |
 |---|---|

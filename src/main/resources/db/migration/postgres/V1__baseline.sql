@@ -1,8 +1,11 @@
 -- ========================================
 -- V1 基线：当前实体模型的完整 schema（PostgreSQL 路径，issue #191）
 -- ========================================
--- 合并基线（2026-11-09）：在原始 V1（issue #191）的基础上，纳入了原 V2–V18
---   的全部演进，使本文件即「项目当前完善表结构」的单文件表达：
+-- 单一基线（2026-11-14 决策）：项目尚未发布、无生产环境、零存量，
+--   因此不保留任何增量迁移脚本与存量升级 SQL。db/migration/{h2,postgres}
+--   各只剩本文件，Flyway 从头执行时版本号只记 1。
+--   本文件即「项目当前完善表结构」的单文件表达（与 h2 侧同源，仅物理类型不同）。
+-- 2026-11-09 合并基线纳入原 V2–V18 的全部演进，要点如下：
 --     * model_provider 新建表；
 --     * model_quota 新建表（厂商模型额度与限速，开源基础能力；
 --       原 model_price 的价格列已随单价（商业能力）移出开源版而剔除）；
@@ -12,8 +15,13 @@
 --     * quota_ledger 增加 group_id 第八维并改写唯一约束；
 --     * security_audit.event_type 校验补 DATA_SANITIZATION 取值；
 --     * 移除 role_permissions 表（社区版固定权限矩阵，2026-11-04 决策）。
---   原 V2–V18 增量脚本已移出扫描目录（见仓库 db-migration-archive/），
---   自此新增 schema 变更请直接新增 V2__… / V3__… 增量脚本。
+--   原 V2–V18 增量脚本已移出扫描目录（见仓库 db-migration-archive/）。
+--   2026-11-14 演进：① B0 单价移出开源版 → model_price 改写为 model_quota；
+--   ② 本次把原 V2__cb_metrics_adjustment_applied_index.sql 的索引、
+--      V3__token_usage_price_snapshot.sql 的四个成交价快照列一并并入本文件，
+--      两个增量脚本删除；存量升级包 db/stock-upgrade/ 整目录删除。
+--      V3 的 `update token_usage set price_missing = true where price_missing is null`
+--      是存量回填语义：空库无历史行、新行由应用层显式写值，故不并入也不设默认值。
 --
 -- 来源：Hibernate 的 schema 导出（非手写 DDL）。生成方式（对空库执行，
 --   本设置只写脚本不落库）：
@@ -30,7 +38,8 @@
 --   * 空库：Flyway 从头执行本文件，建成与实体一致的 schema（版本记为 1）。
 --   * 已有库：spring.flyway.baseline-on-migrate=true 使其被记为基线 1 而不执行
 --     本文件（历史表记 type = BASELINE），库内容不动。
---   * 已发布的基线不可再改（Flyway 按校验和判定）；schema 变更请新增 V2__/V3__…。
+--   * 未发版期间 schema 变更直接改本文件（H2 / PG 两侧必须同步）；正式发版后
+--     基线不可再改（Flyway 按校验和判定），届时才改为新增 V2__/V3__… 增量脚本。
 --   * 本目录只覆盖 PostgreSQL；H2 有一套等价但类型不同的基线，见 ../h2/V1__baseline.sql。
 -- ========================================
 
@@ -434,6 +443,10 @@
         api_key_id varchar(255),
         instance_name varchar(255),
         metadata TEXT,
+        price_input_snapshot numeric(18, 6),
+        price_output_snapshot numeric(18, 6),
+        price_version varchar(64),
+        price_missing boolean,
         model_name varchar(255) not null,
         user_id varchar(255),
         virtual_model varchar(255),
@@ -475,6 +488,10 @@
 
     create index idx_window_end 
        on circuit_breaker_metrics (window_end);
+
+    -- #653：findPendingAdjustments() 按 adjustment_applied 过滤，避免统计表全表扫描
+    create index idx_cb_metrics_adjustment_applied
+       on circuit_breaker_metrics (adjustment_applied);
 
     create index idx_instance_id 
        on circuit_breaker_state_history (instance_id);

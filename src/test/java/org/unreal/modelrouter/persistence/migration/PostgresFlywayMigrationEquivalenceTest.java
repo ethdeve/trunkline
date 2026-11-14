@@ -25,9 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Flyway 单一基线下两条路径的 schema 等价性（issue #192）。
  *
- * <p>2026-11-11 起 {@code db/migration/{h2,postgres}} 各只剩单一 {@code V1__baseline.sql}：
- * 缓存单价列 {@code price_cache} 原为 {@code V2__model_price_cache.sql}，因项目尚未发版，
- * 直接并入 V1 基线，不留增量脚本。本测试守两件事：</p>
+ * <p>项目尚未发布、无生产环境（2026-11-14 用户确认零存量），因此不开增量迁移：
+ * {@code db/migration/{h2,postgres}} 各只剩单一 {@code V1__baseline.sql}。#653 的
+ * {@code adjustment_applied} 过滤索引（原 V2）与四个成交价快照列（原 V3）已并入 V1，
+ * 存量升级包 {@code db/stock-upgrade/} 也已整体删除。本测试守两件事：</p>
  * <ol>
  *   <li>同一份 V1 基线经两条路径建立后 schema 完全一致 —— {@code fresh} 由 Flyway 从头执行 V1
  *       （历史记 {@code 1|SQL}），{@code legacy_v1} 先手工按 V1 建库再让 baseline-on-migrate 记为
@@ -93,6 +94,19 @@ class PostgresFlywayMigrationEquivalenceTest {
             assertFalse(legacy.get("columns").stream()
                             .anyMatch(c -> c.startsWith("model_price.")),
                     "手工按 V1 建库后不应存在 model_price（单价属商业能力，已拆表）");
+
+            // 原 V3 的成交价快照列、原 V2 的过滤索引已并入 V1，两条路径都必须直接建出
+            for (Map<String, List<String>> schema : List.of(fresh, legacy)) {
+                for (String column : List.of("price_input_snapshot", "price_output_snapshot",
+                        "price_version", "price_missing")) {
+                    assertTrue(schema.get("columns").stream()
+                                    .anyMatch(c -> c.startsWith("token_usage." + column + " ")),
+                            column + " 必须由 V1 基线直接建出，不得依赖已删除的增量脚本");
+                }
+                assertTrue(schema.get("indexes").stream()
+                                .anyMatch(i -> i.contains("idx_cb_metrics_adjustment_applied")),
+                        "#653 过滤索引必须由 V1 基线直接建出");
+            }
 
             // 迁移历史：单一基线 —— 空库记 1|SQL；老库记基线 1（V1 不重放），无后续增量
             assertEquals(List.of("1|SQL|true"), history(connection, FRESH),

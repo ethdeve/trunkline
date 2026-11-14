@@ -2,6 +2,30 @@
 
 本项目遵循语义化版本。这里只记录**已经落地**的变化，后续计划见 [README](README-ZH.md)。
 
+## 未发布（在研）— Flyway 单一基线合并（零存量决策）
+
+- 用户确认项目**尚未发布、无生产环境、零存量**，因此不需要任何升级 SQL。
+  `db/stock-upgrade/{h2,postgres}/`（旧 V1 + `V4__split_model_price_to_quota.sql`）整体删除，
+  专测存量库 V1→V4 的 `FlywayMigrationTest` 一并删除；企业仓 `deploy/README.md` 的
+  「存量库升级」章节同步移除。
+- `db/migration/{h2,postgres}/` 下原 `V2__cb_metrics_adjustment_applied_index.sql`（#653 过滤索引）
+  与 `V3__token_usage_price_snapshot.sql`（四个成交价快照列）全部并入 `V1__baseline.sql`，
+  两个增量脚本删除。此后每个方言路径**只有一个 V1**，空库迁移历史只有 `1|SQL`。
+  V3 里的 `price_missing` 存量回填不并入：空库无历史行，新行由应用层显式写值，也不设默认值。
+- 新增 `SingleBaselineMigrationTest` 钉死「只有 V1 / 无升级包 / 四快照列与索引由 V1 直接建出」；
+  `PostgresFlywayMigrationEquivalenceTest` 补同类断言；`H2BaselineMatchesEntityModelTest` 继续
+  守卫基线与实体逐项一致。**未发版期间 schema 变更直接改两侧 V1 并同步**，正式发版后才改为
+  新增 `V2__…` 增量脚本。
+
+## 未发布（在研）— B4 单价写权限收紧与单价变更审计
+
+- **权限**：`FixedRoleAccessPolicy` 将 `/api/config/prices/**` 的写操作（POST/PUT/PATCH/DELETE）
+  从 OPS 收紧到 **ADMIN**（改单价即改钱）；GET 仍为 OPS，接入管理「价格」tab 对运维可见。
+  新增 `PriceWriteAccessPolicyTest` 实测四种写方法、深层路径与规则登记顺序，防止首条命中被
+  更宽泛的低级别规则抢先覆盖。企业版 `ModelPriceController` 不另加方法级注解，避免两套口径。
+- 企业仓同批新增 `enterprise_price_audit`（单价变更审计：操作人、时间、模型、旧价→新价，
+  详见企业仓 `deploy/README.md`）。
+
 ## 未发布（在研）— 集群事件广播装配修复（B3 多副本前置）
 
 - `RedisClusterEventBus` 有两个构造器且都没有标注注入点，Spring 无法确定用哪一个：
@@ -32,12 +56,13 @@
 - 开源 Flyway 基线 `V1__baseline.sql`（H2 / PostgreSQL）中的 `model_price` 表已改写为
   `model_quota`，只保留额度与限速列；单价列全部移出开源版，改由商业版
   `enterprise_model_price` 表（JDBC 自举）承载。
-- **破坏性**：V1 是 Flyway 基线，内容改写会导致 checksum 变化，**仅适用于尚未执行过 V1 的
-  全新安装**（本项目尚未发版，当前内测形态为零存量）。任何已执行过 V1 的存量库，升级前
-  必须先执行 `SELECT version, checksum, success FROM flyway_schema_history WHERE version = '1'`
-  确认，并改走 `V4__split_model_price_to_quota.sql` 路径（先导出旧价格归档，再 rename +
-  drop 价格列 + 改约束名），**禁止直接覆盖升级**。
-- 判定与迁移细则见《Trunkline-计价能力商业化代码改造方案》P0-2 / 3.4。
+- **零存量已确认（2026-11-14）**：项目未发布、无生产环境，V1 是唯一基线，可直接改写；
+  V1 内容变化会导致 Flyway checksum 变化，但当前不存在任何已执行过 V1 的库。
+  存量升级路径（`db/stock-upgrade/` + V4 拆表脚本）按用户决策整体删除，不再提供。
+  若首次发版前出现已执行过 V1 的库，须先用
+  `SELECT version, checksum, success FROM flyway_schema_history WHERE version = '1'` 判定，
+  并重新评估迁移方案，**禁止直接覆盖升级**。
+- 判定与迁移细则见《Trunkline-计价能力商业化代码改造方案》P0-2 / 3.4（有存量分支不实施）。
 
 ## v0.1.0 — 首个公开基线
 

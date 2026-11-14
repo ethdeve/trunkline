@@ -1,14 +1,16 @@
 # 数据模型
 
-> 基于 v0.1.0 的 `db/migration/{h2,postgres}/V1__baseline.sql`（H2 621 行 / PG 628 行，共 **21 张表**）。
+> 基于未发版的 `db/migration/{h2,postgres}/V1__baseline.sql`（H2 635 行 / PG 641 行，共 **21 张表**）。
 > 改实体、查数据、写报表前先读这里；改动流程见 [扩展指南](extending.md#5-实体变更与数据库迁移)。
 
 ## 1. 两条铁律
 
-1. **V1 是已发布基线，不可修改** —— Flyway 按校验和判定，改注释都会坏 checksum。schema 变更新增 `V2__…` / `V3__…`。
+1. **项目尚未发版（零存量），V1 是唯一基线** —— 所有 schema 变更直接改两侧 `V1__baseline.sql` 并同步，不留增量脚本、不留存量升级包。正式发版后 V1 才视为不可改（Flyway 按校验和判定），届时改为新增 `V2__…` / `V3__…`。
 2. **H2 与 PostgreSQL 双脚本必须同步** —— 两侧同名同版本号，仅物理类型不同（H2 用 `json` / `TEXT` / `enum`，PG 用 `jsonb` / `TEXT` / `varchar + check`）。由 `H2BaselineMatchesEntityModelTest` 在测试期守护两侧与实体一致。
 
 > V1 是**合并基线**（2026-11-09）：把原 V2–V18 的演进全部纳入单文件，即"当前完善表结构"的单文件表达。原增量脚本已归档到 `db-migration-archive/`（不进 jar）。`model_price.price_cache` 因当时尚未发版而直接收进 V1（2026-11-11）。
+>
+> **2026-11-14 再次合并**：用户确认零存量，`model_price` → `model_quota`（B0）、#653 的 `adjustment_applied` 过滤索引（原 V2）、四个成交价快照列（原 V3）全部收进 V1；`db/stock-upgrade/` 存量升级包整体删除。当前 H2 / PG 各只有一个脚本，空库迁移历史只有 `1|SQL`。
 
 ## 2. 表全景（按职责分组）
 
@@ -99,7 +101,7 @@
 - **时间范围**：`created_at` / `occurred_at` / `request_date + request_hour` / `hour_timestamp`
 - **聚合维度**：`tenant_id`、`model_name`、`api_key_id`、`service_type`、`virtual_model`、`window_type + window_start`
 
-新增查询时优先复用现有索引；高频过滤字段若无索引，补 `V2__…` 增量脚本（两侧同步）。
+新增查询时优先复用现有索引；高频过滤字段若无索引，直接把 `create index` 加进两侧 `V1__baseline.sql`（项目尚未发版，不存在增量脚本）。
 
 ---
 

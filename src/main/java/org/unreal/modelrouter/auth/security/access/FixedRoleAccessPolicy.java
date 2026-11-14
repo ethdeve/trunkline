@@ -108,8 +108,10 @@ public class FixedRoleAccessPolicy {
                 // 模型供应商 / 价格 / 服务类型（接入管理）
                 AccessRule.get("/api/config/providers/**", AccessLevel.OPS),
                 AccessRule.write("/api/config/providers/**", AccessLevel.OPS),
+                // B4 / 方案 3.2 #10：单价即钱。读仍对运维可见（「价格」tab），写收紧到 ADMIN。
+                // 首条命中优先：GET 与 write 的方法集合互斥，互不遮蔽；本条须留在任何更宽泛写规则之前。
                 AccessRule.get("/api/config/prices/**", AccessLevel.OPS),
-                AccessRule.write("/api/config/prices/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/prices/**", AccessLevel.ADMIN),
                 AccessRule.get("/api/config/type/**", AccessLevel.OPS),
                 AccessRule.write("/api/config/type/**", AccessLevel.OPS),
 
