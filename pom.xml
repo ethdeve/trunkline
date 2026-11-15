@@ -32,6 +32,8 @@
         <!-- 构建优化配置 -->
         <maven.test.skip>false</maven.test.skip>
         <maven.javadoc.skip>false</maven.javadoc.skip>
+        <!-- 单一基线护栏（闸门⑥）：默认开启 V1__baseline.sql 哈希校验；本地快速构建可 -Dv1.guard.skip=true -->
+        <v1.guard.skip>false</v1.guard.skip>
     </properties>
 
     <profiles>
@@ -470,6 +472,41 @@
                                     <classifier>original</classifier>
                                 </artifact>
                             </artifacts>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- 单一基线护栏（闸门⑥）：任何构建都校验 h2 / postgres 两份 V1__baseline.sql
+                 哈希与 db/migration/v1-baseline.sha256 一致。V1 被改动会破坏已部署客户的
+                 Flyway checksum，故在 validate 阶段 fail-fast。本地快速构建可 -Dv1.guard.skip=true。
+                 哈希值须与 v1-baseline.sha256 保持同步；用内建 Ant <checksum> 任务，避免派生
+                 外部 shell（wsl 在部分环境被安全策略拦截）。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>verify-v1-baseline</id>
+                        <phase>validate</phase>
+                        <goals><goal>run</goal></goals>
+                        <configuration>
+                            <skip>${v1.guard.skip}</skip>
+                            <target>
+                                <checksum file="${project.basedir}/src/main/resources/db/migration/h2/V1__baseline.sql"
+                                         property="v1.h2.hash" algorithm="SHA-256"/>
+                                <checksum file="${project.basedir}/src/main/resources/db/migration/postgres/V1__baseline.sql"
+                                         property="v1.pg.hash" algorithm="SHA-256"/>
+                                <condition property="v1.ok">
+                                    <and>
+                                        <equals arg1="${v1.h2.hash}" arg2="b9e41a35c2403be5509fe85ad26f4f2f26d0c9973819cd0352fa3c2aac4d906e"/>
+                                        <equals arg1="${v1.pg.hash}" arg2="c84f040efd6640376bb312ed02610622bc3c5f9286e619b5744572d8fbc75ede"/>
+                                    </and>
+                                </condition>
+                                <fail unless="v1.ok"
+                                      message="V1__baseline.sql 哈希失配：单一基线被改动，已部署客户将 Flyway checksum 失配、启动失败。已发布则必须改为新增 V4__&lt;desc&gt;.sql 增量迁移；未发布且确认无客户则同步更新 db/migration/v1-baseline.sha256（哈希须与 pom 内校验值一致）。"/>
+                            </target>
                         </configuration>
                     </execution>
                 </executions>

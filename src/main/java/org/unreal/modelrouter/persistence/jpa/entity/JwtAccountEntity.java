@@ -39,6 +39,16 @@ public class JwtAccountEntity {
     @Column(name = "username", nullable = false, unique = true)
     private String username;
 
+    /**
+     * 外部身份标识（来自 IdP / SSO 交换出的 {@code EnterpriseUser.externalId}）。
+     *
+     * <p><b>A4 最小回收闭环（闸门② P0 红线）</b>：用于「本地账号 ↔ 外部身份」的回向关联，
+     * 支撑离职/停用后的对账（reconcile）与单账号回收。JIT 自动建号时写入；
+     * 本地/YAML 静态账户此列恒为 {@code null}，reconcile 不会误伤。</p>
+     */
+    @Column(name = "external_id", length = 255)
+    private String externalId;
+
     @Column(name = "password", nullable = false)
     private String password;
 

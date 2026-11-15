@@ -1,0 +1,14 @@
+# Trunkline 单一基线（V1__baseline.sql）哈希清单 —— 防带病分叉护栏
+#
+# 背景：本仓采用「单一基线」策略，h2 与 postgres 各只有一份 V1__baseline.sql，
+# Flyway 空库只记版本 1。一旦有客户部署，V1 的任何改动都会导致 Flyway checksum
+# 失配、应用启动失败。**未发布期间**允许改 V1，但**每次改动必须同步更新本文件**
+# 并经评审；**发布后**严禁再改 V1，schema 变更一律走新增 V4__<desc>.sql 增量迁移。
+#
+# 本文件由 scripts/verify-v1-baseline.sh 在构建期（validate 阶段）校验。
+# 重新生成本文件：sha256sum h2/V1__baseline.sql postgres/V1__baseline.sql > v1-baseline.sha256
+#   （在该文件所在目录 src/main/resources/db/migration 下执行）
+#
+# 格式：<sha256>  <相对本目录的文件路径>
+b9e41a35c2403be5509fe85ad26f4f2f26d0c9973819cd0352fa3c2aac4d906e  h2/V1__baseline.sql
+c84f040efd6640376bb312ed02610622bc3c5f9286e619b5744572d8fbc75ede  postgres/V1__baseline.sql

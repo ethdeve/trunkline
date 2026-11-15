@@ -150,5 +150,66 @@ spring:
 
 ---
 
+## 8. 许可证部署与功能位解锁（闸门④）
+
+> 已落码能力（SSO / 多租户 / 计费 / 审核）默认**全部关闭**，由 license 的 `features[]` 经由
+> `LicenseEnvironmentPostProcessor`（A0 EPP，最高优先级）在启动时注入 `trunkline.license.feature.*`
+> 属性驱动。没有签发带功能位的 license 并放到正确位置，企业 jar 在场也不会解锁任何能力。
+> 本节能把「签发 → 部署 → 验证」一条链做对。
+
+### 8.1 签发带功能位的 license
+
+使用独立的 A1 签发工具（`trunkline-license-tool`，私钥离线、绝不入库）：
+
+```bash
+# 签发含全部 4 个运行时能力的 license（edition=enterprise，5 租户，1 年有效）
+./run.sh sign --edition enterprise --max-tenants 5 --serial <单调序列号> \
+              --valid-until-days 365 --features sso,tenant,billing,moderation \
+              --out license.json
+```
+
+- `features` 取值与运行时映射对齐：`sso` / `tenant` / `billing` / `moderation` 各自解锁一个
+  `trunkline.license.feature.<name>` 属性并触发对应 SPI Bean 注册；`auditChain` / `dlp` 为预留位。
+- 工具对**未知功能位名**打印 `WARN`（拼写错误会导致能力静默不解锁），加 `--strict` 直接退出码 2 禁止签发。
+- `serial` 必须**单调递增**（防回滚攻击）：续期/增发新 license 时取比旧值更大的数。
+
+### 8.2 放置与启动参数
+
+| 配置项 | 环境变量 / 默认值 | 说明 |
+|---|---|---|
+| 许可证路径 | `TRUNKLINE_ENTERPRISE_LICENSE_LOCATION`（默认 `file:/etc/trunkline/license.json`） | 各副本**必须挂载同一份** license 文件（同 `serial`、同 `features`） |
+| 是否强制 | `TRUNKLINE_ENTERPRISE_LICENSE_ENFORCE`（默认 `true`） | `false` 时缺失/无效许可证降级社区版、不解锁任何企业能力；生产必须为 `true` |
+| 本地状态路径 | `TRUNKLINE_ENTERPRISE_LICENSE_STATE_PATH` | **多副本必须指向共享持久卷（PVC/NFS）**，否则各副本独立记录 `serial` 与宽限锚点，pod 重建即丢失防回滚/72h 宽限 |
+
+> 多副本场景下，所有副本共享同一份 license 文件与同一份 `license.state` 卷，是「跨副本吊销 / 防回滚」成立的前提。
+> 单副本（含 K8s 单 Pod）可保持默认本地 `~/.trunkline/license.state`。
+
+### 8.3 功能位解锁链路（签发 → 运行时）
+
+```
+A1 工具签发 {features:[sso,tenant,billing,moderation]}
+   │  SHA256withRSA 离线私钥签名
+   ▼
+/etc/trunkline/license.json
+   │  LicenseEnvironmentPostProcessor（最高优先级 EPP）验签
+   ▼
+注入 trunkline.license.feature.{sso,tenant,billing,moderation}=true  ── addFirst，yml 无法覆盖
+   │  @ConditionalOnProperty(prefix="trunkline.license.feature") 命中
+   ▼
+4 个企业 SPI Bean 注册（@ConditionalOnMissingBean 覆盖开源 Noop）：
+  EnterpriseSsoConnector / EnterpriseTenantContext / EnterpriseBillingProvider / EnterpriseModerationProvider
+```
+
+### 8.4 闸门④ 验收清单
+
+- [ ] 用 A1 工具签发含 `sso,tenant,billing,moderation` 的 license，能成功产出信封 JSON（`verify` 子命令验签通过）。
+- [ ] 放置 license 后应用启动无「许可证缺失/无效」报错；`/actuator/health` 不因此变 `DOWN`。
+- [ ] **企业 jar 在场 + 4 功能位全开** → 4 个 SPI Bean 注册企业实现（`EnterpriseAutoConfigurationTest.enterpriseBeansRegisterWhenFeatureBitsEnabled` 已断言，CI 绿即证明）。
+- [ ] **无功能位 / 仅部分功能位** → 未解锁能力退位开源 Noop，绝不因「降级」误解锁（同测试 `noFeatureBitsFallsBackToNoop` / `partialFeatureBitsRegisterSubset`）。
+- [ ] 多副本部署：各副本 `license.json` 与 `license.state` 卷内容一致；任一副本吊销 API Key / 令牌，其余副本立即拒绝（依赖第 2~4 节的 5 个共享态开关 + `TRUNKLINE_REPLICAS=N`）。
+- [ ] license `serial` 回退（拿旧 license 顶替）→ 启动失败（`序列号回滚`，`LicenseEnvironmentPostProcessorTest.serialRollbackRejectsStartup` 已覆盖）。
+
+---
+
 *基线机制实现：`org.unreal.modelrouter.common.cluster.MultiReplicaSharedStateChecker` / `MultiReplicaSharedStateGate` / `SharedStateHealthIndicator`。*
 *自检逻辑单测：`src/test/java/org/unreal/modelrouter/common/cluster/MultiReplicaSharedStateGateTest`。*

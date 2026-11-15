@@ -32,6 +32,7 @@ class JwtAccountEntityTest {
         JwtAccountEntity entity = new JwtAccountEntity(
                 1L,
                 "testuser",
+                null,
                 "password123",
                 "[\"ADMIN\",\"USER\"]",
                 "研发部",
@@ -43,6 +44,7 @@ class JwtAccountEntityTest {
 
         assertEquals(1L, entity.getId());
         assertEquals("testuser", entity.getUsername());
+        assertNull(entity.getExternalId());
         assertEquals("password123", entity.getPassword());
         assertEquals("[\"ADMIN\",\"USER\"]", entity.getRoles());
         assertEquals("研发部", entity.getDepartment());

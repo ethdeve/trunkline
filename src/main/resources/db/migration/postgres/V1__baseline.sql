@@ -275,6 +275,7 @@
         updated_at timestamp(6),
         name varchar(64),
         department varchar(128),
+        external_id varchar(255),
         password varchar(255) not null,
         roles varchar(255),
         username varchar(255) not null unique,

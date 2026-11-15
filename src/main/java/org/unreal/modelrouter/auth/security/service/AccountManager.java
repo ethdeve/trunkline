@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,10 +20,12 @@ import org.unreal.modelrouter.auth.security.config.properties.JwtAccountProperti
 import org.unreal.modelrouter.auth.security.config.properties.SecurityProperties;
 import org.unreal.modelrouter.auth.security.config.properties.SsoConfig;
 import org.unreal.modelrouter.auth.security.audit.ExtendedSecurityAuditService;
+import org.unreal.modelrouter.auth.security.dto.ApiKeyVO;
 import org.unreal.modelrouter.common.exception.ApiException;
 import org.unreal.modelrouter.enterprise.spi.SsoConnector;
 import org.unreal.modelrouter.persistence.jpa.entity.JwtAccountEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.JwtAccountRepository;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import javax.crypto.SecretKey;
@@ -55,6 +58,23 @@ public class AccountManager implements UserDetailsService {
     // 审计服务（用于记录认证操作）
     @Autowired(required = false)
     private ExtendedSecurityAuditService auditService;
+
+    /**
+     * 账户状态守卫（可选依赖）：停用账号后立即失效其 JWT 校验缓存，
+     * 使已签发令牌在 {@code AccountStatusGuard} 的 30s TTL 窗口内即时失效。
+     * 反向依赖 {@code AccountManager}，用 {@link Lazy} 打破初始化环。
+     */
+    @Autowired(required = false)
+    @Lazy
+    private AccountStatusGuard accountStatusGuard;
+
+    /**
+     * API Key 服务（可选依赖）：停用账号时吊销其持有的全部密钥。
+     * 反向依赖链经 {@code JwtAccountService}，用 {@link Lazy} 打破初始化环。
+     */
+    @Autowired(required = false)
+    @Lazy
+    private ApiKeyService apiKeyService;
 
     /**
      * 验证用户凭据
@@ -258,6 +278,7 @@ public class AccountManager implements UserDetailsService {
                                       final String username, final String defaultRole) {
         final JwtAccountEntity entity = JwtAccountEntity.builder()
                 .username(username)
+                .externalId(user.externalId())
                 .password(passwordEncoder.encode(UUID.randomUUID().toString()))
                 .roles(toRolesJson(defaultRole))
                 .name(user.displayName())
@@ -273,6 +294,179 @@ public class AccountManager implements UserDetailsService {
                     .onErrorResume(ex -> Mono.empty())
                     .subscribe();
         }
+    }
+
+    // ============================================================
+    // A4 最小回收闭环（闸门② P0 红线）
+    // 「IdP 移除/禁用 → 本地账号禁用 + JWT 失效 + API Key 吊销 + 组成员清空 + 审计」
+    // 的复用入口。所有方法幂等可复跑：账号不存在/已禁用时安全跳过。
+    // ============================================================
+
+    /**
+     * 按外部身份停用本地账号（离职回收单账号入口）。
+     *
+     * <p>定位策略直接查 {@code jwtAccountRepository}（优先 {@code externalId} 列，
+     * 兜底 email / email 前缀），而非复用 {@code resolveExternalLocalUsername}——
+     * 后者只扫 YAML 账户、对 DB 类 JIT 账号不可靠。</p>
+     *
+     * @param externalUser IdP 交换出的企业用户身份（取 {@code externalId} / {@code email}）
+     * @return 完成信号（账号不存在或已停用时为空完成，幂等）
+     */
+    public Mono<Void> disableExternalAccount(final SsoConnector.EnterpriseUser externalUser) {
+        return Mono.defer(() -> {
+            final String username = resolveLocalUsernameForDeprovisioning(
+                    externalUser.externalId(), externalUser.email());
+            if (username == null) {
+                log.info("A4 停用：外部身份无对应本地账号，跳过: externalId={}, email={}",
+                        externalUser.externalId(), externalUser.email());
+                return Mono.empty();
+            }
+            return disableLocalAccount(username);
+        });
+    }
+
+    /**
+     * 按外部身份标识停用（供 reconcile / 管理端点调用，无需完整 {@code EnterpriseUser}）。
+     */
+    public Mono<Void> disableExternalAccountByIdentity(final String externalId, final String email) {
+        return Mono.defer(() -> {
+            final String username = resolveLocalUsernameForDeprovisioning(externalId, email);
+            if (username == null) {
+                log.info("A4 停用：外部身份无对应本地账号，跳过: externalId={}, email={}",
+                        externalId, email);
+                return Mono.empty();
+            }
+            return disableLocalAccount(username);
+        });
+    }
+
+    /**
+     * 全量对账（reconcile）：给定【当前仍活跃】的外部身份标识集合，
+     * 停用所有「带 {@code externalId} 但不在活跃集合内」的本地 SSO 账号。
+     *
+     * <p>本地/YAML 静态账户 {@code external_id} 为 {@code null}，不会被本方法触碰（避免误伤）。
+     * 返回的汇总包含被停用账号清单与受影响密钥数，供脚本/端点留痕。</p>
+     *
+     * @param activeExternalIds 当前仍活跃的外部身份标识集合（来自 IdP/HR feed）
+     * @return 对账结果汇总
+     */
+    public Mono<DeprovisioningSummary> reconcileExternalAccounts(
+            final java.util.Set<String> activeExternalIds) {
+        return Mono.defer(() -> {
+            final java.util.Set<String> active =
+                    activeExternalIds == null ? java.util.Set.of() : activeExternalIds;
+            final java.util.List<JwtAccountEntity> ssoAccounts =
+                    jwtAccountRepository.findAllByExternalIdIsNotNull();
+            final java.util.List<String> toDisable = new java.util.ArrayList<>();
+            for (final JwtAccountEntity e : ssoAccounts) {
+                final String ext = e.getExternalId();
+                if (ext != null && !ext.isBlank() && !active.contains(ext)) {
+                    final String username = resolveLocalUsernameForDeprovisioning(ext, null);
+                    if (username != null) {
+                        toDisable.add(username);
+                    }
+                }
+            }
+            final java.util.concurrent.atomic.AtomicInteger revokedKeys =
+                    new java.util.concurrent.atomic.AtomicInteger(0);
+            Mono<Void> chain = Mono.empty();
+            for (final String username : toDisable) {
+                chain = chain.then(disableLocalAccount(username, revokedKeys));
+            }
+            final int count = toDisable.size();
+            return chain.thenReturn(new DeprovisioningSummary(count, toDisable, revokedKeys.get()));
+        });
+    }
+
+    private Mono<Void> disableLocalAccount(final String username) {
+        return disableLocalAccount(username, new java.util.concurrent.atomic.AtomicInteger(0));
+    }
+
+    private Mono<Void> disableLocalAccount(final String username,
+                                           final java.util.concurrent.atomic.AtomicInteger revokedKeys) {
+        final JwtAccountEntity entity = jwtAccountRepository.findByUsername(username).orElse(null);
+        if (entity == null) {
+            return Mono.empty();
+        }
+        // 幂等：已禁用账号重复停用不会抛错，仅确保状态/缓存/密钥一致。
+        entity.setEnabled(false);
+        entity.setRoles("[]"); // 组成员清空：吊销陈旧角色/组归属，避免恢复后残留
+        jwtAccountRepository.save(entity);
+        log.info("A4 停用：本地账号已禁用并清空组成员: username={}", username);
+        auditDeprovisioning(username);
+        return invalidateAndComplete(username).then(revokeApiKeysFor(username, revokedKeys));
+    }
+
+    private Mono<Void> invalidateAndComplete(final String username) {
+        if (accountStatusGuard != null) {
+            accountStatusGuard.invalidate(username);
+        }
+        return Mono.empty();
+    }
+
+    /**
+     * 吊销该本地用户持有的全部 API Key（按有效持有人过滤）。
+     */
+    private Mono<Void> revokeApiKeysFor(final String username,
+                                        final java.util.concurrent.atomic.AtomicInteger revokedKeys) {
+        if (apiKeyService == null) {
+            return Mono.empty();
+        }
+        return apiKeyService.getMineApiKeysVO(username)
+                .flatMapMany(vo -> Flux.fromIterable(vo.getItems()))
+                .map(ApiKeyVO::getKeyId)
+                .filter(kid -> kid != null && !kid.isBlank())
+                .flatMap(kid -> apiKeyService.deleteApiKey(kid, "deprovisioning")
+                        .doOnSuccess(ignored -> {
+                            revokedKeys.incrementAndGet();
+                            log.info("A4 停用：API Key 已吊销: kid={}, holder={}", kid, username);
+                        })
+                        .onErrorResume(ex -> {
+                            log.warn("A4 停用：吊销 API Key 失败 kid={}, holder={}: {}",
+                                    kid, username, ex.getMessage());
+                            return Mono.empty();
+                        }))
+                .then();
+    }
+
+    /**
+     * 停用本地账号时写入审计（失败不阻断主流程）。
+     */
+    private void auditDeprovisioning(final String username) {
+        if (auditService != null) {
+            auditService.auditSecurityEvent("ACCOUNT_DEPROVISIONED",
+                            "SSO 账号停用（离职回收）: " + username, username, null)
+                    .onErrorResume(ex -> Mono.empty())
+                    .subscribe();
+        }
+    }
+
+    /**
+     * 停用专用账号定位：直接查库（优先 externalId，兜底 email / email 前缀），
+     * 不依赖只扫 YAML 的 {@code resolveExternalLocalUsername}。
+     */
+    private String resolveLocalUsernameForDeprovisioning(final String externalId, final String email) {
+        if (externalId != null && !externalId.isBlank()) {
+            final JwtAccountEntity byExt = jwtAccountRepository.findByExternalId(externalId).orElse(null);
+            if (byExt != null) {
+                return byExt.getUsername();
+            }
+        }
+        if (email != null && !email.isBlank()) {
+            final JwtAccountEntity byEmail = jwtAccountRepository.findByUsername(email).orElse(null);
+            if (byEmail != null) {
+                return byEmail.getUsername();
+            }
+            final int at = email.indexOf('@');
+            if (at > 0) {
+                final JwtAccountEntity byPrefix =
+                        jwtAccountRepository.findByUsername(email.substring(0, at)).orElse(null);
+                if (byPrefix != null) {
+                    return byPrefix.getUsername();
+                }
+            }
+        }
+        return null;
     }
 
     private String toRolesJson(final String role) {
