@@ -16,7 +16,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -42,9 +41,8 @@ import java.time.LocalDateTime;
 // 名字带库内对象 ID）改为具名表级约束 —— 与迁移侧（V3 唯一索引 + V7 转具名约束）对齐，
 // 使 H2BaselineMatchesEntityModelTest 两侧 schema 快照可逐项比较
 @Table(name = "model_provider",
-        uniqueConstraints = @UniqueConstraint(name = "uk_model_provider_uid", columnNames = "provider_uid"),
-        indexes = @Index(name = "idx_model_provider_tenant", columnList = "tenant_id"))
-@Filter(name = "tenantFilter")
+        uniqueConstraints = @UniqueConstraint(name = "uk_model_provider_uid", columnNames = "provider_uid"))
+@TenantShared(reason = "模型供应商定义（上游 baseUrl / API Key / 模型清单）属平台上游基础设施，与已全局的 ModelQuotaEntity 同平面；其上游凭据由平台统一持有，私有化单租户下不存在按租户分池，故全局共享")
 public class ModelProviderEntity {
 
     @Id
@@ -108,10 +106,5 @@ public class ModelProviderEntity {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    /** 归属租户（多租户预埋，S2 任务 35/36；社区版恒为 default） */
-    @Builder.Default
-    @Column(name = "tenant_id", nullable = false, length = 64)
-    private String tenantId = "default";
 
 }

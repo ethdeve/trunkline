@@ -75,6 +75,13 @@ public class MultiReplicaSharedStateChecker implements ApplicationListener<Appli
 
         int replicas = MultiReplicaSharedStateGate.parseReplicas(environment.getProperty(REPLICAS_KEY));
         boolean multiReplica = MultiReplicaSharedStateGate.detectMultiReplica(replicas, System.getenv());
+
+        // 体检报告 P1：显式的 1 + K8s 环境 = 疑似漏配 / HPA 扩容，此时自检会静默跳过。
+        // 只告警、不改变 multiReplica 判定，避免把单副本 K8s 误判为多副本而在 FAIL 下误伤启动。
+        if (MultiReplicaSharedStateGate.detectReplicaDeclarationMismatch(replicas, System.getenv())) {
+            log.warn("{}", MultiReplicaSharedStateGate.describeReplicaDeclarationMismatch());
+        }
+
         assessment = MultiReplicaSharedStateGate.assess(multiReplica, readSwitches());
 
         if (!assessment.needsAttention()) {

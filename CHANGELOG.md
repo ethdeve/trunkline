@@ -2,6 +2,47 @@
 
 本项目遵循语义化版本。这里只记录**已经落地**的变化，后续计划见 [README](README-ZH.md)。
 
+## 未发布（在研）— 多租户隔离声明体系与多实例共享态修复
+
+- **租户隔离从「隐式」变「显式 + 启动期 fail-fast」**：`@TenantShared` 注解语义从「文档用途」升级为
+  「**有意全局共享、不做行级隔离**」的声明，必须携带 `reason`；与之相对，业务数据实体显式挂
+  `@Filter(name=tenantFilter)` 表达行级隔离。新增 `TenantIsolationStartupGuard`：
+  在 `filter-enabled=true` 且 `tenantFilter` 激活时，反射扫描 `persistence.jpa.entity` 包下全部
+  `@Entity`，任何**既未挂 `@Filter` 又未标 `@TenantShared`** 的实体直接拒绝启动。
+  配套的 `TenantIsolationAuditTest` 升级为全实体覆盖断言（`isolated()` 阈值下调至 ≥5）。
+- **身份 / 上游基础设施平面统一全局共享（两个平面原则）**：依「身份·上游基础设施·运维审计平面 = 全局
+  `@TenantShared`；租户业务数据/计量平面 = `@Filter`」的划分，将 5 个实体由 per-tenant 重分类为全局共享，
+  删除其 `tenant_id` 列与租户索引（两侧 `V1__baseline.sql` 同步）：
+  - `JwtAccountEntity`：认证与 RBAC 身份存储（JWT 登录账号 + API Key `holder` 用户目录）；全局化消除
+    「操作员登录加载账号依赖 tenant 上下文」的引导脆弱性，与无 `tenant_id` 的 `ApiKey` 凭证平面一致；
+    删除 `jwt_accounts.tenant_id` 与 `idx_jwt_accounts_tenant`。
+- **租户隔离实体原生 SQL 守卫（P0 第 3 点收敛）**：`@Filter` 不作用于 native SQL / JDBC，故新增
+  `TenantNativeQueryGuardTest`——CI 静态扫描全部 Spring Data 仓储，一旦租户隔离实体（`@Filter`）上出现
+  `nativeQuery=true` 方法、或 native SQL 直接点名五张租户表（`config_data`/`service_config`/
+  `quota_ledger`/`token_usage`/`api_call_history`）即失败。审计结论：开源主代码对租户表查询均为 JPQL、
+  `nativeQuery=true` 命中数为 0，盲区不在当前代码；该守卫将「将来误加 native 查询」钉死在提交前。
+  据此判定「tenant-aware 仓储基类」在零 native 查询 + 私有化单租户下为 YAGNI，不再新建。
+  - `ModelProviderEntity` / `ServiceInstanceEntity`：厂商接入与上游服务注册表（含供应商 `Authorization`
+    等凭据），属平台拓扑而非租户业务数据，与已全局的 `ModelQuotaEntity` 同平面；删除两表 `tenant_id`
+    与 `idx_model_provider_tenant` / `idx_service_instance_tenant`；`service_instance` 唯一键仍为
+    `(provider_id, instance_name)` 不含租户。
+  - `SecurityBlacklistEntity` / `SecurityAuditEventEntity`：安全黑名单与安全审计事件，属「一处封禁 /
+    一处审计全员生效」的运维审计证据，跨租户共享；删除两表 `tenant_id` 与 `idx_security_blacklist_tenant`
+    / `idx_audit_tenant`；`security_blacklist` 唯一键仍为 `(blacklist_type, target_value)`。
+- **其余缺口实体经核对为全局共享**（厂商额度、熔断配置、运维审计/遥测、配置审计流水等），逐一标注
+  `@TenantShared(reason=...)` 而非机械加列——私有化部署下机械加列会破坏全局唯一键与共享语义。
+  最终仅 **5 个** `@Filter` 业务实体保留行级隔离：`ConfigEntity`、`ServiceConfigEntity`、
+  `TokenUsageEntity`、`QuotaLedgerEntity`、`ApiCallHistoryEntity`。
+- **修 `detectMultiReplica` 漏配静默**：不改 `TRUNKLINE_REPLICAS` 默认值（`:1`）与
+  `application-prod.yml:48-51` 明确「刻意不设 0」的设计。新增静态判定
+  `detectReplicaDeclarationMismatch(1, k8sEnv)`：显式 `replicas=1` 但 K8s 环境存在（HPA 动态扩容）
+  的组合，由 `MultiReplicaSharedStateChecker` 输出**明确 WARN** 而非静默放行。
+- **修 `LicenseStateStore` 多副本共享态**（企业仓）：路径改为可配置 `trunkline.enterprise.license-state-path`
+  （默认 `~/.trunkline/license.state`），写入加 JVM 锁 + 文件锁 + 原子移动；多副本未指向共享卷时启动 WARN；
+  状态存储故障 fail-safe，不影响 license 主校验的 fail-closed。详见企业仓 `deploy/README.md`。
+- **口径收敛**：本仓库**不承诺多租户发布级隔离**；私有化部署（功能位全局 license 级、不做 SaaS 灰度）
+  下上述改动消除「假隔离」与凭据泄露面，属于防御性加固而非多租户商业化能力。
+
 ## 未发布（在研）— Flyway 单一基线合并（零存量决策）
 
 - 用户确认项目**尚未发布、无生产环境、零存量**，因此不需要任何升级 SQL。

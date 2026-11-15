@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@TenantShared(reason = "实例级熔断运行时状态，以 instance_id 为唯一键，随实例而非租户归属")
 @Entity
 @Table(name = "instance_circuit_breaker")
 public class InstanceCircuitBreakerEntity {

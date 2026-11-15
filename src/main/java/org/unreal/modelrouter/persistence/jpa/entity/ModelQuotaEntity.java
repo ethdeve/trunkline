@@ -39,6 +39,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@TenantShared(reason = "厂商模型额度与限速为全局配置，uk_model_quota_model_name 全局唯一，按租户拆分会破坏共享语义")
 @Entity
 @Table(name = "model_quota", uniqueConstraints = {
         @UniqueConstraint(name = "uk_model_quota_model_name", columnNames = {"model_name"})

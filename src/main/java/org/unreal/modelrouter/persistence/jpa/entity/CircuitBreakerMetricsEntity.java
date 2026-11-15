@@ -26,6 +26,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@TenantShared(reason = "熔断指标窗口，以 instance_id 与窗口为键的运行时遥测")
 @Entity
 @Table(name = "circuit_breaker_metrics", indexes = {
     // 不能叫 idx_instance_id：circuit_breaker_state_history 已占用该名，而 PostgreSQL 的

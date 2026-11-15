@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@TenantShared(reason = "全局熔断配置，一套部署一份，不属于任何租户")
 @Entity
 @Table(name = "circuit_breaker_global_config")
 public class CircuitBreakerGlobalConfigEntity {

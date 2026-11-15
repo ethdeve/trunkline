@@ -263,7 +263,6 @@ public class AccountManager implements UserDetailsService {
                 .name(user.displayName())
                 .department(user.department())
                 .enabled(true)
-                .tenantId("default")
                 .build();
         jwtAccountRepository.save(entity);
         log.info("SSO JIT 首次登录自动建号: username={}, email={}, defaultRole={}",

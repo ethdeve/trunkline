@@ -13,6 +13,7 @@ import java.time.Instant;
 /**
  * Configuration version history entity for version tracking.
  */
+@TenantShared(reason = "配置版本历史，属全局运维审计证据，私有化部署下不做租户切分")
 @Entity
 @Table(name = "config_version_history", indexes = {
     @Index(name = "idx_version_service_type", columnList = "serviceType"),

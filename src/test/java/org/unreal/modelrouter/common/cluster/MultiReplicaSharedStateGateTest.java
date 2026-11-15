@@ -195,4 +195,35 @@ class MultiReplicaSharedStateGateTest {
         assertTrue(message.contains("帮助中心 → 团队 → 状态监控"));
         assertTrue(message.contains("OFF"));
     }
+
+    @Test
+    @DisplayName("K8s 环境 + 显式 replicas=1 → 判定为漏配，需告警")
+    void detectReplicaDeclarationMismatchOnK8s() {
+        assertTrue(MultiReplicaSharedStateGate.detectReplicaDeclarationMismatch(
+                1, env("KUBERNETES_SERVICE_HOST", "10.0.0.1")));
+        assertTrue(MultiReplicaSharedStateGate.detectReplicaDeclarationMismatch(
+                1, env("POD_NAME", "trunkline-7d9f8-abc")));
+    }
+
+    @Test
+    @DisplayName("显式多副本 / 裸机单副本 / 未知副本数均不误报漏配")
+    void noMismatchForExplicitOrBareMetalDeployments() {
+        assertFalse(MultiReplicaSharedStateGate.detectReplicaDeclarationMismatch(
+                3, env("KUBERNETES_SERVICE_HOST", "10.0.0.1")));
+        assertFalse(MultiReplicaSharedStateGate.detectReplicaDeclarationMismatch(
+                1, env("HOSTNAME", "docker-container")));
+        assertFalse(MultiReplicaSharedStateGate.detectReplicaDeclarationMismatch(
+                0, env("KUBERNETES_SERVICE_HOST", "10.0.0.1")));
+        assertFalse(MultiReplicaSharedStateGate.detectReplicaDeclarationMismatch(1, null));
+    }
+
+    @Test
+    @DisplayName("漏配告警只提示，不改变多副本判定（单副本 K8s 不得被误判）")
+    void mismatchDoesNotChangeMultiReplicaDetection() {
+        // 这是 application-prod.yml「刻意不设 0」的核心约束：FAIL 模式下不得误伤单副本 K8s 启动
+        assertFalse(MultiReplicaSharedStateGate.detectMultiReplica(
+                1, env("KUBERNETES_SERVICE_HOST", "10.0.0.1")));
+        assertTrue(MultiReplicaSharedStateGate.describeReplicaDeclarationMismatch()
+                .contains("TRUNKLINE_REPLICAS"));
+    }
 }

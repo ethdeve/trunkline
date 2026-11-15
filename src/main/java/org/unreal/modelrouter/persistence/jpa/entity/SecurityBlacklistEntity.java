@@ -7,6 +7,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
@@ -27,9 +28,11 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "security_blacklist", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"blacklist_type", "target_value"})
-})
+@Table(name = "security_blacklist",
+        uniqueConstraints = {
+            @UniqueConstraint(columnNames = {"blacklist_type", "target_value"})
+        })
+@TenantShared(reason = "统一安全黑名单（TOKEN / IP / DEVICE）属平台级安全策略，应「一处封禁、全员生效」；唯一键 (blacklist_type, target_value) 本就全局唯一，私有化单租户下更无按租户拆分必要，故全局共享")
 public class SecurityBlacklistEntity {
 
     @Id
@@ -119,6 +122,8 @@ public class SecurityBlacklistEntity {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+
 
     /**
      * 黑名单类型枚举

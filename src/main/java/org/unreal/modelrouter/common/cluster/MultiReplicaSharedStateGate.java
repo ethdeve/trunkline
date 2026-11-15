@@ -113,6 +113,37 @@ public final class MultiReplicaSharedStateGate {
     }
 
     /**
+     * 检测「显式声明单副本，但运行环境明显是 K8s」的<b>漏配</b>组合（体检报告 P1）。
+     *
+     * <p>背景：{@code TRUNKLINE_REPLICAS} 默认 {@code :1} 是有意设计（见 application-prod.yml
+     * 注释：设为 0 会把单副本 K8s Pod 误判为多副本、在 FAIL 模式下误伤启动）。但 HPA 横向扩容
+     * 或部署清单漏注入 {@code TRUNKLINE_REPLICAS=N} 时，各副本仍读到 1，自检门闩完全静默——
+     * 于是「多副本带病上线」这一最该兜底的场景反而漏了。</p>
+     *
+     * <p>本函数<b>只用于告警，不改变多副本判定</b>：返回 true 时由
+     * {@code MultiReplicaSharedStateChecker} 输出明确 WARN，提示运维显式声明副本数；
+     * 绝不把单副本 K8s 直接判成多副本后在 FAIL 模式下拒绝启动。</p>
+     *
+     * @param replicas 显式副本数（{@code 1} 表示声明为单副本）
+     * @param env      环境变量快照
+     * @return 是否疑似漏配
+     */
+    public static boolean detectReplicaDeclarationMismatch(final int replicas, final Map<String, String> env) {
+        if (replicas != 1 || env == null) {
+            return false;
+        }
+        return isSet(env.get("KUBERNETES_SERVICE_HOST")) || isSet(env.get("POD_NAME"));
+    }
+
+    /** 漏配告警文案，含修复指引。 */
+    public static String describeReplicaDeclarationMismatch() {
+        return "检测到 K8s 运行环境，但副本数仍为显式的 1（TRUNKLINE_REPLICAS 未注入或 HPA 已扩容）。"
+                + "共享态自检将按单副本静默跳过；请在部署清单显式注入 TRUNKLINE_REPLICAS=N（N>1），"
+                + "否则多副本下配额放大、令牌吊销不跨副本生效等问题不会被发现。"
+                + "（prod overlay 已注入 3，此告警通常意味着部署清单被改写或 HPA 动态扩容）";
+    }
+
+    /**
      * 解析副本数，无法解析时返回 0（表示未知）。
      *
      * @param raw 配置原文，可为 null

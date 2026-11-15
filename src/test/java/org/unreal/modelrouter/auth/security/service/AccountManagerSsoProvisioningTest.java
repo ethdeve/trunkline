@@ -123,7 +123,6 @@ class AccountManagerSsoProvisioningTest {
             assertThat(saved.getEnabled()).isTrue();
             assertThat(saved.getName()).isEqualTo("Alice");
             assertThat(saved.getDepartment()).isEqualTo("Eng");
-            assertThat(saved.getTenantId()).isEqualTo("default");
         }
 
         @Test

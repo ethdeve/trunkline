@@ -14,7 +14,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.unreal.modelrouter.common.dto.AuditEventType;
 
@@ -36,10 +35,9 @@ import java.time.LocalDateTime;
     @Index(name = "idx_audit_client_ip", columnList = "client_ip"),
     @Index(name = "idx_audit_category", columnList = "event_category"),
     @Index(name = "idx_audit_resource_id", columnList = "resource_id"),
-    @Index(name = "idx_audit_risk_level", columnList = "risk_level"),
-    @Index(name = "idx_audit_tenant", columnList = "tenant_id")
+    @Index(name = "idx_audit_risk_level", columnList = "risk_level")
 })
-@Filter(name = "tenantFilter")
+@TenantShared(reason = "安全审计事件（登录 / 凭证 / 授权 / 安全告警）属运维与安全审计证据，供跨租户安全调查使用；其兄弟实体 ConfigAuditLogEntity / ConfigVersionHistoryEntity / ConfigChangeAuditEntity 均已全局共享，故对齐为全局")
 public class SecurityAuditEventEntity {
 
     @Id
@@ -228,10 +226,5 @@ public class SecurityAuditEventEntity {
         
         return RiskLevel.LOW;
     }
-
-    /** 归属租户（多租户预埋，S2 任务 35/36；社区版恒为 default） */
-    @Builder.Default
-    @Column(name = "tenant_id", nullable = false, length = 64)
-    private String tenantId = "default";
 
 }

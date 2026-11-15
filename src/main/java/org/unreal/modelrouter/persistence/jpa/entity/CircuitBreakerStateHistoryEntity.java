@@ -27,6 +27,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@TenantShared(reason = "熔断状态变更历史，随实例 tracked 的运行时遥测")
 @Entity
 @Table(name = "circuit_breaker_state_history", indexes = {
     @Index(name = "idx_instance_id", columnList = "instance_id"),

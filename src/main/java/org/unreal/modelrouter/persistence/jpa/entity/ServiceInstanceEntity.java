@@ -31,8 +31,10 @@ import java.util.Map;
 @Entity
 // X4：provider_id 索引与 V3__model_provider.sql 的 idx_service_instance_provider_id 对齐
 // （H2BaselineMatchesEntityModelTest 要求实体模型与迁移侧 schema 逐项一致）
-@Table(name = "service_instance",
-        indexes = @Index(name = "idx_service_instance_provider_id", columnList = "provider_id"))
+@Table(name = "service_instance", indexes = {
+        @Index(name = "idx_service_instance_provider_id", columnList = "provider_id")
+})
+@TenantShared(reason = "网关上游服务注册表（路由目标 + Authorization 等供应商凭据），属平台拓扑而非租户业务数据；与 ModelProviderEntity 同属上游基础设施平面，私有化单租户下全局唯一，故全局共享")
 public class ServiceInstanceEntity {
 
     @Id

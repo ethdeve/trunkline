@@ -27,6 +27,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@TenantShared(reason = "错误小时聚合，按时间窗唯一，全局运维遥测")
 @Entity
 @Table(name = "exception_stats_hourly", indexes = {
     @Index(name = "idx_exception_stats_hour_ts", columnList = "hour_timestamp"),

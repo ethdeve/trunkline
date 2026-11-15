@@ -38,8 +38,7 @@ class JwtAccountEntityTest {
                 "张三",
                 true,
                 now,
-                now,
-                "default"
+                now
         );
 
         assertEquals(1L, entity.getId());

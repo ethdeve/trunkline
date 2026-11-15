@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@TenantShared(reason = "错误跟踪事件，按 trace_id 关联的全局运维遥测，私有化部署下不做租户切分")
 @Entity
 @Table(name = "exception_events", indexes = {
     @Index(name = "idx_exception_event_id", columnList = "event_id"),

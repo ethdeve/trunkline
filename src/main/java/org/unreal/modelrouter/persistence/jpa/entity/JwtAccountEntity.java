@@ -11,7 +11,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -28,10 +27,9 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "jwt_accounts",
         indexes = {
-                @Index(name = "idx_jwt_accounts_username", columnList = "username"),
-                @Index(name = "idx_jwt_accounts_tenant", columnList = "tenant_id")
+                @Index(name = "idx_jwt_accounts_username", columnList = "username")
         })
-@Filter(name = "tenantFilter")
+@TenantShared(reason = "认证与 RBAC 身份存储（JWT 登录账号 + API Key holder 用户目录），属平台基础设施而非租户业务数据；私有化单租户下即唯一客户的用户目录")
 public class JwtAccountEntity {
 
     @Id
@@ -74,10 +72,5 @@ public class JwtAccountEntity {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    /** 归属租户（多租户预埋，S2 任务 35/36；社区版恒为 default） */
-    @Builder.Default
-    @Column(name = "tenant_id", nullable = false, length = 64)
-    private String tenantId = "default";
 
 }

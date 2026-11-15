@@ -13,6 +13,7 @@ import java.time.Instant;
 /**
  * Configuration audit log entity for tracking config changes.
  */
+@TenantShared(reason = "配置变更审计流水，属全局运维审计证据，私有化部署下不做租户切分")
 @Entity
 @Table(name = "config_audit_log", indexes = {
     @Index(name = "idx_audit_service_type", columnList = "serviceType"),

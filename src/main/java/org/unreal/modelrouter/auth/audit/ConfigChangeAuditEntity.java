@@ -14,6 +14,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import org.unreal.modelrouter.persistence.jpa.entity.TenantShared;
+
 import java.time.LocalDateTime;
 
 /**
@@ -23,6 +25,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@TenantShared(reason = "配置变更审计流水，属全局运维审计证据，私有化部署下不做租户切分")
 @Entity
 @Table(name = "config_change_audit_log")
 public class ConfigChangeAuditEntity {
