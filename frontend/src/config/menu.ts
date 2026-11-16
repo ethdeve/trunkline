@@ -123,9 +123,9 @@ export const menuGroups: MenuGroup[] = [
         title: 'nav.myBills.title',
         roles: ['user', 'ops', 'admin'],
         icon: 'money',
-        subtitle: 'nav.myBills.subtitle',
-        // 商业计费功能位（合规包）：未购买 license 时渲染为灰态 + 锁图标 + 「商业版」徽章
-        feature: 'billing'
+        subtitle: 'nav.myBills.subtitle'
+        // open-core 口径：账单页的 token 用量统计属开源版，菜单常显、不按 billing 功能位锁定；
+        // 金额展示在页内按 enterpriseStore.billing 降级为「待定价」（见 MyBillsView 的 money()）
       }
     ]
   },

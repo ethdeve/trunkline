@@ -162,10 +162,9 @@ const formatNumber = (value?: number): string => (Number(value) || 0).toLocaleSt
 /**
  * 金额渲染（按 open-core 分法受 {@code enterprise.billing} 门控）。
  *
- * <p>计费是商业版功能位：开启时按真实单价显示 ¥ 金额；关闭时（社区版 / 企业版未购计费）
- * 全链路无单价来源，账单 100% 走「待定价」——此时绝不应显示 ¥0 冒充真实花费，
- * 改为显式「待定价」以免误导员工。侧边栏 {@code my-bills} 菜单项已按 {@code feature:'billing'}
- * 隐藏本页，故本分支仅在「直接敲 URL 进入」的防御场景下触发。</p>
+ * <p>token 用量统计属开源版，本页菜单常显；计费是商业版功能位：开启时按真实单价
+ * 显示 ¥ 金额；关闭时（社区版 / 企业版未购计费）全链路无单价来源，账单 100% 走
+ * 「待定价」——此时绝不应显示 ¥0 冒充真实花费，改为显式「待定价」以免误导员工。</p>
  */
 const billingEnabled = computed(() => enterpriseStore.billing)
 const money = (value?: number): string =>
@@ -194,9 +193,8 @@ onMounted(() => {
     <PageHeader :title="t('nav.myBills.title')" :subtitle="t(menuSubtitle('/my-bills'))" />
 
     <!--
-      计费未启用（社区版 / 企业版未购计费功能位）的防御提示：侧边栏 my-bills 菜单已按
-      feature:'billing' 隐藏本页，此分支仅在「直接敲 URL 进入」时触发。此时全链路无单价来源，
-      金额一律「待定价」，不应显示 ¥0 冒充真实花费。
+      计费未启用（社区版 / 企业版未购计费功能位）的常态说明：账单页的 token 用量统计属
+      开源版、菜单常显；此时全链路无单价来源，金额一律「待定价」，不应显示 ¥0 冒充真实花费。
     -->
     <el-alert
       v-if="!billingEnabled"
