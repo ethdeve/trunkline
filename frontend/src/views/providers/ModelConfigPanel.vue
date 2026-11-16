@@ -90,15 +90,12 @@
     />
 
     <!--
-      额度 / 价格 分栏（方案 B：单价属商业能力，已拆到企业版 /api/config/prices）。
-      - 额度与限速：开源基础能力（/api/config/quota），常驻「额度与限速」tab。
-      - 价格：商业能力（/api/config/prices），仅当 enterprise.billing 功能位解锁时出现「价格」tab。
-      两 tab 共享同一张实例表，仅按 activeTab 切换可见列，避免重复渲染整表。
+      单表口径（原「额度 / 价格」双 tab 已合并）：两张 tab 除单价/计费两列外完全相同，
+      用户会晕——现在一张实例表同时呈现额度与单价。
+      - 额度与限速：开源基础能力（/api/config/quota），列常驻。
+      - 单价 + 计费开关：商业能力（/api/config/prices），仅当 enterprise.billing 功能位解锁时
+        作为两列追加到表尾；社区版不渲染这两列，列表与开源版完全一致。
     -->
-    <el-tabs v-model="activeTab" class="config-tabs">
-      <el-tab-pane :label="t('modelConfig.tabQuota')" name="quota" />
-      <el-tab-pane v-if="enterpriseStore.billing" :label="t('modelConfig.tabPrice')" name="price" />
-    </el-tabs>
 
     <el-table
       ref="modelConfigTableRef"
@@ -226,8 +223,8 @@
       <!-- 单价：输入 / 输出 / 缓存 竖排。改完即存（el-input-number 的 change 在值变化并失焦时触发一次），
            不再单列「保存价格」按钮 —— 少一个要找的按钮。
            列宽给足（210px）：既容纳「输入/输出/缓存」完整标签，又让 6 位小数的单价不被截断。
-           仅「价格」tab 可见（商业能力，activeTab 控制）。 -->
-      <el-table-column v-if="activeTab === 'price'" :label="t('modelConfig.columnPrice')" width="210" align="right" header-align="center">
+           仅 enterprise.billing 功能位解锁时可见（商业能力）。 -->
+      <el-table-column v-if="enterpriseStore.billing" :label="t('modelConfig.columnPrice')" width="210" align="right" header-align="center">
         <template #default="scope">
           <div class="price-stack">
             <div class="price-row">
@@ -276,8 +273,8 @@
         </template>
       </el-table-column>
 
-      <!-- 计价开关：关闭 → 该模型不参与账单计价（¥0）。仅「价格」tab 可见 -->
-      <el-table-column v-if="activeTab === 'price'" :label="t('modelConfig.columnBilling')" width="86" align="center">
+      <!-- 计价开关：关闭 → 该模型不参与账单计价（¥0）。仅 enterprise.billing 功能位解锁时可见 -->
+      <el-table-column v-if="enterpriseStore.billing" :label="t('modelConfig.columnBilling')" width="86" align="center">
         <template #header>
           <span>{{ t('modelConfig.columnBilling') }}</span>
           <el-tooltip :content="t('modelConfig.billingTip')" placement="top">
@@ -289,8 +286,8 @@
         </template>
       </el-table-column>
 
-      <!-- 额度与限速（摘要 chips，明细在弹窗里改）。仅「额度与限速」tab 可见（开源基础能力） -->
-      <el-table-column v-if="activeTab === 'quota'" min-width="190" header-align="center">
+      <!-- 额度与限速（摘要 chips，明细在弹窗里改）。开源基础能力，列常驻 -->
+      <el-table-column min-width="190" header-align="center">
         <template #header>{{ t('modelConfig.columnQuota') }} <TermHelp term="rateLimit" /></template>
         <template #default="scope">
           <div class="limit-summary">
@@ -561,8 +558,7 @@ import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 const { t } = useI18n()
 // 企业功能位（billing 决定是否显示「价格」tab）
 const enterpriseStore = useEnterpriseStore()
-/** 当前分栏：quota=额度与限速（开源）/ price=单价（商业，需 billing 功能位） */
-const activeTab = ref<'quota' | 'price'>('quota')
+/** 单表口径：原 quota/price 双 tab 已合并，不再需要分栏状态 */
 // 本面板只作为聚合页（接入管理）的 tab 内容嵌入，自身无页头——
 // 走 PageSkeleton 嵌入模式：隐藏空页头、去掉自带 padding，搜索框贴紧 tab 栏
 provide('skeletonEmbedded', true)
