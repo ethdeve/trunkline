@@ -34,6 +34,17 @@ package org.unreal.modelrouter.enterprise.spi;
  *       兼容构造器，但 record 组件变化破坏了二进制兼容。同批新增 {@code precheck(BillingPrecheck)}
  *       default 方法与两个新 record（属兼容扩展，不额外推版本）。企业仓
  *       {@code EXPECTED_SPI_VERSION} 必须同步改为 3，两仓同批发版。</li>
+ *   <li>{@code v3 续}（B1，兼容扩展不推版本）：新增 {@code AuditChainListener} 接口
+ *       （审计哈希链订阅出口，全方法 default + 嵌套 record）——新接口不改变既有接口签名，
+ *       社区版无 Bean 时零开销；{@code VERSION} 保持 3。</li>
+ *   <li>{@code v3 续}（B2，兼容扩展不推版本）：新增 {@code OutboundContentInspector} 接口
+ *       （出站 DLP 检查扩展点，嵌套 record / Verdict）——同 B1 口径，新接口不改既有签名，
+ *       社区版 Noop 恒注册放行；{@code VERSION} 保持 3。失败语义与 O7-c 相反：
+ *       实现可抛异常，主干兜底 fail-closed 拒绝出站。</li>
+ *   <li>{@code v3 续}（M4，兼容扩展不推版本）：新增 {@code ToolGovernanceProvider} 接口
+ *       （Agent 工具治理扩展点，嵌套 record / Verdict）——同 B1/B2 口径，新接口不改既有
+ *       签名，社区版 Noop 恒注册放行；{@code VERSION} 保持 3。失败语义同 B2：实现可抛
+ *       异常，主干兜底 fail-closed 拒绝出站（{@code TOOL_BLOCKED}）。</li>
  * </ul>
  *
  * @author Trunkline Team

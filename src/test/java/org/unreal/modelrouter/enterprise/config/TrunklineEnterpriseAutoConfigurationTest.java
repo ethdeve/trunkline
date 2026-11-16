@@ -14,11 +14,13 @@ import org.springframework.context.annotation.Configuration;
 import org.unreal.modelrouter.enterprise.noop.NoopBillingProvider;
 import org.unreal.modelrouter.enterprise.noop.NoopLicenseVerifier;
 import org.unreal.modelrouter.enterprise.noop.NoopModerationProvider;
+import org.unreal.modelrouter.enterprise.noop.NoopOutboundContentInspector;
 import org.unreal.modelrouter.enterprise.noop.NoopSsoConnector;
 import org.unreal.modelrouter.enterprise.noop.SingleTenantContext;
 import org.unreal.modelrouter.enterprise.spi.BillingProvider;
 import org.unreal.modelrouter.enterprise.spi.LicenseVerifier;
 import org.unreal.modelrouter.enterprise.spi.ModerationProvider;
+import org.unreal.modelrouter.enterprise.spi.OutboundContentInspector;
 import org.unreal.modelrouter.enterprise.spi.SsoConnector;
 import org.unreal.modelrouter.enterprise.spi.TenantContext;
 
@@ -58,6 +60,8 @@ class TrunklineEnterpriseAutoConfigurationTest {
                 .getBean(SsoConnector.class).isInstanceOf(NoopSsoConnector.class);
             assertThat(context).hasSingleBean(LicenseVerifier.class)
                 .getBean(LicenseVerifier.class).isInstanceOf(NoopLicenseVerifier.class);
+            assertThat(context).hasSingleBean(OutboundContentInspector.class)
+                .getBean(OutboundContentInspector.class).isInstanceOf(NoopOutboundContentInspector.class);
 
             final TenantContext tenantContext = context.getBean(TenantContext.class);
             assertThat(tenantContext.getTenantId()).isEqualTo("default");

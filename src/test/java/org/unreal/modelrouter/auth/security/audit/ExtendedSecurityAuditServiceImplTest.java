@@ -15,6 +15,7 @@ import org.unreal.modelrouter.common.dto.AuditEventQuery;
 import org.unreal.modelrouter.common.dto.AuditEventType;
 import org.unreal.modelrouter.common.dto.SecurityAlert;
 import org.unreal.modelrouter.common.dto.SecurityReport;
+import org.unreal.modelrouter.enterprise.spi.AuditChainListener;
 import org.unreal.modelrouter.persistence.jpa.entity.SecurityAuditEventEntity;
 import org.unreal.modelrouter.persistence.jpa.entity.SecurityAuditEventEntity.RiskLevel;
 import org.unreal.modelrouter.persistence.jpa.repository.SecurityAuditEventRepository;
@@ -48,7 +49,8 @@ class ExtendedSecurityAuditServiceImplTest {
     @BeforeEach
     void setUp() {
         reportGenerator = new SecurityReportGenerator(auditRepository, entityMapper);
-        service = new ExtendedSecurityAuditServiceImpl(auditRepository, entityMapper, reportGenerator);
+        // 社区形态：无 AuditChainListener Bean（ObjectProvider 返回 null），落库出口零开销
+        service = new ExtendedSecurityAuditServiceImpl(auditRepository, entityMapper, reportGenerator, null);
     }
 
     // ========== JWT令牌审计方法测试 ==========
@@ -718,5 +720,147 @@ class ExtendedSecurityAuditServiceImplTest {
                 .success(true)
                 .timestamp(LocalDateTime.now())
                 .build();
+    }
+
+    // ========== B1 审计哈希链钩子接线测试 ==========
+
+    @Nested
+    @DisplayName("B1 审计哈希链钩子接线")
+    class AuditChainHookTests {
+
+        /** 记录回调的假订阅者，可控 chainEnabled 与是否抛异常。 */
+        private final class RecordingListener implements AuditChainListener {
+            final List<AuditChainListener.AuditChainEvent> events = new ArrayList<>();
+            final List<List<AuditChainListener.AuditChainEvent>> batches = new ArrayList<>();
+            boolean enabled = true;
+            boolean throwOnSingle;
+
+            @Override
+            public boolean chainEnabled() {
+                return enabled;
+            }
+
+            @Override
+            public void onAuditEventPersisted(final AuditChainListener.AuditChainEvent event) {
+                if (throwOnSingle) {
+                    throw new IllegalStateException("链存储故障");
+                }
+                events.add(event);
+            }
+
+            @Override
+            public void onAuditEventsPersisted(final List<AuditChainListener.AuditChainEvent> events) {
+                if (throwOnSingle) {
+                    throw new IllegalStateException("链存储故障");
+                }
+                batches.add(events);
+            }
+        }
+
+        @Test
+        @DisplayName("listener 存在且启用 - 落库后收到链上快照且字段与实体对齐")
+        void hookReceivesSnapshotAfterPersist() {
+            final RecordingListener listener = new RecordingListener();
+            service = new ExtendedSecurityAuditServiceImpl(auditRepository, entityMapper,
+                    reportGenerator, providerReturning(listener));
+            when(auditRepository.save(any(SecurityAuditEventEntity.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            service.auditTokenIssued("user-001", "token-123", "192.168.1.1", "UA").block();
+
+            assertEquals(1, listener.events.size());
+            final AuditChainListener.AuditChainEvent snapshot = listener.events.get(0);
+            assertEquals(AuditEventType.JWT_TOKEN_ISSUED.name(), snapshot.eventType());
+            assertEquals("user-001", snapshot.userId());
+            assertEquals("token-123", snapshot.resourceId());
+            assertEquals("ISSUE", snapshot.action());
+            assertEquals(Boolean.TRUE, snapshot.success());
+            assertNotNull(snapshot.timestamp());
+        }
+
+        @Test
+        @DisplayName("listener 回调抛异常 - 审计主流程不受影响（不抛给调用方）")
+        void hookFailureDoesNotBreakAuditFlow() {
+            final RecordingListener listener = new RecordingListener();
+            listener.throwOnSingle = true;
+            service = new ExtendedSecurityAuditServiceImpl(auditRepository, entityMapper,
+                    reportGenerator, providerReturning(listener));
+            when(auditRepository.save(any(SecurityAuditEventEntity.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            StepVerifier.create(service.auditTokenIssued("user-001", "token-123", "1.2.3.4", "UA"))
+                    .verifyComplete();
+
+            verify(auditRepository).save(any(SecurityAuditEventEntity.class));
+            assertEquals(0, listener.events.size());
+        }
+
+        @Test
+        @DisplayName("listener chainEnabled=false - 零回调零开销")
+        void disabledListenerIsSkipped() {
+            final RecordingListener listener = new RecordingListener();
+            listener.enabled = false;
+            service = new ExtendedSecurityAuditServiceImpl(auditRepository, entityMapper,
+                    reportGenerator, providerReturning(listener));
+            when(auditRepository.save(any(SecurityAuditEventEntity.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            service.auditApiKeyCreated("key-1", "admin", "1.2.3.4").block();
+
+            verify(auditRepository).save(any(SecurityAuditEventEntity.class));
+            assertEquals(0, listener.events.size());
+        }
+
+        @Test
+        @DisplayName("批量落库 - onAuditEventsPersisted 按落库顺序收到全部快照")
+        void batchPersistPublishesAllSnapshots() {
+            final RecordingListener listener = new RecordingListener();
+            service = new ExtendedSecurityAuditServiceImpl(auditRepository, entityMapper,
+                    reportGenerator, providerReturning(listener));
+            when(entityMapper.dtoToEntity(any(AuditEvent.class))).thenAnswer(invocation -> {
+                final AuditEvent dto = invocation.getArgument(0);
+                return SecurityAuditEventEntity.builder()
+                        .eventId(dto.getId())
+                        .eventType(dto.getType())
+                        .userId(dto.getUserId())
+                        .success(dto.isSuccess())
+                        .timestamp(dto.getTimestamp())
+                        .build();
+            });
+
+            final AuditEvent first = createMockAuditEvent();
+            final AuditEvent second = createMockAuditEvent();
+            service.batchRecordAuditEvents(List.of(first, second)).block();
+
+            assertEquals(1, listener.batches.size());
+            assertEquals(2, listener.batches.get(0).size());
+            assertEquals("event-001", listener.batches.get(0).get(0).eventId());
+            verify(auditRepository).saveAll(anyList());
+        }
+
+        private org.springframework.beans.factory.ObjectProvider<AuditChainListener> providerReturning(
+                final AuditChainListener listener) {
+            return new org.springframework.beans.factory.ObjectProvider<>() {
+                @Override
+                public AuditChainListener getObject(final Object... args) {
+                    return listener;
+                }
+
+                @Override
+                public AuditChainListener getObject() {
+                    return listener;
+                }
+
+                @Override
+                public AuditChainListener getIfAvailable() {
+                    return listener;
+                }
+
+                @Override
+                public AuditChainListener getIfUnique() {
+                    return listener;
+                }
+            };
+        }
     }
 }

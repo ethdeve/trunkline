@@ -16,12 +16,16 @@ import org.unreal.modelrouter.billing.price.PriceResolver;
 import org.unreal.modelrouter.enterprise.noop.NoopBillingProvider;
 import org.unreal.modelrouter.enterprise.noop.NoopLicenseVerifier;
 import org.unreal.modelrouter.enterprise.noop.NoopModerationProvider;
+import org.unreal.modelrouter.enterprise.noop.NoopOutboundContentInspector;
+import org.unreal.modelrouter.enterprise.noop.NoopToolGovernanceProvider;
 import org.unreal.modelrouter.enterprise.noop.NoopSsoConnector;
 import org.unreal.modelrouter.enterprise.noop.SingleTenantContext;
 import org.unreal.modelrouter.enterprise.spi.BillingProvider;
 import org.unreal.modelrouter.enterprise.spi.EnterpriseFeaturesProvider;
 import org.unreal.modelrouter.enterprise.spi.LicenseVerifier;
 import org.unreal.modelrouter.enterprise.spi.ModerationProvider;
+import org.unreal.modelrouter.enterprise.spi.OutboundContentInspector;
+import org.unreal.modelrouter.enterprise.spi.ToolGovernanceProvider;
 import org.unreal.modelrouter.enterprise.spi.SsoConnector;
 import org.unreal.modelrouter.enterprise.spi.TenantContext;
 
@@ -60,6 +64,26 @@ public class TrunklineEnterpriseAutoConfiguration {
     @ConditionalOnMissingBean(ModerationProvider.class)
     public NoopModerationProvider noopModerationProvider() {
         return new NoopModerationProvider();
+    }
+
+    /**
+     * 出站内容防泄露兜底（B2）：企业版 {@code OutboundDlpInspector} 先注册后本 Bean 退位。
+     * 放行语义零开销，社区版 DLP 链路不生效。
+     */
+    @Bean
+    @ConditionalOnMissingBean(OutboundContentInspector.class)
+    public NoopOutboundContentInspector noopOutboundContentInspector() {
+        return new NoopOutboundContentInspector();
+    }
+
+    /**
+     * Agent 工具治理兜底（M4）：企业版 {@code AgentToolGovernor} 先注册后本 Bean 退位。
+     * 放行语义零开销，社区版工具治理链路不生效。
+     */
+    @Bean
+    @ConditionalOnMissingBean(ToolGovernanceProvider.class)
+    public NoopToolGovernanceProvider noopToolGovernanceProvider() {
+        return new NoopToolGovernanceProvider();
     }
 
     /**

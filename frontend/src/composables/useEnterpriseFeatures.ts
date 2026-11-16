@@ -55,6 +55,7 @@ export function useEnterpriseFeatures() {
     billing: computed(() => store.billing),
     moderation: computed(() => store.moderation),
     tenantManagement: computed(() => store.tenantManagement),
+    securityDashboard: computed(() => store.securityDashboard),
     ensure: () => store.ensureLoaded()
   }
 }

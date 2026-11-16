@@ -30,6 +30,8 @@ import org.unreal.modelrouter.common.exception.ApiException;
 import org.unreal.modelrouter.common.util.IpUtils;
 import org.unreal.modelrouter.enterprise.config.TenantContextHolder;
 import org.unreal.modelrouter.enterprise.spi.ModerationProvider;
+import org.unreal.modelrouter.enterprise.spi.OutboundContentInspector;
+import org.unreal.modelrouter.enterprise.spi.ToolGovernanceProvider;
 import org.unreal.modelrouter.router.fallback.FallbackStrategy;
 import org.unreal.modelrouter.router.fallback.impl.CacheFallbackStrategy;
 import org.unreal.modelrouter.auth.security.quota.QuotaReservation;
@@ -80,6 +82,23 @@ public abstract class BaseAdapter implements ServiceCapability {
      */
     @Autowired(required = false)
     private ModerationProvider moderationProvider;
+
+    /**
+     * 出站内容防泄露扩展点（B2）：Noop 恒注册（全放行），判空仅为防御。
+     * 与 O7-c 同一挂载点（实例选择之前、调用上游之前）；失败语义与 O7-c 相反——
+     * 实现抛异常由主干兜底 fail-closed 拒绝出站（{@code DLP_BLOCKED}）。
+     */
+    @Autowired(required = false)
+    private OutboundContentInspector outboundContentInspector;
+
+    /**
+     * Agent 工具治理扩展点（M4）：Noop 恒注册（全放行），判空仅为防御。
+     * 挂在出站 DLP 之后（实例选择之前）——对工具定义（{@code tools[]}）与工具结果
+     * 回传（{@code role:"tool"} wire 消息）做白名单 / 授权 / 复检治理；失败语义与
+     * B2 同款 fail-closed（实现抛异常由主干兜底，{@code TOOL_BLOCKED}）。
+     */
+    @Autowired(required = false)
+    private ToolGovernanceProvider toolGovernanceProvider;
 
     /**
      * 新构造函数 - 使用聚合组件（推荐）。
@@ -173,24 +192,239 @@ public abstract class BaseAdapter implements ServiceCapability {
             final String modelName, final RequestProcessor<T> processor) {
         // C-06：入口处生成一次幂等键，贯穿本次请求的所有重试/故障转移分支。
         ensureIdempotencyKey(httpRequest);
-        // O7-c 内容审核接线（第一版只接 ChatDTO.Request，占比最高、字段最规整；
+        // 仅 chat 走内容检查链（O7-c 第一版只接 ChatDTO.Request，占比最高、字段最规整；
         // embedding/image 等按 SOW 再扩）。挂载在实例选择之前——被拦截的请求
         // 不应消耗负载均衡状态与实例级限流令牌。拦截时上游零调用。
-        if (moderationProvider != null && request instanceof ChatDTO.Request chat) {
-            return Mono.fromCallable(() -> moderationProvider.check(new ModerationProvider.ModerationInput(
-                            modelName, extractChatText(chat), chat.user(),
-                            TenantContextHolder.currentTenantId())))
-                    // 统一线程模型（v1.2）：审核可能涉及外部引擎 IO，BaseAdapter 也会被
-                    // 非主链路径调用，不能假设当前线程——一律切弹性线程。
-                    .subscribeOn(Schedulers.boundedElastic())
-                    .flatMap(decision -> decision.allowed()
-                            ? doProcessRequest(request, authorization, httpRequest, serviceType,
-                                    modelName, processor)
-                            : Mono.error(ApiException.of("CONTENT_BLOCKED",
-                                    decision.reason() != null ? decision.reason() : "内容未通过审核",
-                                    org.springframework.http.HttpStatus.BAD_REQUEST)));
+        if (request instanceof ChatDTO.Request chat) {
+            if (moderationProvider != null) {
+                return Mono.fromCallable(() -> moderationProvider.check(new ModerationProvider.ModerationInput(
+                                modelName, extractChatText(chat), chat.user(),
+                                TenantContextHolder.currentTenantId())))
+                        // 统一线程模型（v1.2）：审核可能涉及外部引擎 IO，BaseAdapter 也会被
+                        // 非主链路径调用，不能假设当前线程——一律切弹性线程。
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .flatMap(decision -> decision.allowed()
+                                ? applyOutboundInspection(chat, authorization, httpRequest, serviceType,
+                                        modelName, processor)
+                                : Mono.error(ApiException.of("CONTENT_BLOCKED",
+                                        decision.reason() != null ? decision.reason() : "内容未通过审核",
+                                        org.springframework.http.HttpStatus.BAD_REQUEST)));
+            }
+            return applyOutboundInspection(chat, authorization, httpRequest, serviceType,
+                    modelName, processor);
         }
         return doProcessRequest(request, authorization, httpRequest, serviceType, modelName, processor);
+    }
+
+    /**
+     * B2 出站 DLP 检查（O7-c 审核放行后执行，实例选择之前）。
+     *
+     * <p>判定语汇三态：放行（原样出站）/ 脱敏（替换消息文本后出站）/ 阻断（{@code DLP_BLOCKED}）。
+     * <b>fail-closed 三重保险</b>：① SPI 实现抛异常 → 拒绝出站；② 返回 {@code null} 判定 →
+     * 拒绝出站；③ SANITIZE 返回的脱敏列表与输入消息列表不等长（契约违约）→ 拒绝出站。
+     * 防泄露的失败模式必须是「拒绝」而不是「放行」。</p>
+     *
+     * <p>SSE / 流式不受影响：本检查只作用于请求侧的结构化消息文本（已是完整对象，
+     * 无整体缓冲问题）；响应侧流式审核属 B5-out（{@code openOutputSession}），互不相干。</p>
+     */
+    @SuppressWarnings({"all", "unchecked", "rawtypes"})
+    private Mono applyOutboundInspection(final ChatDTO.Request chat, final String authorization,
+            final ServerHttpRequest httpRequest, final ModelServiceRegistry.ServiceType serviceType,
+            final String modelName, final RequestProcessor processor) {
+        if (outboundContentInspector == null) {
+            return applyToolGovernance(chat, authorization, httpRequest, serviceType, modelName, processor);
+        }
+        return Mono.fromCallable(() -> outboundContentInspector.inspect(new OutboundContentInspector.InspectionInput(
+                        modelName, chatMessageTexts(chat), chat.user(),
+                        TenantContextHolder.currentTenantId())))
+                // ② null 判定按 fail-closed 处理：fromCallable 返回 null 会产生空 Mono，
+                // 不进下游 flatMap，必须在源头用 switchIfEmpty 兜住。
+                .switchIfEmpty(Mono.error(ApiException.of("DLP_BLOCKED",
+                        "出站内容检查返回无效判定，请求已被数据防泄露策略拒绝",
+                        org.springframework.http.HttpStatus.BAD_REQUEST)))
+                .subscribeOn(Schedulers.boundedElastic())
+                // ① 实现抛异常一律拒绝出站（fail-closed）：异常消息可能含敏感片段，不透传原文
+                .onErrorResume(throwable -> Mono.error(ApiException.of("DLP_BLOCKED",
+                        "出站内容检查失败，请求已被数据防泄露策略拒绝",
+                        org.springframework.http.HttpStatus.BAD_REQUEST)))
+                .flatMap(decision -> {
+                    // ② null 判定按 fail-closed 处理
+                    if (decision == null || decision.verdict() == null) {
+                        return Mono.error(ApiException.of("DLP_BLOCKED",
+                                "出站内容检查返回无效判定，请求已被数据防泄露策略拒绝",
+                                org.springframework.http.HttpStatus.BAD_REQUEST));
+                    }
+                    if (decision.verdict() == OutboundContentInspector.Verdict.BLOCK) {
+                        return Mono.error(ApiException.of("DLP_BLOCKED",
+                                decision.reason() != null ? decision.reason() : "出站内容未通过数据防泄露检查",
+                                org.springframework.http.HttpStatus.BAD_REQUEST));
+                    }
+                    if (decision.verdict() == OutboundContentInspector.Verdict.SANITIZE) {
+                        // ③ 脱敏契约违约（列表缺失 / 不等长）按 fail-closed 处理
+                        final ChatDTO.Request sanitized = sanitizeChatRequest(chat, decision.sanitizedMessages());
+                        if (sanitized == null) {
+                            return Mono.error(ApiException.of("DLP_BLOCKED",
+                                    "出站内容检查返回非法脱敏结果，请求已被数据防泄露策略拒绝",
+                                    org.springframework.http.HttpStatus.BAD_REQUEST));
+                        }
+                        return applyToolGovernance(sanitized, authorization, httpRequest, serviceType,
+                                modelName, processor);
+                    }
+                    return applyToolGovernance(chat, authorization, httpRequest, serviceType,
+                            modelName, processor);
+                });
+    }
+
+    /**
+     * M4 Agent 工具治理检查（出站 DLP 放行后执行，实例选择之前）。
+     *
+     * <p>治理对象：Anthropic {@code /v1/messages} 透传链路上的工具定义
+     * （{@code options.tools}）与工具结果回传（{@code wire_messages} 中
+     * {@code role:"tool"} 消息文本）。纯文本请求（无工具且无回传）零开销直通。</p>
+     *
+     * <p><b>fail-closed 三重保险</b>（与 B2 同款）：① SPI 实现抛异常 → 拒绝出站；
+     * ② 返回 {@code null} 判定 → 拒绝出站；③ STRIP 时主干剥离失败（契约违约）→
+     * 拒绝出站。判定语汇三态：放行（原样出站）/ 剥离（按 {@code allowedTools} 替换
+     * 工具定义，空列表降级纯文本对话）/ 阻断（{@code TOOL_BLOCKED}）。</p>
+     */
+    @SuppressWarnings({"all", "unchecked", "rawtypes"})
+    private Mono applyToolGovernance(final ChatDTO.Request chat, final String authorization,
+            final ServerHttpRequest httpRequest, final ModelServiceRegistry.ServiceType serviceType,
+            final String modelName, final RequestProcessor processor) {
+        final ChatDTO.Options options = chat.options();
+        final java.util.List<Map<String, Object>> tools =
+                options != null && options.getTools() != null ? options.getTools() : java.util.List.of();
+        final java.util.List<String> toolResultTexts =
+                extractToolResultTexts(options != null ? options.getWireMessages() : null);
+        if (tools.isEmpty() && toolResultTexts.isEmpty()) {
+            // 纯文本请求（无工具定义且无工具结果回传）：零开销直通
+            return doProcessRequest(chat, authorization, httpRequest, serviceType, modelName, processor);
+        }
+        if (toolGovernanceProvider == null) {
+            return doProcessRequest(chat, authorization, httpRequest, serviceType, modelName, processor);
+        }
+        return Mono.fromCallable(() -> toolGovernanceProvider.govern(new ToolGovernanceProvider.GovernanceInput(
+                        modelName, tools, toolResultTexts, extractToolNames(tools), chat.user(),
+                        TenantContextHolder.currentTenantId())))
+                .switchIfEmpty(Mono.error(ApiException.of("TOOL_BLOCKED",
+                        "工具治理检查返回无效判定，请求已被 Agent 工具治理策略拒绝",
+                        org.springframework.http.HttpStatus.BAD_REQUEST)))
+                .subscribeOn(Schedulers.boundedElastic())
+                // ① 实现抛异常一律拒绝出站（fail-closed）：异常消息可能含敏感片段，不透传原文
+                .onErrorResume(throwable -> Mono.error(ApiException.of("TOOL_BLOCKED",
+                        "工具治理检查失败，请求已被 Agent 工具治理策略拒绝",
+                        org.springframework.http.HttpStatus.BAD_REQUEST)))
+                .flatMap(decision -> {
+                    // ② null 判定按 fail-closed 处理
+                    if (decision == null || decision.verdict() == null) {
+                        return Mono.error(ApiException.of("TOOL_BLOCKED",
+                                "工具治理检查返回无效判定，请求已被 Agent 工具治理策略拒绝",
+                                org.springframework.http.HttpStatus.BAD_REQUEST));
+                    }
+                    if (decision.verdict() == ToolGovernanceProvider.Verdict.BLOCK) {
+                        return Mono.error(ApiException.of("TOOL_BLOCKED",
+                                decision.reason() != null ? decision.reason() : "请求未通过 Agent 工具治理检查",
+                                org.springframework.http.HttpStatus.BAD_REQUEST));
+                    }
+                    if (decision.verdict() == ToolGovernanceProvider.Verdict.STRIP) {
+                        // ③ 剥离契约违约（allowedTools 为 null——决定必须走 stripAll/strip 工厂）按 fail-closed 处理
+                        final ChatDTO.Request stripped = stripToolDefinitions(chat, decision.allowedTools());
+                        if (stripped == null) {
+                            return Mono.error(ApiException.of("TOOL_BLOCKED",
+                                    "工具治理返回非法剥离结果，请求已被 Agent 工具治理策略拒绝",
+                                    org.springframework.http.HttpStatus.BAD_REQUEST));
+                        }
+                        return doProcessRequest(stripped, authorization, httpRequest, serviceType,
+                                modelName, processor);
+                    }
+                    return doProcessRequest(chat, authorization, httpRequest, serviceType, modelName, processor);
+                });
+    }
+
+    /**
+     * M4：按判定剥离工具定义。{@code allowedTools} 为空 → 全剥离（tools/tool_choice/
+     * wire_messages 一并清空，请求降级纯文本对话，下游请求体与无工具请求一致）；
+     * 非空 → 仅替换 tools，tool_choice 与工具历史保留。Options 为共享可变对象，
+     * 原地修改后重建 Request（record 不可变语义保持不变）。
+     *
+     * @return 剥离后的请求；{@code allowedTools} 为 {@code null}（契约违约）时返回 {@code null}
+     */
+    static ChatDTO.Request stripToolDefinitions(final ChatDTO.Request chat,
+            final java.util.List<Map<String, Object>> allowedTools) {
+        if (chat == null || chat.options() == null) {
+            return chat;
+        }
+        final ChatDTO.Options options = chat.options();
+        if (allowedTools == null) {
+            return null;
+        }
+        if (allowedTools.isEmpty()) {
+            options.setTools(null);
+            options.setToolChoice(null);
+            options.setWireMessages(null);
+        } else {
+            options.setTools(new java.util.ArrayList<>(allowedTools));
+        }
+        return new ChatDTO.Request(chat.model(), chat.messages(), chat.stream(), chat.maxTokens(),
+                chat.temperature(), chat.topP(), chat.topK(), chat.frequencyPenalty(),
+                chat.presencePenalty(), chat.stop(), chat.user(), options);
+    }
+
+    /**
+     * M4：从 wire 消息中提取工具结果回传文本（{@code role:"tool"} 的 {@code content}）。
+     * content 支持 String 与分段数组（{@code [{type:"text",text:...}]}）两种形状；
+     * 非 tool 角色消息一律跳过。提取文本仅用于治理检查，禁止写日志。
+     */
+    static java.util.List<String> extractToolResultTexts(final java.util.List<Map<String, Object>> wireMessages) {
+        if (wireMessages == null || wireMessages.isEmpty()) {
+            return java.util.List.of();
+        }
+        final java.util.List<String> texts = new java.util.ArrayList<>();
+        for (final Map<String, Object> message : wireMessages) {
+            if (message == null || !"tool".equals(message.get("role"))) {
+                continue;
+            }
+            final Object content = message.get("content");
+            if (content instanceof String s) {
+                if (!s.isBlank()) {
+                    texts.add(s);
+                }
+            } else if (content instanceof java.util.List<?> segments) {
+                final StringBuilder sb = new StringBuilder();
+                for (final Object segment : segments) {
+                    if (segment instanceof Map<?, ?> m && m.get("text") instanceof String s && !s.isBlank()) {
+                        if (sb.length() > 0) {
+                            sb.append('\n');
+                        }
+                        sb.append(s);
+                    }
+                }
+                if (sb.length() > 0) {
+                    texts.add(sb.toString());
+                }
+            }
+        }
+        return java.util.List.copyOf(texts);
+    }
+
+    /**
+     * M4：从工具定义列表提取工具名（OpenAI wire 形状 {@code function.name}）。
+     * 与 {@code tools} 顺序一一对应；形状非法的位置为 {@code null}（由实现按契约处置）。
+     */
+    static java.util.List<String> extractToolNames(final java.util.List<Map<String, Object>> tools) {
+        if (tools == null || tools.isEmpty()) {
+            return java.util.List.of();
+        }
+        final java.util.List<String> names = new java.util.ArrayList<>(tools.size());
+        for (final Map<String, Object> tool : tools) {
+            Object name = null;
+            if (tool != null && tool.get("function") instanceof Map<?, ?> function) {
+                name = function.get("name");
+            }
+            names.add(name instanceof String s ? s : null);
+        }
+        // 注意：List.copyOf 不允许 null 元素，而非法形状位置必须保留 null 占位
+        return java.util.Collections.unmodifiableList(names);
     }
 
     /**
@@ -212,6 +446,48 @@ public abstract class BaseAdapter implements ServiceCapability {
             sb.append(message.content());
         }
         return sb.toString();
+    }
+
+    /**
+     * B2：提取逐条消息文本（与请求消息顺序一一对应），供出站 DLP 检查。
+     * 与 {@link #extractChatText} 不同：不做拼接，保留逐条边界以便脱敏后精确回填。
+     */
+    static java.util.List<String> chatMessageTexts(final ChatDTO.Request chat) {
+        if (chat == null || chat.messages() == null) {
+            return java.util.List.of();
+        }
+        final java.util.List<String> texts = new java.util.ArrayList<>(chat.messages().size());
+        for (final ChatDTO.Message message : chat.messages()) {
+            texts.add(message == null ? null : message.content());
+        }
+        return texts;
+    }
+
+    /**
+     * B2：按脱敏列表重建 chat 请求（逐条替换 content，role / name 与其余参数保留）。
+     * 脱敏列表与消息列表不等长（或输入缺失）时返回 {@code null}——由调用方按
+     * fail-closed 处理，绝不部分替换后放行。
+     */
+    static ChatDTO.Request sanitizeChatRequest(final ChatDTO.Request chat,
+            final java.util.List<String> sanitizedMessages) {
+        if (chat == null || chat.messages() == null || sanitizedMessages == null
+                || sanitizedMessages.size() != chat.messages().size()) {
+            return null;
+        }
+        final java.util.List<ChatDTO.Message> sanitized = new java.util.ArrayList<>(chat.messages().size());
+        for (int i = 0; i < chat.messages().size(); i++) {
+            final ChatDTO.Message original = chat.messages().get(i);
+            final String replacement = sanitizedMessages.get(i);
+            if (original == null) {
+                sanitized.add(null);
+                continue;
+            }
+            sanitized.add(new ChatDTO.Message(original.role(), replacement, original.name()));
+        }
+        return new ChatDTO.Request(chat.model(), java.util.List.copyOf(sanitized), chat.stream(),
+                chat.maxTokens(), chat.temperature(), chat.topP(), chat.topK(),
+                chat.frequencyPenalty(), chat.presencePenalty(), chat.stop(),
+                chat.user(), chat.options());
     }
 
     /** {@link #processRequest} 的原有主体（审核放行后执行）。 */

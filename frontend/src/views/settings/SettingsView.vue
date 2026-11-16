@@ -11,7 +11,8 @@
  * - 左侧菜单「系统管理」：账号管理 / 模型配置 / 审计与版本 / 状态监控（menu.ts）
  * - 分组由路由路径决定（/settings/accounts 等，见 router meta.defaultGroup），
  *   页内不再渲染顶层 tab，只渲染当前分组的子页签（供应商模板/...）；
- *   只有一个子页签的分组（账号管理、状态监控）直接呈现内容，不出页签栏
+ *   只有一个子页签的分组（账号管理）直接呈现内容，不出页签栏；状态监控含
+ *   B6 安全态势子页（企业功能位门控，页面内自己显示锁定态）
  * - 子页签状态写 URL query ?sub=，刷新/分享不丢上下文
  * - 旧深链 /settings?tab=xxx 由路由 redirect 映射到新路径（见 router/index.ts）
  */
@@ -25,6 +26,7 @@ import JwtAccountManagement from '@/views/security/JwtAccountManagement.vue'
 import AuditLogManagement from '@/views/security/AuditLogManagement.vue'
 import VersionManagement from '@/views/config/VersionManagement.vue'
 import StatePersistenceManagement from '@/views/config/StatePersistenceManagement.vue'
+import SecurityDashboardView from '@/views/security/SecurityDashboardView.vue'
 import ProviderTemplateManagement from '@/views/settings/ProviderTemplateManagement.vue'
 import ServiceManagement from '@/views/config/ServiceManagement.vue'
 import AdapterManagement from '@/views/config/AdapterManagement.vue'
@@ -38,13 +40,14 @@ type SubKey =
   | 'audit'
   | 'versions'
   | 'persistence'
+  | 'securityDashboard'
 
 /** 分组 → 子页签（顺序即展示顺序） */
 const GROUPS: { key: GroupKey; sub: SubKey[] }[] = [
   { key: 'access', sub: ['accounts'] },
   { key: 'modelConfig', sub: ['providerTemplates', 'modelCategories', 'protocolAdapters'] },
   { key: 'auditVersions', sub: ['audit', 'versions'] },
-  { key: 'monitoring', sub: ['persistence'] }
+  { key: 'monitoring', sub: ['persistence', 'securityDashboard'] }
 ]
 
 /** 路由路径 → 分组（与 router 里 4 个 settings 路由一一对应） */
@@ -63,7 +66,8 @@ const SUB_COMPONENTS: Record<SubKey, Component> = {
   protocolAdapters: AdapterManagement,
   audit: AuditLogManagement,
   versions: VersionManagement,
-  persistence: StatePersistenceManagement
+  persistence: StatePersistenceManagement,
+  securityDashboard: SecurityDashboardView
 }
 
 /** 子页签顶部说明（人话一句话，告诉用户这页管什么、什么时候需要管） */
@@ -71,7 +75,8 @@ const SUB_ALERTS: Partial<Record<SubKey, string>> = {
   providerTemplates: 'settings.monitoring.templatesAlert',
   modelCategories: 'settings.monitoring.categoriesAlert',
   protocolAdapters: 'settings.monitoring.adaptersAlert',
-  persistence: 'settings.monitoring.persistenceAlert'
+  persistence: 'settings.monitoring.persistenceAlert',
+  securityDashboard: 'settings.monitoring.securityDashboardAlert'
 }
 
 // 壳层规范：内部收编组件的 PageSkeleton 进入嵌入模式（隐藏自带标题，统一由 PageHeader 承担）
@@ -136,7 +141,7 @@ watch(activeSub, s => {
 
     <el-card shadow="never">
       <!--
-        单子页签分组（账号管理、状态监控）不再渲染外层页签栏——
+        单子页签分组（账号管理）不再渲染外层页签栏——
         页面本身就是这个内容，套一层「账号」页签纯属冗余（2026-11-06）
       -->
       <template v-if="currentSubs.length === 1">

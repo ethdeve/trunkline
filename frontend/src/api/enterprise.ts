@@ -35,6 +35,8 @@ export interface EnterpriseFeatures {
   billing?: boolean
   /** 租户管理控制台（license 解锁 + 注册表已装配 才为 true） */
   tenantManagement?: boolean
+  /** B6：安全态势中心（一屏态势 + 风险处置闭环） */
+  securityDashboard?: boolean
   /** 预留：企业版可注入任意扩展能力键 */
   [key: string]: unknown
 }
@@ -46,6 +48,7 @@ export type EnterpriseFeatureKey =
   | 'moderation'
   | 'billing'
   | 'tenantManagement'
+  | 'securityDashboard'
 
 /**
  * 菜单 MenuItem.feature 字段值 → 后端功能位键 的映射。
@@ -58,7 +61,8 @@ export const MENU_FEATURE_TO_KEY: Record<string, EnterpriseFeatureKey> = {
   'multi-tenant': 'multiTenant',
   moderation: 'moderation',
   billing: 'billing',
-  'tenant-management': 'tenantManagement'
+  'tenant-management': 'tenantManagement',
+  'security-dashboard': 'securityDashboard'
 }
 
 /**

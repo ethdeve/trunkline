@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.unreal.modelrouter.enterprise.noop.NoopBillingProvider;
 import org.unreal.modelrouter.enterprise.noop.NoopModerationProvider;
+import org.unreal.modelrouter.enterprise.noop.NoopOutboundContentInspector;
 import org.unreal.modelrouter.enterprise.noop.NoopSsoConnector;
 
 import java.lang.reflect.Method;
@@ -111,5 +112,39 @@ class EnterpriseSpiContractTest {
         assertEquals(Optional.empty(), noop.exchange("any-code"));
         // A2 补链：SPI 新增的是 default 方法，Noop 无需覆写即安全关闭跳转入口
         assertEquals(Optional.empty(), noop.authorizationRedirect("any-state"));
+    }
+
+    @Test
+    @DisplayName("B2：OutboundContentInspector 判定工厂语义（allow / block / sanitize）")
+    void outboundDecisionFactories() {
+        final OutboundContentInspector.InspectionDecision allow = OutboundContentInspector.InspectionDecision.allow();
+        assertTrue(allow.verdict() == OutboundContentInspector.Verdict.ALLOW);
+        assertNull(allow.sanitizedMessages());
+
+        final OutboundContentInspector.InspectionDecision block =
+                OutboundContentInspector.InspectionDecision.block("api-key-pattern", "出站内容包含疑似密钥");
+        assertTrue(block.verdict() == OutboundContentInspector.Verdict.BLOCK);
+        assertEquals("api-key-pattern", block.ruleId());
+        assertNull(block.sanitizedMessages());
+
+        final OutboundContentInspector.InspectionDecision sanitize =
+                OutboundContentInspector.InspectionDecision.sanitize(
+                        java.util.List.of("a", "[REDACTED]"), "cn-id-card", "已脱敏");
+        assertTrue(sanitize.verdict() == OutboundContentInspector.Verdict.SANITIZE);
+        assertEquals(2, sanitize.sanitizedMessages().size());
+        assertEquals("[REDACTED]", sanitize.sanitizedMessages().get(1));
+    }
+
+    @Test
+    @DisplayName("B2：NoopOutboundContentInspector 恒放行且共享单例（社区版零行为影响）")
+    void noopOutboundInspectorAlwaysAllows() {
+        final NoopOutboundContentInspector noop = new NoopOutboundContentInspector();
+        final OutboundContentInspector.InspectionDecision first = noop.inspect(
+                new OutboundContentInspector.InspectionInput("m",
+                        java.util.List.of("sk-abcdefghijklmnop1234"), "u", "t"));
+        final OutboundContentInspector.InspectionDecision second = noop.inspect(
+                new OutboundContentInspector.InspectionInput("m", java.util.List.of("x"), "u", "t"));
+        assertTrue(first.verdict() == OutboundContentInspector.Verdict.ALLOW);
+        assertTrue(first == second, "放行判定应为共享不可变单例（零分配）");
     }
 }

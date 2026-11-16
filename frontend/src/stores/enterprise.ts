@@ -46,6 +46,7 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
   const moderation = computed(() => !!features.value.moderation)
   const billing = computed(() => !!features.value.billing)
   const tenantManagement = computed(() => !!features.value.tenantManagement)
+  const securityDashboard = computed(() => !!features.value.securityDashboard)
 
   /** 按后端功能位键判断是否解锁（缺键即未解锁，绝不假设恒 true） */
   const isEnabled = (key: EnterpriseFeatureKey): boolean => !!features.value[key]
@@ -102,6 +103,7 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
     moderation,
     billing,
     tenantManagement,
+    securityDashboard,
     isEnabled,
     isMenuFeatureEnabled,
     ensureLoaded,
