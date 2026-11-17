@@ -47,6 +47,8 @@ export interface DailyBill {
   totalTokens: number
   /** 当日各虚拟模型的花费（键 = 虚拟模型名，值 = ¥） */
   byVirtualModel: Record<string, number>
+  /** 当日各虚拟模型的 Token 用量（键 = 虚拟模型名；社区版交叉表按此口径展示） */
+  byVirtualModelTokens?: Record<string, number>
 }
 
 /** 我的账单（月度汇总 + 按厂商模型明细 + 按天 × 虚拟模型交叉表） */

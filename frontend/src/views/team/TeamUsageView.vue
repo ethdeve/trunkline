@@ -52,12 +52,17 @@
       >
         <el-card shadow="never" class="dept-card" :class="{ 'dept-card--company': d.company }">
           <div class="dept-name">{{ d.department }}</div>
-          <div class="dept-amount">¥{{ formatAmount(d.amount) }}</div>
+          <div class="dept-amount">
+            <template v-if="billingEnabled">¥{{ formatAmount(d.amount) }}</template>
+            <template v-else>{{ formatCompact(d.totalTokens) }} <span class="dept-unit">{{ t('v.tu.t021') }}</span></template>
+          </div>
           <div class="dept-foot">
             {{ d.userCount }} {{ t('v.tu.x001') }} {{ formatNumber(d.requestCount) }} {{ t('v.tu.x002') }}
           </div>
           <el-progress
-            :percentage="Math.round((d.amountRatio || 0) * 100)"
+            :percentage="billingEnabled
+              ? Math.round((d.amountRatio || 0) * 100)
+              : Number(percentOf(d.totalTokens, usage.totalTokens))"
             :stroke-width="4"
             :show-text="false"
             class="dept-bar"
@@ -67,7 +72,15 @@
     </el-row>
 
     <el-alert
-      v-if="!hasAnyPrice"
+      v-if="!billingEnabled"
+      type="info"
+      :closable="false"
+      show-icon
+      class="price-hint"
+      :title="t('v.tu.t030')"
+    />
+    <el-alert
+      v-else-if="!hasAnyPrice"
       type="info"
       :closable="false"
       show-icon
@@ -114,7 +127,7 @@
           <template #header>
             <div class="card-head">
               <span>{{ t('v.tu.t009') }}</span>
-              <span class="card-head__hint">{{ t('v.tu.t010') }}</span>
+              <span class="card-head__hint">{{ billingEnabled ? t('v.tu.t010') : t('v.tu.t031') }}</span>
             </div>
           </template>
           <div v-show="usage.byVirtualModel.length > 0" ref="vmChartRef" class="chart-box" />
@@ -160,7 +173,7 @@
             <el-table-column :label="t('v.tu.t021')" width="110" align="right">
               <template #default="{ row }">{{ formatCompact(row.totalTokens) }}</template>
             </el-table-column>
-            <el-table-column :label="t('v.tu.t022')" width="90" align="right">
+            <el-table-column v-if="billingEnabled" :label="t('v.tu.t022')" width="90" align="right">
               <template #default="{ row }">¥{{ formatAmount(row.amount) }}</template>
             </el-table-column>
           </el-table>
@@ -199,8 +212,11 @@
                 </span>
               </template>
             </el-table-column>
-            <el-table-column :label="t('v.tu.t022')" width="80" align="right">
+            <el-table-column v-if="billingEnabled" :label="t('v.tu.t022')" width="80" align="right">
               <template #default="{ row }">¥{{ formatAmount(row.amount) }}</template>
+            </el-table-column>
+            <el-table-column v-else :label="t('v.tu.t021')" width="100" align="right">
+              <template #default="{ row }">{{ formatCompact(row.totalTokens) }}</template>
             </el-table-column>
           </el-table>
           <el-empty v-if="!loading && usage.byVirtualModel.length === 0" :description="t('v.tu.t018')" :image-size="60" />
@@ -233,11 +249,15 @@ import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import echarts from '@/utils/echarts'
 import { getBillingDepartments, getTeamUsage, type TeamUsageVO } from '@/api/billing'
+import { useEnterpriseStore } from '@/stores/enterprise'
 import { useChartTheme } from '@/composables/useChartTheme'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+const enterpriseStore = useEnterpriseStore()
+/** 计费功能位：开=金额口径；关（社区版）=Token 用量口径（无单价来源，金额无意义） */
+const billingEnabled = computed(() => enterpriseStore.billing)
 const loading = ref(false)
 const dimension = ref('COMPANY')
 const department = ref('')
@@ -338,7 +358,7 @@ const chartSized = (el: HTMLElement, render: () => void, tries = 0): void => {
   if (tries < 5) requestAnimationFrame(() => chartSized(el, render, tries + 1))
 }
 
-/** 横向条形图：虚拟模型用量排行 */
+/** 横向条形图：虚拟模型用量排行（企业版按金额、社区版按 Token 用量） */
 const renderVmChart = () => {
   if (!vmChartRef.value) return
   chartSized(vmChartRef.value, () => {
@@ -346,7 +366,10 @@ const renderVmChart = () => {
     const rows = usage.value.byVirtualModel
     // ECharts 类目轴自下而上，倒序取数据让最高条显示在顶部
     const names = rows.map(r => r.virtualModel).reverse()
-    const values = rows.map(r => Number(r.amount) || 0).reverse()
+    const values = rows.map(r => billingEnabled.value
+      ? (Number(r.amount) || 0)
+      : (Number(r.totalTokens) || 0)
+    ).reverse()
     vmChart.setOption({
     grid: { left: 8, right: 70, top: 10, bottom: 10, containLabel: true },
     tooltip: {
@@ -356,12 +379,17 @@ const renderVmChart = () => {
         const p = params[0]
         const row = rows[rows.length - 1 - p.dataIndex]
         if (!row) return ''
-        return `${p.name}${t('v.tu.x006', { amount: formatAmount(row.amount), tokens: formatNumber(row.totalTokens), calls: formatNumber(row.requestCount) })}`
+        return billingEnabled.value
+          ? `${p.name}${t('v.tu.x006', { amount: formatAmount(row.amount), tokens: formatNumber(row.totalTokens), calls: formatNumber(row.requestCount) })}`
+          : `${p.name}${t('v.tu.x008', { tokens: formatNumber(row.totalTokens), calls: formatNumber(row.requestCount) })}`
       }
     },
     xAxis: {
       type: 'value',
-      axisLabel: { color: chartTheme.value.textColor, formatter: (v: number) => `¥${v}` },
+      axisLabel: {
+        color: chartTheme.value.textColor,
+        formatter: (v: number) => billingEnabled.value ? `¥${v}` : formatCompact(v)
+      },
       splitLine: { lineStyle: { color: 'rgba(0,0,0,.06)' } }
     },
     yAxis: {
@@ -380,14 +408,14 @@ const renderVmChart = () => {
         show: true,
         position: 'right',
         color: chartTheme.value.textColor,
-        formatter: (p: any) => `¥${formatAmount(p.value)}`
+        formatter: (p: any) => billingEnabled.value ? `¥${formatAmount(p.value)}` : formatCompact(p.value)
       }
     }]
     })
   })
 }
 
-/** 环形图：按用途类型分布 */
+/** 环形图：按用途类型分布（企业版按金额、社区版按 Token 用量） */
 const renderStChart = () => {
   if (!stChartRef.value) return
   chartSized(stChartRef.value, () => {
@@ -396,7 +424,12 @@ const renderStChart = () => {
     stChart.setOption({
     tooltip: {
       trigger: 'item',
-      formatter: (p: any) => `${p.name}${t('v.tu.x007', { amount: formatAmount(p.value), percent: p.percent })}`
+      formatter: (p: any) => {
+        const row = rows.find(r => r.label === p.name)
+        return billingEnabled.value
+          ? `${p.name}${t('v.tu.x007', { amount: formatAmount(p.value), percent: p.percent })}`
+          : `${p.name}${t('v.tu.x009', { tokens: formatNumber(row?.totalTokens ?? p.value), percent: p.percent })}`
+      }
     },
     legend: {
       bottom: 0,
@@ -415,7 +448,7 @@ const renderStChart = () => {
       label: { show: false },
       data: rows.map(r => ({
         name: r.label,
-        value: Number(r.amount) || 0
+        value: billingEnabled.value ? (Number(r.amount) || 0) : (Number(r.totalTokens) || 0)
       }))
     }]
     })
@@ -436,7 +469,14 @@ watch(chartTheme, () => {
   renderCharts()
 })
 
+// 功能位加载完成后口径可能切换（Token ↔ 金额），图表按新口径重绘
+watch(billingEnabled, () => {
+  renderCharts()
+})
+
 onMounted(() => {
+  // 拉取企业功能位（社区版接口不可用 → 静默降级为 false，整页按 Token 口径展示）
+  void enterpriseStore.ensureLoaded()
   loadUsage()
   loadDepartments()
   window.addEventListener('resize', resizeCharts)
@@ -507,6 +547,13 @@ const percentOf = (part?: number, total?: number): string => {
   font-weight: 700;
   margin-top: 4px;
   color: var(--ja-text-primary);
+}
+
+.dept-unit {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ja-text-secondary);
+  margin-left: 2px;
 }
 
 .dept-foot {

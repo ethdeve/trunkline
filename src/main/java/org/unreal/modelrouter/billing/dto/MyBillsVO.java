@@ -117,6 +117,15 @@ public class MyBillsVO {
 
         /** 当日各虚拟模型的花费（键 = 虚拟模型名，值 = ¥） */
         private java.util.Map<String, BigDecimal> byVirtualModel;
+
+        /**
+         * 当日各虚拟模型的 Token 用量（键 = 虚拟模型名，值 = Token 数）。
+         *
+         * <p>社区版（billing 功能位关闭）无单价来源，金额口径不可用——
+         * 交叉表降级为 Token 用量口径，本字段即其数据源；企业版金额口径同样
+         * 可用它做金额旁的用量参考。</p>
+         */
+        private java.util.Map<String, Long> byVirtualModelTokens;
     }
 
     /**

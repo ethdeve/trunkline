@@ -161,7 +161,11 @@
       "x004": "{m}/{d}",
       "x005": " (today)",
       "x007": "Unpriced",
-      "t017": "Billing is not enabled (community edition): usage is still visible, but amounts show as 'Unpriced'. In the commercial edition with the billing feature enabled, an admin can configure unit prices under 'Connections → Price & Quota' to see real amounts."
+      "t017": "Billing is not enabled (community edition): usage is still visible, but amounts show as 'Unpriced'. In the commercial edition with the billing feature enabled, an admin can configure unit prices under 'Connections → Price & Quota' to see real amounts.",
+      "t018": "Tokens this month",
+      "t019": "Community edition: amount statistics are an enterprise feature, so this page tracks token usage. In the enterprise edition with the billing feature enabled, an admin can configure unit prices under 'Connections → Price & Quota' to see real amounts.",
+      "x008": "💡 Each column is a model name you enter in your AI tool. Different provider models may sit behind it (switched automatically) — no need to know which; just watch the usage here.",
+      "x009": "Amounts require the enterprise edition"
     },
     "tu": {
       "t001": "Company",
@@ -199,7 +203,12 @@
       "x004": "failed",
       "x005": " calls",
       "x006": "<br/>Cost ¥{amount}<br/>Tokens {tokens}<br/>{calls} calls",
-      "x007": "<br/>Cost ¥{amount}<br/>{percent}% of total"
+      "x007": "<br/>Cost ¥{amount}<br/>{percent}% of total",
+      "t030": "Community edition: amount statistics are an enterprise feature, so this page shows token usage. Amounts become available in the enterprise edition once billing is enabled.",
+      "t031": "This month · by usage",
+      "t032": "By usage",
+      "x008": "<br/>Tokens {tokens}<br/>{calls} calls",
+      "x009": "<br/>Tokens {tokens}<br/>{percent}% of total"
     },
     "pc": {
       "t001": "Providers",

@@ -268,6 +268,7 @@ public class BillingService {
         // 日期 → 该日的虚拟模型金额累加器（保持插入顺序，便于前端稳定渲染列）
         // O1 成交价快照：金额直接用 SQL 内按快照单价求和的列，价格缺失行为 0（不入总额）
         final Map<String, Map<String, BigDecimal>> dayVirtualAmounts = new LinkedHashMap<>();
+        final Map<String, Map<String, Long>> dayVirtualTokens = new LinkedHashMap<>();
         final Map<String, Long> dayRequests = new LinkedHashMap<>();
         final Map<String, Long> dayTokens = new LinkedHashMap<>();
 
@@ -284,6 +285,8 @@ public class BillingService {
 
             dayVirtualAmounts.computeIfAbsent(usageDate, k -> new LinkedHashMap<>())
                     .merge(virtualModel, amount, BigDecimal::add);
+            dayVirtualTokens.computeIfAbsent(usageDate, k -> new LinkedHashMap<>())
+                    .merge(virtualModel, total, Long::sum);
             dayRequests.merge(usageDate, requests, Long::sum);
             dayTokens.merge(usageDate, total, Long::sum);
         }
@@ -301,6 +304,7 @@ public class BillingService {
                     .requestCount(dayRequests.get(entry.getKey()))
                     .totalTokens(dayTokens.get(entry.getKey()))
                     .byVirtualModel(byVirtual)
+                    .byVirtualModelTokens(dayVirtualTokens.get(entry.getKey()))
                     .build());
         }
         return result;

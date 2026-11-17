@@ -39,11 +39,13 @@ function Err($msg)  { Write-Host "[ERROR] $msg" -ForegroundColor Red }
 
 $PROJECT_ROOT = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 # 版本号从 pom.xml 顶层 <version> 读取，避免打包脚本与 Maven 坐标脱钩。
-[xml]$POM = Get-Content (Join-Path $PROJECT_ROOT "pom.xml") -Raw
+[xml]$POM = Get-Content (Join-Path $PROJECT_ROOT "pom.xml") -Raw -Encoding UTF8
 $APP_VERSION = ([string]$POM.project.version).Trim()
 if ([string]::IsNullOrEmpty($APP_VERSION)) { throw "无法从 pom.xml 解析顶层 <version>" }
 $JAR_NAME     = "trunkline-$APP_VERSION.jar"
-$MODULES      = "java.se,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.unsupported,jdk.management,jdk.management.agent,jdk.attach,java.instrument,jdk.localedata,jdk.jcmd"
+# jdk.naming.dns：Netty 在 Windows 上经 JNDI 读系统 DNS 服务器（4.1.13x+）必需；
+# 缺它会静默回退硬编码 Google DNS（含 IPv6），无 IPv6 路由的环境所有出站域名解析失败。
+$MODULES      = "java.se,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.unsupported,jdk.management,jdk.management.agent,jdk.attach,java.instrument,jdk.localedata,jdk.jcmd,jdk.naming.dns"
 
 Set-Location $PROJECT_ROOT
 
@@ -124,7 +126,9 @@ New-Item -ItemType Directory -Force -Path $APP_INPUT | Out-Null
 Copy-Item $JAR_SRC (Join-Path $APP_INPUT $JAR_NAME) -Force
 
 # ---------- jpackage app-image ----------
-if (Test-Path $DEST) { Move-Item $DEST (Join-Path $STASH_OUT "dist-installer-rebuild-$(Get-Date -Format HHmmss)") -Force -ErrorAction SilentlyContinue }
+if (Test-Path $DEST) {
+    New-Item -ItemType Directory -Force -Path $STASH_OUT | Out-Null
+    Move-Item $DEST (Join-Path $STASH_OUT "dist-installer-rebuild-$(Get-Date -Format HHmmss)") -Force -ErrorAction SilentlyContinue }
 Info "jpackage app-image ..."
 # 桌面便携版有意保留固定堆：本地桌面没有容器 limits，MaxRAMPercentage 会按宿主机
 # 总内存放大堆；768m 上限可避免单机占用过高。生产容器镜像已移除 -Xms/-Xmx。

@@ -70,21 +70,27 @@ function currentMonth(): string {
 const hasAnyPrice = computed(() => bills.value.byModel.some(m => Number(m.amount) > 0))
 
 /**
- * 交叉表的列 = 本月出现过的虚拟模型（按当月花费降序）。
+ * 交叉表的列 = 本月出现过的虚拟模型。
  *
- * <p>从 byDay 里收集所有虚拟模型名，去重后按该虚拟模型的月度总花费排序——
- * 金额高的列排在左边，员工一眼能看到「钱主要花在哪」。</p>
+ * <p>企业版（billing 功能位开）按当月<b>花费</b>降序——金额高的列排在左边，
+ * 员工一眼能看到「钱主要花在哪」；社区版无单价来源，降级按<b>Token 用量</b>降序。</p>
  */
 const virtualModelColumns = computed<string[]>(() => {
-  const totals = new Map<string, number>()
+  const metric = (vm: string): number => {
+    let sum = 0
+    for (const day of bills.value.byDay || []) {
+      const src = billingEnabled.value ? day.byVirtualModel : day.byVirtualModelTokens
+      sum += Number(src?.[vm] || 0)
+    }
+    return sum
+  }
+  const names = new Set<string>()
   for (const day of bills.value.byDay || []) {
-    for (const [name, amount] of Object.entries(day.byVirtualModel || {})) {
-      totals.set(name, (totals.get(name) || 0) + Number(amount || 0))
+    for (const name of Object.keys(day.byVirtualModelTokens || day.byVirtualModel || {})) {
+      names.add(name)
     }
   }
-  return Array.from(totals.entries())
-    .sort((a, b) => b[1] - a[1])
-    .map(([name]) => name)
+  return Array.from(names).sort((a, b) => metric(b) - metric(a))
 })
 
 /** 取某一天某虚拟模型的花费；无记录返回 null（显示「—」而不是 ¥0，区分「没花」与「花了 0」） */
@@ -93,33 +99,37 @@ const cellAmount = (day: any, virtualModel: string): number | null => {
   return v === undefined || v === null ? null : Number(v)
 }
 
-/** 上月同期对比：返回百分比变化（正数=涨，负数=跌）；上月为 0 时不显示 */
+/** 取某一天某虚拟模型的 Token 用量；无记录返回 null（与花费口径一致的「—」语义） */
+const cellTokens = (day: any, virtualModel: string): number | null => {
+  const v = day?.byVirtualModelTokens?.[virtualModel]
+  return v === undefined || v === null ? null : Number(v)
+}
+
+/** 上月同期对比：返回百分比变化（正数=涨，负数=跌）；上月为 0 或社区版（无金额口径）时不显示 */
 const monthOverMonth = computed<number | null>(() => {
+  if (!billingEnabled.value) return null
   const prev = Number(bills.value.previousMonthAmount || 0)
   const curr = Number(bills.value.totalAmount || 0)
   if (prev <= 0) return null
   return Math.round(((curr - prev) / prev) * 1000) / 10
 })
 
-/**
- * P1 员工侧③：各虚拟模型的本月合计（行合计）。
- *
- * <p>交叉表按天分行、模型分列，缺一列合计就没法回答「这个月我在 company-chat 上花了多少」。
- * 这里按列求和 —— 数据源与列的取数完全一致（都来自 {@code byDay[].byVirtualModel}），
- * 因此各列合计之和 === 各行合计之和 === 本月总计，三者自洽。</p>
- */
+/** 各虚拟模型的本月合计（行合计）：企业版按金额、社区版按 Token，与列排序口径一致 */
 const columnTotals = computed<Record<string, number>>(() => {
   const totals: Record<string, number> = {}
   for (const day of bills.value.byDay || []) {
-    for (const [name, amount] of Object.entries(day.byVirtualModel || {})) {
-      totals[name] = (totals[name] || 0) + Number(amount || 0)
+    const src = billingEnabled.value ? day.byVirtualModel : day.byVirtualModelTokens
+    for (const [name, value] of Object.entries(src || {})) {
+      totals[name] = (totals[name] || 0) + Number(value || 0)
     }
   }
   return totals
 })
 
-/** 合计行的总额（直接用后端返回的 totalAmount，避免与列合计因舍入不一致） */
-const grandTotal = computed(() => Number(bills.value.totalAmount || 0))
+/** 合计行的总额（企业版=后端 totalAmount，避免舍入不一致；社区版=本月总 Token） */
+const grandTotal = computed(() =>
+  billingEnabled.value ? Number(bills.value.totalAmount || 0) : Number(bills.value.totalTokens || 0)
+)
 
 /**
  * P1 员工侧③：合计行渲染。
@@ -131,11 +141,14 @@ const grandTotal = computed(() => Number(bills.value.totalAmount || 0))
 const summaryMethod = ({ columns, data: _data }: { columns: any[]; data: any[] }) => {
   return columns.map((col, index) => {
     if (index === 0) return t('v.mb.t015')
-    if (index === columns.length - 1) return money(grandTotal.value)
+    if (index === columns.length - 1) {
+      return billingEnabled.value ? money(grandTotal.value) : `${formatNumber(grandTotal.value)} ${amountUnit}`
+    }
     const vm = virtualModelColumns.value[index - 1]
     if (!vm) return ''
     const total = columnTotals.value[vm]
-    return total === undefined ? '' : money(total)
+    if (total === undefined) return ''
+    return billingEnabled.value ? money(total) : formatNumber(total)
   })
 }
 
@@ -193,8 +206,9 @@ onMounted(() => {
     <PageHeader :title="t('nav.myBills.title')" :subtitle="t(menuSubtitle('/my-bills'))" />
 
     <!--
-      计费未启用（社区版 / 企业版未购计费功能位）的常态说明：账单页的 token 用量统计属
-      开源版、菜单常显；此时全链路无单价来源，金额一律「待定价」，不应显示 ¥0 冒充真实花费。
+      口径提示（open-core 门控）：
+      - 社区版（billing 功能位关闭）：无单价来源，整页按 Token 用量口径展示；
+      - 企业版开计费但未配价：金额会全为 ¥0，提示管理员去配价。
     -->
     <el-alert
       v-if="!billingEnabled"
@@ -202,7 +216,15 @@ onMounted(() => {
       :closable="false"
       show-icon
       class="price-hint"
-      :title="t('v.mb.t017')"
+      :title="t('v.mb.t019')"
+    />
+    <el-alert
+      v-else-if="!hasAnyPrice && bills.byModel.length > 0"
+      type="info"
+      :closable="false"
+      show-icon
+      class="price-hint"
+      :title="t('v.mb.t011')"
     />
 
     <!-- ---------- 工具条 ---------- -->
@@ -222,16 +244,20 @@ onMounted(() => {
       </el-button>
     </div>
 
-    <!-- ---------- KPI（对应原型 3 张卡） ---------- -->
+    <!-- ---------- KPI（对应原型 3 张卡；社区版第 1 张降级为 Token 用量） ---------- -->
     <el-row :gutter="12" style="margin-bottom:12px">
       <el-col :span="8">
         <el-card shadow="never">
-          <div class="stat-k">{{ t('v.mb.t002') }}</div>
+          <div class="stat-k">{{ billingEnabled ? t('v.mb.t002') : t('v.mb.t018') }}</div>
           <div class="stat-v">
-            {{ money(bills.totalAmount) }}
-            <span class="stat-em">/ {{ bills.month || '-' }}</span>
+            <template v-if="billingEnabled">{{ money(bills.totalAmount) }}</template>
+            <template v-else>{{ formatNumber(bills.totalTokens) }}<span class="stat-em">{{ amountUnit }}</span></template>
+            <span v-if="billingEnabled" class="stat-em">/ {{ bills.month || '-' }}</span>
           </div>
-          <div class="stat-foot">{{ formatNumber(bills.totalTokens) }} {{ amountUnit }}</div>
+          <div class="stat-foot">
+            <template v-if="billingEnabled">{{ formatNumber(bills.totalTokens) }} {{ amountUnit }}</template>
+            <template v-else>{{ t('v.mb.x009') }}</template>
+          </div>
         </el-card>
       </el-col>
       <el-col :span="8">
@@ -249,7 +275,7 @@ onMounted(() => {
           </div>
           <div v-else class="stat-v">—</div>
           <div class="stat-foot">
-            {{ t('v.mb.x001') }}{{ formatAmount(bills.previousMonthAmount) }} · {{ formatNumber(bills.previousMonthRequestCount) }} {{ t('v.mb.t004') }}
+            <template v-if="billingEnabled">{{ t('v.mb.x001') }}{{ formatAmount(bills.previousMonthAmount) }} · </template>{{ formatNumber(bills.previousMonthRequestCount) }} {{ t('v.mb.t004') }}
           </div>
         </el-card>
       </el-col>
@@ -282,7 +308,7 @@ onMounted(() => {
           <template #default="{ row }">{{ formatDate(row.usageDate) }}</template>
         </el-table-column>
 
-        <!-- 动态列：每个虚拟模型一列 -->
+        <!-- 动态列：每个虚拟模型一列（企业版=金额口径，社区版=Token 口径） -->
         <el-table-column
           v-for="vm in virtualModelColumns"
           :key="vm"
@@ -291,8 +317,11 @@ onMounted(() => {
           align="right"
         >
           <template #default="{ row }">
-            <span v-if="cellAmount(row, vm) !== null" class="cell-amount">
+            <span v-if="billingEnabled && cellAmount(row, vm) !== null" class="cell-amount">
               {{ money(cellAmount(row, vm) ?? 0) }}
+            </span>
+            <span v-else-if="!billingEnabled && cellTokens(row, vm) !== null" class="cell-amount">
+              {{ formatNumber(cellTokens(row, vm) ?? 0) }}
             </span>
             <span v-else class="cell-none">—</span>
           </template>
@@ -300,7 +329,8 @@ onMounted(() => {
 
         <el-table-column :label="t('v.mb.t013')" width="120" align="right">
           <template #default="{ row }">
-            <b>{{ money(row.amount) }}</b>
+            <b v-if="billingEnabled">{{ money(row.amount) }}</b>
+            <b v-else>{{ formatNumber(row.totalTokens) }}</b>
           </template>
         </el-table-column>
       </el-table>
@@ -313,7 +343,7 @@ onMounted(() => {
       </div>
 
       <div class="tip-bar">
-        {{ t('v.mb.x003') }}
+        {{ billingEnabled ? t('v.mb.x003') : t('v.mb.x008') }}
       </div>
     </el-card>
   </div>
