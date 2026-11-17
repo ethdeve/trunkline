@@ -244,6 +244,9 @@ java -jar target/trunkline-0.1.0.jar
 | v0.6.0 | 更聪明：故障自动降级、新旧模型自动调流量 |
 | v1.0.0 | 更开放：效果评测台、工具网关、多语言 SDK |
 
+## 更新日志
+
+各版本的完整发布记录见 [CHANGELOG-ZH.md](CHANGELOG-ZH.md)，另有 [英文版](CHANGELOG.md)。
 
 ## 关于 JAiRouter
 

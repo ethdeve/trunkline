@@ -244,6 +244,9 @@ We move forward one release at a time. This is a rough outline, not a fixed prom
 | v0.6.0 | Smarter recovery: automatic fallback chains, A/B canary tuning |
 | v1.0.0 | More open: evaluation bench, tool gateway, multi-language SDK |
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the full release history of every version (also available in [中文](CHANGELOG-ZH.md)).
 
 ## About JAiRouter
 
