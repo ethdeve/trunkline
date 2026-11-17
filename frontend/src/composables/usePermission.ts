@@ -83,33 +83,25 @@ export function usePermission() {
       ...group,
       children: group.children.map((item): MenuItem => ({
         ...item,
-        locked: !enterprise.isMenuFeatureEnabled(item.feature)
+        // 企业专属项在社区版恒锁（灰态可见、点击提示升级）；其余按功能位判定。
+        // 「恢复灰态锁」后不再整项移除——让用户知道自己缺什么，符合 PLG 推广口径。
+        locked:
+          (!enterprise.enterpriseEdition && !!item.enterpriseOnly) ||
+          !enterprise.isMenuFeatureEnabled(item.feature)
       }))
     }))
   }
 
   /**
-   * 按部署形态移除「企业版专属」菜单项（与功能位锁定的灰态可见语义不同）。
+   * 【已停用·保留兼容】按部署形态移除「企业版专属」菜单项。
    *
-   * 带 `enterpriseOnly` 的项只随企业版 jar 交付，社区版后端没有对应端点——显示灰态锁
-   * 只会误导用户以为购买即可解锁。因此社区版（edition !== 'enterprise'）直接整项移除。
-   * 企业版原样保留，随后仍走 filterMenuByFeature 打功能位锁。
+   * 「恢复灰态锁」后，企业专属项改为在社区版显示灰态锁（由 filterMenuByFeature
+   * 依据 enterpriseOnly 标记判定），不再整项移除。此函数保留为空等映射，
+   * 避免调用方（ConsoleLayout 等）改动遗漏导致编译错误；新增代码不应再依赖它。
    *
-   * 应在 filterMenuByPermission 之后、filterMenuByFeature 之前调用。
-   * 组内被清空则该组一并隐藏（与权限过滤同口径）。
-   *
-   * @param groups 经 filterMenuByPermission 过滤后的菜单
-   * @returns 社区版已移除 enterpriseOnly 项的菜单（不修改入参）
+   * @returns 原样返回菜单（不修改入参、不移除任何项）
    */
-  const filterEnterpriseOnly = (groups: MenuGroup[]): MenuGroup[] => {
-    if (enterprise.enterpriseEdition) return groups
-    return groups
-      .map(group => ({
-        ...group,
-        children: group.children.filter(item => !item.enterpriseOnly)
-      }))
-      .filter(group => group.children.length > 0)
-  }
+  const filterEnterpriseOnly = (groups: MenuGroup[]): MenuGroup[] => groups
 
   return {
     hasPermission,

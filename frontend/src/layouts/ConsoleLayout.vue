@@ -81,8 +81,9 @@ const canViewDocs = computed(() => userStore.hasLogicalRoleOneOf(['ops', 'admin'
 const tr = (key: string) => (key.startsWith('nav.') || key.startsWith('menu.') ? t(key) : key)
 
 const filteredGroups = computed(() => {
-  // 1) 按角色/权限过滤；2) 社区版移除「企业版专属」整项（租户管理/企业管理）；
-  // 3) 再按企业功能位打「锁定」标记（不移除，仅灰态 + 锁图标）。
+  // 1) 按角色/权限过滤；2) 部署形态过滤（已停用，恒等保留兼容）；
+  // 3) 按企业功能位 / enterpriseOnly 标记打「锁定」标记（不移除，仅灰态 + 锁图标）。
+  // 「恢复灰态锁」后，企业专属项在社区版不再整项隐藏，而是显示为灰态锁。
   const byPermission = filterMenuByPermission(menuGroups)
   const byEdition = filterEnterpriseOnly(byPermission)
   const byFeature = filterMenuByFeature(byEdition)

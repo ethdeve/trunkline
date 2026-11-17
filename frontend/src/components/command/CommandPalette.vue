@@ -11,6 +11,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { ElMessage } from 'element-plus'
 import { flattenMenuItems, type MenuItem } from '@/config/menu'
 import { usePermission } from '@/composables/usePermission'
 import { useTheme } from '@/composables/useTheme'
@@ -29,18 +30,25 @@ const userStore = useUserStore()
 const enterprise = useEnterpriseStore()
 
 /**
- * 企业版专属菜单在社区版命令面板里也必须彻底不可见。
- * 侧边栏走 filterEnterpriseOnly，命令面板是另一条独立入口（Cmd/Ctrl+K），
- * 这里补同一口径的 edition 过滤，防「菜单藏了但命令面板还搜得到」的绕过。
+ * 「恢复灰态锁」后，企业专属菜单在社区版命令面板不再隐藏，而是显示为灰态锁项
+ * （带锁图标、点击提示升级）——与侧边栏、设置页子页签口径一致。
+ * 仍按 edition 标记 locked，企业版正常可进入。
  */
-const visibleByEdition = (item: MenuItem): boolean =>
-  enterprise.enterpriseEdition || !item.enterpriseOnly
+const isLockedMenu = (item: MenuItem): boolean =>
+  !enterprise.enterpriseEdition && !!item.enterpriseOnly
+
+function notifyLocked() {
+  // 命令面板里用轻量提示；导入避免与布局层耦合
+  ElMessage({ message: t('nav.feature.lockedHint'), type: 'info', showClose: true })
+}
 
 interface Command {
   key: string
   title: string
   group: string
   icon?: string
+  /** 企业专属项在社区版为灰态锁：可见但不可进入，点击提示升级 */
+  locked?: boolean
   run: () => void
 }
 
@@ -51,13 +59,14 @@ const inputRef = ref<HTMLInputElement>()
 /* ---------- 候补构建 ---------- */
 const menuCommands = computed<Command[]>(() =>
   flattenMenuItems()
-    .filter(item => hasPermission(item.permission) && visibleByEdition(item))
+    .filter(item => hasPermission(item.permission))
     .map((item: MenuItem) => ({
       key: `menu:${item.path}`,
       title: renderTitle(item.title),
       group: t('command.groupMenu'),
       icon: item.icon,
-      run: () => router.push(item.path)
+      locked: isLockedMenu(item),
+      run: () => (isLockedMenu(item) ? notifyLocked() : router.push(item.path))
     }))
 )
 
@@ -74,13 +83,14 @@ const recentCommands = computed<Command[]>(() => {
       .slice(0, MAX_RECENTS)
       .map((path): Command | null => {
         const item = flattenMenuItems().find(m => m.path === path)
-        return item && visibleByEdition(item)
+        return item
           ? {
               key: `recent:${path}`,
               title: renderTitle(item.title),
               group: t('command.groupRecent'),
               icon: item.icon,
-              run: () => router.push(path)
+              locked: isLockedMenu(item),
+              run: () => (isLockedMenu(item) ? notifyLocked() : router.push(path))
             }
           : null
       })
@@ -174,12 +184,14 @@ defineExpose({ visible })
             v-for="(cmd, i) in filtered"
             :key="cmd.key"
             class="palette__item"
-            :class="{ 'is-active': i === activeIndex }"
+            :class="{ 'is-active': i === activeIndex, 'is-locked': cmd.locked }"
             @mouseenter="activeIndex = i"
             @click="exec(cmd)"
           >
-            <el-icon v-if="cmd.icon"><component :is="cmd.icon" /></el-icon>
+            <el-icon v-if="cmd.locked"><Lock /></el-icon>
+            <el-icon v-else-if="cmd.icon"><component :is="cmd.icon" /></el-icon>
             <span class="palette__item-title">{{ cmd.title }}</span>
+            <span v-if="cmd.locked" class="palette__item-badge">{{ t('nav.feature.enterpriseBadge') }}</span>
             <span class="palette__item-group">{{ cmd.group }}</span>
           </div>
           <div v-if="filtered.length === 0" class="palette__empty">{{ t('command.empty') }}</div>
@@ -240,6 +252,17 @@ defineExpose({ visible })
 .palette__item.is-active {
   background: var(--ja-primary-light-9, #ecf5ff);
   color: var(--ja-primary);
+}
+.palette__item.is-locked {
+  color: var(--ja-text-placeholder);
+}
+.palette__item-badge {
+  font-size: 10.5px;
+  color: var(--el-color-warning);
+  border: 1px solid var(--el-color-warning-light-5, var(--el-color-warning));
+  border-radius: 4px;
+  padding: 0 4px;
+  line-height: 1.5;
 }
 .palette__item-title {
   flex: 1;

@@ -61,7 +61,7 @@ Trunkline is not a concept demo. Everything below is **already usable in version
 
 **See who uses what, and stay in control**
 - Two kinds of credentials — user accounts and access keys — with role-based permissions, so not everyone can touch every model.
-- Sensitive data is masked on the way in and out. Call records can be summary-only or encrypted; every call is logged so you can investigate later.
+- Sensitive data in call records is masked automatically. Call records can be summary-only or encrypted; every call is logged so you can investigate later.
 - Usage and quotas are tracked per person, per model and per time window, with automatic limits when you run over.
 - Token usage, success rates and response times come with ready-made charts — no separate monitoring stack needed.
 
@@ -123,11 +123,9 @@ Here is the overall product roadmap. Many items are already available in 0.1.0 (
 
 | Capability | What it means in practice | Where it stands |
 |------------|---------------------------|-----------------|
-| Security posture center | One screen to see your overall security health and what needs attention | Pending |
-| Identity &amp; fine-grained access | Control exactly who can use which models, and how much | Foundations in place |
-| Data &amp; content protection | Sensitive information is masked on the way in and on the way out | In place |
+| Data &amp; content protection | Sensitive information in call records is masked automatically | In place |
 | Output safety scanning | Catch and block things a model should not say | Pending |
-| Full audit trail | Every call is recorded so you can investigate and prove what happened | In place |
+| Call logging | Every call is recorded so you can investigate later | In place |
 
 ### 4 · Trust &amp; ecosystem — see clearly, grow freely
 
@@ -240,9 +238,9 @@ We move forward one release at a time. This is a rough outline, not a fixed prom
 |---------|-------|
 | v0.1.0 | Laying the foundation: first-run wizard, no default admin, legacy cleanup, brand unification (released) |
 | v0.2.0 | Faster setup: model capability profiles, one-click virtual models |
-| v0.3.0 | Security you can see: security posture center, one-screen health check |
+| v0.3.0 | See more clearly: smart alert diagnostics and usage dashboards |
 | v0.4.0 | Better choices: semantic routing, cost / latency optimization, semantic caching |
-| v0.5.0 | Stronger guardrails: content safety, injection and privilege-abuse protection, SSO |
+| v0.5.0 | Stronger guardrails: injection and privilege-abuse protection |
 | v0.6.0 | Smarter recovery: automatic fallback chains, A/B canary tuning |
 | v1.0.0 | More open: evaluation bench, tool gateway, multi-language SDK |
 

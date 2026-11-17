@@ -17,6 +17,7 @@
  * - 旧深链 /settings?tab=xxx 由路由 redirect 映射到新路径（见 router/index.ts）
  */
 import { ref, computed, watch, provide, defineComponent, h, type Component } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -141,26 +142,47 @@ const { t } = useI18n()
 const enterprise = useEnterpriseStore()
 
 /**
- * 当前分组下「可见」的子页签。
+ * 当前分组的全部子页签（「恢复灰态锁」后不再过滤隐藏）。
  *
- * 社区版（edition !== 'enterprise'）移除企业版专属子页签：
- * 合规证据（B1 哈希链）/ 合规归档（B7 WORM）/ 安全报告 / 组与角色（A5 企业身份链）/
- * 提示词模板 / 适配器生命周期 / 安全态势（B6 企业合规包）——这些只随企业版交付，
- * 社区版显示出来只会误导（ enterprise store 加载前默认按社区版
- * fail-closed 隐藏，加载完成后企业版自动补回，响应式重算）。
+ * 社区版：企业专属子页签（ENTERPRISE_ONLY_SUBS）仍显示在页签栏，但渲染为灰态锁
+ * （锁图标 + 商业版徽章），点击弹升级提示、不加载企业模块。让用户「知道自己缺什么」。
+ * 企业版：全部子页签正常可用。enterprise store 加载前默认按社区版 fail-closed 灰锁，
+ * 加载完成后企业版自动解锁，响应式重算。
  */
-const visibleSubs = (group: GroupKey): SubKey[] => {
-  const subs = GROUPS.find(g => g.key === group)?.sub ?? []
-  if (enterprise.enterpriseEdition) return subs
-  return subs.filter(s => !ENTERPRISE_ONLY_SUBS.includes(s))
+const allSubs = (group: GroupKey): SubKey[] => GROUPS.find(g => g.key === group)?.sub ?? []
+
+/** 某个子页签当前是否处于灰态锁（社区版的企业专属项） */
+const isSubLocked = (s: SubKey): boolean =>
+  !enterprise.enterpriseEdition && ENTERPRISE_ONLY_SUBS.includes(s)
+
+/** 点击灰态锁子页签：不进入、提示升级，并立即把选中态回退到可进入页签 */
+function onLockedSubClick() {
+  ElMessage({
+    message: t('nav.feature.lockedHint'),
+    type: 'info',
+    showClose: true
+  })
 }
 
+/** el-tabs 点击拦截：命中灰态锁页签时回退选中态（pane.name 即 SubKey） */
+function onSubTabClick(pane: { name?: string | number }) {
+  const s = pane.name as SubKey | undefined
+  if (s && isSubLocked(s)) {
+    onLockedSubClick()
+    const fallback = selectableSubs(activeGroup.value)[0]
+    if (fallback) activeSub.value = fallback
+  }
+}
+
+/** 当前分组下「可进入」的子页签（排除灰态锁项）——用于解析 activeSub，防深链落到锁定项 */
+const selectableSubs = (group: GroupKey): SubKey[] => allSubs(group).filter(s => !isSubLocked(s))
+
 /** 由当前路由解析 { group, sub }：分组看路径（meta 兜底），子页签看 query.sub；
- *  sub 必须是该分组当前可见子页签，否则回退到第一个（防手输 ?sub=evidence 深链绕过）*/
+ *  sub 必须是该分组当前可进入的子页签，否则回退到第一个（防手输 ?sub=evidence 深链绕过）*/
 const resolveCurrent = (): { group: GroupKey; sub: SubKey } => {
   const group =
     GROUP_BY_PATH[route.path] || (route.meta.defaultGroup as GroupKey | undefined) || 'access'
-  const subs = visibleSubs(group)
+  const subs = selectableSubs(group)
   const sub = subs.includes(route.query.sub as SubKey) ? (route.query.sub as SubKey) : subs[0]
   return { group, sub }
 }
@@ -169,27 +191,28 @@ const resolved = resolveCurrent()
 const activeGroup = ref<GroupKey>(resolved.group)
 const activeSub = ref<SubKey>(resolved.sub)
 
-/** 当前分组下的可见子页签列表（随企业版探测结果响应式重算） */
-const currentSubs = computed(() => visibleSubs(activeGroup.value))
+/** 当前分组下的全部子页签列表（含灰态锁项，随企业版探测结果响应式重算锁定态） */
+const currentSubs = computed(() => allSubs(activeGroup.value))
 
-// 功能位探测完成后，若当前 sub 在新可见列表中已不存在（如社区版曾深链到企业子页签），
-// 自动回退到第一个可见页，避免显示一个「隐藏页签的内容但页签栏看不到」的错位状态。
+// 功能位探测完成后，若当前 sub 落在灰态锁项上（如社区版曾深链到企业子页签），
+// 自动回退到第一个可进入页，避免「选中一个锁定页签但内容加载不出来」的错位状态。
 // 另外：冷启动深链（?sub=evidence）在 enterprise store 加载前会按社区版 fail-closed
-// 解析成第一个子页签；探测完成后 URL 仍显式携带 ?sub=，此时以 URL 为准再解析一次。
+// 解析成第一个可进入子页签；探测完成后 URL 仍显式携带 ?sub=，此时以 URL 为准再解析一次。
 watch(currentSubs, (subs, prev) => {
+  const selectable = selectableSubs(activeGroup.value)
   if (
     subs.length > (prev?.length ?? 0) &&
     typeof route.query.sub === 'string' &&
     route.query.sub !== activeSub.value
   ) {
     const r = resolveCurrent()
-    if (subs.includes(r.sub)) {
+    if (selectable.includes(r.sub)) {
       activeSub.value = r.sub
       return
     }
   }
-  if (subs.length > 0 && !subs.includes(activeSub.value)) {
-    activeSub.value = subs[0]
+  if (selectable.length > 0 && !selectable.includes(activeSub.value)) {
+    activeSub.value = selectable[0]
   }
 })
 
@@ -236,44 +259,71 @@ watch(activeSub, s => {
         页面本身就是这个内容，套一层「账号」页签纯属冗余（2026-11-06）
       -->
       <template v-if="currentSubs.length === 1">
-        <el-alert
-          v-if="SUB_ALERTS[currentSubs[0]]"
-          type="info"
-          :closable="false"
-          :title="t(SUB_ALERTS[currentSubs[0]]!)"
-          style="margin-bottom: 12px"
-        />
-        <ClusterScopeNotice
-          v-if="currentSubs[0] === 'persistence'"
-          :text="t('v.ov.t011')"
-        />
-        <component :is="SUB_COMPONENTS[currentSubs[0]]" />
+        <!-- 灰态锁：社区版的企业专属单页签（如租户管理）显示升级占位，不加载企业模块 -->
+        <div v-if="isSubLocked(currentSubs[0])" class="sub-locked-placeholder">
+          <el-icon :size="34"><Lock /></el-icon>
+          <p>{{ t('nav.feature.lockedHint') }}</p>
+        </div>
+        <template v-else>
+          <el-alert
+            v-if="SUB_ALERTS[currentSubs[0]]"
+            type="info"
+            :closable="false"
+            :title="t(SUB_ALERTS[currentSubs[0]]!)"
+            style="margin-bottom: 12px"
+          />
+          <ClusterScopeNotice
+            v-if="currentSubs[0] === 'persistence'"
+            :text="t('v.ov.t011')"
+          />
+          <component :is="SUB_COMPONENTS[currentSubs[0]]" />
+        </template>
       </template>
 
-      <el-tabs v-else v-model="activeSub" class="settings-sub-tabs">
+      <el-tabs v-else v-model="activeSub" class="settings-sub-tabs" @tab-click="onSubTabClick">
         <el-tab-pane
           v-for="s in currentSubs"
           :key="s"
-          :label="t('settings.subTabs.' + s)"
           :name="s"
           lazy
         >
-          <el-alert
-            v-if="SUB_ALERTS[s]"
-            type="info"
-            :closable="false"
-            :title="t(SUB_ALERTS[s]!)"
-            style="margin-bottom: 12px"
-          />
-          <!--
-            共享态自检结果（S4）：这是唯一需要「把自己的副本名报出来」的页面。
-            单机部署下组件不渲染，多副本下说明共享态是否齐备。
-          -->
-          <ClusterScopeNotice
-            v-if="s === 'persistence'"
-            text="这里看到的是当前这台网关副本自己的状态；多台网关一起跑时，各台的状态靠共享存储保持一致"
-          />
-          <component :is="SUB_COMPONENTS[s]" />
+          <template #label>
+            <span
+              class="sub-tab-label"
+              :class="{ 'is-locked': isSubLocked(s) }"
+              :title="isSubLocked(s) ? t('nav.feature.lockedTooltip') : undefined"
+            >
+              <el-icon v-if="isSubLocked(s)"><Lock /></el-icon>
+              {{ t('settings.subTabs.' + s) }}
+              <el-tag v-if="isSubLocked(s)" size="small" type="warning" class="sub-tab-badge">
+                <el-icon><Lock /></el-icon>{{ t('nav.feature.enterpriseBadge') }}
+              </el-tag>
+            </span>
+          </template>
+          <template v-if="isSubLocked(s)">
+            <div class="sub-locked-placeholder">
+              <el-icon :size="34"><Lock /></el-icon>
+              <p>{{ t('nav.feature.lockedHint') }}</p>
+            </div>
+          </template>
+          <template v-else>
+            <el-alert
+              v-if="SUB_ALERTS[s]"
+              type="info"
+              :closable="false"
+              :title="t(SUB_ALERTS[s]!)"
+              style="margin-bottom: 12px"
+            />
+            <!--
+              共享态自检结果（S4）：这是唯一需要「把自己的副本名报出来」的页面。
+              单机部署下组件不渲染，多副本下说明共享态是否齐备。
+            -->
+            <ClusterScopeNotice
+              v-if="s === 'persistence'"
+              text="这里看到的是当前这台网关副本自己的状态；多台网关一起跑时，各台的状态靠共享存储保持一致"
+            />
+            <component :is="SUB_COMPONENTS[s]" />
+          </template>
         </el-tab-pane>
       </el-tabs>
     </el-card>
@@ -328,5 +378,38 @@ watch(activeSub, s => {
 
 .settings-sub-tabs :deep(.el-tabs__header) {
   margin-bottom: 12px;
+}
+
+/* 企业专属子页签的灰态锁 label：明显「存在但不可用」，与可进入页签区分 */
+.sub-tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sub-tab-label.is-locked {
+  color: var(--ja-text-placeholder);
+  cursor: not-allowed;
+}
+.sub-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  transform: scale(0.82);
+  transform-origin: center;
+}
+
+/* 灰态锁内容占位：居中提示「需商业版授权」，替代企业模块空态 */
+.sub-locked-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 240px;
+  color: var(--ja-text-placeholder);
+}
+.sub-locked-placeholder p {
+  margin: 0;
+  font-size: 13.5px;
 }
 </style>

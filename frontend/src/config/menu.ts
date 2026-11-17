@@ -66,13 +66,16 @@ export interface MenuItem {
    */
   locked?: boolean
   /**
-   * 企业版专属项：社区版（edition !== 'enterprise'）在菜单里【完全移除】，
-   * 不留灰态锁、不占位。与 `feature`（功能位未解锁→灰态可见）是两种不同语义：
-   * - `feature`：能力属于企业版，但未解锁时让用户「知道自己缺什么」→ 灰态锁可见；
-   * - `enterpriseOnly`：整个模块只随企业版交付，社区版压根不存在 → 彻底隐藏。
+   * 企业版专属项标记（「恢复灰态锁」后用于灰态可见，而非隐藏）。
    *
-   * 典型：租户管理、企业管理聚合页——社区版后端无对应端点，显示灰态锁只会误导。
-   * 过滤在 usePermission.filterEnterpriseOnly 完成，路由守卫用 ENTERPRISE_ONLY_PATHS 兜底。
+   * 与 `feature`（功能位未解锁→灰态可见）协同：两者都让菜单项在社区版显示为
+   * 灰态锁（灰态 + 锁图标 + 「商业版」徽章），点击弹「升级企业版」提示，
+   * 让用户「知道自己缺什么」——符合 PLG 推广口径。
+   * - `feature`：按 license 功能位判定（企业版可能已解锁）；
+   * - `enterpriseOnly`：整模块随企业 jar 交付，社区版恒锁（无对应后端端点）。
+   *
+   * 判定在 usePermission.filterMenuByFeature 统一打 `locked` 标记；
+   * 路由守卫用 ENTERPRISE_ONLY_PATHS 兜底拦截社区版手输 URL 绕过。
    */
   enterpriseOnly?: boolean
 }
@@ -235,7 +238,7 @@ export const menuGroups: MenuGroup[] = [
         subtitle: 'nav.modelConfig.subtitle'
       },
       {
-        // 企业租户管理（A1-pre）：仅随企业版交付，社区版整项隐藏（后端无对应端点）。
+        // 企业租户管理（A1-pre）：后端三端点已落；社区版按 enterpriseOnly 显示灰态锁。
         // 企业版内仍按 tenant-management 功能位门控（未解锁显示灰态锁）。
         path: '/settings/tenants',
         title: 'nav.tenants.title',
@@ -248,7 +251,7 @@ export const menuGroups: MenuGroup[] = [
       },
       {
         // 企业管理聚合页：许可证 / 对账 / Agent 工具 / 安全能力分块各自按功能位门控。
-        // 仅随企业版交付，社区版整项隐藏（后端无对应端点、各块锁定态只会误导）。
+        // 社区版按 enterpriseOnly 显示灰态锁；企业版无企业 jar 时各块显示锁定态。
         path: '/settings/enterprise',
         title: 'nav.enterpriseAdmin.title',
         permission: 'system:accounts:manage',
@@ -290,8 +293,8 @@ export function flattenMenuItems(): MenuItem[] {
 }
 
 /**
- * 企业版专属菜单路径：社区版从菜单移除 + 路由守卫拦截（防手输 URL 绕过）。
- * 与 menu.ts 中 `enterpriseOnly: true` 的项保持一致，由守卫与菜单过滤共同消费。
+ * 企业版专属菜单路径：社区版菜单显示为灰态锁，路由守卫拦住手输 URL / 旧书签绕过。
+ * 与 menu.ts 中 `enterpriseOnly: true` 的项保持一致，由守卫消费。
  */
 export const ENTERPRISE_ONLY_PATHS: string[] = ['/settings/tenants', '/settings/enterprise']
 
@@ -306,8 +309,8 @@ export const ENTERPRISE_ONLY_PATHS: string[] = ['/settings/tenants', '/settings/
  *   （后端虽落在 OSS config_data，但产品口径随企业版交付，OSS 不暴露入口）。
  * - monitoring 组：securityDashboard=安全态势（B6 企业合规包能力）。
  *
- * 与 `enterpriseOnly` 菜单项同一口径：社区版压根不存在这些页，不是「未解锁的灰态锁」。
- * 深链 ?sub=xxx 由 SettingsView.visibleSubs 回退到首个可见页签。
+ * 与 `enterpriseOnly` 菜单项同一口径：社区版显示为灰态锁（可见但不可进入）。
+ * 深链 ?sub=xxx 由 SettingsView 的 selectableSubs 回退到首个可进入页签。
  */
 export const ENTERPRISE_ONLY_SUBS: string[] = [
   'evidence',
