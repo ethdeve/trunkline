@@ -308,7 +308,7 @@ import {
   deletePool,
   getPoolQuotaUsage,
   type PoolDefinition,
-  type PoolMember
+  type PoolMember as _PoolMember
 } from '@/api/pools'
 import { getServiceInstances, type InstanceConfig } from '@/api/instance'
 import { getPriceCatalog, type ModelPriceCatalogItem } from '@/api/providerPrice'
@@ -549,7 +549,7 @@ const fetchPools = async () => {
     const res = await getPoolList()
     pools.value = res.data?.data || []
     await loadMonthlyCalls(pools.value)
-  } catch (e) {
+  } catch (_e) {
     ElMessage.error(t('pool.messages.fetchListFailed'))
   } finally {
     loading.value = false
@@ -758,7 +758,7 @@ const handleSave = async () => {
     }
     dialogVisible.value = false
     await fetchPools()
-  } catch (e) {
+  } catch (_e) {
     ElMessage.error(t('pool.messages.saveFailed'))
   } finally {
     saving.value = false
@@ -805,7 +805,7 @@ const saveQuota = async () => {
     ElMessage.success(t('pool.messages.updated'))
     quotaVisible.value = false
     await fetchPools()
-  } catch (e) {
+  } catch (_e) {
     ElMessage.error(t('pool.messages.saveFailed'))
   } finally {
     saving.value = false
@@ -837,7 +837,7 @@ const handleDelete = async (row: PoolDefinition) => {
     await deletePool(row.poolName)
     ElMessage.success(t('pool.messages.deleted'))
     await fetchPools()
-  } catch (e) {
+  } catch (_e) {
     ElMessage.error(t('pool.messages.deleteFailed'))
   }
 }

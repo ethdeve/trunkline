@@ -314,6 +314,12 @@ public class LockFreeCircuitBreaker implements CircuitBreaker {
             String stateName = (String) stateData.get("state");
             State savedState = State.valueOf(stateName);
             stateRef.set(savedState);
+            // A-F3：恢复 HALF_OPEN 时须重建探针令牌。canExecute() 在半开态只做 CAS 扣减，
+            // 若沿用构造期的 0，探针永不放行且无法自愈（永久熔断直到人工 reset）。
+            // 恢复态没有「本次转入半开」的在途探针，因此给满 successThreshold 个令牌。
+            if (savedState == State.HALF_OPEN) {
+                halfOpenPermits.set(Math.max(1, successThreshold));
+            }
 
             // 恢复计数器
             if (stateData.containsKey("failureCount")) {

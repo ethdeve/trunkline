@@ -164,7 +164,7 @@ const handleSave = async () => {
     }
     emit('save', result)
     dialogVisible.value = false
-  } catch (error) {
+  } catch (_error) {
     ElMessage.error(t('rateLimitConfig.messages.saveFailed'))
   } finally {
     loading.value = false

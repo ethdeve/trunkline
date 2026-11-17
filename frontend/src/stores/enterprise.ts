@@ -47,6 +47,12 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
   const billing = computed(() => !!features.value.billing)
   const tenantManagement = computed(() => !!features.value.tenantManagement)
   const securityDashboard = computed(() => !!features.value.securityDashboard)
+  const auditChain = computed(() => !!features.value.auditChain)
+  const dlp = computed(() => !!features.value.dlp)
+  const kms = computed(() => !!features.value.kms)
+  const agentGateway = computed(() => !!features.value.agentGateway)
+  /** 企业版部署（无企业 jar 时社区版不暴露任何企业管理端点） */
+  const enterpriseEdition = computed(() => features.value.edition === 'enterprise')
 
   /** 按后端功能位键判断是否解锁（缺键即未解锁，绝不假设恒 true） */
   const isEnabled = (key: EnterpriseFeatureKey): boolean => !!features.value[key]
@@ -104,6 +110,11 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
     billing,
     tenantManagement,
     securityDashboard,
+    auditChain,
+    dlp,
+    kms,
+    agentGateway,
+    enterpriseEdition,
     isEnabled,
     isMenuFeatureEnabled,
     ensureLoaded,

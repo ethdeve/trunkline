@@ -109,7 +109,8 @@ docker-ctx/
 # Configuration (Runtime Generated)
 # -----------------------------------------------------------------------------
 # Runtime config directories (keep templates)
-/config/
+# 忽略 config/ 内容本身，但保留下列显式豁免文件（/config/ 整体忽略会让 !config/xxx 失效）
+/config/*
 config-dev/
 config-store/
 
@@ -227,6 +228,7 @@ jdeps/
 !config/*.template
 !config/*.yml.example
 !config/suppressions.xml
+!config/redis.conf
 
 # Keep branding assets
 !logo/

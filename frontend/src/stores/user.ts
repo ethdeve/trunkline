@@ -232,6 +232,9 @@ export const useUserStore = defineStore('user', () => {
       console.error('登出请求失败:', error)
     } finally {
       clearToken()
+      // G4-5：租户上下文随账号走。不清会导致同一浏览器换账号登录后继承上一账号的
+      // X-Tenant-Id（请求拦截器每请求注入），形成跨账号数据串扰。
+      localStorage.removeItem('trunkline_tenant_id')
       // P1 员工侧⑤：员工白名单缓存是模块级的，跨登录会话复用会造成越权泄漏
       // （A 登出后 B 登录会继承 A 的「不限制」状态）。登出即清。
       try {

@@ -86,7 +86,7 @@ import { useRouter } from 'vue-router'
 import { Cpu } from '@element-plus/icons-vue'
 import { useInstanceAvailability, type AvailabilityInstance } from '@/composables/useInstanceAvailability'
 import { useUserStore } from '@/stores/user'
-import { useEmployeeModelScope } from '@/composables/useEmployeeModelScope'
+import { useEmployeeModelScope as _useEmployeeModelScope } from '@/composables/useEmployeeModelScope'
 
 const props = withDefaults(
   defineProps<{

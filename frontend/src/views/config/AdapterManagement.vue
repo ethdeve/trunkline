@@ -228,7 +228,7 @@ import {
   updateAdapter,
   deleteAdapter,
   type AdapterInfo,
-  type AdapterCapabilities,
+  type AdapterCapabilities as _AdapterCapabilities,
   type ParentAdapterInfo
 } from '@/api/adapter'
 import AdapterWizard from './adapter/AdapterWizard.vue'

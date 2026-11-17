@@ -479,7 +479,7 @@ function restart() {
 async function copyText(code: string, kind: 'key' | 'curl') {
   const ok = await copyToClipboard(code)
   if (ok) {
-    ElMessage.success(kind === 'key' ? t('quickStart.copyKey') + ' ✓' : t('quickStart.copyCurl') + ' ✓')
+    ElMessage.success(kind === 'key' ? `${t('quickStart.copyKey')  } ✓` : `${t('quickStart.copyCurl')  } ✓`)
   } else {
     ElMessage.error(t('quickStart.copyFailed'))
   }

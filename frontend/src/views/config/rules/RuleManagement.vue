@@ -173,7 +173,7 @@ const fetchRules = async () => {
     rules.value = res.data?.data || []
     await nextTick()
     initDrag()
-  } catch (e) {
+  } catch (_e) {
     ElMessage.error(t('rule.fetchListFailed'))
   } finally {
     loading.value = false
@@ -189,7 +189,7 @@ const fetchStats = async () => {
       map[s.ruleId] = (map[s.ruleId] || 0) + (s.monthHits ?? 0)
     })
     monthHitsMap.value = map
-  } catch (e) {
+  } catch (_e) {
     // 统计加载失败不阻塞列表
   }
 }
@@ -239,7 +239,7 @@ const commitPriorities = async () => {
       ElMessage.success(t('rule.priorityUpdated'))
     }
     fetchRules()
-  } catch (e) {
+  } catch (_e) {
     ElMessage.error(t('rule.priorityUpdateFailed'))
     fetchRules()
   }
@@ -271,7 +271,7 @@ const handleDelete = async (row: RuleDefinition) => {
     await deleteRule(row.id!)
     ElMessage.success(t('rule.ruleDeleted'))
     fetchRules()
-  } catch (e) {
+  } catch (_e) {
     // 删除失败保持安静（与原行为一致）
   }
 }
@@ -285,7 +285,7 @@ const handleToggle = async (row: RuleDefinition, enabled: boolean) => {
     }
     ElMessage.success(enabled ? t('rule.ruleEnabled') : t('rule.ruleDisabled'))
     fetchRules()
-  } catch (e) {
+  } catch (_e) {
     ElMessage.error(t('rule.operationFailed'))
   }
 }

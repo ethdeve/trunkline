@@ -50,12 +50,18 @@ export function useEnterpriseFeatures() {
     isEnterpriseFeatureEnabled,
     /** 按菜单 MenuItem.feature 语义值（短横线）判定是否解锁 */
     isMenuFeatureEnabled: (menuFeature?: string) => store.isMenuFeatureEnabled(menuFeature),
+    isEnabled: (key: string) => store.isEnabled(key as EnterpriseFeatureKey),
     sso: computed(() => store.sso),
     multiTenant: computed(() => store.multiTenant),
     billing: computed(() => store.billing),
     moderation: computed(() => store.moderation),
     tenantManagement: computed(() => store.tenantManagement),
     securityDashboard: computed(() => store.securityDashboard),
+    auditChain: computed(() => store.auditChain),
+    dlp: computed(() => store.dlp),
+    kms: computed(() => store.kms),
+    agentGateway: computed(() => store.agentGateway),
+    enterpriseEdition: computed(() => store.enterpriseEdition),
     ensure: () => store.ensureLoaded()
   }
 }

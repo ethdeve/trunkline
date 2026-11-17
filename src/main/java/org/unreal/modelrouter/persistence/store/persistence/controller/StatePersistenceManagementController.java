@@ -16,6 +16,7 @@ import org.unreal.modelrouter.persistence.store.persistence.adapter.LoadBalancer
 import org.unreal.modelrouter.persistence.store.persistence.adapter.RateLimiterStatePersistenceAdapter;
 import org.unreal.modelrouter.persistence.store.persistence.recovery.StateRecoveryService;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.HashMap;
 import java.util.List;
@@ -173,10 +174,16 @@ public class StatePersistenceManagementController {
      */
     @GetMapping("/status")
     public Mono<ResponseEntity<Map<String, Object>>> getPersistenceStatus() {
-        return compositePersistenceService.isHealthy().flatMap(healthy -> {
+        // A-F2/P1-5：getAllTierStatus() 缓存冷时内部 block()，不能在 Netty 事件循环里调用。
+        // 先在 boundedElastic 上算出 tierHealth，再与其余响应式统计合并（.cache() 供本次请求复用）。
+        final Mono<Map<String, Boolean>> tierHealthMono = Mono
+                .fromCallable(compositePersistenceService::getAllTierStatus)
+                .subscribeOn(Schedulers.boundedElastic())
+                .cache();
+        return tierHealthMono.flatMap(tierHealth -> compositePersistenceService.isHealthy().flatMap(healthy -> {
             Map<String, Object> data = new HashMap<>();
             data.put("currentTier", compositePersistenceService.getActiveTierName());
-            data.put("tierHealth", compositePersistenceService.getAllTierStatus());
+            data.put("tierHealth", tierHealth);
 
             // 获取熔断器实际存储数量
             Mono<Long> cbCountMono = cbPersistenceAdapter.getAllCircuitBreakerInstanceIds()
@@ -232,7 +239,7 @@ public class StatePersistenceManagementController {
 
                         return ResponseEntity.ok(createSuccessResponse(data));
                     });
-        });
+        }));
     }
 
     /**
@@ -324,26 +331,28 @@ public class StatePersistenceManagementController {
      */
     @GetMapping("/tiers")
     public Mono<ResponseEntity<Map<String, Object>>> getTierStatus() {
-        Map<String, Boolean> tierStatus = compositePersistenceService.getAllTierStatus();
+        return Mono.fromCallable(() -> {
+            Map<String, Boolean> tierStatus = compositePersistenceService.getAllTierStatus();
 
-        Map<String, Object> redisHealth = new HashMap<>();
-        redisHealth.put("healthy", tierStatus.getOrDefault("redis", false));
-        redisHealth.put("message", tierStatus.getOrDefault("redis", false) ? "Available" : "Not configured");
+            Map<String, Object> redisHealth = new HashMap<>();
+            redisHealth.put("healthy", tierStatus.getOrDefault("redis", false));
+            redisHealth.put("message", tierStatus.getOrDefault("redis", false) ? "Available" : "Not configured");
 
-        Map<String, Object> h2Health = new HashMap<>();
-        h2Health.put("healthy", tierStatus.getOrDefault("h2", true));
-        h2Health.put("message", "Available (default)");
+            Map<String, Object> h2Health = new HashMap<>();
+            h2Health.put("healthy", tierStatus.getOrDefault("h2", true));
+            h2Health.put("message", "Available (default)");
 
-        Map<String, Object> fileHealth = new HashMap<>();
-        fileHealth.put("healthy", tierStatus.getOrDefault("file", true));
-        fileHealth.put("message", "Available (fallback)");
+            Map<String, Object> fileHealth = new HashMap<>();
+            fileHealth.put("healthy", tierStatus.getOrDefault("file", true));
+            fileHealth.put("message", "Available (fallback)");
 
-        Map<String, Object> data = new HashMap<>();
-        data.put("redis", redisHealth);
-        data.put("h2", h2Health);
-        data.put("file", fileHealth);
+            Map<String, Object> data = new HashMap<>();
+            data.put("redis", redisHealth);
+            data.put("h2", h2Health);
+            data.put("file", fileHealth);
 
-        return Mono.just(ResponseEntity.ok(createSuccessResponse(data)));
+            return ResponseEntity.ok(createSuccessResponse(data));
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
@@ -351,22 +360,24 @@ public class StatePersistenceManagementController {
      */
     @PostMapping("/tiers/switch/{tierName}")
     public Mono<ResponseEntity<Map<String, Object>>> switchTier(@PathVariable final String tierName) {
-        logger.info("Manual tier switch requested: {}", tierName);
+        return Mono.fromCallable(() -> {
+            logger.info("Manual tier switch requested: {}", tierName);
 
-        boolean switched = compositePersistenceService.switchTier(tierName);
+            boolean switched = compositePersistenceService.switchTier(tierName);
 
-        Map<String, Object> data = new HashMap<>();
-        data.put("tierName", tierName);
-        data.put("switched", switched);
-        data.put("currentTier", compositePersistenceService.getActiveTierName());
+            Map<String, Object> data = new HashMap<>();
+            data.put("tierName", tierName);
+            data.put("switched", switched);
+            data.put("currentTier", compositePersistenceService.getActiveTierName());
 
-        if (!switched) {
-            data.put("message", "Cannot switch to unhealthy tier: " + tierName);
-        } else {
-            data.put("message", "Successfully switched to: " + tierName);
-        }
+            if (!switched) {
+                data.put("message", "Cannot switch to unhealthy tier: " + tierName);
+            } else {
+                data.put("message", "Successfully switched to: " + tierName);
+            }
 
-        return Mono.just(ResponseEntity.ok(createSuccessResponse(data)));
+            return ResponseEntity.ok(createSuccessResponse(data));
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
@@ -374,27 +385,29 @@ public class StatePersistenceManagementController {
      */
     @PostMapping("/tiers/refresh")
     public Mono<ResponseEntity<Map<String, Object>>> refreshHealthStatus() {
-        logger.info("Manual health status refresh requested");
+        return Mono.fromCallable(() -> {
+            logger.info("Manual health status refresh requested");
 
-        compositePersistenceService.refreshHealthStatus();
+            compositePersistenceService.refreshHealthStatus();
 
-        Map<String, Boolean> tierStatus = compositePersistenceService.getAllTierStatus();
+            Map<String, Boolean> tierStatus = compositePersistenceService.getAllTierStatus();
         
-        Map<String, Object> redisHealth = new HashMap<>();
-        redisHealth.put("healthy", tierStatus.getOrDefault("redis", false));
+            Map<String, Object> redisHealth = new HashMap<>();
+            redisHealth.put("healthy", tierStatus.getOrDefault("redis", false));
 
-        Map<String, Object> h2Health = new HashMap<>();
-        h2Health.put("healthy", tierStatus.getOrDefault("h2", true));
+            Map<String, Object> h2Health = new HashMap<>();
+            h2Health.put("healthy", tierStatus.getOrDefault("h2", true));
 
-        Map<String, Object> fileHealth = new HashMap<>();
-        fileHealth.put("healthy", tierStatus.getOrDefault("file", true));
+            Map<String, Object> fileHealth = new HashMap<>();
+            fileHealth.put("healthy", tierStatus.getOrDefault("file", true));
 
-        Map<String, Object> data = new HashMap<>();
-        data.put("redis", redisHealth);
-        data.put("h2", h2Health);
-        data.put("file", fileHealth);
+            Map<String, Object> data = new HashMap<>();
+            data.put("redis", redisHealth);
+            data.put("h2", h2Health);
+            data.put("file", fileHealth);
 
-        return Mono.just(ResponseEntity.ok(createSuccessResponse(data)));
+            return ResponseEntity.ok(createSuccessResponse(data));
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     /**

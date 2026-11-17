@@ -135,7 +135,7 @@ const runTest = async () => {
       headers
     })
     testResult.value = res.data?.data || null
-  } catch (e) {
+  } catch (_e) {
     ElMessage.error(t('rule.test.runFailed'))
   } finally {
     testLoading.value = false

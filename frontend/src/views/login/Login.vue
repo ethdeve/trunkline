@@ -105,7 +105,7 @@ async function handleSsoCallback(code: string, state?: string) {
     userStore.startTokenRefresh()
     await enterprise.ensureLoaded()
     await router.replace('/my-quota')
-  } catch (e: any) {
+  } catch (_e: any) {
     errMsg.value = t('v.lg.ssoFailed')
   } finally {
     loading.value = false

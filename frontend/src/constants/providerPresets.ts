@@ -60,7 +60,7 @@ export function templateToPreset(t: {
   source?: string
 }): ProviderPreset {
   return {
-    uid: t.source === 'custom' ? 'tpl-' + t.id : t.id,
+    uid: t.source === 'custom' ? `tpl-${  t.id}` : t.id,
     label: t.name,
     category: (['domestic', 'international', 'local'].includes(t.category)
       ? t.category

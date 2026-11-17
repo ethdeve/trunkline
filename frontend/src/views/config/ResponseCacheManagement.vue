@@ -253,15 +253,15 @@ import {
   Refresh,
   Delete,
   InfoFilled,
-  CircleCheck,
-  CircleClose,
-  Timer,
-  Box,
-  DataLine,
+  CircleCheck as _CircleCheck,
+  CircleClose as _CircleClose,
+  Timer as _Timer,
+  Box as _Box,
+  DataLine as _DataLine,
   Check,
-  SuccessFilled,
-  CircleCloseFilled,
-  TrendCharts,
+  SuccessFilled as _SuccessFilled,
+  CircleCloseFilled as _CircleCloseFilled,
+  TrendCharts as _TrendCharts,
 } from '@element-plus/icons-vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import StatCard from '@/components/StatCard.vue'

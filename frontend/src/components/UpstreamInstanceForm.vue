@@ -253,7 +253,7 @@
 import { computed, reactive, ref, withDefaults } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { COMMON_SERVICE_TYPES, getServiceTypeLabel } from '@/constants/serviceTypes'
-import { matchProviderPreset, type ProviderPreset } from '@/constants/providerPresets'
+import { matchProviderPreset, type ProviderPreset as _ProviderPreset } from '@/constants/providerPresets'
 import { useProviderTemplatePresets } from '@/composables/useProviderTemplatePresets'
 import type { ModelProvider } from '@/api/provider'
 import { Plus, Delete, Close } from '@element-plus/icons-vue'
@@ -340,12 +340,12 @@ const selectedProvider = computed<ModelProvider | undefined>(() =>
 )
 const keyPlaceholder = computed(() => {
   if (selectedProvider.value) {
-    return '留空即继承供应商「' + selectedProvider.value.name + '」的 Key'
+    return `留空即继承供应商「${  selectedProvider.value.name  }」的 Key`
   }
   return '如 sk-xxx，用于网关转发到上游服务商时鉴权'
 })
 function providerOptionLabel(p: ModelProvider): string {
-  return p.name + '（' + getServiceTypeLabel(p.serviceType) + '）'
+  return `${p.name  }（${  getServiceTypeLabel(p.serviceType)  }）`
 }
 /** 选中供应商：仅补全空白字段（显式填写过的值优先，后端同样以显式 Authorization 优先） */
 function applyProvider(id: number | undefined) {
@@ -478,7 +478,7 @@ function loadInstance(data: any) {
   const editTags = (form.tags as Record<string, string>) || {}
   aliasName.value = editTags.alias || ''
   if (editTags.alias) {
-    const { alias, ...restTags } = editTags
+    const { alias: _alias, ...restTags } = editTags
     form.tags = restTags
   }
   syncTagsList()

@@ -23,7 +23,6 @@ import { onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
 export function useTableMaxHeight(target: Ref<unknown>, bottomReserve = 96) {
   const maxHeight = ref<number | undefined>(undefined)
   let observer: ResizeObserver | null = null
-  let observedEl: HTMLElement | null = null
 
   const getEl = (): HTMLElement | null => {
     const raw = target.value as { $el?: unknown } | HTMLElement | null
@@ -48,7 +47,6 @@ export function useTableMaxHeight(target: Ref<unknown>, bottomReserve = 96) {
 
   const attach = () => {
     observer?.disconnect()
-    observedEl = null
     const el = getEl()
     measure()
     // 观察父容器：上方筛选区/折叠面板展开收起会改变表格顶部位置，
@@ -57,7 +55,6 @@ export function useTableMaxHeight(target: Ref<unknown>, bottomReserve = 96) {
     if (observeTarget) {
       observer = new ResizeObserver(() => measure())
       observer.observe(observeTarget)
-      observedEl = observeTarget
     }
   }
 
@@ -70,7 +67,6 @@ export function useTableMaxHeight(target: Ref<unknown>, bottomReserve = 96) {
 
   onBeforeUnmount(() => {
     observer?.disconnect()
-    observedEl = null
     window.removeEventListener('resize', measure)
   })
 

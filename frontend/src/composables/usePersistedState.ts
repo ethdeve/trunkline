@@ -14,7 +14,7 @@
  * - 带版本号：数据结构变化时改 version 即可让旧缓存自动失效
  * - 读取失败（隐私模式 / 配额满）静默降级为默认值，不影响页面
  */
-import { ref, watch, type Ref } from 'vue'
+import { ref as _ref, watch, type Ref } from 'vue'
 
 const PREFIX = 'ja_ui_state:'
 

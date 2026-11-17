@@ -16,7 +16,7 @@
  *   ③ 不存在「同一页面两条路由、一条有权限一条没有」的不一致
  *   ④ 每个菜单项的 permission 都是已知权限码（拼写错误 → 永远 403）
  */
-import { menuGroups, flattenMenuItems } from '@/config/menu'
+import { menuGroups as _menuGroups, flattenMenuItems } from '@/config/menu'
 import { routes } from '@/router'
 
 /** 已知权限码集合（与后端 PERMISSION_GROUPS 对齐的最小集） */
@@ -142,7 +142,7 @@ export function auditPermissionConsistency(): Issue[] {
     list.push(r.absolute)
     byComponent.set(r.component, list)
   }
-  for (const [comp, paths] of byComponent) {
+  for (const [_comp, paths] of byComponent) {
     if (paths.length < 2) continue
     const perms = paths.map(p => {
       const r = allRoutes.find(x => x.absolute === p)!

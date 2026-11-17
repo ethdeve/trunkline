@@ -562,6 +562,11 @@
                     <configLocation>checkstyle.xml</configLocation>
                     <consoleOutput>true</consoleOutput>
                     <failsOnError>true</failsOnError>
+                    <!-- E-04：severity=warning 原配置永不阻断；改为「warning 也算违规 + 基线封顶」，
+                         存量 137 条只减不增，新增违规立即红构建。 -->
+                    <violationSeverity>warning</violationSeverity>
+                    <failOnViolation>true</failOnViolation>
+                    <maxAllowedViolations>137</maxAllowedViolations>
                     <linkXRef>false</linkXRef>
                     <propertyExpansion>config_loc=${basedir}/config</propertyExpansion>
                 </configuration>

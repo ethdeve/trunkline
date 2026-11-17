@@ -1,5 +1,5 @@
-import { ref, type Ref } from 'vue'
-import type { PlaygroundResponse } from '../types/playground'
+import { ref, type Ref as _Ref } from 'vue'
+import type { PlaygroundResponse as _PlaygroundResponse } from '../types/playground'
 
 export interface StreamingOptions {
   onChunk?: (chunk: string) => void

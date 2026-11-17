@@ -57,8 +57,8 @@ watch(canManageTracing, allowed => {
 const route = useRoute()
 const router = useRouter()
 
-const TABS = ['history', 'analysis'] as const
-type TabKey = (typeof TABS)[number]
+const _TABS = ['history', 'analysis'] as const
+type TabKey = (typeof _TABS)[number]
 
 /** 当前 tab：analysis 无权限时强制回落到 history（历史深链 tab=search 也回落） */
 const active = ref<TabKey>(normalizeTab(route.query.tab))

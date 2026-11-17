@@ -197,6 +197,8 @@ export const routes: RouteRecordRaw[] = [
             modelConfig: 'settings/model-config',
             auditVersions: 'settings/audit-versions',
             monitoring: 'settings/monitoring',
+            tenants: 'settings/tenants',
+            enterprise: 'settings/enterprise',
             // 旧 tab 名（SettingsView 历史深链）
             accounts: 'settings/accounts',
             permissions: 'settings/accounts',
@@ -207,7 +209,7 @@ export const routes: RouteRecordRaw[] = [
             versions: 'settings/audit-versions',
             persistence: 'settings/monitoring'
           }
-          return { path: '/' + (pathByTab[tab] || 'settings/accounts'), query }
+          return { path: `/${  pathByTab[tab] || 'settings/accounts'}`, query }
         }
       },
       {
@@ -233,6 +235,18 @@ export const routes: RouteRecordRaw[] = [
         name: 'settings-monitoring',
         component: () => import('@/views/settings/SettingsView.vue'),
         meta: { title: 'nav.statusMonitoring.title', defaultGroup: 'monitoring' }
+      },
+      {
+        path: 'settings/tenants',
+        name: 'settings-tenants',
+        component: () => import('@/views/settings/SettingsView.vue'),
+        meta: { title: 'nav.tenants.title', defaultGroup: 'tenants' }
+      },
+      {
+        path: 'settings/enterprise',
+        name: 'settings-enterprise',
+        component: () => import('@/views/settings/SettingsView.vue'),
+        meta: { title: 'nav.enterpriseAdmin.title', defaultGroup: 'enterprise' }
       },
       {
         // v3.5 Trunkline：网关级默认配置的集中入口
@@ -327,12 +341,12 @@ export const routes: RouteRecordRaw[] = [
 function applyMenuPermissions(routeList: RouteRecordRaw[], parentPath = ''): void {
   for (const route of routeList) {
     if (route.children?.length) {
-      applyMenuPermissions(route.children, route.path === '/' ? '' : parentPath + '/' + route.path.replace(/^\//, ''))
+      applyMenuPermissions(route.children, route.path === '/' ? '' : `${parentPath  }/${  route.path.replace(/^\//, '')}`)
     }
     // 绝对路径：父路径 + 自身相对路径
     const absolute = route.path.startsWith('/')
       ? route.path
-      : (parentPath ? parentPath + '/' + route.path.replace(/^\//, '') : '/' + route.path.replace(/^\//, ''))
+      : (parentPath ? `${parentPath  }/${  route.path.replace(/^\//, '')}` : `/${  route.path.replace(/^\//, '')}`)
     const menuItem = flattenMenuItems().find(c => c.path === absolute)
     if (menuItem?.permission) {
       route.meta = { ...(route.meta || {}), permissions: [menuItem.permission] }

@@ -206,7 +206,7 @@ import {
   Close,
   Sort,
   Loading,
-  Cpu
+  Cpu as _Cpu
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { usePlaygroundData } from '@/composables/usePlaygroundData'

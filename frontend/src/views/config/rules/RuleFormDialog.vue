@@ -204,7 +204,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, ElMessageBox as _ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Delete, Plus, MagicStick } from '@element-plus/icons-vue'
 import {
   createRule,
@@ -287,7 +287,7 @@ const loadOptions = async () => {
         .map((p: PoolDefinition) => p.poolName)
         .filter((n): n is string => Boolean(n))
     }
-  } catch (e) {
+  } catch (_e) {
     // 下拉加载失败不阻塞表单(保留手动输入兜底)
   }
 }
@@ -309,7 +309,7 @@ const loadModelsForService = async (serviceType: string) => {
         !serviceType || !p.serviceType || p.serviceType.toLowerCase() === serviceType.toLowerCase())
       .map((p: PoolDefinition) => p.poolName)
       .filter((n): n is string => Boolean(n))
-  } catch (e) {
+  } catch (_e) {
     // 失败保留现有选项
   } finally {
     loadingModels.value = false
@@ -324,7 +324,7 @@ const loadInstancesForService = async (serviceType: string) => {
         .map((i: InstanceConfig) => i.name || i.instanceId)
         .filter((n): n is string => Boolean(n))
     }
-  } catch (e) {
+  } catch (_e) {
     // 失败保留现有选项
   }
 }
@@ -568,7 +568,7 @@ const handleSave = async () => {
     }
     visible.value = false
     emit('saved')
-  } catch (e) {
+  } catch (_e) {
     ElMessage.error(t('rule.saveFailed'))
   } finally {
     saving.value = false

@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance, type AxiosResponse, type AxiosRequestConfig } from 'axios'
+import axios, { type AxiosInstance, type AxiosResponse as _AxiosResponse, type AxiosRequestConfig } from 'axios'
 import type { 
   PlaygroundRequest, 
   PlaygroundResponse, 
@@ -191,7 +191,7 @@ export const sendServiceRequest = async (
   }
   
   // 构建请求体，排除非API字段
-  const { authorization, customHeaders, ...apiBody } = config
+  const { authorization: _authorization, customHeaders: _customHeaders, ...apiBody } = config
   
   // 构建请求配置
   const request: PlaygroundRequest = {

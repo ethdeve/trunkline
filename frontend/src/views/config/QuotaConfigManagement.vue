@@ -217,7 +217,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
 import { ElMessage } from 'element-plus'
-import { Refresh, CircleCheck, CircleClose, Coin, Warning, Timer, Check } from '@element-plus/icons-vue'
+import { Refresh, CircleCheck as _CircleCheck, CircleClose as _CircleClose, Coin as _Coin, Warning as _Warning, Timer as _Timer, Check } from '@element-plus/icons-vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import StatCard from '@/components/StatCard.vue'
 import { effectMessage } from '@/utils/effectScope'
@@ -268,7 +268,7 @@ const isRestartRequired = (fieldPath: string): boolean => {
   return config.value.restartRequiredFields.some(pattern => {
     if (pattern.endsWith('.*')) {
       const prefix = pattern.slice(0, -2)
-      return fieldPath === prefix || fieldPath.startsWith(prefix + '.')
+      return fieldPath === prefix || fieldPath.startsWith(`${prefix  }.`)
     }
     return pattern === fieldPath
   })

@@ -8,6 +8,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -77,5 +79,21 @@ class LockFreeCircuitBreakerHalfOpenPermitTest {
         pool.shutdownNow();
 
         assertEquals(3, allowed.get(), "并发下也最多放行 successThreshold 个探针");
+    }
+
+    @Test
+    @DisplayName("A-F3: 从持久化恢复 HALF_OPEN 后探针令牌重建，不再永久熔断")
+    void restoreHalfOpenRebuildsProbePermits() {
+        LockFreeCircuitBreaker cb = new LockFreeCircuitBreaker("restored", 1, 100, 3);
+        Map<String, Object> saved = new HashMap<>();
+        saved.put("instanceId", "restored");
+        saved.put("state", "HALF_OPEN");
+        cb.restoreState(saved);
+
+        assertEquals(CircuitBreaker.State.HALF_OPEN, cb.getState());
+        assertTrue(cb.canExecute(), "恢复后首个探针应放行（旧实现恒 0 令牌，永久拒绝）");
+        assertTrue(cb.canExecute(), "恢复后第 2 个探针应放行");
+        assertTrue(cb.canExecute(), "恢复后第 3 个探针应放行");
+        assertFalse(cb.canExecute(), "恢复后仍须遵守 successThreshold 上限");
     }
 }

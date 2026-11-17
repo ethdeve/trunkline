@@ -27,7 +27,7 @@
         size="default"
         class="search-input"
         @clear="handleSearchClear"
-        @keyup.enter.native="applySearch"
+        @keyup.enter="applySearch"
       >
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
@@ -511,7 +511,7 @@
  */
 import { computed, onMounted, provide, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Download, QuestionFilled, Refresh, Search, Setting } from '@element-plus/icons-vue'
+import { Download, QuestionFilled, Refresh, Search, Setting as _Setting } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { SERVICE_TYPE_LABELS, COMMON_SERVICE_TYPES } from '@/constants/serviceTypes'
 import { matchProviderPreset, extractDomain } from '@/constants/providerPresets'

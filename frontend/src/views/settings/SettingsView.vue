@@ -27,11 +27,20 @@ import AuditLogManagement from '@/views/security/AuditLogManagement.vue'
 import VersionManagement from '@/views/config/VersionManagement.vue'
 import StatePersistenceManagement from '@/views/config/StatePersistenceManagement.vue'
 import SecurityDashboardView from '@/views/security/SecurityDashboardView.vue'
+import TenantManagementView from '@/views/settings/TenantManagementView.vue'
+import ComplianceEvidenceView from '@/views/settings/ComplianceEvidenceView.vue'
+import ComplianceArchiveView from '@/views/settings/ComplianceArchiveView.vue'
+import SecurityReportView from '@/views/settings/SecurityReportView.vue'
+import EnterpriseLicenseView from '@/views/settings/EnterpriseLicenseView.vue'
+import ReconciliationView from '@/views/settings/ReconciliationView.vue'
+import AgentToolsView from '@/views/settings/AgentToolsView.vue'
+import GuardrailsView from '@/views/settings/GuardrailsView.vue'
+import AlertChannelsView from '@/views/settings/AlertChannelsView.vue'
 import ProviderTemplateManagement from '@/views/settings/ProviderTemplateManagement.vue'
 import ServiceManagement from '@/views/config/ServiceManagement.vue'
 import AdapterManagement from '@/views/config/AdapterManagement.vue'
 
-type GroupKey = 'access' | 'modelConfig' | 'auditVersions' | 'monitoring'
+type GroupKey = 'access' | 'modelConfig' | 'auditVersions' | 'monitoring' | 'tenants' | 'enterprise'
 type SubKey =
   | 'accounts'
   | 'providerTemplates'
@@ -39,23 +48,36 @@ type SubKey =
   | 'protocolAdapters'
   | 'audit'
   | 'versions'
+  | 'evidence'
+  | 'archive'
+  | 'securityReport'
   | 'persistence'
   | 'securityDashboard'
+  | 'tenants'
+  | 'license'
+  | 'reconciliation'
+  | 'agentTools'
+  | 'guardrails'
+  | 'alertChannels'
 
-/** 分组 → 子页签（顺序即展示顺序） */
+/** 分组 → 子页签（顺序即展示顺序；企业块各自按功能位在组件内门控） */
 const GROUPS: { key: GroupKey; sub: SubKey[] }[] = [
   { key: 'access', sub: ['accounts'] },
   { key: 'modelConfig', sub: ['providerTemplates', 'modelCategories', 'protocolAdapters'] },
-  { key: 'auditVersions', sub: ['audit', 'versions'] },
-  { key: 'monitoring', sub: ['persistence', 'securityDashboard'] }
+  { key: 'auditVersions', sub: ['audit', 'versions', 'evidence', 'archive', 'securityReport'] },
+  { key: 'monitoring', sub: ['persistence', 'securityDashboard'] },
+  { key: 'tenants', sub: ['tenants'] },
+  { key: 'enterprise', sub: ['license', 'reconciliation', 'agentTools', 'guardrails', 'alertChannels'] }
 ]
 
-/** 路由路径 → 分组（与 router 里 4 个 settings 路由一一对应） */
+/** 路由路径 → 分组（与 router 里各 settings 路由一一对应） */
 const GROUP_BY_PATH: Record<string, GroupKey> = {
   '/settings/accounts': 'access',
   '/settings/model-config': 'modelConfig',
   '/settings/audit-versions': 'auditVersions',
-  '/settings/monitoring': 'monitoring'
+  '/settings/monitoring': 'monitoring',
+  '/settings/tenants': 'tenants',
+  '/settings/enterprise': 'enterprise'
 }
 
 /** 子页签 → 组件 */
@@ -66,8 +88,17 @@ const SUB_COMPONENTS: Record<SubKey, Component> = {
   protocolAdapters: AdapterManagement,
   audit: AuditLogManagement,
   versions: VersionManagement,
+  evidence: ComplianceEvidenceView,
+  archive: ComplianceArchiveView,
+  securityReport: SecurityReportView,
   persistence: StatePersistenceManagement,
-  securityDashboard: SecurityDashboardView
+  securityDashboard: SecurityDashboardView,
+  tenants: TenantManagementView,
+  license: EnterpriseLicenseView,
+  reconciliation: ReconciliationView,
+  agentTools: AgentToolsView,
+  guardrails: GuardrailsView,
+  alertChannels: AlertChannelsView
 }
 
 /** 子页签顶部说明（人话一句话，告诉用户这页管什么、什么时候需要管） */
@@ -76,7 +107,14 @@ const SUB_ALERTS: Partial<Record<SubKey, string>> = {
   modelCategories: 'settings.monitoring.categoriesAlert',
   protocolAdapters: 'settings.monitoring.adaptersAlert',
   persistence: 'settings.monitoring.persistenceAlert',
-  securityDashboard: 'settings.monitoring.securityDashboardAlert'
+  securityDashboard: 'settings.monitoring.securityDashboardAlert',
+  evidence: 'settings.enterpriseAlert.evidence',
+  archive: 'settings.enterpriseAlert.archive',
+  license: 'settings.enterpriseAlert.license',
+  reconciliation: 'settings.enterpriseAlert.reconciliation',
+  agentTools: 'settings.enterpriseAlert.agentTools',
+  guardrails: 'settings.enterpriseAlert.guardrails',
+  alertChannels: 'settings.enterpriseAlert.alertChannels'
 }
 
 // 壳层规范：内部收编组件的 PageSkeleton 进入嵌入模式（隐藏自带标题，统一由 PageHeader 承担）

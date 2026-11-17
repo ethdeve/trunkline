@@ -467,7 +467,7 @@ const handleClearCache = async () => {
   try {
     await refreshTracingData()
     ElMessage.success(t('tracing.management.messages.cacheCleared'))
-  } catch (error) {
+  } catch (_error) {
     ElMessage.error(t('tracing.management.messages.clearFailed'))
   } finally {
     clearingCache.value = false

@@ -72,7 +72,8 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   loading: false,
-  showActions: true
+  showActions: true,
+  timestamp: ''
 })
 
 const emit = defineEmits<{

@@ -217,7 +217,7 @@ interface Props {
   loading: boolean
 }
 
-const props = defineProps<Props>()
+const _props = defineProps<Props>()
 
 interface GeneratedImage {
   url?: string

@@ -705,12 +705,12 @@ import { getApiKeyQuota } from '@/api/apiKey'
 import { updateApiKeyQuota } from '@/api/apiKeyQuotaOps'
 import { getJwtAccounts } from '@/api/account'
 import { queryCallHistory } from '@/api/callHistory'
-import { getServiceInstances } from '@/api/instance'
+import { getServiceInstances as _getServiceInstances } from '@/api/instance'
 import { getPoolList } from '@/api/pools'
 import { getPriceCatalog } from '@/api/providerPrice'
 import { getQuotaUsage, getQuotaStatus } from '@/api/quota'
 import { getServiceTypeLabel, normalizeServiceType } from '@/constants/serviceTypes'
-import { QUOTA_PRESETS, formatQuotaLimit, formatRemaining, formatQuotaPlain, formatRemainingPlain } from '@/utils/quotaOps'
+import { QUOTA_PRESETS, formatQuotaLimit as _formatQuotaLimit, formatRemaining as _formatRemaining, formatQuotaPlain, formatRemainingPlain } from '@/utils/quotaOps'
 import type {
   ApiKeyVO,
   ApiKeyListVO,
@@ -977,8 +977,8 @@ const formatTokens = (n: number | null | undefined): string => {
 /** 金额展示：整数不带小数，非整数保留两位（¥1,000 / ¥23.50） */
 const formatAmount = (n: number | null | undefined): string => {
   if (n === null || n === undefined) return '-'
-  if (Number.isInteger(n)) return '¥' + n.toLocaleString('zh-CN')
-  return '¥' + n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  if (Number.isInteger(n)) return `¥${  n.toLocaleString('zh-CN')}`
+  return `¥${  n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 /** 密钥状态（原型口径派生）：已过期 > 已停用 > 即将到期 > 发了没人用 > 正常 */
@@ -1636,7 +1636,7 @@ const remainingPlain = (row: any) => {
 }
 
 /** 表单内实时预览：把限额翻译成一句人话 */
-const formQuotaPlain = computed(() =>
+const _formQuotaPlain = computed(() =>
   formatQuotaPlain(
     form.value.dailyRequestLimit,
     form.value.dailyTokenLimit,
@@ -1697,7 +1697,7 @@ const fetchApiKeys = async () => {
     listData.expiredCount = data.expiredCount
     listData.summary = data.summary
     pagination.total = data.total
-  } catch (error) {
+  } catch (_error) {
     ElMessage.error(t('apiKeys.messages.fetchListFailed'))
   } finally {
     // 列表 spinner 只绑定主列表请求，避免被配额接口拖死
@@ -1808,7 +1808,7 @@ const handleDelete = async (row: ApiKeyVO) => {
     await deleteApiKey(row.keyId)
     await fetchApiKeys()
     ElMessage.success(t('apiKeys.messages.deleteSuccess'))
-  } catch (error) {
+  } catch (_error) {
     ElMessage.error(t('apiKeys.messages.deleteFailed'))
   }
 }
@@ -1854,7 +1854,7 @@ const handleRotate = async (row: ApiKeyVO) => {
 }
 
 // 重置API密钥每日配额
-const handleResetQuota = async (row: ApiKeyVO) => {
+const _handleResetQuota = async (row: ApiKeyVO) => {
   const confirmed = await confirmDanger({
     title: t('apiKeys.confirmations.quotaResetTitle'),
     target: row.keyId,
@@ -2022,7 +2022,7 @@ async function handleBatchDelete() {
   }
 }
 
-const handleStatusChange = async (row: ApiKeyVO) => {
+const _handleStatusChange = async (row: ApiKeyVO) => {
   try {
     if (row.enabled) {
       await enableApiKey(row.keyId)
@@ -2032,7 +2032,7 @@ const handleStatusChange = async (row: ApiKeyVO) => {
       ElMessage.success(t('apiKeys.messages.disabledDetail', { keyId: row.keyId }))
     }
     await fetchApiKeys()
-  } catch (error) {
+  } catch (_error) {
     row.enabled = !row.enabled
     ElMessage.error(t('apiKeys.messages.statusChangeFailed'))
   }

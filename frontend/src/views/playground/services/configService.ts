@@ -281,7 +281,7 @@ export class ConfigService {
       const percentage = (used / total) * 100
 
       return { used, total, percentage }
-    } catch (error) {
+    } catch (_error) {
       return { used: 0, total: 0, percentage: 0 }
     }
   }
@@ -372,7 +372,7 @@ export class ConfigService {
   private serializeConfigurations(configurations: SavedConfiguration[]): string {
     // 移除不需要序列化的临时属性
     const cleanConfigs = configurations.map(config => {
-      const { editing, editName, ...cleanConfig } = config
+      const { editing: _editing, editName: _editName, ...cleanConfig } = config
       return cleanConfig
     })
 

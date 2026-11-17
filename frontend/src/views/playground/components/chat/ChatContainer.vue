@@ -212,7 +212,7 @@ const {
   addMessage,
   updateLastMessage,
   clearMessages,
-  updateModel
+  updateModel: _updateModel
 } = useChatSession()
 
 // 数据获取
@@ -376,7 +376,7 @@ const handleSendMessage = async (content: string) => {
 
       const response = await createStreamRequest(url, config, headers)
 
-      const fullContent = await handleStreamResponse(response, {
+      const _fullContent = await handleStreamResponse(response, {
         onChunk: (chunk) => {
           streamingContent.value += chunk
           // 不在此处 updateLastMessage：流式期间会话对象每 token 深层变更会触发
@@ -441,7 +441,7 @@ const handleClear = () => {
 }
 
 // 复制消息
-const handleCopyMessage = (content: string) => {
+const handleCopyMessage = (_content: string) => {
   // MessageBubble 已经处理了复制，这里可以添加额外的逻辑（如果需要）
 }
 
@@ -500,7 +500,7 @@ const handleRegenerateMessage = async () => {
 
       const response = await createStreamRequest(url, config, headers)
 
-      const fullContent = await handleStreamResponse(response, {
+      const _fullContent = await handleStreamResponse(response, {
         onChunk: (chunk) => {
           streamingContent.value += chunk
           // 同 handleSendMessage：最终内容由 onComplete / catch 落盘

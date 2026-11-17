@@ -69,6 +69,14 @@
       "title": "全局配置",
       "subtitle": "网关级的统一默认设置，可单独调某个模型"
     },
+    "tenants": {
+      "title": "租户管理",
+      "subtitle": "开通租户、停用租户并验证数据隔离"
+    },
+    "enterpriseAdmin": {
+      "title": "企业管理",
+      "subtitle": "许可证 / 对账 / Agent 工具 / 安全能力"
+    },
     "pages": {
       "modelCategories": "模型分类",
       "quickStartWizard": "快速接入",

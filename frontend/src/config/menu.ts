@@ -51,13 +51,13 @@ export interface MenuItem {
   /**
    * 多租户/商业版功能标记（S2 任务 41 预埋）。
    *
-   * 取值：'billing' | 'sso' | 'moderation' | 'multi-tenant' | 'audit-proof' | 'alerting'。
-   * 社区版当前无 ENT 专属菜单，故尚无菜单项使用此字段；等商业版功能上线后，
-   * 带此标记的菜单项在 license 未解锁时应渲染为灰态 + 锁图标 + 「商业版」徽章，
+   * 取值：'billing' | 'sso' | 'moderation' | 'multi-tenant' | 'tenant-management'
+   * | 'security-dashboard' | 'audit-chain' | 'dlp' | 'kms' | 'agent-gateway'。
+   * 带此标记的菜单项在 license 未解锁时渲染为灰态 + 锁图标 + 「商业版」徽章，
    * 点击弹出升级说明（渲染逻辑见 ConsoleLayout 的 locked 分支）。
    *
    * 取值与后端功能位键的映射见 api/enterprise.ts 的 MENU_FEATURE_TO_KEY：
-   * 'billing' | 'sso' | 'moderation' | 'multi-tenant' | 'tenant-management'。
+   * 每个取值都必须有映射，否则 isMenuFeatureEnabled 会 fail-closed 把菜单恒锁死。
    */
   feature?: string
   /**
@@ -223,6 +223,26 @@ export const menuGroups: MenuGroup[] = [
         greyFor: ['ops'],
         icon: 'box',
         subtitle: 'nav.modelConfig.subtitle'
+      },
+      {
+        // 企业租户管理（A1-pre）：后端三端点已落，功能位未解锁时灰态锁
+        path: '/settings/tenants',
+        title: 'nav.tenants.title',
+        permission: 'system:accounts:manage',
+        roles: ['admin'],
+        feature: 'tenant-management',
+        icon: 'office-building',
+        subtitle: 'nav.tenants.subtitle'
+      },
+      {
+        // 企业管理聚合页：许可证 / 对账 / Agent 工具 / 安全能力分块各自按功能位门控。
+        // 多能力共存，不设单一 feature；无企业 jar 时各块显示锁定态。
+        path: '/settings/enterprise',
+        title: 'nav.enterpriseAdmin.title',
+        permission: 'system:accounts:manage',
+        roles: ['admin'],
+        icon: 'setting',
+        subtitle: 'nav.enterpriseAdmin.subtitle'
       },
       {
         // 保留项（用户决策 #4）：维持现状皮肤与位置，不搬进新视觉改造

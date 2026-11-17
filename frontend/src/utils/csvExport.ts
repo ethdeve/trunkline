@@ -18,7 +18,7 @@ const escapeCell = (value: unknown): string => {
   if (value === null || value === undefined) return ''
   const s = String(value)
   if (/[",\r\n]/.test(s)) {
-    return '"' + s.replace(/"/g, '""') + '"'
+    return `"${  s.replace(/"/g, '""')  }"`
   }
   return s
 }
@@ -38,7 +38,7 @@ export interface CsvColumn<T> {
 export const buildCsv = <T>(columns: CsvColumn<T>[], rows: T[]): string => {
   const header = columns.map(c => escapeCell(c.header)).join(',')
   const body = rows.map((row, i) => columns.map(c => escapeCell(c.value(row, i))).join(',')).join('\r\n')
-  return '﻿' + header + (body ? '\r\n' + body : '')
+  return `﻿${  header  }${body ? `\r\n${  body}` : ''}`
 }
 
 /**

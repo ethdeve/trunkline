@@ -165,7 +165,7 @@ async function refreshAfterRestart() {
     errMsg.value = t('setup.refreshFail')
   } else {
     step.value = 3
-    ElMessage.success(t('setup.stepDatabase') + ' ✓')
+    ElMessage.success(`${t('setup.stepDatabase')  } ✓`)
   }
 }
 

@@ -378,7 +378,7 @@ const loadHidden = async () => {
     if (res.data?.success) {
       hiddenTemplates.value = res.data.data || []
     }
-  } catch (e: any) {
+  } catch (_e: any) {
     hiddenTemplates.value = []
   }
 }

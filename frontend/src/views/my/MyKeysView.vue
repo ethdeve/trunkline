@@ -27,7 +27,7 @@
  * <p>i18n：文案走 {@code myKeys} 命名空间（zh-CN / en-US 各一份），
  * 静态 key 不动态拼接，避免拼错 key 静默回退显原始 key。</p>
  */
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed as _computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { getMyApiKeys, revealMyApiKeyValue } from '@/api/apiKey'

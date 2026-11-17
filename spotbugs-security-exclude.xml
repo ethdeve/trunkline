@@ -78,16 +78,32 @@
         <Bug pattern="UNENCRYPTED_SOCKET"/>
     </Match>
     
-    <!-- 排除正则表达式ReDoS警告 - 已优化正则表达式 -->
+<!--
+    E-03：不再全局排除 REDOS / PATH_TRAVERSAL_IN。以下 4 处是评审逐行确认过的存量白名单
+    （按类名精确限定，新增代码在其它类仍会被扫描拦截）：
+    - PathSanitizer 自身就是路径净化器，File(入参) 是唯一职责；
+    - FileStoreManager 所有用户路径经 PathSanitizer 校验后才构造 File；
+    - ConfigurationValidator / ConfigValidatorHelper 的域名正则为有界标签结构，
+      已由配置写入侧长度上限收口。
+    新增同类问题请修代码，不要在此追加类。
+-->
     <Match>
-        <Bug pattern="REDOS"/>
-    </Match>
-    
-    <!-- 排除路径遍历警告 - 这些是内部配置文件操作，路径受控 -->
-    <Match>
+        <Class name="org.unreal.modelrouter.common.util.PathSanitizer"/>
         <Bug pattern="PATH_TRAVERSAL_IN"/>
     </Match>
-    
+    <Match>
+        <Class name="org.unreal.modelrouter.persistence.store.FileStoreManager"/>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+    </Match>
+    <Match>
+        <Class name="org.unreal.modelrouter.config.core.ConfigurationValidator"/>
+        <Bug pattern="REDOS"/>
+    </Match>
+    <Match>
+        <Class name="org.unreal.modelrouter.config.core.helper.ConfigValidatorHelper"/>
+        <Bug pattern="REDOS"/>
+    </Match>
+
     <!-- 排除可预测随机数警告 - 负载均衡不需要加密级别的随机性 -->
     <Match>
         <Class name="org.unreal.modelrouter.router.loadbalancer.impl.RandomLoadBalancer"/>

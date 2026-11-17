@@ -293,16 +293,18 @@ async function runImport() {
 
 async function copyOne(password: string) {
   const ok = await copyToClipboard(password)
-  ok ? ElMessage.success('已复制') : ElMessage.warning('复制失败，请手动选中复制')
+  if (ok) ElMessage.success('已复制')
+  else ElMessage.warning('复制失败，请手动选中复制')
 }
 
 async function copyAll() {
   const text = results.value
     .filter(r => r.ok)
-    .map(r => `${r.username}  ${r.password}  (${r.role}${r.department ? ' / ' + r.department : ''}${r.name ? ' / ' + r.name : ''})`)
+    .map(r => `${r.username}  ${r.password}  (${r.role}${r.department ? ` / ${  r.department}` : ''}${r.name ? ` / ${  r.name}` : ''})`)
     .join('\n')
   const ok = await copyToClipboard(text)
-  ok ? ElMessage.success(`已复制 ${successCount.value} 个账号的初始密码`) : ElMessage.warning('复制失败')
+  if (ok) ElMessage.success(`已复制 ${successCount.value} 个账号的初始密码`)
+  else ElMessage.warning('复制失败')
 }
 
 function downloadCsv() {
@@ -312,7 +314,7 @@ function downloadCsv() {
     const esc = (s: string) => `"${(s || '').replace(/"/g, '""')}"`
     lines.push([r.username, esc(r.name), esc(r.department), r.role, r.password].join(','))
   }
-  const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+  const blob = new Blob([`\ufeff${  lines.join('\n')}`], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

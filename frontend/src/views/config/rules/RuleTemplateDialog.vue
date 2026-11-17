@@ -55,7 +55,7 @@ const loadTemplates = async () => {
   try {
     const res = await getRuleTemplates()
     templates.value = res.data?.data || []
-  } catch (e) {
+  } catch (_e) {
     ElMessage.error(t('rule.template.fetchListFailed'))
   }
 }
@@ -72,7 +72,7 @@ const handleNext = async () => {
       selectedId.value = ''
       emit('created', draft)
     }
-  } catch (e) {
+  } catch (_e) {
     ElMessage.error(t('rule.template.createFailed'))
   } finally {
     creating.value = false

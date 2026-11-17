@@ -256,7 +256,7 @@ import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { ElMessage } from 'element-plus'
-import { Refresh, RefreshRight, Switch, Upload, View, SuccessFilled, CircleCloseFilled } from '@element-plus/icons-vue'
+import { Refresh, RefreshRight, Switch, Upload, View, SuccessFilled as _SuccessFilled, CircleCloseFilled as _CircleCloseFilled } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 
@@ -269,7 +269,7 @@ interface TierHealth {
   message?: string
 }
 
-interface PersistenceStatus {
+interface _PersistenceStatus {
   currentTier: string
   tierHealth: {
     redis?: TierHealth

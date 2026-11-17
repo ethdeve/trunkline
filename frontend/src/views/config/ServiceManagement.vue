@@ -26,7 +26,7 @@
         size="default"
         class="search-input"
         @clear="handleSearchClear"
-        @keyup.enter.native="applySearch"
+        @keyup.enter="applySearch"
       >
         <template #prefix>
           <el-icon><Search /></el-icon>
@@ -365,7 +365,7 @@ import { confirmDanger } from '@/utils/dangerConfirm'
 import { SERVICE_TYPE_LABELS, COMMON_SERVICE_TYPES } from '@/constants/serviceTypes'
 import type { FormInstance, FormRules } from 'element-plus'
 import { 
-  getServiceTypes, 
+  getServiceTypes as _getServiceTypes, 
   getAllServicesWithConfig, // 添加新导入
   getServiceConfig, 
   createService, 

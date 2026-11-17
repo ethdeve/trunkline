@@ -36,7 +36,7 @@ const userStore = useUserStore()
 const deployment = useDeploymentStore()
 const enterprise = useEnterpriseStore()
 const tenant = useTenantStore()
-const { hasPermission, filterMenuByPermission, filterMenuByFeature } = usePermission()
+const { hasPermission: _hasPermission, filterMenuByPermission, filterMenuByFeature } = usePermission()
 const { isDark, toggleTheme } = useTheme()
 const { locale: appLocale, setLocale } = useLocale()
 
@@ -103,7 +103,7 @@ const currentPageTitle = computed(() => tr((route.meta.title as string) || ''))
 const activePath = computed(() => {
   const all = filteredGroups.value.flatMap(g => g.children)
   const exact = all.find(c => c.path === route.path)
-  return exact ? exact.path : '/' + (route.path.split('/')[1] || 'my-quota')
+  return exact ? exact.path : `/${  route.path.split('/')[1] || 'my-quota'}`
 })
 const activeGroup = computed(() => filteredGroups.value.find(g => g.children.some(c => c.path === activePath.value)))
 

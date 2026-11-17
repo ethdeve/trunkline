@@ -239,7 +239,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed as _computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Setting, Microphone, Download, Delete, Loading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -255,7 +255,7 @@ interface Props {
   loading: boolean
 }
 
-const props = defineProps<Props>()
+const _props = defineProps<Props>()
 
 // 状态
 const showConfig = ref(false)

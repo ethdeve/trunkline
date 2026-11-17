@@ -310,7 +310,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, nextTick, watch, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick, watch as _watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import echarts from '@/utils/echarts'
@@ -321,7 +321,7 @@ import {
 } from '@element-plus/icons-vue'
 import {
   getTracingOverview,
-  getTracingStats,
+  getTracingStats as _getTracingStats,
   getServiceStats,
   getTracingStatus,
   getLatencyAnalysis,
@@ -907,7 +907,6 @@ onBeforeUnmount(() => {
   if (latencyTrendEcharts) latencyTrendEcharts.dispose()
   if (errorTrendEcharts) errorTrendEcharts.dispose()
   if (throughputEcharts) throughputEcharts.dispose()
-  // @ts-ignore - Vue template ref causes type conflict
   if (throughputDistEcharts) throughputDistEcharts.dispose()
 })
 </script>

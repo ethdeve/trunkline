@@ -295,7 +295,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick as _nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { confirmDanger } from '@/utils/dangerConfirm'
 import { useI18n } from 'vue-i18n'
@@ -305,7 +305,7 @@ import echarts from '@/utils/echarts'
 import {
   queryAuditEventsAdvanced,
   generateSecurityReport,
-  getExtendedAuditStatistics,
+  getExtendedAuditStatistics as _getExtendedAuditStatistics,
   type AuditEvent,
   type ExtendedAuditQueryResponse,
   type SecurityReport
@@ -649,7 +649,7 @@ const updateEventTypeChart = (data: Record<string, number>) => {
   }
   
   const chartData = Object.entries(data || {}).map(([name, value]) => ({ name, value }))
-  const theme = getChartTheme()
+  const _theme = getChartTheme()
   
   eventTypeChart.setOption({
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },

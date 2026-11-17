@@ -128,7 +128,7 @@ const grandTotal = computed(() => Number(bills.value.totalAmount || 0))
  * 第 0 列是「日期」，中间是各虚拟模型列，最后一列是「当日合计」。
  * 合计行给「日期」列写「本月合计」，各模型列写该模型的月合计，末列写总额。</p>
  */
-const summaryMethod = ({ columns, data }: { columns: any[]; data: any[] }) => {
+const summaryMethod = ({ columns, data: _data }: { columns: any[]; data: any[] }) => {
   return columns.map((col, index) => {
     if (index === 0) return t('v.mb.t015')
     if (index === columns.length - 1) return money(grandTotal.value)

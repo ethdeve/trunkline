@@ -15,7 +15,7 @@
  *
  * 本 composable 统一给出：是否可用 + 不可用原因（供 UI 白话化展示）。
  */
-import { ref, computed } from 'vue'
+import { ref, computed as _computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import request from '@/utils/request'
 

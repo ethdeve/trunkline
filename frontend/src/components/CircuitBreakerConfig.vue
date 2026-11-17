@@ -130,7 +130,7 @@ const handleSave = async () => {
     }
     emit('save', result)
     dialogVisible.value = false
-  } catch (error) {
+  } catch (_error) {
     ElMessage.error(t('circuitBreakerConfig.messages.saveFailed'))
   } finally {
     loading.value = false

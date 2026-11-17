@@ -10,7 +10,7 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
       - REDIS_HOST=redis-prod
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set (>=32 characters) - see README}
       - JWT_EXPIRATION_MINUTES=${JWT_EXPIRATION_MINUTES:-15}
       - JWT_REFRESH_EXPIRATION_DAYS=${JWT_REFRESH_EXPIRATION_DAYS:-30}
@@ -61,9 +61,9 @@ services:
     image: redis:7-alpine
     container_name: trunkline-redis-prod
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
     command: >
       sh -c "
         redis-server /usr/local/etc/redis/redis.conf --requirepass $$REDIS_PASSWORD
@@ -75,7 +75,7 @@ services:
     networks:
       - trunkline-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -99,13 +99,15 @@ services:
   redis-sentinel-1:
     image: redis:7-alpine
     container_name: redis-sentinel-1
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
     ports:
-      - "26379:26379"
+      - "127.0.0.1:26379:26379"
     command: >
       sh -c "
         echo 'port 26379' > /tmp/sentinel.conf &&
         echo 'sentinel monitor mymaster redis-prod 6379 2' >> /tmp/sentinel.conf &&
-        echo 'sentinel auth-pass mymaster ${REDIS_PASSWORD}' >> /tmp/sentinel.conf &&
+        echo 'sentinel auth-pass mymaster $$REDIS_PASSWORD' >> /tmp/sentinel.conf &&
         echo 'sentinel down-after-milliseconds mymaster 5000' >> /tmp/sentinel.conf &&
         echo 'sentinel failover-timeout mymaster 10000' >> /tmp/sentinel.conf &&
         echo 'sentinel parallel-syncs mymaster 1' >> /tmp/sentinel.conf &&
@@ -121,13 +123,15 @@ services:
   redis-sentinel-2:
     image: redis:7-alpine
     container_name: redis-sentinel-2
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
     ports:
-      - "26380:26379"
+      - "127.0.0.1:26380:26379"
     command: >
       sh -c "
         echo 'port 26379' > /tmp/sentinel.conf &&
         echo 'sentinel monitor mymaster redis-prod 6379 2' >> /tmp/sentinel.conf &&
-        echo 'sentinel auth-pass mymaster ${REDIS_PASSWORD}' >> /tmp/sentinel.conf &&
+        echo 'sentinel auth-pass mymaster $$REDIS_PASSWORD' >> /tmp/sentinel.conf &&
         echo 'sentinel down-after-milliseconds mymaster 5000' >> /tmp/sentinel.conf &&
         echo 'sentinel failover-timeout mymaster 10000' >> /tmp/sentinel.conf &&
         echo 'sentinel parallel-syncs mymaster 1' >> /tmp/sentinel.conf &&
@@ -143,13 +147,15 @@ services:
   redis-sentinel-3:
     image: redis:7-alpine
     container_name: redis-sentinel-3
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
     ports:
-      - "26381:26379"
+      - "127.0.0.1:26381:26379"
     command: >
       sh -c "
         echo 'port 26379' > /tmp/sentinel.conf &&
         echo 'sentinel monitor mymaster redis-prod 6379 2' >> /tmp/sentinel.conf &&
-        echo 'sentinel auth-pass mymaster ${REDIS_PASSWORD}' >> /tmp/sentinel.conf &&
+        echo 'sentinel auth-pass mymaster $$REDIS_PASSWORD' >> /tmp/sentinel.conf &&
         echo 'sentinel down-after-milliseconds mymaster 5000' >> /tmp/sentinel.conf &&
         echo 'sentinel failover-timeout mymaster 10000' >> /tmp/sentinel.conf &&
         echo 'sentinel parallel-syncs mymaster 1' >> /tmp/sentinel.conf &&

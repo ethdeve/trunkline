@@ -37,6 +37,14 @@ export interface EnterpriseFeatures {
   tenantManagement?: boolean
   /** B6：安全态势中心（一屏态势 + 风险处置闭环） */
   securityDashboard?: boolean
+  /** B1：审计哈希链 / 合规证据包 / B7 WORM 归档 */
+  auditChain?: boolean
+  /** B2：出站内容 DLP */
+  dlp?: boolean
+  /** B3：KMS 信封加密 */
+  kms?: boolean
+  /** M4：Agent 工具网关治理 */
+  agentGateway?: boolean
   /** 预留：企业版可注入任意扩展能力键 */
   [key: string]: unknown
 }
@@ -49,6 +57,10 @@ export type EnterpriseFeatureKey =
   | 'billing'
   | 'tenantManagement'
   | 'securityDashboard'
+  | 'auditChain'
+  | 'dlp'
+  | 'kms'
+  | 'agentGateway'
 
 /**
  * 菜单 MenuItem.feature 字段值 → 后端功能位键 的映射。
@@ -62,7 +74,11 @@ export const MENU_FEATURE_TO_KEY: Record<string, EnterpriseFeatureKey> = {
   moderation: 'moderation',
   billing: 'billing',
   'tenant-management': 'tenantManagement',
-  'security-dashboard': 'securityDashboard'
+  'security-dashboard': 'securityDashboard',
+  'audit-chain': 'auditChain',
+  dlp: 'dlp',
+  kms: 'kms',
+  'agent-gateway': 'agentGateway'
 }
 
 /**

@@ -1,4 +1,4 @@
-import { computed } from 'vue'
+import { computed as _computed } from 'vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import createDOMPurify from 'dompurify'

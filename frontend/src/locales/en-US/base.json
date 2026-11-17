@@ -21,7 +21,9 @@
     "createTime": "Create Time",
     "updateTime": "Update Time",
     "enabled": "Enabled",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "yes": "Yes",
+    "no": "No"
   },
   "layout": {
     "home": "Home",

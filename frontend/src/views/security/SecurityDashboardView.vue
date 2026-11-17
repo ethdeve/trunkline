@@ -57,7 +57,7 @@ const load = async (): Promise<void> => {
   try {
     data.value = await getSecurityDashboard()
     lastUpdated.value = new Date().toLocaleTimeString()
-  } catch (error) {
+  } catch (_error) {
     // 保留上一次成功快照，避免刷新抖动把整屏清空
     ElMessage.error(t('settings.securityDashboard.loadFailed'))
   } finally {

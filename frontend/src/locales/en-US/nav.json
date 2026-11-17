@@ -69,6 +69,14 @@
       "title": "Global Config",
       "subtitle": "Gateway-wide defaults, overridable per model"
     },
+    "tenants": {
+      "title": "Tenants",
+      "subtitle": "Create and disable tenants, verify data isolation"
+    },
+    "enterpriseAdmin": {
+      "title": "Enterprise Admin",
+      "subtitle": "License / reconciliation / Agent tools / security controls"
+    },
     "pages": {
       "modelCategories": "Model Categories",
       "quickStartWizard": "Quick Integration",
