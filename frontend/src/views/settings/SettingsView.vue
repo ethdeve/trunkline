@@ -36,6 +36,10 @@ import ReconciliationView from '@/views/settings/ReconciliationView.vue'
 import AgentToolsView from '@/views/settings/AgentToolsView.vue'
 import GuardrailsView from '@/views/settings/GuardrailsView.vue'
 import AlertChannelsView from '@/views/settings/AlertChannelsView.vue'
+import PromptTemplatesView from '@/views/settings/PromptTemplatesView.vue'
+import AdapterLifecycleView from '@/views/settings/AdapterLifecycleView.vue'
+import KeyApprovalView from '@/views/settings/KeyApprovalView.vue'
+import GroupRoleMappingView from '@/views/settings/GroupRoleMappingView.vue'
 import ProviderTemplateManagement from '@/views/settings/ProviderTemplateManagement.vue'
 import ServiceManagement from '@/views/config/ServiceManagement.vue'
 import AdapterManagement from '@/views/config/AdapterManagement.vue'
@@ -43,9 +47,12 @@ import AdapterManagement from '@/views/config/AdapterManagement.vue'
 type GroupKey = 'access' | 'modelConfig' | 'auditVersions' | 'monitoring' | 'tenants' | 'enterprise'
 type SubKey =
   | 'accounts'
+  | 'groupRoles'
   | 'providerTemplates'
   | 'modelCategories'
   | 'protocolAdapters'
+  | 'promptTemplates'
+  | 'adapterLifecycle'
   | 'audit'
   | 'versions'
   | 'evidence'
@@ -59,15 +66,16 @@ type SubKey =
   | 'agentTools'
   | 'guardrails'
   | 'alertChannels'
+  | 'keyApproval'
 
 /** 分组 → 子页签（顺序即展示顺序；企业块各自按功能位在组件内门控） */
 const GROUPS: { key: GroupKey; sub: SubKey[] }[] = [
-  { key: 'access', sub: ['accounts'] },
-  { key: 'modelConfig', sub: ['providerTemplates', 'modelCategories', 'protocolAdapters'] },
+  { key: 'access', sub: ['accounts', 'groupRoles'] },
+  { key: 'modelConfig', sub: ['providerTemplates', 'modelCategories', 'protocolAdapters', 'promptTemplates', 'adapterLifecycle'] },
   { key: 'auditVersions', sub: ['audit', 'versions', 'evidence', 'archive', 'securityReport'] },
   { key: 'monitoring', sub: ['persistence', 'securityDashboard'] },
   { key: 'tenants', sub: ['tenants'] },
-  { key: 'enterprise', sub: ['license', 'reconciliation', 'agentTools', 'guardrails', 'alertChannels'] }
+  { key: 'enterprise', sub: ['license', 'reconciliation', 'agentTools', 'guardrails', 'alertChannels', 'keyApproval'] }
 ]
 
 /** 路由路径 → 分组（与 router 里各 settings 路由一一对应） */
@@ -83,9 +91,12 @@ const GROUP_BY_PATH: Record<string, GroupKey> = {
 /** 子页签 → 组件 */
 const SUB_COMPONENTS: Record<SubKey, Component> = {
   accounts: JwtAccountManagement,
+  groupRoles: GroupRoleMappingView,
   providerTemplates: ProviderTemplateManagement,
   modelCategories: ServiceManagement,
   protocolAdapters: AdapterManagement,
+  promptTemplates: PromptTemplatesView,
+  adapterLifecycle: AdapterLifecycleView,
   audit: AuditLogManagement,
   versions: VersionManagement,
   evidence: ComplianceEvidenceView,
@@ -98,7 +109,8 @@ const SUB_COMPONENTS: Record<SubKey, Component> = {
   reconciliation: ReconciliationView,
   agentTools: AgentToolsView,
   guardrails: GuardrailsView,
-  alertChannels: AlertChannelsView
+  alertChannels: AlertChannelsView,
+  keyApproval: KeyApprovalView
 }
 
 /** 子页签顶部说明（人话一句话，告诉用户这页管什么、什么时候需要管） */
@@ -114,7 +126,11 @@ const SUB_ALERTS: Partial<Record<SubKey, string>> = {
   reconciliation: 'settings.enterpriseAlert.reconciliation',
   agentTools: 'settings.enterpriseAlert.agentTools',
   guardrails: 'settings.enterpriseAlert.guardrails',
-  alertChannels: 'settings.enterpriseAlert.alertChannels'
+  alertChannels: 'settings.enterpriseAlert.alertChannels',
+  keyApproval: 'settings.enterpriseAlert.keyApproval',
+  groupRoles: 'settings.enterpriseAlert.groupRoles',
+  promptTemplates: 'settings.enterpriseAlert.promptTemplates',
+  adapterLifecycle: 'settings.enterpriseAlert.adapterLifecycle'
 }
 
 // 壳层规范：内部收编组件的 PageSkeleton 进入嵌入模式（隐藏自带标题，统一由 PageHeader 承担）

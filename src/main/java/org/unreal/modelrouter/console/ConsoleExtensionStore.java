@@ -63,7 +63,7 @@ public class ConsoleExtensionStore {
      * @return true 表示新增，false 表示覆盖
      */
     public boolean upsert(final String configKey, final String idField, final Map<String, Object> item) {
-        final Object[] added = {false};
+        final boolean[] added = {false};
         storeManager.mutateConfig(configKey, current -> {
             final Map<String, Object> config = current == null ? new LinkedHashMap<>() : current;
             final List<Map<String, Object>> items = new ArrayList<>(listFrom(config));

@@ -18,7 +18,11 @@
       "agentTools": "Agent Tools",
       "guardrails": "Security Controls",
       "securityReport": "Security Report",
-      "alertChannels": "Alert Channels"
+      "alertChannels": "Alert Channels",
+      "groupRoles": "Groups & Roles",
+      "promptTemplates": "Prompt Templates",
+      "adapterLifecycle": "Adapter Lifecycle",
+      "keyApproval": "Key Approvals"
     },
     "monitoring": {
       "securityDashboardAlert": "One-screen view of security events and open risks. Resolutions are written to the audit hash chain; enterprise compliance package only",
@@ -72,7 +76,11 @@
       "reconciliation": "Billing differences are reported, never auto-corrected; resolution only moves OPEN to RESOLVED and the operator is recorded server-side",
       "agentTools": "Register tool metadata, toggle availability and tenant grants; the gateway governs tools but never executes them",
       "guardrails": "Runtime state and rule testing for DLP / KMS / moderation; state and tests never expose source text or key material",
-      "alertChannels": "Configure alert channel metadata and severities; delivery is handled by deployment sinks."
+      "alertChannels": "Configure alert channel metadata and severities; delivery is handled by deployment sinks.",
+      "groupRoles": "Register stable department IDs and department-to-role allowlists. Only allowlisted roles can be assigned; IdP role pass-through is forbidden.",
+      "promptTemplates": "Maintain prompt templates, view version history and preview compositions. Composition only produces text and does not affect runtime routing.",
+      "adapterLifecycle": "Register adapter online/gray state and rollout percentage. Actual routing is driven by the strategy engine consuming these flags.",
+      "keyApproval": "Review and decide key requests. After approval an administrator issues the real key via the existing key creation flow."
     },
     "tenantManagement": {
       "locked": "Tenant management is not unlocked by the current license (enterprise edition)",
@@ -361,6 +369,81 @@
       "deleteConfirm": "Delete channel {name}? This cannot be undone.",
       "reachable": "Reachable",
       "sinkOnly": "Handled by external sink"
+    },
+    "promptTemplates": {
+      "tip": "Maintain prompt templates, view version history and preview compositions. Saving the same id keeps the old version. Composition only produces text and does not affect routing.",
+      "title": "Prompt Templates",
+      "create": "Add template",
+      "edit": "Edit",
+      "delete": "Delete",
+      "history": "Version history",
+      "name": "Name",
+      "nameRequired": "Name is required",
+      "id": "Template ID",
+      "content": "Content",
+      "versions": "Versions",
+      "noVersions": "No history versions",
+      "empty": "No templates yet. Click Add template to start.",
+      "saved": "Saved",
+      "saveFailed": "Failed to save",
+      "loadFailed": "Failed to load",
+      "actionFailed": "Action failed",
+      "deleteConfirm": "Delete template {name}?",
+      "composeTitle": "Composition preview",
+      "composePlaceholder": "Select templates in order",
+      "compose": "Generate preview",
+      "action": "Action"
+    },
+    "adapterLifecycle": {
+      "tip": "Register adapter online/gray state, rollout percentage and target version. Only metadata is maintained here; actual routing is driven by the strategy engine.",
+      "title": "Adapter Lifecycle",
+      "adapter": "Adapter",
+      "online": "Online",
+      "gray": "Gray",
+      "grayPercent": "Rollout %",
+      "rolloutVersion": "Rollout version",
+      "versionPlaceholder": "e.g. v2",
+      "empty": "No adapters",
+      "loadFailed": "Failed to load",
+      "actionFailed": "Action failed"
+    },
+    "keyApproval": {
+      "tip": "Review and decide key requests submitted by staff. After approval an administrator issues the real key via the existing Create Key flow. Virtual/masked key support is already available in OSS.",
+      "title": "Key Approvals",
+      "all": "All",
+      "pending": "Pending",
+      "applicant": "Applicant",
+      "purpose": "Purpose",
+      "permissions": "Desired permissions",
+      "status": "Status",
+      "decidedBy": "Decided by",
+      "action": "Action",
+      "approve": "Approve",
+      "reject": "Reject",
+      "decided": "Decided",
+      "allStatus": "PENDING / APPROVED / REJECTED",
+      "status_pending": "Pending",
+      "status_approved": "Approved",
+      "status_rejected": "Rejected",
+      "empty": "No requests",
+      "loadFailed": "Failed to load",
+      "actionFailed": "Action failed"
+    },
+    "groupRole": {
+      "tip": "Register stable department IDs and configure an allowed-role allowlist per department. Account role assignment only picks allowlisted roles; IdP role pass-through is forbidden.",
+      "deptTitle": "Stable Department Registry",
+      "addDept": "Register",
+      "namePlaceholder": "Department name",
+      "nameRequired": "Name is required",
+      "deptId": "Dept ID",
+      "deptName": "Department",
+      "roles": "Allowed roles",
+      "rolesPlaceholder": "Select role allowlist",
+      "action": "Action",
+      "clear": "Clear",
+      "empty": "No departments yet. Register one to start.",
+      "loadFailed": "Failed to load",
+      "actionFailed": "Action failed"
     }
   }
 }

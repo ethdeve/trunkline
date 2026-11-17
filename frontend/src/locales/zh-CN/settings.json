@@ -18,7 +18,11 @@
       "agentTools": "Agent 工具",
       "guardrails": "安全能力",
       "securityReport": "安全报告",
-      "alertChannels": "告警渠道"
+      "alertChannels": "告警渠道",
+      "groupRoles": "组与角色",
+      "promptTemplates": "提示词模板",
+      "adapterLifecycle": "适配器生命周期",
+      "keyApproval": "密钥审批"
     },
     "monitoring": {
       "securityDashboardAlert": "一屏查看安全事件与待处理风险；风险处置会写入审计哈希链，仅企业合规包可用",
@@ -72,7 +76,11 @@
       "reconciliation": "上游记账差异只报告不修账；处置仅允许 OPEN 转 RESOLVED，操作人由服务端记录",
       "agentTools": "登记工具元数据、启停与租户授权；网关只治理工具，不执行工具",
       "guardrails": "DLP / KMS / 内容审核的运行态与规则试检；状态与试检均不回显原文和密钥",
-      "alertChannels": "配置告警外发渠道的元数据与启用级别；实际外发由部署方 Sink 承担。"
+      "alertChannels": "配置告警外发渠道的元数据与启用级别；实际外发由部署方 Sink 承担。",
+      "groupRoles": "登记稳定部门 ID 与部门→角色白名单，分配角色仅限白名单内，禁止 IdP 角色透传。",
+      "promptTemplates": "维护提示词模板、查看版本历史并按需编排预览；编排只生成文本，不参与运行时路由。",
+      "adapterLifecycle": "登记适配器的上线/灰度状态与灰度比例；实际路由命中由策略编排层消费这些标记。",
+      "keyApproval": "查看密钥申请单并审批；审批通过后由管理员走既有密钥创建流程颁发。"
     },
     "tenantManagement": {
       "locked": "当前许可证未解锁租户管理（企业版）",
@@ -361,6 +369,81 @@
       "deleteConfirm": "确定删除渠道「{name}」？该操作不可撤销。",
       "reachable": "可达",
       "sinkOnly": "已交由外部 Sink 处理"
+    },
+    "promptTemplates": {
+      "tip": "维护提示词模板、查看版本历史并按需编排预览。每次保存同 id 模板会保留旧版本；编排只生成文本，不参与运行时路由。",
+      "title": "提示词模板",
+      "create": "新增模板",
+      "edit": "编辑",
+      "delete": "删除",
+      "history": "版本历史",
+      "name": "名称",
+      "nameRequired": "请填写模板名称",
+      "id": "模板 ID",
+      "content": "内容",
+      "versions": "版本数",
+      "noVersions": "暂无历史版本",
+      "empty": "暂无模板，点击「新增模板」开始",
+      "saved": "已保存",
+      "saveFailed": "保存失败",
+      "loadFailed": "加载失败",
+      "actionFailed": "操作失败",
+      "deleteConfirm": "确定删除模板「{name}」？",
+      "composeTitle": "编排预览",
+      "composePlaceholder": "按顺序选择模板",
+      "compose": "生成预览",
+      "action": "操作"
+    },
+    "adapterLifecycle": {
+      "tip": "登记适配器的上线/灰度状态、灰度比例与目标版本。这里只维护生命周期元数据，实际路由命中由策略编排层消费这些标记。",
+      "title": "适配器生命周期",
+      "adapter": "适配器",
+      "online": "上线",
+      "gray": "灰度",
+      "grayPercent": "灰度比例",
+      "rolloutVersion": "灰度版本",
+      "versionPlaceholder": "如 v2",
+      "empty": "暂无适配器",
+      "loadFailed": "加载失败",
+      "actionFailed": "操作失败"
+    },
+    "keyApproval": {
+      "tip": "查看员工提交的密钥申请单并审批。审批通过后，由管理员走既有「创建密钥」流程颁发真实密钥；虚拟/脱敏密钥机制 OSS 早已落地。",
+      "title": "密钥审批",
+      "all": "全部",
+      "pending": "待审批",
+      "applicant": "申请人",
+      "purpose": "用途",
+      "permissions": "期望权限",
+      "status": "状态",
+      "decidedBy": "审批人",
+      "action": "操作",
+      "approve": "通过",
+      "reject": "拒绝",
+      "decided": "已审批",
+      "allStatus": "PENDING 待审批 / APPROVED 通过 / REJECTED 拒绝",
+      "status_pending": "待审批",
+      "status_approved": "已通过",
+      "status_rejected": "已拒绝",
+      "empty": "暂无申请单",
+      "loadFailed": "加载失败",
+      "actionFailed": "操作失败"
+    },
+    "groupRole": {
+      "tip": "登记稳定部门 ID 并为每个部门配置允许的角色白名单。账号分配角色时只取白名单内角色，禁止 IdP 角色透传（成本归因与部门预算的稳定 deptId 前置）。",
+      "deptTitle": "稳定部门注册表",
+      "addDept": "登记部门",
+      "namePlaceholder": "输入部门名",
+      "nameRequired": "请填写部门名",
+      "deptId": "部门 ID",
+      "deptName": "部门名称",
+      "roles": "允许角色",
+      "rolesPlaceholder": "选择角色白名单",
+      "action": "操作",
+      "clear": "清除映射",
+      "empty": "暂无部门，先登记一个部门",
+      "loadFailed": "加载失败",
+      "actionFailed": "操作失败"
     }
   }
 }
