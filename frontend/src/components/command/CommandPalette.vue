@@ -16,6 +16,7 @@ import { usePermission } from '@/composables/usePermission'
 import { useTheme } from '@/composables/useTheme'
 import { useDensity } from '@/composables/useDensity'
 import { useUserStore } from '@/stores/user'
+import { useEnterpriseStore } from '@/stores/enterprise'
 
 const RECENTS_KEY = 'console-recent-routes'
 const MAX_RECENTS = 5
@@ -25,6 +26,15 @@ const router = useRouter()
 const { t } = useI18n()
 const { hasPermission } = usePermission()
 const userStore = useUserStore()
+const enterprise = useEnterpriseStore()
+
+/**
+ * 企业版专属菜单在社区版命令面板里也必须彻底不可见。
+ * 侧边栏走 filterEnterpriseOnly，命令面板是另一条独立入口（Cmd/Ctrl+K），
+ * 这里补同一口径的 edition 过滤，防「菜单藏了但命令面板还搜得到」的绕过。
+ */
+const visibleByEdition = (item: MenuItem): boolean =>
+  enterprise.enterpriseEdition || !item.enterpriseOnly
 
 interface Command {
   key: string
@@ -41,7 +51,7 @@ const inputRef = ref<HTMLInputElement>()
 /* ---------- 候补构建 ---------- */
 const menuCommands = computed<Command[]>(() =>
   flattenMenuItems()
-    .filter(item => hasPermission(item.permission))
+    .filter(item => hasPermission(item.permission) && visibleByEdition(item))
     .map((item: MenuItem) => ({
       key: `menu:${item.path}`,
       title: renderTitle(item.title),
@@ -64,7 +74,7 @@ const recentCommands = computed<Command[]>(() => {
       .slice(0, MAX_RECENTS)
       .map((path): Command | null => {
         const item = flattenMenuItems().find(m => m.path === path)
-        return item
+        return item && visibleByEdition(item)
           ? {
               key: `recent:${path}`,
               title: renderTitle(item.title),

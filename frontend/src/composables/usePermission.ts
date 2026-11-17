@@ -88,9 +88,33 @@ export function usePermission() {
     }))
   }
 
+  /**
+   * 按部署形态移除「企业版专属」菜单项（与功能位锁定的灰态可见语义不同）。
+   *
+   * 带 `enterpriseOnly` 的项只随企业版 jar 交付，社区版后端没有对应端点——显示灰态锁
+   * 只会误导用户以为购买即可解锁。因此社区版（edition !== 'enterprise'）直接整项移除。
+   * 企业版原样保留，随后仍走 filterMenuByFeature 打功能位锁。
+   *
+   * 应在 filterMenuByPermission 之后、filterMenuByFeature 之前调用。
+   * 组内被清空则该组一并隐藏（与权限过滤同口径）。
+   *
+   * @param groups 经 filterMenuByPermission 过滤后的菜单
+   * @returns 社区版已移除 enterpriseOnly 项的菜单（不修改入参）
+   */
+  const filterEnterpriseOnly = (groups: MenuGroup[]): MenuGroup[] => {
+    if (enterprise.enterpriseEdition) return groups
+    return groups
+      .map(group => ({
+        ...group,
+        children: group.children.filter(item => !item.enterpriseOnly)
+      }))
+      .filter(group => group.children.length > 0)
+  }
+
   return {
     hasPermission,
     filterMenuByPermission,
+    filterEnterpriseOnly,
     filterMenuByFeature
   }
 }

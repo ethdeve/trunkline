@@ -444,6 +444,9 @@
       "empty": "No departments yet. Register one to start.",
       "loadFailed": "Failed to load",
       "actionFailed": "Action failed"
+    },
+    "enterprise": {
+      "moduleUnavailable": "Enterprise module failed to load. Verify the enterprise edition is installed."
     }
   }
 }

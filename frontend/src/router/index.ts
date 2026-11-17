@@ -11,7 +11,8 @@
 import { watch } from 'vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { menuGroups, flattenMenuItems, type LogicalRole } from '@/config/menu'
+import { useEnterpriseStore } from '@/stores/enterprise'
+import { menuGroups, flattenMenuItems, ENTERPRISE_ONLY_PATHS, type LogicalRole } from '@/config/menu'
 import { i18n } from '@/i18n'
 import { probeSetupGate } from '@/api/setup'
 import ConsoleLayout from '@/layouts/ConsoleLayout.vue'
@@ -403,6 +404,18 @@ router.beforeEach(async (to) => {
   if (token && isTokenExpired(token)) {
     userStore.clearToken()
     return { name: 'login' }
+  }
+
+  // 【企业版专属路由拦截】租户管理 / 企业管理只随企业版交付，社区版后端无对应端点。
+  // 菜单已由 filterEnterpriseOnly 整项移除；这里兜住手输 URL / 旧书签 / 命令面板直跳，
+  // 避免绕过菜单隐藏进入一个全是锁定态的空壳页。功能位探测幂等（已加载直接复用）。
+  // 注意：探测失败按「社区版」fail-closed 拦截（误拦比误显未授权企业页更安全）。
+  if (ENTERPRISE_ONLY_PATHS.includes(to.path)) {
+    const enterprise = useEnterpriseStore()
+    await enterprise.ensureLoaded()
+    if (!enterprise.enterpriseEdition) {
+      return { name: 'my-quota' }
+    }
   }
 
   // 菜单项权威可见性（含 roles 逻辑角色）：菜单项存在时以菜单配置为准

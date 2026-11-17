@@ -444,6 +444,9 @@
       "empty": "暂无部门，先登记一个部门",
       "loadFailed": "加载失败",
       "actionFailed": "操作失败"
+    },
+    "enterprise": {
+      "moduleUnavailable": "企业扩展模块加载失败，请确认企业版已正确安装"
     }
   }
 }

@@ -16,33 +16,32 @@
  * - 子页签状态写 URL query ?sub=，刷新/分享不丢上下文
  * - 旧深链 /settings?tab=xxx 由路由 redirect 映射到新路径（见 router/index.ts）
  */
-import { ref, computed, watch, provide, type Component } from 'vue'
+import { ref, computed, watch, provide, defineComponent, h, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
 import ClusterScopeNotice from '@/components/common/ClusterScopeNotice.vue'
-import { menuGroups } from '@/config/menu'
+import { menuGroups, ENTERPRISE_ONLY_SUBS } from '@/config/menu'
+import { useEnterpriseStore } from '@/stores/enterprise'
 import JwtAccountManagement from '@/views/security/JwtAccountManagement.vue'
 import AuditLogManagement from '@/views/security/AuditLogManagement.vue'
 import VersionManagement from '@/views/config/VersionManagement.vue'
 import StatePersistenceManagement from '@/views/config/StatePersistenceManagement.vue'
-import SecurityDashboardView from '@/views/security/SecurityDashboardView.vue'
-import TenantManagementView from '@/views/settings/TenantManagementView.vue'
-import ComplianceEvidenceView from '@/views/settings/ComplianceEvidenceView.vue'
-import ComplianceArchiveView from '@/views/settings/ComplianceArchiveView.vue'
-import SecurityReportView from '@/views/settings/SecurityReportView.vue'
-import EnterpriseLicenseView from '@/views/settings/EnterpriseLicenseView.vue'
-import ReconciliationView from '@/views/settings/ReconciliationView.vue'
-import AgentToolsView from '@/views/settings/AgentToolsView.vue'
-import GuardrailsView from '@/views/settings/GuardrailsView.vue'
-import AlertChannelsView from '@/views/settings/AlertChannelsView.vue'
-import PromptTemplatesView from '@/views/settings/PromptTemplatesView.vue'
-import AdapterLifecycleView from '@/views/settings/AdapterLifecycleView.vue'
-import KeyApprovalView from '@/views/settings/KeyApprovalView.vue'
-import GroupRoleMappingView from '@/views/settings/GroupRoleMappingView.vue'
 import ProviderTemplateManagement from '@/views/settings/ProviderTemplateManagement.vue'
 import ServiceManagement from '@/views/config/ServiceManagement.vue'
 import AdapterManagement from '@/views/config/AdapterManagement.vue'
+import EnterpriseModuleHost from '@/components/EnterpriseModuleHost.vue'
+
+/**
+ * 企业视图包装器：企业「视图内容」从企业 jar 的 module.mjs 加载（自包含子应用），
+ * OSS 侧不再持有这些视图组件源码。每个包装闭包记住自己的 page key，
+ * 由 EnterpriseModuleHost 按 page 切子应用内部页。
+ */
+const entPage = (page: string) =>
+  defineComponent({
+    name: `EnterprisePage_${page}`,
+    setup: () => () => h(EnterpriseModuleHost, { page })
+  })
 
 type GroupKey = 'access' | 'modelConfig' | 'auditVersions' | 'monitoring' | 'tenants' | 'enterprise'
 type SubKey =
@@ -88,29 +87,29 @@ const GROUP_BY_PATH: Record<string, GroupKey> = {
   '/settings/enterprise': 'enterprise'
 }
 
-/** 子页签 → 组件 */
+/** 子页签 → 组件（企业视图一律走 EnterpriseModuleHost，从企业 jar 加载） */
 const SUB_COMPONENTS: Record<SubKey, Component> = {
   accounts: JwtAccountManagement,
-  groupRoles: GroupRoleMappingView,
+  groupRoles: entPage('groupRoles'),
   providerTemplates: ProviderTemplateManagement,
   modelCategories: ServiceManagement,
   protocolAdapters: AdapterManagement,
-  promptTemplates: PromptTemplatesView,
-  adapterLifecycle: AdapterLifecycleView,
+  promptTemplates: entPage('promptTemplates'),
+  adapterLifecycle: entPage('adapterLifecycle'),
   audit: AuditLogManagement,
   versions: VersionManagement,
-  evidence: ComplianceEvidenceView,
-  archive: ComplianceArchiveView,
-  securityReport: SecurityReportView,
+  evidence: entPage('evidence'),
+  archive: entPage('archive'),
+  securityReport: entPage('securityReport'),
   persistence: StatePersistenceManagement,
-  securityDashboard: SecurityDashboardView,
-  tenants: TenantManagementView,
-  license: EnterpriseLicenseView,
-  reconciliation: ReconciliationView,
-  agentTools: AgentToolsView,
-  guardrails: GuardrailsView,
-  alertChannels: AlertChannelsView,
-  keyApproval: KeyApprovalView
+  securityDashboard: entPage('securityDashboard'),
+  tenants: entPage('tenants'),
+  license: entPage('license'),
+  reconciliation: entPage('reconciliation'),
+  agentTools: entPage('agentTools'),
+  guardrails: entPage('guardrails'),
+  alertChannels: entPage('alertChannels'),
+  keyApproval: entPage('keyApproval')
 }
 
 /** 子页签顶部说明（人话一句话，告诉用户这页管什么、什么时候需要管） */
@@ -139,12 +138,29 @@ provide('skeletonEmbedded', true)
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const enterprise = useEnterpriseStore()
 
-/** 由当前路由解析 { group, sub }：分组看路径（meta 兜底），子页签看 query.sub */
+/**
+ * 当前分组下「可见」的子页签。
+ *
+ * 社区版（edition !== 'enterprise'）移除企业版专属子页签：
+ * 合规证据（B1 哈希链）/ 合规归档（B7 WORM）/ 安全报告 / 组与角色（A5 企业身份链）/
+ * 提示词模板 / 适配器生命周期 / 安全态势（B6 企业合规包）——这些只随企业版交付，
+ * 社区版显示出来只会误导（ enterprise store 加载前默认按社区版
+ * fail-closed 隐藏，加载完成后企业版自动补回，响应式重算）。
+ */
+const visibleSubs = (group: GroupKey): SubKey[] => {
+  const subs = GROUPS.find(g => g.key === group)?.sub ?? []
+  if (enterprise.enterpriseEdition) return subs
+  return subs.filter(s => !ENTERPRISE_ONLY_SUBS.includes(s))
+}
+
+/** 由当前路由解析 { group, sub }：分组看路径（meta 兜底），子页签看 query.sub；
+ *  sub 必须是该分组当前可见子页签，否则回退到第一个（防手输 ?sub=evidence 深链绕过）*/
 const resolveCurrent = (): { group: GroupKey; sub: SubKey } => {
   const group =
     GROUP_BY_PATH[route.path] || (route.meta.defaultGroup as GroupKey | undefined) || 'access'
-  const subs = GROUPS.find(g => g.key === group)?.sub ?? ['accounts']
+  const subs = visibleSubs(group)
   const sub = subs.includes(route.query.sub as SubKey) ? (route.query.sub as SubKey) : subs[0]
   return { group, sub }
 }
@@ -153,8 +169,16 @@ const resolved = resolveCurrent()
 const activeGroup = ref<GroupKey>(resolved.group)
 const activeSub = ref<SubKey>(resolved.sub)
 
-/** 当前分组下的子页签列表 */
-const currentSubs = computed(() => GROUPS.find(g => g.key === activeGroup.value)?.sub ?? [])
+/** 当前分组下的可见子页签列表（随企业版探测结果响应式重算） */
+const currentSubs = computed(() => visibleSubs(activeGroup.value))
+
+// 功能位探测完成后，若当前 sub 在新可见列表中已不存在（如社区版曾深链到企业子页签），
+// 自动回退到第一个可见页，避免显示一个「隐藏页签的内容但页签栏看不到」的错位状态。
+watch(currentSubs, subs => {
+  if (subs.length > 0 && !subs.includes(activeSub.value)) {
+    activeSub.value = subs[0]
+  }
+})
 
 // 页头标题/副标题跟随当前菜单项（menu.ts 是唯一事实源，避免两处文案漂移）
 const currentMenuItem = computed(() => {

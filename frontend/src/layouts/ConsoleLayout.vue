@@ -36,7 +36,12 @@ const userStore = useUserStore()
 const deployment = useDeploymentStore()
 const enterprise = useEnterpriseStore()
 const tenant = useTenantStore()
-const { hasPermission: _hasPermission, filterMenuByPermission, filterMenuByFeature } = usePermission()
+const {
+  hasPermission: _hasPermission,
+  filterMenuByPermission,
+  filterEnterpriseOnly,
+  filterMenuByFeature
+} = usePermission()
 const { isDark, toggleTheme } = useTheme()
 const { locale: appLocale, setLocale } = useLocale()
 
@@ -76,9 +81,11 @@ const canViewDocs = computed(() => userStore.hasLogicalRoleOneOf(['ops', 'admin'
 const tr = (key: string) => (key.startsWith('nav.') || key.startsWith('menu.') ? t(key) : key)
 
 const filteredGroups = computed(() => {
-  // 先按角色/权限过滤，再按企业功能位打「锁定」标记（不移除，仅灰态 + 锁图标）
+  // 1) 按角色/权限过滤；2) 社区版移除「企业版专属」整项（租户管理/企业管理）；
+  // 3) 再按企业功能位打「锁定」标记（不移除，仅灰态 + 锁图标）。
   const byPermission = filterMenuByPermission(menuGroups)
-  const byFeature = filterMenuByFeature(byPermission)
+  const byEdition = filterEnterpriseOnly(byPermission)
+  const byFeature = filterMenuByFeature(byEdition)
   return byFeature.map(g => ({
     ...g,
     title: tr(g.title),

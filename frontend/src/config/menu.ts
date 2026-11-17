@@ -65,6 +65,16 @@ export interface MenuItem {
    * 不是配置字段 —— menu.ts 里不写它。渲染层据此显示锁图标 + 「商业版」徽章并拦截点击。
    */
   locked?: boolean
+  /**
+   * 企业版专属项：社区版（edition !== 'enterprise'）在菜单里【完全移除】，
+   * 不留灰态锁、不占位。与 `feature`（功能位未解锁→灰态可见）是两种不同语义：
+   * - `feature`：能力属于企业版，但未解锁时让用户「知道自己缺什么」→ 灰态锁可见；
+   * - `enterpriseOnly`：整个模块只随企业版交付，社区版压根不存在 → 彻底隐藏。
+   *
+   * 典型：租户管理、企业管理聚合页——社区版后端无对应端点，显示灰态锁只会误导。
+   * 过滤在 usePermission.filterEnterpriseOnly 完成，路由守卫用 ENTERPRISE_ONLY_PATHS 兜底。
+   */
+  enterpriseOnly?: boolean
 }
 
 export interface MenuGroup {
@@ -225,22 +235,25 @@ export const menuGroups: MenuGroup[] = [
         subtitle: 'nav.modelConfig.subtitle'
       },
       {
-        // 企业租户管理（A1-pre）：后端三端点已落，功能位未解锁时灰态锁
+        // 企业租户管理（A1-pre）：仅随企业版交付，社区版整项隐藏（后端无对应端点）。
+        // 企业版内仍按 tenant-management 功能位门控（未解锁显示灰态锁）。
         path: '/settings/tenants',
         title: 'nav.tenants.title',
         permission: 'system:accounts:manage',
         roles: ['admin'],
         feature: 'tenant-management',
+        enterpriseOnly: true,
         icon: 'office-building',
         subtitle: 'nav.tenants.subtitle'
       },
       {
         // 企业管理聚合页：许可证 / 对账 / Agent 工具 / 安全能力分块各自按功能位门控。
-        // 多能力共存，不设单一 feature；无企业 jar 时各块显示锁定态。
+        // 仅随企业版交付，社区版整项隐藏（后端无对应端点、各块锁定态只会误导）。
         path: '/settings/enterprise',
         title: 'nav.enterpriseAdmin.title',
         permission: 'system:accounts:manage',
         roles: ['admin'],
+        enterpriseOnly: true,
         icon: 'setting',
         subtitle: 'nav.enterpriseAdmin.subtitle'
       },
@@ -275,6 +288,36 @@ export const menuGroups: MenuGroup[] = [
 export function flattenMenuItems(): MenuItem[] {
   return menuGroups.flatMap(g => g.children)
 }
+
+/**
+ * 企业版专属菜单路径：社区版从菜单移除 + 路由守卫拦截（防手输 URL 绕过）。
+ * 与 menu.ts 中 `enterpriseOnly: true` 的项保持一致，由守卫与菜单过滤共同消费。
+ */
+export const ENTERPRISE_ONLY_PATHS: string[] = ['/settings/tenants', '/settings/enterprise']
+
+/**
+ * 企业版专属的「设置页」子页签：社区版从子页签栏移除。
+ *
+ * - auditVersions 组：evidence=合规证据（B1 哈希链）、archive=合规归档（B7 WORM）、
+ *   securityReport=安全报告。
+ * - access 组：groupRoles=组与角色（A5 企业身份链——稳定 deptId + 组→角色白名单，
+ *   禁止 IdP 角色透传，属企业身份治理能力，OSS 无对应交付）。
+ * - modelConfig 组：promptTemplates=提示词模板、adapterLifecycle=适配器生命周期
+ *   （后端虽落在 OSS config_data，但产品口径随企业版交付，OSS 不暴露入口）。
+ * - monitoring 组：securityDashboard=安全态势（B6 企业合规包能力）。
+ *
+ * 与 `enterpriseOnly` 菜单项同一口径：社区版压根不存在这些页，不是「未解锁的灰态锁」。
+ * 深链 ?sub=xxx 由 SettingsView.visibleSubs 回退到首个可见页签。
+ */
+export const ENTERPRISE_ONLY_SUBS: string[] = [
+  'evidence',
+  'archive',
+  'securityReport',
+  'groupRoles',
+  'promptTemplates',
+  'adapterLifecycle',
+  'securityDashboard'
+]
 
 /**
  * 取某个菜单项的副标题 i18n key（页面目标说明的单一文案源）。

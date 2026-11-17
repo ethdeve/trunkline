@@ -4,7 +4,31 @@
  */
 
 import request from '@/utils/request'
-import { enterpriseError, unwrapEnterprise } from '@/api/enterpriseShared'
+
+/** 解包裸响应（企业端点可能返回裸 List/Map 或 {data} 包裹）；内联避免依赖已迁出的 enterpriseShared。 */
+function unwrapEnterprise<T>(body: unknown): T {
+  if (body && typeof body === 'object' && 'data' in (body as Record<string, unknown>)) {
+    const inner = (body as Record<string, unknown>).data
+    if (inner !== null && typeof inner === 'object') return inner as T
+  }
+  return (body ?? {}) as T
+}
+
+/** 从 axios 错误提取后端文案。 */
+function enterpriseError(error: unknown, fallback = '请求失败'): Error {
+  if (error && typeof error === 'object') {
+    const err = error as { message?: unknown; response?: { data?: unknown } }
+    const body = err.response?.data
+    if (body && typeof body === 'object') {
+      for (const key of ['message', 'error']) {
+        const value = (body as Record<string, unknown>)[key]
+        if (typeof value === 'string' && value.length > 0) return new Error(value)
+      }
+    }
+    if (typeof err.message === 'string' && err.message.length > 0) return new Error(err.message)
+  }
+  return new Error(fallback)
+}
 
 /**
  * 租户记录（与企业端 TenantRecord 对齐；前端只取渲染所需的字段）。

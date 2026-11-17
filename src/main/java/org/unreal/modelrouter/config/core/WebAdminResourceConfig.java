@@ -22,6 +22,15 @@ public class WebAdminResourceConfig implements WebFluxConfigurer {
         log.info("配置 Web 管理界面静态资源处理器");
 
         // 配置管理界面静态资源 - 包含 index.html 和 assets
+        // 【A2 前端分离】企业自包含 UI 模块资源：企业 jar 的 static/admin/enterprise/ 位于
+        // 另一个 BOOT-INF/lib jar 内，普通 classpath:/ 只解析首个类路径位置、跨 jar 不可见。
+        // 这里用 classpath*:/ 遍历所有 classpath 条目，并**不加 SPA 回退 resolver**——
+        // 缺失资源必须真实 404（loader 据此降级 + 验收 #4 不假通过），不能回退 index.html。
+        // 必须注册在 /admin/** 之前，确保更具体的路径优先命中（不依赖映射排序猜测）。
+        registry.addResourceHandler("/admin/enterprise/**")
+                .addResourceLocations("classpath*:/static/admin/enterprise/")
+                .setCacheControl(org.springframework.http.CacheControl.noCache());
+
         registry.addResourceHandler("/admin/**")
                 .addResourceLocations("classpath:/static/admin/")
                 .setCacheControl(org.springframework.http.CacheControl.noCache())
