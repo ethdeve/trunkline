@@ -29,7 +29,7 @@
  *   <li>最近几次使用 —— {@code GET /api/call-history/mine}（服务端按当前登录用户强制过滤）</li>
  * </ul></p>
  */
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import echarts from '@/utils/echarts'
@@ -42,9 +42,17 @@ import type { ApiCallHistoryRecord } from '@/types/callHistory'
 import { employeeTerm } from '@/constants/employeeTerms'
 import { friendlyError } from '@/utils/friendlyError'
 import { useI18n } from 'vue-i18n'
+import { useEnterpriseStore } from '@/stores/enterprise'
 
 const router = useRouter()
 const { t } = useI18n()
+const enterpriseStore = useEnterpriseStore()
+
+/**
+ * 计费功能位（open-core 门控）：开（企业版）= 金额口径；
+ * 关（社区版）= Token 用量口径——无单价来源，金额展示无意义。
+ */
+const billingEnabled = computed(() => enterpriseStore.billing)
 
 /**
  * 员工侧用量单位（替代「tokens」）。
@@ -121,10 +129,16 @@ const usedPercent = computed<number | null>(() => {
   return Math.min(100, Math.round((usedTokens.value / tokenLimit.value) * 1000) / 10)
 })
 
-/** 剩余金额（¥） */
+/** 剩余金额（¥）——仅企业版金额口径使用 */
 const remainingAmount = computed<number | null>(() => {
   if (limitAmount.value === null) return null
   return Math.max(0, limitAmount.value - Number(bills.value.totalAmount || 0))
+})
+
+/** 剩余 token（社区版口径）；未设上限时为 null */
+const remainingTokens = computed<number | null>(() => {
+  if (tokenLimit.value <= 0) return null
+  return Math.max(0, tokenLimit.value - usedTokens.value)
 })
 
 /* ---------------- 统计卡 ---------------- */
@@ -151,8 +165,18 @@ const hasUnrestrictedKey = computed(() =>
   myKeys.value.some(k => !k.allowedGroups || k.allowedGroups.length === 0)
 )
 
-/** 本周最常用（按花费降序的第一个） */
+/** 本周最常用（企业版按花费降序的第一个；社区版按 Token 用量） */
 const topVirtualModel = computed(() => recent.value.byVirtualModel?.[0] || null)
+
+/** 最常用虚拟模型的占比（%）：企业版=花费占比（服务端下发）；社区版=Token 占比（前端算） */
+const topModelRatio = computed<number | null>(() => {
+  const row = topVirtualModel.value
+  if (!row) return null
+  if (billingEnabled.value) return Math.round(Number(row.amountRatio || 0) * 100)
+  const total = Number(recent.value.totalTokens || 0)
+  if (total <= 0) return null
+  return Math.round((Number(row.totalTokens || 0) / total) * 100)
+})
 
 /**
  * P1 员工侧②：「我能用的模型」区块里每个模型的一句说明。
@@ -204,6 +228,8 @@ const welcomeState = computed<WelcomeState>(() => {
  * @returns 无法估算（本月无花费/无单价）时返回 null，页面显示 token 数而非 ¥0
  */
 const callCost = (row: ApiCallHistoryRecord): number | null => {
+  // 金额是企业版口径；社区版无单价来源，恒走 token 展示分支
+  if (!billingEnabled.value) return null
   if (averagePrice.value === null) return null
   const tokens = Number(row.totalTokens || 0)
   if (tokens <= 0) return null
@@ -222,11 +248,16 @@ const renderTrendChart = () => {
   if (!el) return
   const days = [...(bills.value.byDay || [])].reverse() // 按日期升序
   trendChart = trendChart || echarts.init(el)
+  // 口径切换：企业版=每日花费（¥）；社区版=每日 Token 用量
+  const metric = (d: { amount: number; totalTokens: number }): number =>
+    billingEnabled.value ? Number(d.amount || 0) : Number(d.totalTokens || 0)
   trendChart.setOption({
     grid: { left: 48, right: 16, top: 16, bottom: 28 },
     tooltip: {
       trigger: 'axis',
-      valueFormatter: (v: number) => `¥${Number(v || 0).toFixed(2)}`
+      valueFormatter: (v: number) => billingEnabled.value
+        ? `¥${Number(v || 0).toFixed(2)}`
+        : `${formatNumber(v)} ${amountUnit}`
     },
     xAxis: {
       type: 'category',
@@ -236,7 +267,7 @@ const renderTrendChart = () => {
     },
     yAxis: {
       type: 'value',
-      name: t('v.mq.t057'),
+      name: billingEnabled.value ? t('v.mq.t057') : amountUnit,
       nameTextStyle: { color: 'var(--ja-text-secondary, #6b7d7c)', fontSize: 11 },
       splitLine: { lineStyle: { color: 'rgba(16,38,38,.06)' } },
       axisLabel: { color: 'var(--ja-text-secondary, #6b7d7c)', fontSize: 11 }
@@ -244,7 +275,7 @@ const renderTrendChart = () => {
     series: [{
       type: 'line',
       smooth: true,
-      data: days.map(d => Number(d.amount || 0)),
+      data: days.map(metric),
       lineStyle: { width: 2.5, color: 'var(--ja-primary, #176C6B)' },
       itemStyle: { color: 'var(--ja-primary, #176C6B)' },
       areaStyle: {
@@ -340,7 +371,16 @@ const callTime = (iso?: string): string => {
   return `${d.getMonth() + 1}/${d.getDate()} ${hh}:${mm}`
 }
 
-onMounted(loadAll)
+// 功能位加载完成后口径可能切换（Token ↔ 金额），曲线按新口径重绘
+watch(billingEnabled, () => {
+  void nextTick(() => renderTrendChart())
+})
+
+onMounted(() => {
+  // 拉取企业功能位（社区版接口不可用 → 静默降级为 false，整页按 Token 口径展示）
+  void enterpriseStore.ensureLoaded()
+  loadAll()
+})
 </script>
 
 <template>
@@ -351,9 +391,13 @@ onMounted(loadAll)
         <h2 class="welcome__title">
           <template v-if="welcomeState === 'noKey'">{{ t('v.mq.t001') }}</template>
           <template v-else-if="welcomeState === 'unused'">{{ t('v.mq.t002') }}</template>
-          <template v-else>
+          <template v-else-if="billingEnabled">
             {{ t('v.mq.t009') }} {{ formatAmount(bills.totalAmount) }}
             <template v-if="remainingAmount !== null">{{ t('v.mq.x001') }} {{ formatAmount(remainingAmount) }}</template>
+          </template>
+          <template v-else>
+            {{ t('v.mq.t009') }} {{ formatNumber(bills.totalTokens) }} {{ amountUnit }}
+            <template v-if="remainingTokens !== null">{{ t('v.mq.x001') }} {{ formatNumber(remainingTokens) }} {{ amountUnit }}</template>
           </template>
         </h2>
         <p class="welcome__desc">
@@ -400,11 +444,19 @@ onMounted(loadAll)
         </div>
 
         <div class="q-amount">
-          <span class="cur">¥</span>{{ formatNumber(Math.round((bills.totalAmount || 0) * 100) / 100) }}
-          <em v-if="limitAmount !== null">{{ t('v.mq.x008') }} {{ formatAmount(limitAmount) }}</em>
-          <!-- 有额度上限但本月零消耗 → 均价无法反推 → 用数量口径说清，不能写成「未设上限」 -->
-          <em v-else-if="tokenLimit > 0">{{ t('v.mq.x009') }} {{ formatNumber(tokenLimit) }} {{ amountUnit }}</em>
-          <em v-else>{{ t('v.mq.x010') }}</em>
+          <!-- 企业版=金额口径（按本月均价折算）；社区版=Token 用量口径 -->
+          <template v-if="billingEnabled">
+            <span class="cur">¥</span>{{ formatNumber(Math.round((bills.totalAmount || 0) * 100) / 100) }}
+            <em v-if="limitAmount !== null">{{ t('v.mq.x008') }} {{ formatAmount(limitAmount) }}</em>
+            <!-- 有额度上限但本月零消耗 → 均价无法反推 → 用数量口径说清，不能写成「未设上限」 -->
+            <em v-else-if="tokenLimit > 0">{{ t('v.mq.x009') }} {{ formatNumber(tokenLimit) }} {{ amountUnit }}</em>
+            <em v-else>{{ t('v.mq.x010') }}</em>
+          </template>
+          <template v-else>
+            {{ formatNumber(usedTokens) }}<span class="q-unit">{{ amountUnit }}</span>
+            <em v-if="tokenLimit > 0">{{ t('v.mq.x009') }} {{ formatNumber(tokenLimit) }} {{ amountUnit }}</em>
+            <em v-else>{{ t('v.mq.x010') }}</em>
+          </template>
         </div>
 
         <!-- 进度条只按 token 口径画：usedPercent 只依赖 tokenLimit/usedTokens，
@@ -419,12 +471,11 @@ onMounted(loadAll)
         <div class="q-meta">
           <span v-if="usedPercent !== null">
             {{ t('v.mq.t008') }} <b>{{ usedPercent }}%</b>
-            <template v-if="remainingAmount !== null"> {{ t('v.mq.x011') }} <b>{{ formatAmount(remainingAmount) }}</b></template>
+            <template v-if="billingEnabled && remainingAmount !== null"> {{ t('v.mq.x011') }} <b>{{ formatAmount(remainingAmount) }}</b></template>
+            <!-- 金额折算不出（零消耗无均价）或社区版：退回 token 口径的已用/上限 -->
+            <template v-else-if="tokenLimit > 0"> · <b>{{ formatNumber(usedTokens) }}</b> / {{ formatNumber(tokenLimit) }} {{ amountUnit }}</template>
           </span>
-          <!-- 有额度上限但金额无法折算 -->
-          <span v-else-if="tokenLimit > 0">
-            {{ t('v.mq.t009') }} <b>{{ formatNumber(usedTokens) }}</b> / {{ formatNumber(tokenLimit) }} {{ amountUnit }}
-          </span>
+          <!-- 未设上限：直接报本月用量 -->
           <span v-else>
             {{ t('v.mq.t009') }} <b>{{ formatNumber(usedTokens) }}</b> {{ amountUnit }} {{ t('v.mq.x012') }}
           </span>
@@ -499,8 +550,8 @@ onMounted(loadAll)
           <div v-if="topVirtualModel" class="stat-v stat-v--text">{{ topVirtualModel.virtualModel }}</div>
           <div v-else class="stat-v stat-v--text">—</div>
           <div class="stat-foot">
-            <template v-if="topVirtualModel">
-              {{ t('v.mq.x016') }} {{ Math.round(topVirtualModel.amountRatio * 100) }}%
+            <template v-if="topVirtualModel && topModelRatio !== null">
+              {{ billingEnabled ? t('v.mq.x016') : t('v.mq.x023') }} {{ topModelRatio }}%
             </template>
             <template v-else>{{ t('v.mq.t022') }}</template>
           </div>
@@ -554,8 +605,8 @@ onMounted(loadAll)
       <el-card shadow="never">
         <template #header>
           <div class="panel-head">
-            <span>{{ t('v.mq.t029') }}</span>
-            <span class="hint">{{ t('v.mq.t030') }}</span>
+            <span>{{ billingEnabled ? t('v.mq.t029') : t('v.mq.x024') }}</span>
+            <span class="hint">{{ billingEnabled ? t('v.mq.t030') : amountUnit }}</span>
           </div>
         </template>
         <div ref="chartEl" class="chart" />
@@ -584,12 +635,12 @@ onMounted(loadAll)
               <span v-else class="cell-none">-</span>
             </template>
           </el-table-column>
-          <!-- 花费：按本月实际均价折算，保证与顶部「本月已用」自洽 -->
-          <el-table-column :label="t('v.mq.t043')" width="110" align="right">
+          <!-- 花费列：企业版按本月均价折算；社区版直接显示 Token 用量 -->
+          <el-table-column :label="billingEnabled ? t('v.mq.t043') : t('v.mq.x018')" width="110" align="right">
             <template #default="{ row }">
               <span v-if="callCost(row) !== null" class="cost">{{ formatAmount(callCost(row)) }}</span>
               <!-- 折算不出金额时说明「这是用量不是钱」，避免 ¥0 与空值的歧义 -->
-              <span v-else class="cost cost--tokens">{{ t('v.mq.x018') }} {{ formatNumber(row.totalTokens) }}</span>
+              <span v-else class="cost cost--tokens">{{ t('v.mq.x018') }} {{ formatNumber(row.totalTokens) }} {{ amountUnit }}</span>
             </template>
           </el-table-column>
           <el-table-column :label="t('v.mq.t044')" width="72" align="center">
@@ -613,7 +664,7 @@ onMounted(loadAll)
     <!-- 申请额度弹窗 -->
     <el-dialog v-model="applyVisible" :title="t('v.mq.t010')" width="min(480px, 92vw)">
       <p class="dialog-tip">{{ t('v.mq.t035') }}</p>
-      <el-input-number v-model="applyAmount" :min="0" :step="100" :placeholder="t('v.mq.t046')" style="width:100%" />
+      <el-input-number v-model="applyAmount" :min="0" :step="billingEnabled ? 100 : 100000" :placeholder="billingEnabled ? t('v.mq.t046') : t('v.mq.x025')" style="width:100%" />
       <template #footer>
         <el-button @click="applyVisible = false">{{ t('v.mq.t036') }}</el-button>
         <el-button type="primary" @click="submitApply">{{ t('v.mq.t037') }}</el-button>
@@ -718,6 +769,14 @@ onMounted(loadAll)
 .q-amount .cur {
   font-size: 20px;
   margin-right: 2px;
+}
+
+/* 社区版 token 大数后的单位 */
+.q-unit {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--ja-text-secondary);
+  margin-left: 4px;
 }
 
 .q-amount em {

@@ -83,7 +83,10 @@
       "x018": "Tokens",
       "x019": "Called with key {name}",
       "x020": "Available keys: {names}",
-      "x021": "Yesterday {time}"
+      "x021": "Yesterday {time}",
+      "x023": "of this week's usage",
+      "x024": "Daily usage this month",
+      "x025": "Desired monthly quota (tokens)"
     },
     "qs": {
       "t001": "Step 1 · Copy the address",

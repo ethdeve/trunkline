@@ -38,8 +38,10 @@ import { friendlyError } from '@/utils/friendlyError'
 import { copyToClipboard } from '@/utils/clipboard'
 import { menuSubtitle } from '@/config/menu'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
+import { useEnterpriseStore } from '@/stores/enterprise'
 
 const { t } = useI18n()
+const enterpriseStore = useEnterpriseStore()
 
 const loading = ref(false)
 const keys = ref<ApiKeyVO[]>([])
@@ -107,6 +109,8 @@ const friendlyModelName = (key: ApiKeyVO, poolName: string): string => {
  * 计价口径一致）。白名单为空（不限制模型）或未配价时为 {@code null}，前端显示「—」。</p>
  */
 const keyMixedPrice = (key: ApiKeyVO): number | null => {
+  // open-core 门控：金额估算属企业版（billing 功能位）；社区版恒 null → 只展示 token 用量
+  if (!enterpriseStore.billing) return null
   // 直接读服务端下发的密钥级合计均价，前端不做任何聚合计算。
   return key?.mixedPrice ?? null
 }
@@ -218,7 +222,11 @@ const submitApply = async () => {
   applyPurpose.value = ''
 }
 
-onMounted(loadKeys)
+onMounted(() => {
+  // 功能位探测：billing 关闭（社区版）→ keyMixedPrice 恒 null，金额估算整页隐藏
+  void enterpriseStore.ensureLoaded()
+  loadKeys()
+})
 </script>
 
 <template>
@@ -275,7 +283,8 @@ onMounted(loadKeys)
           <template #default="{ row }">
             <div class="dual-cell">
               <span class="dual-cell__main">{{ formatTokens(usedTokens(row.keyId)) }} {{ amountUnit }}</span>
-              <span class="dual-cell__sub">
+              <!-- 金额估算仅企业版（billing 功能位）显示；社区版只看 token 用量 -->
+              <span v-if="keyMixedPrice(row) !== null" class="dual-cell__sub">
                 ≈ {{ formatAmount(tokenToAmount(usedTokens(row.keyId), keyMixedPrice(row))) }}
               </span>
             </div>

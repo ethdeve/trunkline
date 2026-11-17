@@ -243,7 +243,7 @@
         <div class="quota-overview__row">
           <span class="quota-overview__k">{{ t('apiKeys.quotaForm.usedThisMonth') }}</span>
           <span class="quota-overview__v">
-            <template v-if="quotaDrawerPrice !== null">
+            <template v-if="billingEnabled && quotaDrawerPrice !== null">
               {{ formatAmount(tokenToAmount(monthlyTokenUsed(quotaDrawer.keyId) || 0, quotaDrawerPrice)) }}
             </template>
             <template v-else>—</template>
@@ -253,7 +253,7 @@
         <div class="quota-overview__row">
           <span class="quota-overview__k">{{ t('apiKeys.quotaForm.monthlyQuota') }}</span>
           <span class="quota-overview__v">
-            <template v-if="quotaDrawerPrice !== null">
+            <template v-if="billingEnabled && quotaDrawerPrice !== null">
               {{ formatAmount(tokenToAmount(quotaDrawer.form.monthlyTokenLimit, quotaDrawerPrice)) }}
             </template>
             <template v-else>—</template>
@@ -282,7 +282,8 @@
           {{ t('apiKeys.quotaForm.inertFieldHint') }}
         </div>
       </div>
-      <div class="quota-field" :class="{ 'is-inert': !multiWindowEnforced }">
+      <!-- 金额维度仅企业版（billing 功能位）可见；社区版整块隐藏，只留 token 维度 -->
+      <div v-if="billingEnabled" class="quota-field" :class="{ 'is-inert': !multiWindowEnforced }">
         <div class="quota-field__label">{{ t('apiKeys.quotaForm.monthlyAmountLimit') }}</div>
         <el-input-number
           v-model="quotaDrawerAmount"
@@ -493,10 +494,10 @@
           <div class="proto-field__hint">{{ t('apiKeys.form.groupsHint') }}</div>
         </div>
 
-        <!-- 每月额度（仅创建弹窗）：账本开启时 token 上限始终可编辑、金额按「是否配价」决定；账本关闭时两者禁用 -->
+        <!-- 每月额度（仅创建弹窗）：金额行仅企业版可见；社区版只留 token 上限 -->
         <div v-if="!isEdit" class="proto-field" :class="{ 'is-inert': !multiWindowEnforced }">
           <div class="proto-field__label">{{ t('apiKeys.form.monthlyQuotaLabel') }}</div>
-          <div class="proto-amount-row">
+          <div v-if="billingEnabled" class="proto-amount-row">
             <span class="proto-amount-row__symbol">¥</span>
             <el-input-number
               v-model="formAmount"
@@ -511,8 +512,8 @@
             />
             <span class="proto-amount-row__unit">/ {{ t('apiKeys.form.perMonth') }}</span>
           </div>
-          <div class="proto-field__hint">{{ t('apiKeys.form.monthlyQuotaHint') }}</div>
-          <div v-if="formPrice === null && multiWindowEnforced" class="proto-field__hint proto-field__hint--warn">
+          <div v-if="billingEnabled" class="proto-field__hint">{{ t('apiKeys.form.monthlyQuotaHint') }}</div>
+          <div v-if="billingEnabled && formPrice === null && multiWindowEnforced" class="proto-field__hint proto-field__hint--warn">
             {{ t('apiKeys.quotaForm.amountUnavailableHint') }}
           </div>
           <div class="proto-field__sub-label">{{ t('apiKeys.quotaForm.monthlyTokenLimit') }}</div>
@@ -681,6 +682,7 @@ import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
 import { useQuotaLedger } from '@/composables/useQuotaLedger'
+import { useEnterpriseStore } from '@/stores/enterprise'
 import { usePersistedState } from '@/composables/usePersistedState'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { confirmDanger } from '@/utils/dangerConfirm'
@@ -721,6 +723,9 @@ import type {
 
 const { t } = useI18n()
 const { hasPermission } = usePermission()
+const enterpriseStore = useEnterpriseStore()
+/** 计费功能位（open-core 门控）：关（社区版）→ mixedPriceForGroups 恒 null，金额维度整页隐藏 */
+const billingEnabled = computed(() => enterpriseStore.billing)
 const canWrite = hasPermission('security:apikeys:manage')
 const router = useRouter()
 const route = useRoute()
@@ -937,6 +942,9 @@ const ledgerAvailable = ref(false)
  * 可用模型一个都没配价格时返回 null —— 此时只展示 token 维度，不展示金额。
  */
 const mixedPriceForGroups = (groups?: string[] | null): number | null => {
+  // open-core 门控：金额是企业版（billing 功能位）能力。社区版无计价口径，
+  // 这里恒返回 null —— 全页 ≈¥ 估算 / 金额输入 / 金额文案自动降级为 token 维度。
+  if (!enterpriseStore.billing) return null
   let weighted = 0
   let weightSum = 0
   for (const g of groups || []) {
@@ -2040,6 +2048,8 @@ const _handleStatusChange = async (row: ApiKeyVO) => {
 
 // 挂载时加载
 onMounted(() => {
+  // 功能位探测：billing 关闭（社区版）→ mixedPriceForGroups 恒 null，金额维度整页隐藏
+  void enterpriseStore.ensureLoaded()
   fetchApiKeys()
   // 拉取模型分组列表，用于把密钥 allowedGroups 的池名渲染成「公司主力」这类对外显示名
   fetchPoolNames()
