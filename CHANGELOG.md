@@ -1,16 +1,44 @@
-# 变更记录 / Changelog
+# Changelog
 
-本项目遵循语义化版本。这里只记录**已经落地**的变化，后续计划见 [README](README-ZH.md)。
+English · [中文](CHANGELOG-ZH.md)
 
-## v0.1.0 — 首个公开基线
+This project follows Semantic Versioning. Only released capabilities are recorded here; see [README](README.md) for what comes next.
 
-### 现在就能用
+## v0.1.0 — First public release (2026-11-17)
 
-- 一个入口对接本地模型（Ollama、vLLM、GPUStack、Xinference、LocalAI）和云端模型
-- 供应商模板一键接入 13 家常见服务商；其他兼容 OpenAI 调用方式的服务商可用自定义适配器接入
-- 除对话外还支持向量、重排序、语音、图片等能力
-- 故障自动切换、请求级重试、自动限流、按条件分流
-- 账号 + 密钥双凭证、角色权限、敏感信息脱敏、调用留痕
-- 用量与额度统计，现成的花费 / 成功率 / 延迟看板
-- 控制台说人话分三块，支持亮暗主题与中英双语
+The first official release of Trunkline. It brings local and cloud models together behind a single gateway, with a ready-to-use management console, security controls, and usage statistics out of the box. Anyone can download an installer, unzip and double-click — no Java or Docker installation required.
 
+### Highlights
+
+- **One gateway for every model**: manage local models (Ollama, vLLM, GPUStack, Xinference, LocalAI) and cloud models in one place, with templates for 13 common providers and custom adapters for any OpenAI-compatible endpoint.
+- **More than chat**: besides text generation, support embeddings, reranking, speech, and images.
+- **Reliable by design**: automatic failover, per-request retries, rate limiting, and condition-based routing.
+- **Secure and controllable**: account plus API-key credentials, role-based permissions, sensitive-data masking, and full call audit trails.
+- **Usage at a glance**: per-model token usage, plus visual dashboards for success rate and latency.
+- **A console that makes sense**: a three-part interface with light/dark themes and English/Chinese bilingual support.
+
+### Security and privacy
+
+- No built-in default administrator account — create one on first launch through a three-step wizard, avoiding weak default passwords.
+- The API accepts a dedicated token header only; unregistered endpoints are denied by default.
+- Sensitive content in call records is masked automatically, and the built-in documentation is visible to administrators only.
+
+### User experience
+
+- Ready-to-run installers for Windows, macOS, and Linux, with the runtime bundled — no Java or Docker needed.
+- 38 built-in help articles for non-technical users, in English and Chinese; a three-step wizard gets you started.
+- Data stays local by default, so you can try it fully offline.
+
+### Changes from the upstream project
+
+This release is forked from the open-source project JAiRouter, with the following Trunkline-specific changes:
+
+- Default database, image name, and documentation branding unified under Trunkline.
+- Legacy compatibility and migration logic removed for a simpler configuration.
+
+### Under the hood
+
+- More accurate metering: every call's token usage is fully recorded; unpriced models are flagged separately instead of being counted as zero. Unit prices, bills, and billing are available in the Enterprise Edition.
+- More robust deployment: a single, checksum-verified database baseline, with more reliable cross-replica event notifications and isolation checks.
+- Quality you can count on: all 4,733 backend tests pass, with both frontend and backend covered by continuous integration.
+- The open-source edition keeps only free, foundational capabilities; enterprise features (such as unit-price management, billing, SSO, multi-tenancy, and audit evidence) are provided separately in the commercial edition.

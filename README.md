@@ -33,7 +33,7 @@ If your team uses several AI models at once — some running on your own machine
 |----------|-------------------|----------------|
 | Too many models | Every model has its own way of calling, so switching means rewriting code | Connect once, switch models without touching your code |
 | A model goes down | Someone has to manually change the settings | Traffic automatically moves to a model that still works |
-| Unclear costs | Who used what, and how much did it cost? Nobody knows | Spend per model and usage per person, all in one place |
+| Unclear usage | Who used what, and how much? Nobody knows | Token usage per model and per person, all in one place |
 | Weak safety | Sensitive data may leave with a question, with no record afterwards | Sensitive content is masked automatically, every call is logged |
 | Staff can't set it up | Every change needs a technical person | The console speaks human — staff can do it themselves |
 
@@ -63,7 +63,7 @@ Trunkline is not a concept demo. Everything below is **already usable in version
 - Two kinds of credentials — user accounts and access keys — with role-based permissions, so not everyone can touch every model.
 - Sensitive data is masked on the way in and out. Call records can be summary-only or encrypted; every call is logged so you can investigate later.
 - Usage and quotas are tracked per person, per model and per time window, with automatic limits when you run over.
-- Spend, success rates and response times come with ready-made charts — no separate monitoring stack needed.
+- Token usage, success rates and response times come with ready-made charts — no separate monitoring stack needed.
 
 **Easy from the moment you install it**
 - A three-step setup wizard with no default username or password — you create the admin account yourself, so there is no ready-made entry point for someone else.
@@ -95,13 +95,9 @@ Enough talk — here is the actual 0.1.0 console.
   <img src="images/screenshots/03-playground.png" alt="Playground" width="900">
 </p>
 
-## Product blueprint
+## Overall roadmap
 
-<p align="center">
-  <img src="logo/product-blueprint.png" alt="Trunkline blueprint: Simplicity, Intelligence, Security, Trust &amp; Ecosystem" width="1000">
-</p>
-
-The blueprint below is the full picture. Many items are already available in 0.1.0 (see above); ones marked "pending" or "planned" are what later releases will add. It has four layers, each solving a different class of problem. Security is not a separate box — it runs through every layer. Creating a model with one click automatically adds masking and usage limits, and intelligent routing treats compliance and output safety as conditions to meet.
+Here is the overall product roadmap. Many items are already available in 0.1.0 (see above); ones marked "pending" or "planned" are what later releases will add.
 
 ### 1 · Simplicity — set up fast
 
@@ -137,7 +133,7 @@ The blueprint below is the full picture. Many items are already available in 0.1
 
 | Capability | What it means in practice | Where it stands |
 |------------|---------------------------|-----------------|
-| Cost visibility | See exactly what each model costs | In place |
+| Usage visibility | See token usage for each model | In place |
 | Evaluation bench | Let models run the same tests and compare results with data | Pending |
 | Smart alert diagnostics | Not just "it broke" — it tells you why | Foundations in place |
 | MCP / tool gateway | Bring all kinds of tool capabilities through one door | Pending |
@@ -233,7 +229,7 @@ If your application already calls models the OpenAI way, just change the connect
 
 - Teams running their own AI models (Ollama, vLLM, GPUStack, and others)
 - Teams using several cloud models who want one place to manage them
-- Anyone who needs to know who used what, what it cost, and whether sensitive data leaked
+- Anyone who needs to know who used what, how much they used, and whether sensitive data leaked
 - Teams that want non-technical colleagues to connect models without digging into technical details
 
 ## What's next
