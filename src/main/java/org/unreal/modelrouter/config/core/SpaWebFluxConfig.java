@@ -70,7 +70,17 @@ public class SpaWebFluxConfig {
                                 .body(Mono.just(resource), ClassPathResource.class);
                     }
 
-                    // 静态资源不存在，返回 index.html（SPA fallback）
+                    // 【A2 前端分离】带扩展名的静态资源缺失 → 真实 404，绝不回退 index.html：
+                    // 企业前端 loader 依赖 404 降级（module.mjs 缺失 = 企业版未装，静默隐藏入口），
+                    // 且验收 #4 要求 404 语义可被 curl 断言——回退会把 text/html 冒充 .mjs，
+                    // 浏览器 dynamic import 直接报 MIME 错，loader 却以为加载成功。
+                    // 本 RouterFunction 先于静态资源 SimpleUrlHandlerMapping 执行，
+                    // 是 /admin/** 的权威服务方，404 语义必须在这里保证。
+                    if (hasFileExtension(path)) {
+                        return ServerResponse.notFound().build();
+                    }
+
+                    // 无扩展名的 SPA 路由 → 返回 index.html（让 Vue Router 处理前端路由）
                     ClassPathResource indexHtml = new ClassPathResource("static/admin/index.html");
                     if (!indexHtml.exists()) {
                         return ServerResponse.notFound().build();
@@ -80,6 +90,15 @@ public class SpaWebFluxConfig {
                             .body(Mono.just(indexHtml), ClassPathResource.class);
                 })
                 .build();
+    }
+
+    /**
+     * 最后一个路径段含 "." 即视为静态资源请求（如 module.mjs、chunk-xxx.js、index.html）。
+     * SPA 深链路由（/admin/settings/tenants 等）无扩展名，不受影响。
+     */
+    private static boolean hasFileExtension(final String path) {
+        final int dot = path.lastIndexOf('.');
+        return dot > path.lastIndexOf('/');
     }
 
     /**

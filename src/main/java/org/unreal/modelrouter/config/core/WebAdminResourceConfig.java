@@ -22,13 +22,14 @@ public class WebAdminResourceConfig implements WebFluxConfigurer {
         log.info("配置 Web 管理界面静态资源处理器");
 
         // 配置管理界面静态资源 - 包含 index.html 和 assets
-        // 【A2 前端分离】企业自包含 UI 模块资源：企业 jar 的 static/admin/enterprise/ 位于
-        // 另一个 BOOT-INF/lib jar 内，普通 classpath:/ 只解析首个类路径位置、跨 jar 不可见。
-        // 这里用 classpath*:/ 遍历所有 classpath 条目，并**不加 SPA 回退 resolver**——
-        // 缺失资源必须真实 404（loader 据此降级 + 验收 #4 不假通过），不能回退 index.html。
-        // 必须注册在 /admin/** 之前，确保更具体的路径优先命中（不依赖映射排序猜测）。
+        // 【A2 前端分离】企业自包含 UI 模块资源（企业 jar 的 static/admin/enterprise/）：
+        // Spring Boot 嵌套 jar 类加载器天然聚合 BOOT-INF/classes 与所有 BOOT-INF/lib jar 的
+        // 类路径资源，因此 classpath:/ 即可跨 jar 命中企业模块；不使用 classpath*:——
+        // 该语法只被 PathMatchingResourcePatternResolver 支持，DefaultResourceLoader 会把
+        // 前缀当普通路径处理，导致专线 handler 成为死配置、请求全部漏到 /admin/** 的 SPA 回退。
+        // 本专线不加 SPA 回退 resolver，缺失资源真实 404（验收 #4 不假通过）。
         registry.addResourceHandler("/admin/enterprise/**")
-                .addResourceLocations("classpath*:/static/admin/enterprise/")
+                .addResourceLocations("classpath:/static/admin/enterprise/")
                 .setCacheControl(org.springframework.http.CacheControl.noCache());
 
         registry.addResourceHandler("/admin/**")
@@ -48,7 +49,9 @@ public class WebAdminResourceConfig implements WebFluxConfigurer {
 
     /**
      * SPA 路径解析器
-     * 处理前端路由，将所有未匹配的路径重定向到 index.html
+     * 处理前端路由：无扩展名的路径（/admin/settings/xxx）回退 index.html；
+     * <b>带扩展名</b>的资源请求（.js/.css/.mjs 等）缺失时必须真实 404——
+     * 【A2 前端分离】loader 依赖 404 降级，且验收 #4 不允许被 index.html 假通过。
      */
     private static class SpaPathResourceResolver extends PathResourceResolver {
 
@@ -61,18 +64,29 @@ public class WebAdminResourceConfig implements WebFluxConfigurer {
                     log.debug("Found resource: {}", resourcePath);
                     return Mono.just(requestedResource);
                 }
-                log.debug("Resource not found: {}, falling back to index.html", resourcePath);
+                // 带扩展名的静态资源缺失：真 404，绝不回退 index.html
+                if (hasFileExtension(resourcePath)) {
+                    log.debug("Static resource not found (no SPA fallback): {}", resourcePath);
+                    return Mono.empty();
+                }
+                log.debug("Route not found: {}, falling back to index.html", resourcePath);
             } catch (Exception e) {
                 log.debug("Cannot create resource path: {}, falling back to index.html", resourcePath, e);
             }
 
-            // 如果资源不存在，返回 index.html（用于 SPA 路由）
+            // 无扩展名的 SPA 路由：返回 index.html
             ClassPathResource indexHtml = new ClassPathResource("static/admin/index.html");
             if (indexHtml.exists()) {
                 return Mono.just(indexHtml);
             }
 
             return Mono.empty();
+        }
+
+        /** 最后一个路径段含 "." 即视为静态资源请求（如 module.mjs、chunk-xxx.js）。 */
+        private static boolean hasFileExtension(final String resourcePath) {
+            final int dot = resourcePath.lastIndexOf('.');
+            return dot > resourcePath.lastIndexOf('/');
         }
     }
 }

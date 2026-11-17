@@ -174,7 +174,20 @@ const currentSubs = computed(() => visibleSubs(activeGroup.value))
 
 // 功能位探测完成后，若当前 sub 在新可见列表中已不存在（如社区版曾深链到企业子页签），
 // 自动回退到第一个可见页，避免显示一个「隐藏页签的内容但页签栏看不到」的错位状态。
-watch(currentSubs, subs => {
+// 另外：冷启动深链（?sub=evidence）在 enterprise store 加载前会按社区版 fail-closed
+// 解析成第一个子页签；探测完成后 URL 仍显式携带 ?sub=，此时以 URL 为准再解析一次。
+watch(currentSubs, (subs, prev) => {
+  if (
+    subs.length > (prev?.length ?? 0) &&
+    typeof route.query.sub === 'string' &&
+    route.query.sub !== activeSub.value
+  ) {
+    const r = resolveCurrent()
+    if (subs.includes(r.sub)) {
+      activeSub.value = r.sub
+      return
+    }
+  }
   if (subs.length > 0 && !subs.includes(activeSub.value)) {
     activeSub.value = subs[0]
   }
