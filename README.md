@@ -77,23 +77,32 @@ Enough talk — here is the actual 0.1.0 console.
 **13 built-in provider templates, one click to add** (OpenAI, Google Gemini, DeepSeek, Zhipu, Moonshot and more are visible below):
 
 <p align="center">
-  <img src="images/screenshots/06a-model-config-intl.png" alt="Provider templates" width="900">
+  <img src="images/screenshots/06a-model-config-en.png" alt="Provider templates" width="900">
 </p>
 
 **Staff get a key and start calling in three steps**; operators add a provider, build a virtual model, then hand it to staff:
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="images/screenshots/07-quickstart.png" alt="Quick start" width="100%"><br><sub>Staff quick start: get a key → wait for access → copy the config</sub></td>
-    <td width="50%" align="center"><img src="images/screenshots/02-providers.png" alt="Provider onboarding" width="100%"><br><sub>Operator onboarding: pick a provider → add a key → build a model → assign to staff</sub></td>
+    <td width="50%" align="center"><img src="images/screenshots/07-quickstart-en.png" alt="Quick start" width="100%"><br><sub>Staff quick start: get a key → wait for access → copy the config</sub></td>
+    <td width="50%" align="center"><img src="images/screenshots/02-providers-en.png" alt="Provider onboarding" width="100%"><br><sub>Operator onboarding: pick a provider → add a key → build a model → assign to staff</sub></td>
   </tr>
 </table>
 
 **One playground to try chat, semantic search, reranking, speech and images**:
 
 <p align="center">
-  <img src="images/screenshots/03-playground.png" alt="Playground" width="900">
+  <img src="images/screenshots/03-playground-en.png" alt="Playground" width="900">
 </p>
+
+**See your token usage at a glance, and dig into every call with ready-made charts**:
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="images/screenshots/01-my-quota-en.png" alt="My quota" width="100%"><br><sub>My Quota: monthly token usage, available models, recent calls</sub></td>
+    <td width="50%" align="center"><img src="images/screenshots/10-analytics-en.png" alt="Call analytics" width="100%"><br><sub>Call analytics: trace volume, latency distribution, success rates</sub></td>
+  </tr>
+</table>
 
 ## Overall roadmap
 

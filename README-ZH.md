@@ -95,6 +95,15 @@ Trunkline 不是概念演示。下面这些能力在 **0.1.0 版本里已经可�
   <img src="images/screenshots/03-playground.png" alt="测试场" width="900">
 </p>
 
+**用量一眼看清，每次调用都有现成图表可查**：
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="images/screenshots/01-my-quota.png" alt="我的额度" width="100%"><br><sub>我的额度：本月 token 用量、可用模型、最近调用</sub></td>
+    <td width="50%" align="center"><img src="images/screenshots/10-analytics.png" alt="调用分析" width="100%"><br><sub>调用分析：追踪量趋势、耗时分布、成功率</sub></td>
+  </tr>
+</table>
+
 ## 整体规划
 
 下面是 Trunkline 的整体规划。其中不少能力在 0.1.0 已经可用（见上一节）；标着「待补 / 待建 / 规划中」的，是后续版本要补齐的部分。
