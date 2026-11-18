@@ -407,7 +407,7 @@ const isOptionLocked = (name: string): boolean => {
   return !!lockedServiceType.value && !!t && t !== lockedServiceType.value
 }
 
-/** 单次价格信息：分层（便宜 / 中等 / 贵 / 向量模型 / 无价格）+ 约单价 */
+/** 单次价格信息：分层（便宜 / 中等 / 贵 / 向量模型 / 无价格）+ 约单价（单价目录已统一为 ¥/百万 tokens） */
 const priceInfo = (name: string): { tier: string; label: string } => {
   const st = instanceServiceType.value[name]
   const pm = priceMeta.value[name]
@@ -415,7 +415,8 @@ const priceInfo = (name: string): { tier: string; label: string } => {
   if (st === 'embedding') return { tier: 'vector', label: t('pool.priceVector') }
   if (!hasPrice) return { tier: 'none', label: t('pool.priceNone') }
   const cost = (pm!.priceInput || 0) + (pm!.priceOutput || 0)
-  const tier = cost > 0.5 ? 'expensive' : cost > 0.1 ? 'medium' : 'cheap'
+  // 阈值按 ¥/M 口径：原 ¥/K 的 0.5 / 0.1 分别对应 500 / 100
+  const tier = cost > 500 ? 'expensive' : cost > 100 ? 'medium' : 'cheap'
   const tierLabel = tier === 'cheap' ? t('pool.priceCheap') : tier === 'medium' ? t('pool.priceMedium') : t('pool.priceExpensive')
   return { tier, label: `${tierLabel} · ${t('pool.pricePerCall', { price: (pm!.priceInput || 0).toFixed(2) })}` }
 }

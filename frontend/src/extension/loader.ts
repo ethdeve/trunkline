@@ -10,6 +10,31 @@ import type { EnterpriseModule } from './types'
 const MODULE_URL = '/admin/enterprise/module.mjs'
 let loaded: EnterpriseModule | null = null
 let attempted = false
+let cssLinked = false
+
+/**
+ * 企业子应用的 scoped 样式在 lib 构建里会抽成同名 module.css。
+ * 动态 import module.mjs 不会自动加载这份 CSS（历史上企业页因此丢了全部自绘版式），
+ * 这里在 import 前显式注入 <link>，失败也不阻塞模块加载（宿主 Element Plus 样式仍在）。
+ */
+function ensureEnterpriseCss(moduleUrl: string): void {
+  if (cssLinked) return
+  cssLinked = true
+  try {
+    const cssUrl = new URL(moduleUrl, window.location.href)
+    if (!cssUrl.pathname.endsWith('.mjs')) return
+    cssUrl.pathname = `${cssUrl.pathname.slice(0, -4)}.css`
+    const href = cssUrl.href
+    if (document.querySelector(`link[data-trunkline-enterprise-css][href="${href}"]`)) return
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.dataset.trunklineEnterpriseCss = 'true'
+    link.href = href
+    document.head.appendChild(link)
+  } catch (error) {
+    console.warn('[enterprise] stylesheet link failed', error)
+  }
+}
 
 /**
  * 探测并加载企业模块。
@@ -28,6 +53,7 @@ export async function loadEnterpriseModule(
   const url =
     (import.meta.env.VITE_ENTERPRISE_MODULE_URL as string | undefined) || MODULE_URL
   try {
+    ensureEnterpriseCss(url)
     const mod = await import(/* @vite-ignore */ url)
     const candidate = (mod.default ?? mod) as EnterpriseModule
     if (!candidate?.manifest?.menuGroups || typeof candidate.mount !== 'function') {
@@ -51,4 +77,5 @@ export function getEnterpriseModule(): EnterpriseModule | null {
 export function resetEnterpriseModule(): void {
   loaded = null
   attempted = false
+  cssLinked = false
 }

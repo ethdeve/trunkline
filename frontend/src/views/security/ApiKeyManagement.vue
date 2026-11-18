@@ -925,7 +925,7 @@ const poolNameMap = ref<Record<string, string>>({})
 const groupDisplay = (name?: string): string => (name ? (poolNameMap.value[name] || name) : '')
 
 // ===== 原型口径：额度 / 用量双维度（token + ¥）=====
-// 价格目录：厂商模型名 → 单价（¥ / 千 token）
+// 价格目录：厂商模型名 → 单价（¥ / 百万 tokens，由 providerPrice API 层统一换算）
 const priceCatalog = ref<Record<string, { priceInput: number; priceOutput: number; hasPrice: boolean }>>({})
 // 虚拟模型成员：池名 → 成员实例（实例名 + 权重）
 const poolMembersMap = ref<Record<string, Array<{ instanceId: string; weight: number }>>>({})
@@ -935,7 +935,7 @@ const keyMonthlyUsage = ref<Record<string, { tokenCount: number; requestCount: n
 const ledgerAvailable = ref(false)
 
 /**
- * 该密钥的「混合单价」（¥ / 千 token）。
+ * 该密钥的「混合单价」（¥ / 百万 tokens）。
  *
  * 口径：配额账本只记 token 总量、不区分输入与输出，故取输入价与输出价的均值作为混合单价；
  * 密钥可用多个虚拟模型时，按各虚拟模型成员的权重加权平均。
@@ -962,11 +962,11 @@ const mixedPriceForGroups = (groups?: string[] | null): number | null => {
 
 const keyMixedPrice = (key: ApiKeyVO): number | null => mixedPriceForGroups(key?.allowedGroups)
 
-/** token 数 → 金额估算（¥）；无价格时返回 null（不展示金额维度） */
+/** token 数 → 金额估算（¥）；无价格时返回 null（不展示金额维度）；单价为 ¥/百万 tokens */
 const tokenToAmount = (tokens: number | null | undefined, price: number | null): number | null => {
   if (tokens === null || tokens === undefined) return null
   if (price === null) return null
-  return (tokens / 1000) * price
+  return (tokens / 1000000) * price
 }
 
 /** 本月已用 token（账本 KEY 桶，自然月）；账本可用但该密钥本月无记录时按 0 计 */
@@ -1016,7 +1016,7 @@ const STATUS_FILTER_OPTIONS = [
 ]
 
 // ===== 调整额度弹窗：金额维度（¥）与 token 维度联动 =====
-// 该密钥的混合单价（¥ / 千 token）；null = 可用模型未配价格，此时只展示 token 维度
+// 该密钥的混合单价（¥ / 百万 token）；null = 可用模型未配价格，此时只展示 token 维度
 const quotaDrawerPrice = ref<number | null>(null)
 // 弹窗里的金额输入（¥ / 月）
 const quotaDrawerAmount = ref<number | null>(null)
@@ -1043,7 +1043,7 @@ const onQuotaTokenChange = (val: number | null | undefined) => {
 const onQuotaAmountChange = (val: number | null | undefined) => {
   const price = quotaDrawerPrice.value
   if (price === null || val === null || val === undefined) return
-  quotaDrawer.form.monthlyTokenLimit = Math.round((val * 1000) / price)
+  quotaDrawer.form.monthlyTokenLimit = Math.round((val * 1000000) / price)
 }
 /** 行内「更多」下拉命令分发 */
 const onRowCommand = (cmd: string, row: any): void => {
@@ -1110,7 +1110,7 @@ const saveAdvanced = async () => {
   }
 }
 
-/** 拉取价格目录（厂商模型名 → ¥/千 token 单价），用于把 token 额度折算成金额估算 */
+/** 拉取价格目录（厂商模型名 → ¥/百万 tokens 单价），用于把 token 额度折算成金额估算 */
 const fetchPriceCatalog = async () => {
   try {
     const res = await getPriceCatalog()
@@ -1299,7 +1299,7 @@ const toggleAllGroups = () => {
 
 /** 额度金额视图（¥ / 月）——与 token 额度联动 */
 const formAmount = ref<number | null>(null)
-/** 当前所勾选虚拟模型的混合单价（¥ / 千 token）；null = 未配价格 */
+/** 当前所勾选虚拟模型的混合单价（¥ / 百万 tokens）；null = 未配价格 */
 const formPrice = computed(() => mixedPriceForGroups(form.value.allowedGroups))
 
 /** 勾选变化 → 按新的混合单价重算金额视图 */
@@ -1312,7 +1312,7 @@ const onFormGroupsChange = () => {
 const onFormAmountChange = (val: number | null | undefined) => {
   const price = formPrice.value
   if (price === null || val === null || val === undefined) return
-  form.value.monthlyTokenLimit = Math.round((val * 1000) / price)
+  form.value.monthlyTokenLimit = Math.round((val * 1000000) / price)
 }
 
 /** 改 token 额度 → 反算金额视图（未配价格时金额不可用，置空） */

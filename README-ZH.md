@@ -5,7 +5,11 @@
 </p>
 
 <p align="center">
-  <strong>简单易用、安全可信的智能路由模型网关</strong>
+  <strong>简单易用、安全可信的智能路由模型网关-企业级智能路由模型网关｜统一纳管私有&云端大模型，OpenAI兼容协议，业务零改码切换模型</strong>
+</p>
+
+<p align="center">
+    *关键词：模型网关, AI网关, LLM网关, 大模型路由, OpenAI兼容, 故障降级, 负载分流, 脱敏审计, 企业AI治理, 多模型聚合, 大模型代理, AI流量治理**
 </p>
 
 <p align="center">

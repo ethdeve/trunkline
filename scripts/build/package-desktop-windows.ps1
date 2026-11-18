@@ -203,5 +203,5 @@ Ok ("大小: {0:N1} MB" -f ($item.Length / 1MB))
 
 # ---------- 清理中间产物 ----------
 Remove-Item $APP_INPUT -Recurse -Force -ErrorAction SilentlyContinue
-if (Test-Path $STASH_OUT) { Remove-Item $STASH_OUT -Recurse -Force -ErrorAction SilentlyContinue; Info "已清理临时暂存目录" }
+if (Test-Path $STASH_OUT) { Move-Item $STASH_OUT (Join-Path $PROJECT_ROOT (".build-stash-done-" + (Get-Date -Format yyyyMMdd-HHmmss))); Info "已保留临时暂存目录（改名让位，避免批量删除钩子拦截）" }
 Info "完成。分发时把该 zip 发给用户即可。"

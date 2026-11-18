@@ -5,7 +5,11 @@
 </p>
 
 <p align="center">
-  <strong>A simple, easy-to-use, secure and trustworthy intelligent routing model gateway</strong>
+  <strong>Simple, easy-to-use, secure, and trustworthy intelligent routing model gateway - Enterprise-grade intelligent routing model gateway｜Unified management of on-premise and cloud large models, OpenAI-compatible protocol, zero-code business switching for models</strong>
+</p>
+
+<p align="center">
+    *Keywords: Model Gateway, AI Gateway, LLM Gateway, Large Model Routing, OpenAI Compatible, Fault Degradation, Load Distribution, Desensitization Audit, Enterprise AI Governance, Multi-Model Aggregation, Large Model Proxy, AI Traffic Governance*
 </p>
 
 <p align="center">

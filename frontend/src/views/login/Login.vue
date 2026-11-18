@@ -58,8 +58,9 @@ async function onSubmit() {
   errMsg.value = ''
   try {
     await userStore.login(form.username, form.password)
-    // 本地登录成功后补齐企业功能位（SSO/租户等入口依赖），控制台挂载时也会再加载一次
-    void enterprise.ensureLoaded()
+    // 登录页匿名预热过 features（401 空结果）；拿到新 token 后必须强制刷新，
+    // 否则 enterpriseEdition 恒 false、企业专属菜单（租户管理/企业管理）整项消失。
+    void enterprise.refresh()
     router.push('/my-quota')
   } catch (e: any) {
     errMsg.value = friendlyLoginError(e)
@@ -103,7 +104,8 @@ async function handleSsoCallback(code: string, state?: string) {
     if (!token) throw new Error('SSO_NO_TOKEN')
     userStore.setToken(token)
     userStore.startTokenRefresh()
-    await enterprise.ensureLoaded()
+    // 同上：SSO 回调拿到 token 后强制刷新功能位，避免匿名空缓存导致企业菜单缺失
+    await enterprise.refresh()
     await router.replace('/my-quota')
   } catch (_e: any) {
     errMsg.value = t('v.lg.ssoFailed')

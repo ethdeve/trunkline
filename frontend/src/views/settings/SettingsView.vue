@@ -241,6 +241,22 @@ watch(
   }
 )
 
+// 【冷启动深链修复】企业功能位探测完成前，企业子页签按社区版 fail-closed 被过滤，
+// ?sub=evidence / ?sub=securityDashboard 等会先回退到第一个可进入页。探测完成后
+// enterpriseEdition 翻转，必须按 URL 再解析一次，否则「刷新/分享不丢上下文」失效。
+watch(
+  () => enterprise.enterpriseEdition,
+  () => {
+    const selectable = selectableSubs(activeGroup.value)
+    const wanted = route.query.sub as SubKey | undefined
+    if (wanted && selectable.includes(wanted)) {
+      activeSub.value = wanted
+    } else if (selectable.length > 0 && !selectable.includes(activeSub.value)) {
+      activeSub.value = selectable[0]
+    }
+  }
+)
+
 // 子页签切换写回 query（分组由菜单/路径承担，不再写 tab）
 watch(activeSub, s => {
   if (route.query.sub !== s) {

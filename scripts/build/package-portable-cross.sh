@@ -29,6 +29,13 @@ ok()   { echo -e "${GREEN}[OK]${NC} $1"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 err()  { echo -e "${RED}[ERROR]${NC} $1"; }
 
+# 构建临时目录不直接删（本机安全删除钩子会拦截批量文件删除）；
+# 复用时改名让位，旧目录留在 target/ 由构建产物目录统一管理。
+stash_dir() {
+    local dir="$1"
+    [ -d "$dir" ] && mv "$dir" "${dir}-prev-$(date +%s)"
+}
+
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # 版本号从 pom.xml 顶层 <version> 读取，避免打包脚本与 Maven 坐标脱钩。
 # parent 内的 <version> 缩进 8 空格，顶层为 4 空格，故只匹配后者。
@@ -73,15 +80,15 @@ ok "应用 jar 就绪 ($(du -sh "$JAR_SRC" | cut -f1))"
 # --- 组装目录 ---
 if [ "$TARGET_OS" = "linux" ]; then
     OUT_DIR="$PROJECT_ROOT/target/dist-linux"
-    BUILD_ROOT="$PROJECT_ROOT/target/dist-linux/build-${TARGET_ARCH}"
+    BUILD_ROOT="$PROJECT_ROOT/target/dist-linux/build-${TARGET_ARCH}-$(date +%s)"
     OUT_NAME="Trunkline-${APP_VERSION}-linux-${TARGET_ARCH}.tar.gz"
 else
     OUT_DIR="$PROJECT_ROOT/target/dist-mac"
-    BUILD_ROOT="$PROJECT_ROOT/target/dist-mac/build-${TARGET_ARCH}"
+    BUILD_ROOT="$PROJECT_ROOT/target/dist-mac/build-${TARGET_ARCH}-$(date +%s)"
     OUT_NAME="Trunkline-${APP_VERSION}-macos-${TARGET_ARCH}.tar.gz"
 fi
 STAGE="$BUILD_ROOT/Trunkline"
-rm -rf "$BUILD_ROOT"; mkdir -p "$STAGE/app"
+mkdir -p "$STAGE/app"
 
 # --- 解压目标平台 JRE 作为 runtime ---
 EXTRACT="$BUILD_ROOT/jre-extract"
@@ -245,5 +252,4 @@ ok "产物: $OUT ($(du -sh "$OUT" | cut -f1))"
 # --- 校验产物 ---
 echo "--- 产物结构校验 ---"
 tar -tzf "$OUT" | grep -E "Trunkline/(app/trunkline-|runtime/bin/java|使用说明|start\.)" | head -10
-rm -rf "$BUILD_ROOT"
-info "完成。"
+info "完成（构建临时目录保留于 $BUILD_ROOT）。"

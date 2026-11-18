@@ -69,7 +69,16 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
     return key ? isEnabled(key) : false
   }
 
-  /** 加载企业功能位（幂等；重复调用复用同一 Promise） */
+  /**
+   * 加载企业功能位（幂等；重复调用复用同一 Promise）。
+   *
+   * 关键修复（2026-11-18）：登录页会在**匿名态**预热本方法以决定 SSO 入口是否展示，
+   * 此时 `/v1/enterprise/features` 返回 401 → 拿到空对象。若把它固化为 loaded=true，
+   * 用户登录后控制台再调 ensureLoaded 会直接吃这份空缓存，`edition` 恒为 community，
+   * 导致企业专属菜单（租户管理 / 企业管理）整项消失。因此**空结果（无 edition）不视为
+   * 已加载**：保留 loaded=false，让带 token 的下一次调用真正重新拉取。fail-closed 口径
+   * 不变——空结果期间所有功能位仍按未解锁处理，绝不误显示企业 UI。
+   */
   const ensureLoaded = async (): Promise<EnterpriseFeatures> => {
     if (loaded.value) return features.value
     if (pending) return pending
@@ -82,7 +91,9 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
         // 接口不可用 → 按「全部未解锁」处理，不抛给调用方
         features.value = EMPTY_FEATURES
       } finally {
-        loaded.value = true
+        // 只有真正拿到部署信息（edition 非空）才算加载完成；匿名 401 / 网络失败得到的
+        // 空对象不能固化，否则登录后无法刷新、企业菜单恒缺。
+        loaded.value = !!features.value.edition
         pending = null
       }
       return features.value
@@ -91,9 +102,10 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
     return pending
   }
 
-  /** 强制刷新（如切换 license 后） */
+  /** 强制刷新（如切换 license / 登录后持有新 token 后） */
   const refresh = async (): Promise<EnterpriseFeatures> => {
     loaded.value = false
+    pending = null
     return ensureLoaded()
   }
 

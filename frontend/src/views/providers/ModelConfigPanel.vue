@@ -222,9 +222,18 @@
 
       <!-- 单价：输入 / 输出 / 缓存 竖排。改完即存（el-input-number 的 change 在值变化并失焦时触发一次），
            不再单列「保存价格」按钮 —— 少一个要找的按钮。
-           列宽给足（210px）：既容纳「输入/输出/缓存」完整标签，又让 6 位小数的单价不被截断。
+           界面单位统一 ¥ / 百万 tokens（业内口径），API 边界自动换算回后端 ¥/千 token。
            仅 enterprise.billing 功能位解锁时可见（商业能力）。 -->
-      <el-table-column v-if="enterpriseStore.billing" :label="t('modelConfig.columnPrice')" width="210" align="right" header-align="center">
+      <el-table-column v-if="enterpriseStore.billing" width="220" align="right" header-align="center">
+        <template #header>
+          <div class="price-col-head">
+            <span>{{ t('modelConfig.columnPrice') }}</span>
+            <span class="price-col-unit">{{ t('modelConfig.priceUnitHeader') }}</span>
+            <el-tooltip :content="t('modelConfig.priceUnitTip')" placement="top">
+              <el-icon class="col-help"><QuestionFilled /></el-icon>
+            </el-tooltip>
+          </div>
+        </template>
         <template #default="scope">
           <div class="price-stack">
             <div class="price-row">
@@ -232,8 +241,8 @@
               <el-input-number
                 v-model="scope.row.priceInput"
                 :min="0"
-                :precision="6"
-                :step="0.1"
+                :precision="4"
+                :step="0.5"
                 :controls="false"
                 :disabled="!canWrite"
                 size="small"
@@ -246,8 +255,8 @@
               <el-input-number
                 v-model="scope.row.priceOutput"
                 :min="0"
-                :precision="6"
-                :step="0.1"
+                :precision="4"
+                :step="0.5"
                 :controls="false"
                 :disabled="!canWrite"
                 size="small"
@@ -260,8 +269,8 @@
               <el-input-number
                 v-model="scope.row.priceCache"
                 :min="0"
-                :precision="6"
-                :step="0.1"
+                :precision="4"
+                :step="0.5"
                 :controls="false"
                 :disabled="!canWrite"
                 size="small"
@@ -1457,12 +1466,12 @@ const handleExport = () => {
       { header: t('instance.status'), value: r => (r.status === 'active' ? t('instance.enabled') : t('instance.disabled')) },
       { header: t('instance.exportColumnHealth'), value: r => healthOf(r) },
       { header: t('instance.exportColumnCircuit'), value: r => circuitStateOf(r) || 'CLOSED' },
-      // 单价 / 计价开关仅商业版（billing 功能位解锁）导出
+      // 单价 / 计价开关仅商业版（billing 功能位解锁）导出；单价列带 ¥/M 单位，避免导出后口径不明
       ...(enterpriseStore.billing
         ? [
-            { header: t('modelConfig.columnPriceInput'), value: (r: ModelRow) => r.priceInput },
-            { header: t('modelConfig.columnPriceOutput'), value: (r: ModelRow) => r.priceOutput },
-            { header: t('modelConfig.columnPriceCache'), value: (r: ModelRow) => r.priceCache },
+            { header: t('modelConfig.priceInputExport'), value: (r: ModelRow) => r.priceInput },
+            { header: t('modelConfig.priceOutputExport'), value: (r: ModelRow) => r.priceOutput },
+            { header: t('modelConfig.priceCacheExport'), value: (r: ModelRow) => r.priceCache },
             { header: t('modelConfig.columnBilling'), value: (r: ModelRow) => (r.priceEnabled ? 'Y' : 'N') }
           ]
         : []),
@@ -1581,6 +1590,19 @@ onMounted(async () => {
 .health-dot.is-unknown {
   background: transparent;
   border: 1px solid var(--ja-text-placeholder, #c0c4cc);
+}
+
+.price-col-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.price-col-unit {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ja-text-secondary, #909399);
 }
 
 .price-input {
