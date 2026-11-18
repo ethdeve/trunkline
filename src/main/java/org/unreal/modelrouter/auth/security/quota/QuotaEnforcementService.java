@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.unreal.modelrouter.auth.security.config.properties.ApiKey;
 import org.unreal.modelrouter.auth.security.event.ApiKeyAuditEvent;
 import org.unreal.modelrouter.auth.security.service.ApiKeyService;
+import org.unreal.modelrouter.enterprise.config.TenantContextHolder;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -147,7 +148,7 @@ public class QuotaEnforcementService {
             }
             final LocalDateTime now = LocalDateTime.now(clock);
             final List<QuotaWindow> windows = properties.enabledWindows();
-            final QuotaDimension dimension = QuotaDimension.ofApiKey(apiKeyId);
+            final QuotaDimension dimension = QuotaDimension.ofApiKey(apiKeyId, TenantContextHolder.currentTenantId());
             final long tokens = Math.max(0L, estimatedTokens);
 
             // 判定顺序：HOUR → DAY → MONTH → MINUTE（对齐上游 3.4.0 的优先级说明）
@@ -292,7 +293,7 @@ public class QuotaEnforcementService {
                 // 组装三维度与各自限额：Key 恒生效；分组 / 模型按需（互斥）
                 final List<QuotaDimension> dimensions = new ArrayList<>();
                 final List<QuotaLimitSet> limits = new ArrayList<>();
-                dimensions.add(QuotaDimension.ofApiKey(apiKeyId));
+                dimensions.add(QuotaDimension.ofApiKey(apiKeyId, TenantContextHolder.currentTenantId()));
                 limits.add(limitsOf(resolveApiKey(apiKeyId)));
                 if (groupId != null && !groupId.isEmpty()) {
                     dimensions.add(QuotaDimension.ofGroup(groupId));
@@ -405,7 +406,7 @@ public class QuotaEnforcementService {
             }
             final LocalDateTime now = LocalDateTime.now(clock);
             final List<QuotaWindow> windows = properties.enabledWindows();
-            final QuotaDimension dimension = QuotaDimension.ofApiKey(apiKeyId);
+            final QuotaDimension dimension = QuotaDimension.ofApiKey(apiKeyId, TenantContextHolder.currentTenantId());
 
             // 复核顺序与 evaluate 一致：HOUR → DAY → MONTH → MINUTE；
             // 语义为「已用量（含本笔预留）> 限额」，与预留时的「+1 > 限额」严格大于口径等价

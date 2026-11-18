@@ -96,7 +96,7 @@ public final class InMemoryQuotaLedgerRepository implements InvocationHandler {
      * @return 命中的行，不存在时返回 {@code null}
      */
     public QuotaLedgerEntity row(final String apiKeyId, final String windowType, final LocalDateTime windowStart) {
-        return rows.get(key("", apiKeyId, "", "", "", "", windowType, windowStart));
+        return rows.get(key(QuotaDimension.TENANT_SENTINEL, apiKeyId, "", "", "", "", windowType, windowStart));
     }
 
     /**
@@ -110,7 +110,7 @@ public final class InMemoryQuotaLedgerRepository implements InvocationHandler {
     public QuotaLedgerEntity groupRow(final String groupId,
                                       final String windowType,
                                       final LocalDateTime windowStart) {
-        return rows.get(key("", "", "", "", "", groupId, windowType, windowStart));
+        return rows.get(key(QuotaDimension.TENANT_SENTINEL, "", "", "", "", groupId, windowType, windowStart));
     }
 
     /**
@@ -154,7 +154,7 @@ public final class InMemoryQuotaLedgerRepository implements InvocationHandler {
                               final long tokens) {
         final QuotaLedgerEntity entity = QuotaLedgerEntity.builder()
             .id(nextId++)
-            .tenantId("")
+            .tenantId(QuotaDimension.TENANT_SENTINEL)
             .apiKeyId(apiKeyId)
             .userId(userId)
             .serviceType(serviceType)

@@ -13,6 +13,7 @@ import org.unreal.modelrouter.persistence.repository.ModelCallStatsRepository;
 import org.unreal.modelrouter.monitor.callhistory.ApiCallHistoryRecorder;
 import org.unreal.modelrouter.monitor.callhistory.dto.CallHistoryRecordDTO;
 import org.unreal.modelrouter.monitor.tracing.TracingContextHolder;
+import org.unreal.modelrouter.enterprise.config.TenantContextHolder;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -538,6 +539,8 @@ public class AdapterMetricsRecorder {
             final boolean needSanitize = level == RecordLevel.SUMMARY && sanitizationService != null;
             final SanitizationService sanitization = this.sanitizationService;
             final ApiCallHistoryRecorder recorder = this.callHistoryRecorder;
+            // 多租户：主链捕获归属租户，供同步/异步两条落库路径打标（异步线程读不到实时上下文）
+            final String finalTenantId = TenantContextHolder.currentTenantId();
             final String finalAdapterType = adapterType;
             final String finalInstanceId = instanceId;
             final ModelRouterProperties.ModelInstance finalInstance = instance;
@@ -552,7 +555,7 @@ public class AdapterMetricsRecorder {
                 try {
                     recorder.record(buildCallHistoryRecord(finalServiceType, finalModelName, finalAdapterType,
                             finalInstanceId, finalInstance, finalDurationMs, finalSuccess, finalErrorCode, null, null,
-                            traceId));
+                            traceId, finalTenantId));
                 } catch (Exception e) {
                     log.debug("Failed to record call history (metadata): {}", e.getMessage());
                 }
@@ -565,7 +568,7 @@ public class AdapterMetricsRecorder {
                             try {
                                 recorder.record(buildCallHistoryRecord(finalServiceType, finalModelName, finalAdapterType,
                                         finalInstanceId, finalInstance, finalDurationMs, finalSuccess, finalErrorCode,
-                                        tuple.getT1(), tuple.getT2(), traceId));
+                                        tuple.getT1(), tuple.getT2(), traceId, finalTenantId));
                             } catch (Exception e) {
                                 log.debug("Failed to record call history: {}", e.getMessage());
                             }
@@ -682,13 +685,15 @@ public class AdapterMetricsRecorder {
             final String errorCode,
             final String requestBody,
             final String responseBody,
-            final String traceId) {
+            final String traceId,
+            final String tenantId) {
         // 关联链路追踪：优先用调用方同步捕获的 traceId（异步回调线程无追踪上下文）；
         // 两者皆空时落库侧兜底随机 UUID
         final String effectiveTraceId = traceId != null && !traceId.isBlank()
                 ? traceId : TracingContextHolder.getCurrentTraceId();
         return CallHistoryRecordDTO.builder()
                 .traceId(effectiveTraceId)
+                .tenantId(tenantId)
                 .serviceType(serviceType)
                 .modelName(modelName)
                 .provider(provider)

@@ -251,6 +251,19 @@ public class ApiKey {
     private String holder;
 
     /**
+     * 归属租户（多租户：API Key 的调用归属）。
+     *
+     * <p>用户 / 账号是平台级共享的，智能体凭 API Key 调用虚拟模型时不会带
+     * {@code X-Tenant-Id} 请求头，因此调用归属必须<b>绑在 Key 上</b>而非用户上：
+     * 签发时把当前租户写入本字段，鉴权成功后注入租户上下文，调用历史 / 用量 /
+     * 额度账本据此打标并按租户行级隔离。空值 / 空串等价单租户的 {@code default}。</p>
+     *
+     * <p>存储复用同一份 JSON store（{@code config_data}），无独立表结构，
+     * 因此无需 Flyway 迁移脚本；存量 Key 读不到该字段时回落 {@code default}。</p>
+     */
+    private String tenantId;
+
+    /**
      * 创建者 IP 地址
      */
     private String creatorIpAddress;

@@ -3,8 +3,8 @@ package org.unreal.modelrouter.auth.security.quota;
 /**
  * 配额账本维度（租户 / API Key / 用户 / 服务类型 / 模型 / 分组）。
  *
- * <p>账本按上述六维聚合统计请求数与 token 数。任一维度未知时统一折叠为空串
- * {@link #SENTINEL} 而不是 {@code null}，原因有两点：</p>
+ * <p>账本按上述六维聚合统计请求数与 token 数。任一维度未知时统一折叠为哨兵值
+ * 而不是 {@code null}，原因有两点：</p>
  * <ul>
  *   <li>数据库维度列声明为 NOT NULL，空串哨兵值避免每次落库前做空值判断；</li>
  *   <li>{@code null} 与空串在账本中语义相同（均为“未指定”），归一化后
@@ -17,7 +17,7 @@ package org.unreal.modelrouter.auth.security.quota;
  * {@code groupId = 池名, model = 实例名}（成员桶）。单线治理下分组与模型<b>并存</b>——
  * {@code groupId} 是治理主键、{@code model} 是组内观测明细；Key 维度恒生效。</p>
  *
- * @param tenantId    租户 ID，未指定时为空串
+ * @param tenantId    租户 ID，未指定时缺省租户 {@link #TENANT_SENTINEL}
  * @param apiKeyId    API Key ID，未指定时为空串
  * @param userId      用户 ID，未指定时为空串
  * @param serviceType 服务类型（chat / embedding / rerank / tts / stt），未指定时为空串
@@ -28,8 +28,20 @@ package org.unreal.modelrouter.auth.security.quota;
  */
 public record QuotaDimension(String tenantId, String apiKeyId, String userId, String serviceType, String model, String groupId) {
 
-    /** 维度缺省哨兵值（空串），与数据库维度列的 NOT NULL 约束配套使用 */
+    /** 非租户维度缺省哨兵值（空串），与数据库维度列的 NOT NULL 约束配套使用 */
     public static final String SENTINEL = "";
+
+    /**
+     * 租户维度缺省哨兵值（{@code default}）。
+     *
+     * <p>历史账本曾用空串表示「未指定租户」，与其余 5 张业务表、JWT claim、
+     * Redis 命名空间以及 Hibernate 行级过滤器的 {@code default} 口径冲突：
+     * 打开多租户后过滤器按 {@code tenant_id='default'} 查询，账本却写在
+     * {@code tenant_id=''}，导致账本整体「读不到」。故租户维度单独归一到
+     * {@code default}，与 {@code TenantContextHolder} 回落值保持一致。
+     * 非租户维度仍用 {@link #SENTINEL}，二者不可混用。</p>
+     */
+    public static final String TENANT_SENTINEL = "default";
 
     /**
      * 兼容构造器（不含分组维度）。
@@ -52,10 +64,11 @@ public record QuotaDimension(String tenantId, String apiKeyId, String userId, St
     }
 
     /**
-     * 规范化构造：把任意 {@code null} 维度折叠为空串哨兵值。
+     * 规范化构造：非租户维度 {@code null} 折叠为 {@link #SENTINEL}，
+     * 租户维度 {@code null}/{@code 空串} 折叠为 {@link #TENANT_SENTINEL}。
      */
     public QuotaDimension {
-        tenantId = normalize(tenantId);
+        tenantId = normalizeTenant(tenantId);
         apiKeyId = normalize(apiKeyId);
         userId = normalize(userId);
         serviceType = normalize(serviceType);
@@ -72,6 +85,21 @@ public record QuotaDimension(String tenantId, String apiKeyId, String userId, St
      */
     public static QuotaDimension ofApiKey(final String apiKeyId) {
         return new QuotaDimension(null, apiKeyId, null, null, null, null);
+    }
+
+    /**
+     * 指定 Key 与归属租户的维度（多租户账本打标）。
+     *
+     * <p>与 {@link #ofApiKey(String)} 的区别仅在于租户维度：本方法显式写入调用归属租户，
+     * 使账本行带正确 {@code tenant_id}、能被行级过滤器按租户读到。传 {@code null}/空串
+     * 仍归一为 {@link #TENANT_SENTINEL}（单租户 default）。</p>
+     *
+     * @param apiKeyId API Key ID
+     * @param tenantId 归属租户（来自 TenantContextHolder 或 Key 绑定）
+     * @return 归一化后的维度
+     */
+    public static QuotaDimension ofApiKey(final String apiKeyId, final String tenantId) {
+        return new QuotaDimension(tenantId, apiKeyId, null, null, null, null);
     }
 
     /**
@@ -139,5 +167,15 @@ public record QuotaDimension(String tenantId, String apiKeyId, String userId, St
      */
     private static String normalize(final String value) {
         return value == null ? SENTINEL : value;
+    }
+
+    /**
+     * 租户维度归一：{@code null} 与历史空串都折叠为 {@link #TENANT_SENTINEL}。
+     *
+     * <p>空串一并归一，兼容此前落库的历史账本行（{@code tenant_id=''}）。
+     * 项目尚未正式投产、无存量数据迁移脚本——重新初始化即按新口径落库。</p>
+     */
+    private static String normalizeTenant(final String value) {
+        return value == null || value.isEmpty() ? TENANT_SENTINEL : value;
     }
 }

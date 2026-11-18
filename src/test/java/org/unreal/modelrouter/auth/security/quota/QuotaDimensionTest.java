@@ -20,7 +20,7 @@ class QuotaDimensionTest {
     void nullComponents_shouldBeNormalizedToSentinel() {
         final QuotaDimension dimension = new QuotaDimension(null, null, null, null, null);
 
-        assertEquals(QuotaDimension.SENTINEL, dimension.tenantId());
+        assertEquals(QuotaDimension.TENANT_SENTINEL, dimension.tenantId());
         assertEquals(QuotaDimension.SENTINEL, dimension.apiKeyId());
         assertEquals(QuotaDimension.SENTINEL, dimension.userId());
         assertEquals(QuotaDimension.SENTINEL, dimension.serviceType());
@@ -34,10 +34,19 @@ class QuotaDimensionTest {
         final QuotaDimension byKey = QuotaDimension.ofApiKey("key-1");
 
         assertEquals("key-1", byKey.apiKeyId());
-        assertEquals("", byKey.tenantId());
+        assertEquals(QuotaDimension.TENANT_SENTINEL, byKey.tenantId());
         assertEquals("", byKey.model());
         assertEquals(QuotaDimension.empty(), new QuotaDimension(null, "", "", "", ""));
         assertEquals(QuotaDimension.empty(), QuotaDimension.ofApiKey(""));
+    }
+
+    @Test
+    @DisplayName("租户维度：历史空串归一为 default，与其余业务表口径一致")
+    void legacyEmptyTenant_shouldNormalizeToDefaultTenant() {
+        assertEquals("default", QuotaDimension.TENANT_SENTINEL);
+        assertEquals("", QuotaDimension.SENTINEL);
+        assertEquals(QuotaDimension.TENANT_SENTINEL,
+                new QuotaDimension("", "key-1", null, null, null).tenantId());
     }
 
     @Test

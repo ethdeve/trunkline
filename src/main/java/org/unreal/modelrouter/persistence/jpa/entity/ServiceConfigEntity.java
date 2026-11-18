@@ -7,6 +7,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.PrePersist;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -64,5 +65,17 @@ public class ServiceConfigEntity {
     @Builder.Default
     @Column(name = "tenant_id", nullable = false, length = 64)
     private String tenantId = "default";
+
+    /**
+     * 落库前回填归属租户（多租户）。配置写入经管理 API 在请求线程同步 save，
+     * 此处 ThreadLocal 可读；社区版 currentTenantId 恒为 default，行为不变。
+     */
+    @PrePersist
+    public void prePersist() {
+        if (tenantId == null || tenantId.isBlank()
+                || org.unreal.modelrouter.enterprise.noop.SingleTenantContext.DEFAULT_TENANT_ID.equals(tenantId)) {
+            tenantId = org.unreal.modelrouter.enterprise.config.TenantContextHolder.currentTenantId();
+        }
+    }
 
 }

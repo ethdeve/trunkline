@@ -26,6 +26,7 @@ import org.unreal.modelrouter.auth.security.model.UsageStatistics;
 import org.unreal.modelrouter.auth.security.quota.QuotaLimits;
 import org.unreal.modelrouter.auth.security.util.ApiKeyHashUtil;
 import org.unreal.modelrouter.common.constants.ServiceTypeConstants;
+import org.unreal.modelrouter.enterprise.config.TenantContextHolder;
 import org.unreal.modelrouter.persistence.store.StoreManager;
 import reactor.core.publisher.Mono;
 
@@ -138,7 +139,11 @@ public class ApiKeyService {
             apiKeyWhitelistValidator.validate(validatedPermissions, req.getAllowedGroups());
             // 持有人（分配给谁）：未指定时回落为操作者本人
             final String holder = resolveHolder(req.getHolder(), by);
+            // 归属租户：签发请求带 X-Tenant-Id 时由企业侧过滤器写入上下文；单租户恒 default。
+            // 绑在 Key 上而非用户上——智能体调用不带租户头，靠 Key 反查归属。
+            final String tenantId = TenantContextHolder.currentTenantId();
             ApiKey ak = ApiKey.builder().keyId(kid).keyHash(kh).keyPrefix("sk-")
+                .tenantId(tenantId)
                 // 明文只在创建时可得：此刻落盘脱敏展示串与加密明文，明文本身不落盘（C6 + 2026-11 复制能力）
                 .keyMasked(ApiKey.maskKey(kv))
                 .keyEncrypted(plaintextCipher.encrypt(kv))

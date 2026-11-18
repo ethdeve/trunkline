@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.unreal.modelrouter.monitor.dto.TokenUsageRecordDTO;
 import org.unreal.modelrouter.auth.security.model.JwtAuthentication;
+import org.unreal.modelrouter.enterprise.config.TenantContextHolder;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.core.context.SecurityContext;
 import reactor.core.scheduler.Schedulers;
@@ -277,6 +278,7 @@ public class TokenUsageRecorder {
                     .totalTokens(totalTokens != null ? totalTokens : 0L)
                     .traceId(traceId)
                     .userId(userId)
+                    .tenantId(TenantContextHolder.currentTenantId())
                     .isSuccess(isSuccess)
                     .errorCode(errorCode)
                     .errorMessage(errorMessage)
@@ -331,6 +333,7 @@ public class TokenUsageRecorder {
                     .virtualModel(virtualModel)
                     // issue #713: 计费归因——按 Key 统计的归属依据
                     .apiKeyId(apiKeyId)
+                    .tenantId(TenantContextHolder.currentTenantId())
                     .isSuccess(isSuccess)
                     .errorCode(errorCode)
                     .errorMessage(errorMessage)

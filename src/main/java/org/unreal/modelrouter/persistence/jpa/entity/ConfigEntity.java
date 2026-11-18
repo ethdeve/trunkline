@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.PrePersist;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -34,9 +35,13 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Entity
 @Table(name = "config_data",
+        // 多租户：同一 (config_key, version) 在不同租户下必须各存一份，
+        // 否则租户 A 写入会撞租户 B 的唯一键。租户 ID 纳入唯一键后，
+        // 查询侧由实体上的 @Filter(tenantFilter) 自动附加 tenant_id 条件，
+        // 各租户 upsert 互不干扰（社区版恒 default，行为不变）。
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_config_data_key_version",
-                columnNames = {"config_key", "version"}),
+                columnNames = {"config_key", "version", "tenant_id"}),
         // X4：与 V6__config_current_version_separation.sql 的 idx_config_data_key 对齐
         // （H2BaselineMatchesEntityModelTest 要求实体模型与迁移侧 schema 逐项一致）
         indexes = {
@@ -74,5 +79,17 @@ public class ConfigEntity {
     @Builder.Default
     @Column(name = "tenant_id", nullable = false, length = 64)
     private String tenantId = "default";
+
+    /**
+     * 落库前回填归属租户（多租户）。配置写入经管理 API 在请求线程同步 save，
+     * 此处 ThreadLocal 可读；社区版 currentTenantId 恒为 default，行为不变。
+     */
+    @PrePersist
+    public void prePersist() {
+        if (tenantId == null || tenantId.isBlank()
+                || org.unreal.modelrouter.enterprise.noop.SingleTenantContext.DEFAULT_TENANT_ID.equals(tenantId)) {
+            tenantId = org.unreal.modelrouter.enterprise.config.TenantContextHolder.currentTenantId();
+        }
+    }
 
 }

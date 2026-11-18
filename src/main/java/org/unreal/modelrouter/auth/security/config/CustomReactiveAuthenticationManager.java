@@ -80,7 +80,8 @@ public class CustomReactiveAuthenticationManager implements ReactiveAuthenticati
                             apiKeyInfo.getKeyId(),
                             apiKey,
                             apiKeyInfo.getPermissions(),
-                            apiKeyInfo.getAllowedGroups()
+                            apiKeyInfo.getAllowedGroups(),
+                            apiKeyInfo.getTenantId()
                     );
                     authenticated.setAuthenticated(true);
                     authenticated.setDetails(apiKeyInfo);

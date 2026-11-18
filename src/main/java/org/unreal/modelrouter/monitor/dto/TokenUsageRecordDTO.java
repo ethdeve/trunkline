@@ -79,6 +79,15 @@ public final class TokenUsageRecordDTO {
     private String apiKeyId;
 
     /**
+     * 归属租户（多租户：调用打标）。
+     *
+     * <p>在业务链路的 DTO 构建点从 {@code TenantContextHolder} 快照，随 DTO 透传到
+     * 异步写入线程（调用历史走独立消费线程、用量走 subscribe 独立订阅，均读不到
+     * 实时 ThreadLocal）。为空时实体侧回落 {@code default}。</p>
+     */
+    private String tenantId;
+
+    /**
      * 用户 ID
      */
     private String userId;

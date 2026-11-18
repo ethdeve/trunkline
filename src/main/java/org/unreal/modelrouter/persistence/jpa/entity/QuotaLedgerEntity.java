@@ -14,6 +14,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Filter;
+import org.unreal.modelrouter.auth.security.quota.QuotaDimension;
 import org.unreal.modelrouter.enterprise.config.TenantJpaFilterDefinition;
 
 import java.time.LocalDateTime;
@@ -23,7 +24,8 @@ import java.time.LocalDateTime;
  *
  * <p>一行 = 一个维度在指定窗口内的一份用量快照。维度列（tenant_id / api_key_id / user_id /
  * service_type / model / group_id）声明为 NOT NULL，缺省维度写入空串哨兵值（见
- * {@code org.unreal.modelrouter.auth.security.quota.QuotaDimension#SENTINEL}）。</p>
+ * {@code org.unreal.modelrouter.auth.security.quota.QuotaDimension#SENTINEL}，
+ * 租户维度则用 {@code QuotaDimension#TENANT_SENTINEL}，与其余业务表同口径）。</p>
  *
  * <p>唯一约束覆盖「六个维度列 + 窗口类型 + 窗口起点」共八列，保证同一维度在同一窗口内只有一行，
  * 累加落库（{@code UPDATE ... SET request_count = request_count + :delta}）才不会重复计数。</p>
@@ -66,11 +68,11 @@ public class QuotaLedgerEntity {
     private Long id;
 
     /**
-     * 租户 ID（缺省为空串哨兵值）
+     * 租户 ID（缺省为 {@link QuotaDimension#TENANT_SENTINEL}，与其余业务表同口径）
      */
     @Column(name = "tenant_id", nullable = false, length = 64)
     @Builder.Default
-    private String tenantId = "";
+    private String tenantId = QuotaDimension.TENANT_SENTINEL;
 
     /**
      * API Key ID（缺省为空串哨兵值）
@@ -147,8 +149,8 @@ public class QuotaLedgerEntity {
         if (updatedAt == null) {
             updatedAt = LocalDateTime.now();
         }
-        if (tenantId == null) {
-            tenantId = "";
+        if (tenantId == null || tenantId.isEmpty()) {
+            tenantId = QuotaDimension.TENANT_SENTINEL;
         }
         if (apiKeyId == null) {
             apiKeyId = "";

@@ -12,6 +12,7 @@ import org.unreal.modelrouter.auth.security.dto.ApiKeyCreationVO;
 import org.unreal.modelrouter.auth.security.model.UsageStatistics;
 import org.unreal.modelrouter.auth.security.util.ApiKeyHashUtil;
 import org.unreal.modelrouter.common.constants.ServiceTypeConstants;
+import org.unreal.modelrouter.enterprise.config.TenantContextHolder;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
@@ -409,6 +410,7 @@ public class ApiKeyBatchService {
                 .keyHash(keyHash)
                 .keyValue(null)
                 .keyPrefix("sk-")
+                .tenantId(TenantContextHolder.currentTenantId())
                 // 明文此刻可得：落盘脱敏展示串与加密明文（2026-11 复制能力）
                 .keyMasked(ApiKey.maskKey(originalKeyValue))
                 .keyEncrypted(plaintextCipher.encrypt(originalKeyValue))

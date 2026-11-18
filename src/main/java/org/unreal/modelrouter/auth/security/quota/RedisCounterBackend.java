@@ -274,8 +274,12 @@ public final class RedisCounterBackend implements QuotaCounterBackend {
      */
     public String keyOf(final QuotaCounterKey key) {
         final QuotaDimension dimension = key.dimension();
+        // 租户维度在存储层已统一为 "default"，但 Redis key 保留历史空段（sanitize 后为 "_"），
+        // 使升级前后存量计数器不失效（分钟/小时/日/月窗口均无需重建）。
+        final String tenantSegment = QuotaDimension.TENANT_SENTINEL.equals(dimension.tenantId())
+            ? "" : dimension.tenantId();
         return properties.distributedKeyPrefix()
-            + ':' + sanitize(dimension.tenantId())
+            + ':' + sanitize(tenantSegment)
             + ':' + sanitize(dimension.apiKeyId())
             + ':' + sanitize(dimension.userId())
             + ':' + sanitize(dimension.serviceType())

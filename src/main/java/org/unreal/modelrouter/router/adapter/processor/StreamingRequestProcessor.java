@@ -238,6 +238,9 @@ public class StreamingRequestProcessor {
         // 避免后续在 Netty event loop / 异步落库线程上再读 ThreadLocal 取到空串
         //（已有 bug：流式记录 traceId 落空，调用历史最新一条 Trace ID 为空）。
         final String capturedTraceId = TracingContextHolder.getCurrentTraceId();
+        // 多租户：在入口处（请求处理线程、租户上下文存活时）同步捕获归属租户，
+        // 供异步落库线程写入调用历史打标（异步线程读不到实时 ThreadLocal）。
+        final String capturedTenantId = TenantContextHolder.currentTenantId();
         // v3.1 PR-2: 配额预留凭据（handler 在 selectInstance 前挂载；未预扣/账本未启用时为 null）
         final QuotaReservation quotaReservation = QuotaReservation.from(httpRequest);
 
@@ -473,6 +476,7 @@ public class StreamingRequestProcessor {
                                                 .completionTokens(completionTok > 0 ? completionTok : null)
                                                 .totalTokens(totalTok > 0 ? totalTok : null)
                                                 .apiKeyId(capturedKeyId)
+                                                .tenantId(capturedTenantId)
                                                 .userId(resolveCallerUser(httpRequest, capturedKeyId))
                                                 .requestBody(capturedRequestBody)
                                                 .responseBody(responseBodyForRecord)

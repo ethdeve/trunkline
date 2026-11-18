@@ -26,6 +26,16 @@ public final class ApiKeyAuthentication implements Authentication {
     private final List<String> allowedGroups;
 
     /**
+     * 该 Key 的归属租户（多租户：API Key 调用归属）。
+     *
+     * <p>鉴权成功后由 {@code CustomReactiveAuthenticationManager} 从
+     * {@code ApiKey.tenantId} 填入；企业侧 {@code TenantContextWebFilter} 在认证链下游
+     * 读取本值注入租户上下文，使不带 {@code X-Tenant-Id} 头的智能体调用也能归属租户。
+     * 社区版 / 存量 Key 恒为 {@code default}。</p>
+     */
+    private String tenantId;
+
+    /**
      * 【issue #693】发起该请求的真实客户端 IP，由 DefaultAuthenticationConverter 在提取
      * API Key 时用 ClientIpResolver 推导后写入，认证链据此校验 ApiKey 的 IP 白名单。
      * 未认证对象也携带该值；无法判定时为 "unknown"（不是 null），白名单非空时自然拒绝。
@@ -59,6 +69,16 @@ public final class ApiKeyAuthentication implements Authentication {
      */
     public ApiKeyAuthentication(final String keyId, final String apiKey, final List<String> permissions,
                                final List<String> allowedGroups) {
+        this(keyId, apiKey, permissions, allowedGroups, null);
+    }
+
+    /**
+     * 构造函数 - 已认证请求并携带 Key 的归属租户。
+     *
+     * @param tenantId Key 归属租户，null / 空串按单租户 {@code default} 处理
+     */
+    public ApiKeyAuthentication(final String keyId, final String apiKey, final List<String> permissions,
+                               final List<String> allowedGroups, final String tenantId) {
         this.principal = keyId;
         this.credentials = apiKey;
         this.authorities = permissions != null
@@ -67,6 +87,9 @@ public final class ApiKeyAuthentication implements Authentication {
                     .collect(Collectors.toList())
                 : List.of();
         this.allowedGroups = allowedGroups;
+        this.tenantId = tenantId == null || tenantId.isBlank()
+                ? org.unreal.modelrouter.enterprise.noop.SingleTenantContext.DEFAULT_TENANT_ID
+                : tenantId;
     }
     
     @Override
