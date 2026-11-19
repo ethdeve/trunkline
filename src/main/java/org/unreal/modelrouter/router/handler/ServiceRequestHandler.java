@@ -135,6 +135,21 @@ public class ServiceRequestHandler {
     public static final String CACHE_KEY_ATTRIBUTE = "TRUNKLINE_RESPONSE_CACHE_KEY";
 
     /**
+     * 认证后解析出的<b>调用归属租户</b>（多租户）。
+     *
+     * <p>为什么需要它：API Key 调用（智能体/SDK）通常不带 {@code X-Tenant-Id}，租户必须从
+     * 已认证 Key 的归属反查。企业侧 {@code TenantContextWebFilter} 虽然也做这件事，但它在
+     * Security 链下游执行、认证可能尚未完成，读 {@code ReactiveSecurityContextHolder} 拿不到
+     * 认证主体；而处理器构建调用历史/用量记录时是在业务链路上，异步线程又读不到实时
+     * ThreadLocal。因此在<b>认证成功的那一刻</b>把租户同步写进请求属性，是唯一在整条链路
+     * （含 boundedElastic 异步落库）都稳定可用的传递方式。</p>
+     *
+     * <p>写入来源：{@code ApiKeyAuthentication#getTenantId()}；JWT 调用方不写入
+     * （控制台请求由 {@code X-Tenant-Id} 头经企业过滤器解析）。</p>
+     */
+    public static final String TENANT_ID_ATTRIBUTE = "TRUNKLINE_TENANT_ID";
+
+    /**
      * v3.5 Trunkline: ServerHttpRequest attribute key for storing the resolved
      * <b>virtual model name</b> (model group / pool name) of the request.
      *
@@ -313,6 +328,21 @@ public class ServiceRequestHandler {
                 }
                 exchange.getAttributes().put(CALLER_ID_ATTRIBUTE, callerId);
                 httpRequest.getAttributes().put(CALLER_ID_ATTRIBUTE, callerId);
+
+                // 多租户：认证成功当即把「调用归属租户」写入请求属性。
+                // API Key 调用不带 X-Tenant-Id，租户只能从已认证 Key 的归属反查；此处是唯一
+                // 能稳定拿到 ApiKeyAuthentication 的时机，后续异步落库（boundedElastic）也能读到。
+                if (auth instanceof ApiKeyAuthentication apiKeyAuth) {
+                    final String keyTenantId = apiKeyAuth.getTenantId();
+                    if (keyTenantId != null && !keyTenantId.isBlank()) {
+                        exchange.getAttributes().put(TENANT_ID_ATTRIBUTE, keyTenantId);
+                        httpRequest.getAttributes().put(TENANT_ID_ATTRIBUTE, keyTenantId);
+                        // 同时补绑到当前线程的租户上下文：企业侧过滤器在认证完成前已执行，
+                        // 读不到 Key 归属而回落 default；此处补绑后，本条链路上的配额账本、
+                        // 调用历史/用量打标、JPA 行级过滤都得到正确租户。
+                        org.unreal.modelrouter.enterprise.config.TenantContextHolder.resolve(keyTenantId);
+                    }
+                }
 
                 // v2.9.9: 认证通过后为可缓存请求生成响应缓存键并放入请求属性
                 // （供 handleWithInstanceAdapter 缓存读短路与 processor 写缓存使用）

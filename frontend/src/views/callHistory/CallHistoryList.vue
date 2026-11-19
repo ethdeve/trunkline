@@ -305,6 +305,7 @@ import { ElMessage } from 'element-plus'
 import { Search, Refresh as _Refresh, ArrowDown } from '@element-plus/icons-vue'
 import { queryCallHistory, exportCallHistory } from '@/api/callHistory'
 import { getAdapterList } from '@/api/adapter'
+import { useTenantStore } from '@/stores/tenant'
 import type { ApiCallHistoryRecord, CallHistoryQuery } from '@/types/callHistory'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import FailureExplainer from '@/components/common/FailureExplainer.vue'
@@ -672,6 +673,16 @@ onMounted(() => {
   loadData()
   loadAdapterDialects()
 })
+
+// 多租户：顶部切换租户后重新拉取调用历史（后端按 X-Tenant-Id 行级过滤，
+// 前端不重拉则列表停留在上一个租户的数据）
+const tenantStore = useTenantStore()
+watch(
+  () => tenantStore.currentTenantId,
+  () => {
+    loadData()
+  }
+)
 
 // ---- 适配器方言显示 ----
 // 记录里的 provider 字段实际存的是 adapterType（适配器名，如 normal/claude），

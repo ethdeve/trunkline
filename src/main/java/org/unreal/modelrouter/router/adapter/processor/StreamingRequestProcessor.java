@@ -240,7 +240,9 @@ public class StreamingRequestProcessor {
         final String capturedTraceId = TracingContextHolder.getCurrentTraceId();
         // 多租户：在入口处（请求处理线程、租户上下文存活时）同步捕获归属租户，
         // 供异步落库线程写入调用历史打标（异步线程读不到实时 ThreadLocal）。
-        final String capturedTenantId = TenantContextHolder.currentTenantId();
+        // 优先取认证成功时写入的请求属性（API Key 调用不带 X-Tenant-Id，租户靠 Key 归属反查；
+        // 该属性在整个链路含异步线程都稳定可读），回退当前租户上下文。
+        final String capturedTenantId = resolveTenantId(httpRequest);
         // v3.1 PR-2: 配额预留凭据（handler 在 selectInstance 前挂载；未预扣/账本未启用时为 null）
         final QuotaReservation quotaReservation = QuotaReservation.from(httpRequest);
 
@@ -840,6 +842,28 @@ public class StreamingRequestProcessor {
      * 从请求属性中捕获 API Key ID
      * 使用 ServiceRequestHandler 预存的 keyId（与 NonStreamingRequestProcessor 一致）
      */
+    /**
+     * 解析本次调用的归属租户（多租户）。
+     *
+     * <p>取值顺序：① 认证成功时写入的请求属性 {@code TENANT_ID_ATTRIBUTE}（API Key 归属，
+     * 对异步落库线程同样可见）；② 当前租户上下文（控制台 JWT 请求由企业过滤器按
+     * {@code X-Tenant-Id} 解析后写入）；③ 都取不到时由落库侧回落单租户 {@code default}。</p>
+     */
+    private String resolveTenantId(final ServerHttpRequest httpRequest) {
+        try {
+            if (httpRequest != null) {
+                final Object attr = httpRequest.getAttributes()
+                        .get(org.unreal.modelrouter.router.handler.ServiceRequestHandler.TENANT_ID_ATTRIBUTE);
+                if (attr instanceof String tenantId && !tenantId.isBlank()) {
+                    return tenantId;
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Failed to resolve tenant id from request attributes: {}", e.getMessage());
+        }
+        return TenantContextHolder.currentTenantId();
+    }
+
     private String captureApiKeyId(final ServerHttpRequest httpRequest) {
         if (httpRequest == null) {
             return null;

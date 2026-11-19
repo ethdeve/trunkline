@@ -43,6 +43,7 @@ import { employeeTerm } from '@/constants/employeeTerms'
 import { friendlyError } from '@/utils/friendlyError'
 import { useI18n } from 'vue-i18n'
 import { useEnterpriseStore } from '@/stores/enterprise'
+import { useTenantStore } from '@/stores/tenant'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -381,6 +382,15 @@ onMounted(() => {
   void enterpriseStore.ensureLoaded()
   loadAll()
 })
+
+// 多租户：顶部切换租户后重新拉取配额总览（Token 用量/调用记录/我的密钥均按 X-Tenant-Id 过滤）
+const tenantStore = useTenantStore()
+watch(
+  () => tenantStore.currentTenantId,
+  () => {
+    loadAll()
+  }
+)
 </script>
 
 <template>

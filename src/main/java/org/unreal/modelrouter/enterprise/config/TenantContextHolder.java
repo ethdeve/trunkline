@@ -50,6 +50,22 @@ public final class TenantContextHolder {
     }
 
     /**
+     * 在当前线程补绑租户（多租户业务链路用）。
+     *
+     * <p>典型场景：API Key 调用不带 {@code X-Tenant-Id}，认证成功后在这里把 Key 的归属租户
+     * 绑到当前线程，使后续配额账本维度、调用历史/用量打标、JPA 行级过滤都拿到正确租户。
+     * 社区版（delegate 为单租户实现）调用即为 no-op，行为零变化。</p>
+     *
+     * @param tenantId 待绑定的租户 ID（null/空串忽略）
+     */
+    public static void resolve(final String tenantId) {
+        final org.unreal.modelrouter.enterprise.spi.TenantContext ctx = delegate;
+        if (ctx != null && tenantId != null && !tenantId.isBlank()) {
+            ctx.resolve(tenantId);
+        }
+    }
+
+    /**
      * 归一化租户 ID：小写 + 去首尾空白；{@code null}/空串等价单租户 {@code default}。
      *
      * <p>供写入侧（如 API Key 归属）统一口径——存量数据可能没有该字段，读取时按 default 处理。</p>

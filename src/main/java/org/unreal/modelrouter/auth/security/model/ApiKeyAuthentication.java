@@ -96,6 +96,20 @@ public final class ApiKeyAuthentication implements Authentication {
     public String getName() {
         return principal != null ? principal : "anonymous";
     }
+
+    /**
+     * 本 Key 的归属租户（多租户）。
+     *
+     * <p><b>必须存在</b>：企业侧 {@code TenantContextWebFilter} 在认证后靠它反查租户——
+     * API Key 调用（智能体 / SDK）不带 {@code X-Tenant-Id}，租户唯一来源就是 Key 归属。
+     * 曾缺失本 getter，导致「从 Key 反查租户」这条分支不可用：无租户头的机器调用
+     * 全部回落 {@code default}，调用历史 / 用量 / 账单记到错误的租户下。</p>
+     *
+     * @return 归属租户；未设置时为单租户 {@code default}（构造器已归一化，不会返回 null）
+     */
+    public String getTenantId() {
+        return tenantId;
+    }
     
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

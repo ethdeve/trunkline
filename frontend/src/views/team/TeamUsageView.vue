@@ -250,6 +250,7 @@ import { Refresh } from '@element-plus/icons-vue'
 import echarts from '@/utils/echarts'
 import { getBillingDepartments, getTeamUsage, type TeamUsageVO } from '@/api/billing'
 import { useEnterpriseStore } from '@/stores/enterprise'
+import { useTenantStore } from '@/stores/tenant'
 import { useChartTheme } from '@/composables/useChartTheme'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { useI18n } from 'vue-i18n'
@@ -481,6 +482,15 @@ onMounted(() => {
   loadDepartments()
   window.addEventListener('resize', resizeCharts)
 })
+
+// 多租户：顶部切换租户后重新拉取团队用量（用量聚合基于 TokenUsage，后端按 X-Tenant-Id 行级过滤）
+const tenantStore = useTenantStore()
+watch(
+  () => tenantStore.currentTenantId,
+  () => {
+    loadUsage()
+  }
+)
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resizeCharts)

@@ -375,6 +375,7 @@ import {
   getServiceRateLimit,
   updateServiceRateLimit
 } from '@/api/service'
+import { useTenantStore } from '@/stores/tenant'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 
 const route = useRoute()
@@ -853,6 +854,15 @@ const handleSizeChange = (size: number) => { pageSize.value = size; currentPage.
 const handlePageChange = (page: number) => { currentPage.value = page }
 
 onMounted(() => { fetchServices() })
+
+// 多租户：顶部切换租户后重新拉取服务配置（Config/ServiceConfig 实体按 X-Tenant-Id 行级过滤）
+const tenantStore = useTenantStore()
+watch(
+  () => tenantStore.currentTenantId,
+  () => {
+    fetchServices()
+  }
+)
 </script>
 
 <style scoped>

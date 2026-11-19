@@ -16,7 +16,7 @@
  * <p>计价口径：按<b>厂商模型名</b>计价——请求最终落到的已接入模型实例，
  * 单价来自「接入管理 → 价格与额度」表（model_price.model_name）。</p>
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
@@ -28,6 +28,7 @@ import { menuSubtitle } from '@/config/menu'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { useI18n } from 'vue-i18n'
 import { useEnterpriseStore } from '@/stores/enterprise'
+import { useTenantStore } from '@/stores/tenant'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -198,6 +199,15 @@ onMounted(() => {
   void enterpriseStore.ensureLoaded()
   loadBills()
 })
+
+// 多租户：顶部切换租户后重新拉取账单（账单基于 TokenUsage，后端按 X-Tenant-Id 行级过滤）
+const tenantStore = useTenantStore()
+watch(
+  () => tenantStore.currentTenantId,
+  () => {
+    loadBills()
+  }
+)
 </script>
 
 <template>

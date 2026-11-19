@@ -28,4 +28,21 @@ public interface TenantContext {
     default String currentTenantId() {
         return getTenantId();
     }
+
+    /**
+     * 在当前线程显式绑定租户（多租户业务链路补绑用）。
+     *
+     * <p><b>为什么需要</b>：企业侧 {@code TenantContextWebFilter} 在 Security 链下游执行，
+     * 而 API Key 认证可能尚未完成，过滤器读不到 {@code ApiKeyAuthentication}，只能回落
+     * {@code default}。认证成功后本方法把 Key 归属租户补绑到当前线程，使本条链路上
+     * 所有后续读取（配额账本维度、调用历史/用量打标、JPA 行级过滤器）都得到正确租户。</p>
+     *
+     * <p>社区版（{@code SingleTenantContext}）默认 no-op：单租户恒 {@code default}，
+     * 调用方传任何值都不应改变行为，故不覆盖即可。</p>
+     *
+     * @param tenantId 待绑定的租户 ID；null/空串时实现可选择忽略
+     */
+    default void resolve(final String tenantId) {
+        // 单租户实现默认忽略
+    }
 }
