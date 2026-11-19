@@ -23,6 +23,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.lenient;
 import static org.junit.jupiter.api.Assertions.*;
@@ -100,10 +101,10 @@ class ApiKeyManagementControllerIntegrationTest {
                     .total(1)
                     .build();
 
-            when(apiKeyService.getAllApiKeysVO()).thenReturn(Mono.just(listVO));
+            when(apiKeyService.getAllApiKeysVO(isNull())).thenReturn(Mono.just(listVO));
 
             // When
-            Mono<RouterResponse<ApiKeyListVO>> result = controller.getAllApiKeys();
+            Mono<RouterResponse<ApiKeyListVO>> result = controller.getAllApiKeys(null);
 
             // Then
             StepVerifier.create(result)
@@ -126,10 +127,10 @@ class ApiKeyManagementControllerIntegrationTest {
                     .total(0)
                     .build();
 
-            when(apiKeyService.getAllApiKeysVO()).thenReturn(Mono.just(emptyList));
+            when(apiKeyService.getAllApiKeysVO(isNull())).thenReturn(Mono.just(emptyList));
 
             // When
-            Mono<RouterResponse<ApiKeyListVO>> result = controller.getAllApiKeys();
+            Mono<RouterResponse<ApiKeyListVO>> result = controller.getAllApiKeys(null);
 
             // Then
             StepVerifier.create(result)
@@ -145,11 +146,11 @@ class ApiKeyManagementControllerIntegrationTest {
         @DisplayName("API-003: 获取API密钥列表失败 - 服务异常")
         void testGetAllApiKeys_error() {
             // Given
-            when(apiKeyService.getAllApiKeysVO())
+            when(apiKeyService.getAllApiKeysVO(isNull()))
                     .thenReturn(Mono.error(new RuntimeException("Database error")));
 
             // When
-            Mono<RouterResponse<ApiKeyListVO>> result = controller.getAllApiKeys();
+            Mono<RouterResponse<ApiKeyListVO>> result = controller.getAllApiKeys(null);
 
             // Then
             // issue #94: 失败不再伪装成 HTTP 200 的成功体，而是以 ApiException 结束链路，
@@ -175,10 +176,10 @@ class ApiKeyManagementControllerIntegrationTest {
         @DisplayName("API-004: 获取指定API密钥成功")
         void testGetApiKeyById_success() {
             // Given
-            when(apiKeyService.getApiKeyByIdVO(TEST_KEY_ID)).thenReturn(Mono.just(testApiKeyVO));
+            when(apiKeyService.getApiKeyByIdVO(TEST_KEY_ID, null)).thenReturn(Mono.just(testApiKeyVO));
 
             // When
-            Mono<RouterResponse<ApiKeyVO>> result = controller.getApiKeyById(TEST_KEY_ID);
+            Mono<RouterResponse<ApiKeyVO>> result = controller.getApiKeyById(TEST_KEY_ID, null);
 
             // Then
             StepVerifier.create(result)
@@ -195,11 +196,11 @@ class ApiKeyManagementControllerIntegrationTest {
         @DisplayName("API-005: 获取不存在的API密钥")
         void testGetApiKeyById_notFound() {
             // Given
-            when(apiKeyService.getApiKeyByIdVO("nonexistent"))
+            when(apiKeyService.getApiKeyByIdVO("nonexistent", null))
                     .thenReturn(Mono.error(new RuntimeException("API Key not found")));
 
             // When
-            Mono<RouterResponse<ApiKeyVO>> result = controller.getApiKeyById("nonexistent");
+            Mono<RouterResponse<ApiKeyVO>> result = controller.getApiKeyById("nonexistent", null);
 
             // Then
             // issue #94: 失败不再伪装成 HTTP 200 的成功体，而是以 ApiException 结束链路，
@@ -230,10 +231,10 @@ class ApiKeyManagementControllerIntegrationTest {
                     .permissions(Arrays.asList("chat"))
                     .build();
 
-            when(apiKeyService.createApiKey(any(), any(), any())).thenReturn(Mono.just(testCreationVO));
+            when(apiKeyService.createApiKey(any(), any(), any(), isNull())).thenReturn(Mono.just(testCreationVO));
 
             // When
-            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.createApiKey(request, null);
+            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.createApiKey(request, null, null);
 
             // Then
             StepVerifier.create(result)
@@ -255,11 +256,11 @@ class ApiKeyManagementControllerIntegrationTest {
                     .description("Duplicate Key")
                     .build();
 
-            when(apiKeyService.createApiKey(any(), any(), any()))
+            when(apiKeyService.createApiKey(any(), any(), any(), isNull()))
                     .thenReturn(Mono.error(new RuntimeException("Key ID already exists")));
 
             // When
-            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.createApiKey(request, null);
+            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.createApiKey(request, null, null);
 
             // Then
             // issue #94: INTERNAL_ERROR -> 500，链路以 ApiException 结束。
@@ -294,10 +295,10 @@ class ApiKeyManagementControllerIntegrationTest {
                     .enabled(true)
                     .build();
 
-            when(apiKeyService.updateApiKey(anyString(), any())).thenReturn(Mono.just(updatedVO));
+            when(apiKeyService.updateApiKey(anyString(), any(), isNull())).thenReturn(Mono.just(updatedVO));
 
             // When
-            Mono<RouterResponse<ApiKeyVO>> result = controller.updateApiKey(TEST_KEY_ID, request);
+            Mono<RouterResponse<ApiKeyVO>> result = controller.updateApiKey(TEST_KEY_ID, request, null);
 
             // Then
             StepVerifier.create(result)
@@ -317,11 +318,11 @@ class ApiKeyManagementControllerIntegrationTest {
                     .description("Updated Description")
                     .build();
 
-            when(apiKeyService.updateApiKey(anyString(), any()))
+            when(apiKeyService.updateApiKey(anyString(), any(), isNull()))
                     .thenReturn(Mono.error(new RuntimeException("API Key not found")));
 
             // When
-            Mono<RouterResponse<ApiKeyVO>> result = controller.updateApiKey("nonexistent", request);
+            Mono<RouterResponse<ApiKeyVO>> result = controller.updateApiKey("nonexistent", request, null);
 
             // Then
             // issue #94: NOT_FOUND -> 404，链路以 ApiException 结束。
@@ -346,10 +347,10 @@ class ApiKeyManagementControllerIntegrationTest {
         @DisplayName("API-010: 删除API密钥成功")
         void testDeleteApiKey_success() {
             // Given
-            when(apiKeyService.deleteApiKey(TEST_KEY_ID)).thenReturn(Mono.empty());
+            when(apiKeyService.deleteApiKey(TEST_KEY_ID, "system", null)).thenReturn(Mono.empty());
 
             // When
-            Mono<RouterResponse<Void>> result = controller.deleteApiKey(TEST_KEY_ID);
+            Mono<RouterResponse<Void>> result = controller.deleteApiKey(TEST_KEY_ID, null);
 
             // Then
             StepVerifier.create(result)
@@ -364,11 +365,11 @@ class ApiKeyManagementControllerIntegrationTest {
         @DisplayName("API-011: 删除不存在的API密钥")
         void testDeleteApiKey_notFound() {
             // Given
-            when(apiKeyService.deleteApiKey("nonexistent"))
+            when(apiKeyService.deleteApiKey("nonexistent", "system", null))
                     .thenReturn(Mono.error(new RuntimeException("API Key not found")));
 
             // When
-            Mono<RouterResponse<Void>> result = controller.deleteApiKey("nonexistent");
+            Mono<RouterResponse<Void>> result = controller.deleteApiKey("nonexistent", null);
 
             // Then
             // issue #94: NOT_FOUND -> 404，链路以 ApiException 结束。
@@ -398,10 +399,10 @@ class ApiKeyManagementControllerIntegrationTest {
                     .enabled(false)
                     .build();
 
-            when(apiKeyService.disableApiKey(TEST_KEY_ID)).thenReturn(Mono.just(disabledVO));
+            when(apiKeyService.disableApiKey(TEST_KEY_ID, null)).thenReturn(Mono.just(disabledVO));
 
             // When
-            Mono<RouterResponse<ApiKeyVO>> result = controller.disableApiKey(TEST_KEY_ID);
+            Mono<RouterResponse<ApiKeyVO>> result = controller.disableApiKey(TEST_KEY_ID, null);
 
             // Then
             StepVerifier.create(result)
@@ -422,10 +423,10 @@ class ApiKeyManagementControllerIntegrationTest {
                     .enabled(true)
                     .build();
 
-            when(apiKeyService.enableApiKey(TEST_KEY_ID)).thenReturn(Mono.just(enabledVO));
+            when(apiKeyService.enableApiKey(TEST_KEY_ID, null)).thenReturn(Mono.just(enabledVO));
 
             // When
-            Mono<RouterResponse<ApiKeyVO>> result = controller.enableApiKey(TEST_KEY_ID);
+            Mono<RouterResponse<ApiKeyVO>> result = controller.enableApiKey(TEST_KEY_ID, null);
 
             // Then
             StepVerifier.create(result)
@@ -455,11 +456,11 @@ class ApiKeyManagementControllerIntegrationTest {
                     .enabled(true)
                     .build();
 
-            when(apiKeyService.forceRotateKey(anyString(), anyString()))
+            when(apiKeyService.forceRotateKey(anyString(), anyString(), isNull()))
                     .thenReturn(Mono.just(rotatedVO));
 
             // When
-            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.forceRotateApiKey(TEST_KEY_ID, null);
+            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.forceRotateApiKey(TEST_KEY_ID, null, null);
 
             // Then
             StepVerifier.create(result)
@@ -477,11 +478,11 @@ class ApiKeyManagementControllerIntegrationTest {
         @DisplayName("API-015: 轮换不存在的API密钥失败")
         void testForceRotateApiKey_notFound() {
             // Given
-            when(apiKeyService.forceRotateKey(anyString(), anyString()))
+            when(apiKeyService.forceRotateKey(anyString(), anyString(), isNull()))
                     .thenReturn(Mono.error(new RuntimeException("API Key not found")));
 
             // When
-            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.forceRotateApiKey("nonexistent", null);
+            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.forceRotateApiKey("nonexistent", null, null);
 
             // Then
             // issue #94: INTERNAL_ERROR -> 500，链路以 ApiException 结束。
@@ -517,10 +518,10 @@ class ApiKeyManagementControllerIntegrationTest {
                     .total(1)
                     .build();
 
-            when(apiKeyService.exportApiKeys()).thenReturn(Mono.just(exportVO));
+            when(apiKeyService.exportApiKeys(isNull())).thenReturn(Mono.just(exportVO));
 
             // When
-            Mono<RouterResponse<ApiKeyBatchExportVO>> result = controller.exportApiKeys();
+            Mono<RouterResponse<ApiKeyBatchExportVO>> result = controller.exportApiKeys(null);
 
             // Then
             StepVerifier.create(result)
@@ -559,11 +560,11 @@ class ApiKeyManagementControllerIntegrationTest {
                     .importedKeys(Arrays.asList(importedKey))
                     .build();
 
-            when(apiKeyService.importApiKeys(any(), anyString(), any()))
+            when(apiKeyService.importApiKeys(any(), anyString(), any(), isNull()))
                     .thenReturn(Mono.just(resultVO));
 
             // When
-            Mono<RouterResponse<ApiKeyBatchImportResult>> result = controller.importApiKeys(request, null);
+            Mono<RouterResponse<ApiKeyBatchImportResult>> result = controller.importApiKeys(request, null, null);
 
             // Then
             StepVerifier.create(result)

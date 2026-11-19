@@ -76,11 +76,11 @@ class ApiKeyMultiUserControllerTest {
                 .permissions(Arrays.asList("chat"))
                 .build();
 
-        when(apiKeyService.createApiKey(any(ApiKeyCreateRequest.class), any(), any()))
+        when(apiKeyService.createApiKey(any(ApiKeyCreateRequest.class), any(), any(), isNull()))
                 .thenReturn(Mono.just(creationVO));
 
         // When & Then
-        StepVerifier.create(controller.createApiKey(request, null))
+        StepVerifier.create(controller.createApiKey(request, null, null))
                 .assertNext(response -> {
                     assertNotNull(response);
                     assertTrue(response.isSuccess());
@@ -103,10 +103,10 @@ class ApiKeyMultiUserControllerTest {
                 .expiredCount(0)
                 .build();
 
-        when(apiKeyService.getAllApiKeysVO()).thenReturn(Mono.just(listVO));
+        when(apiKeyService.getAllApiKeysVO(isNull())).thenReturn(Mono.just(listVO));
 
         // When & Then
-        StepVerifier.create(controller.getAllApiKeys())
+        StepVerifier.create(controller.getAllApiKeys(null))
                 .assertNext(response -> {
                     assertNotNull(response);
                     assertTrue(response.isSuccess());
@@ -120,11 +120,11 @@ class ApiKeyMultiUserControllerTest {
     @DisplayName("MU-CRTL-003: 查询单个API Key返回createdBy")
     void testGetApiKeyById_ReturnsCreatedBy() {
         // Given
-        when(apiKeyService.getApiKeyByIdVO("test-key"))
+        when(apiKeyService.getApiKeyByIdVO("test-key", null))
                 .thenReturn(Mono.just(testKeyVO));
 
         // When & Then
-        StepVerifier.create(controller.getApiKeyById("test-key"))
+        StepVerifier.create(controller.getApiKeyById("test-key", null))
                 .assertNext(response -> {
                     assertNotNull(response);
                     assertTrue(response.isSuccess());
@@ -152,11 +152,11 @@ class ApiKeyMultiUserControllerTest {
                 .description("修改后的描述")
                 .build();
 
-        when(apiKeyService.updateApiKey(eq("test-key"), any(ApiKeyUpdateRequest.class)))
+        when(apiKeyService.updateApiKey(eq("test-key"), any(ApiKeyUpdateRequest.class), isNull()))
                 .thenReturn(Mono.just(updatedVO));
 
         // When & Then
-        StepVerifier.create(controller.updateApiKey("test-key", updateRequest))
+        StepVerifier.create(controller.updateApiKey("test-key", updateRequest, null))
                 .assertNext(response -> {
                     assertNotNull(response);
                     assertTrue(response.isSuccess());

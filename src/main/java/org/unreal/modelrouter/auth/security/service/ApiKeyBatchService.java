@@ -95,17 +95,40 @@ public class ApiKeyBatchService {
                                                         final Map<String, String> keyIdIndex,
                                                         final String importedBy,
                                                         final String ipAddress) {
+        return importApiKeys(request, apiKeyCache, keyIdIndex, importedBy, ipAddress, null);
+    }
+
+    /**
+     * 带租户作用域的导入（2026-11-19 多租户隔离）。
+     *
+     * <p>{@code scope=null}（单租户）保持旧行为全量清空；多租户下 REPLACE 只清本租户密钥，
+     * 导入的每把 Key 归属本租户，绝不触碰他租户数据。</p>
+     */
+    public Mono<ApiKeyBatchImportResult> importApiKeys(final ApiKeyBatchImportRequest request,
+                                                        final Map<String, ApiKey> apiKeyCache,
+                                                        final Map<String, String> keyIdIndex,
+                                                        final String importedBy,
+                                                        final String ipAddress,
+                                                        final String scope) {
         return Mono.fromCallable(() -> {
             List<ApiKeyCreationVO> importedKeys = new ArrayList<>();
             List<ApiKeyBatchImportResult.ImportError> errors = new ArrayList<>();
             int successCount = 0;
             int failureCount = 0;
 
-            // 如果是替换模式，先清除所有现有密钥
+            // 替换模式：单租户清空全部；多租户只清当前归属租户的密钥（跨租户隔离）
             if (request.getMode() == ApiKeyBatchImportRequest.ImportMode.REPLACE) {
-                apiKeyCache.clear();
-                keyIdIndex.clear();
-                log.info("批量导入：REPLACE 模式，已清除所有现有密钥");
+                if (scope == null) {
+                    apiKeyCache.clear();
+                    keyIdIndex.clear();
+                    log.info("批量导入：REPLACE 模式，已清除所有现有密钥");
+                } else {
+                    apiKeyCache.entrySet().removeIf(e ->
+                            scope.equals(TenantContextHolder.normalize(e.getValue().getTenantId())));
+                    keyIdIndex.clear();
+                    apiKeyCache.forEach((hash, ak) -> keyIdIndex.put(ak.getKeyId(), hash));
+                    log.info("批量导入：REPLACE 模式，已清除租户 {} 的现有密钥", scope);
+                }
             }
 
             // 导入每个密钥
@@ -113,7 +136,8 @@ public class ApiKeyBatchService {
                 try {
                     ApiKeyImportResult result = importSingleKey(item, apiKeyCache, keyIdIndex,
                             importedBy, ipAddress,
-                            request.getMode() == ApiKeyBatchImportRequest.ImportMode.MERGE);
+                            request.getMode() == ApiKeyBatchImportRequest.ImportMode.MERGE,
+                            scope);
 
                     if (result.isSuccess()) {
                         importedKeys.add(result.getCreationVO());
@@ -371,7 +395,8 @@ public class ApiKeyBatchService {
                                           final Map<String, String> keyIdIndex,
                                           final String importedBy,
                                           final String ipAddress,
-                                          final boolean mergeMode) {
+                                          final boolean mergeMode,
+                                          final String scope) {
         // 生成 keyId
         String keyId = item.getKeyId() != null && !item.getKeyId().trim().isEmpty()
                 ? item.getKeyId()
@@ -410,7 +435,8 @@ public class ApiKeyBatchService {
                 .keyHash(keyHash)
                 .keyValue(null)
                 .keyPrefix("sk-")
-                .tenantId(TenantContextHolder.currentTenantId())
+                // 多租户导入绑定显式 scope；单租户(scope=null)回落上下文，行为零变化
+                .tenantId(scope != null ? scope : TenantContextHolder.currentTenantId())
                 // 明文此刻可得：落盘脱敏展示串与加密明文（2026-11 复制能力）
                 .keyMasked(ApiKey.maskKey(originalKeyValue))
                 .keyEncrypted(plaintextCipher.encrypt(originalKeyValue))

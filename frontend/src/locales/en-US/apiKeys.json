@@ -66,6 +66,7 @@
     "columns": {
       "keyId": "Key ID",
       "description": "Description",
+      "tenant": "Tenant",
       "permissions": "Permissions",
       "createdAt": "Created At",
       "createdBy": "Created By",

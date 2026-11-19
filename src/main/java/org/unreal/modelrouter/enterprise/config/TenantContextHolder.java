@@ -4,6 +4,9 @@
 
 package org.unreal.modelrouter.enterprise.config;
 
+import java.util.Locale;
+import java.util.regex.Pattern;
+
 /**
  * 租户静态持有器（S2 任务 36 预埋）。
  *
@@ -19,6 +22,9 @@ package org.unreal.modelrouter.enterprise.config;
  * @author Trunkline Team
  */
 public final class TenantContextHolder {
+
+    /** 租户 ID 约定：小写字母、数字、连字符，长度 1~63（与 Redis key 拼接口径一致） */
+    public static final Pattern TENANT_ID_PATTERN = Pattern.compile("[a-z0-9-]{1,63}");
 
     private static volatile org.unreal.modelrouter.enterprise.spi.TenantContext delegate;
 
@@ -41,5 +47,22 @@ public final class TenantContextHolder {
     public static boolean isMultiTenant() {
         final org.unreal.modelrouter.enterprise.spi.TenantContext ctx = delegate;
         return ctx != null && ctx.isMultiTenant();
+    }
+
+    /**
+     * 归一化租户 ID：小写 + 去首尾空白；{@code null}/空串等价单租户 {@code default}。
+     *
+     * <p>供写入侧（如 API Key 归属）统一口径——存量数据可能没有该字段，读取时按 default 处理。</p>
+     */
+    public static String normalize(final String tenantId) {
+        if (tenantId == null || tenantId.isBlank()) {
+            return org.unreal.modelrouter.enterprise.noop.SingleTenantContext.DEFAULT_TENANT_ID;
+        }
+        return tenantId.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /** 校验租户 ID 格式是否合法（小写字母 / 数字 / 连字符，1~63 位） */
+    public static boolean isValidTenantId(final String tenantId) {
+        return tenantId != null && TENANT_ID_PATTERN.matcher(tenantId).matches();
     }
 }

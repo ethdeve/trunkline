@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 /**
@@ -81,10 +82,10 @@ class ApiKeyManagementControllerTest {
                     .enabledCount(1)
                     .disabledCount(0)
                     .build();
-            when(apiKeyService.getAllApiKeysVO()).thenReturn(Mono.just(listVO));
+            when(apiKeyService.getAllApiKeysVO(isNull())).thenReturn(Mono.just(listVO));
 
             // When
-            Mono<RouterResponse<ApiKeyListVO>> result = controller.getAllApiKeys();
+            Mono<RouterResponse<ApiKeyListVO>> result = controller.getAllApiKeys(null);
 
             // Then
             StepVerifier.create(result)
@@ -103,10 +104,10 @@ class ApiKeyManagementControllerTest {
         @DisplayName("APIKEY-002: 成功获取API密钥")
         void testGetApiKeyById_success() {
             // Given
-            when(apiKeyService.getApiKeyByIdVO("key-001")).thenReturn(Mono.just(testApiKeyVO));
+            when(apiKeyService.getApiKeyByIdVO("key-001", null)).thenReturn(Mono.just(testApiKeyVO));
 
             // When
-            Mono<RouterResponse<ApiKeyVO>> result = controller.getApiKeyById("key-001");
+            Mono<RouterResponse<ApiKeyVO>> result = controller.getApiKeyById("key-001", null);
 
             // Then
             StepVerifier.create(result)
@@ -119,11 +120,11 @@ class ApiKeyManagementControllerTest {
         @DisplayName("APIKEY-003: API密钥不存在")
         void testGetApiKeyById_notFound() {
             // Given
-            when(apiKeyService.getApiKeyByIdVO("nonexistent"))
+            when(apiKeyService.getApiKeyByIdVO("nonexistent", null))
                     .thenReturn(Mono.error(new RuntimeException("Not found")));
 
             // When
-            Mono<RouterResponse<ApiKeyVO>> result = controller.getApiKeyById("nonexistent");
+            Mono<RouterResponse<ApiKeyVO>> result = controller.getApiKeyById("nonexistent", null);
 
             // Then
             // issue #94: 失败不再伪装成 HTTP 200 的成功体，而是以 ApiException 结束链路，
@@ -152,10 +153,10 @@ class ApiKeyManagementControllerTest {
             ApiKeyCreateRequest request = ApiKeyCreateRequest.builder()
                     .description("Test Key")
                     .build();
-            when(apiKeyService.createApiKey(any(), any(), any())).thenReturn(Mono.just(testCreationVO));
+            when(apiKeyService.createApiKey(any(), any(), any(), isNull())).thenReturn(Mono.just(testCreationVO));
 
             // When
-            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.createApiKey(request, null);
+            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.createApiKey(request, null, null);
 
             // Then
             StepVerifier.create(result)
@@ -178,10 +179,10 @@ class ApiKeyManagementControllerTest {
             ApiKeyUpdateRequest request = ApiKeyUpdateRequest.builder()
                     .description("Updated description")
                     .build();
-            when(apiKeyService.updateApiKey(anyString(), any())).thenReturn(Mono.just(testApiKeyVO));
+            when(apiKeyService.updateApiKey(anyString(), any(), isNull())).thenReturn(Mono.just(testApiKeyVO));
 
             // When
-            Mono<RouterResponse<ApiKeyVO>> result = controller.updateApiKey("key-001", request);
+            Mono<RouterResponse<ApiKeyVO>> result = controller.updateApiKey("key-001", request, null);
 
             // Then
             StepVerifier.create(result)
@@ -200,10 +201,10 @@ class ApiKeyManagementControllerTest {
         @DisplayName("APIKEY-006: 成功删除API密钥")
         void testDeleteApiKey_success() {
             // Given
-            when(apiKeyService.deleteApiKey("key-001")).thenReturn(Mono.empty());
+            when(apiKeyService.deleteApiKey("key-001", "system", null)).thenReturn(Mono.empty());
 
             // When
-            Mono<RouterResponse<Void>> result = controller.deleteApiKey("key-001");
+            Mono<RouterResponse<Void>> result = controller.deleteApiKey("key-001", null);
 
             // Then
             StepVerifier.create(result)
@@ -226,10 +227,10 @@ class ApiKeyManagementControllerTest {
                     .keyId("key-001")
                     .enabled(false)
                     .build();
-            when(apiKeyService.disableApiKey("key-001")).thenReturn(Mono.just(disabledVO));
+            when(apiKeyService.disableApiKey("key-001", null)).thenReturn(Mono.just(disabledVO));
 
             // When
-            Mono<RouterResponse<ApiKeyVO>> result = controller.disableApiKey("key-001");
+            Mono<RouterResponse<ApiKeyVO>> result = controller.disableApiKey("key-001", null);
 
             // Then
             StepVerifier.create(result)
@@ -249,10 +250,10 @@ class ApiKeyManagementControllerTest {
         @DisplayName("APIKEY-008: 成功启用API密钥")
         void testEnableApiKey_success() {
             // Given
-            when(apiKeyService.enableApiKey("key-001")).thenReturn(Mono.just(testApiKeyVO));
+            when(apiKeyService.enableApiKey("key-001", null)).thenReturn(Mono.just(testApiKeyVO));
 
             // When
-            Mono<RouterResponse<ApiKeyVO>> result = controller.enableApiKey("key-001");
+            Mono<RouterResponse<ApiKeyVO>> result = controller.enableApiKey("key-001", null);
 
             // Then
             StepVerifier.create(result)
@@ -271,10 +272,10 @@ class ApiKeyManagementControllerTest {
         @DisplayName("APIKEY-009: 成功强制轮换API密钥")
         void testForceRotateApiKey_success() {
             // Given
-            when(apiKeyService.forceRotateKey(anyString(), anyString())).thenReturn(Mono.just(testCreationVO));
+            when(apiKeyService.forceRotateKey(anyString(), anyString(), isNull())).thenReturn(Mono.just(testCreationVO));
 
             // When
-            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.forceRotateApiKey("key-001", null);
+            Mono<RouterResponse<ApiKeyCreationVO>> result = controller.forceRotateApiKey("key-001", null, null);
 
             // Then
             StepVerifier.create(result)
@@ -298,10 +299,10 @@ class ApiKeyManagementControllerTest {
                     .exportTime(LocalDateTime.now())
                     .keys(List.of())
                     .build();
-            when(apiKeyService.exportApiKeys()).thenReturn(Mono.just(exportVO));
+            when(apiKeyService.exportApiKeys(isNull())).thenReturn(Mono.just(exportVO));
 
             // When
-            Mono<RouterResponse<ApiKeyBatchExportVO>> result = controller.exportApiKeys();
+            Mono<RouterResponse<ApiKeyBatchExportVO>> result = controller.exportApiKeys(null);
 
             // Then
             StepVerifier.create(result)
@@ -328,10 +329,10 @@ class ApiKeyManagementControllerTest {
                     .successCount(1)
                     .failureCount(0)
                     .build();
-            when(apiKeyService.importApiKeys(any(), anyString(), any())).thenReturn(Mono.just(resultVO));
+            when(apiKeyService.importApiKeys(any(), anyString(), any(), isNull())).thenReturn(Mono.just(resultVO));
 
             // When
-            Mono<RouterResponse<ApiKeyBatchImportResult>> result = controller.importApiKeys(request, null);
+            Mono<RouterResponse<ApiKeyBatchImportResult>> result = controller.importApiKeys(request, null, null);
 
             // Then
             StepVerifier.create(result)

@@ -27,7 +27,7 @@
  * <p>i18n：文案走 {@code myKeys} 命名空间（zh-CN / en-US 各一份），
  * 静态 key 不动态拼接，避免拼错 key 静默回退显原始 key。</p>
  */
-import { ref, computed as _computed, onMounted } from 'vue'
+import { ref, computed as _computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { getMyApiKeys, revealMyApiKeyValue } from '@/api/apiKey'
@@ -39,9 +39,11 @@ import { copyToClipboard } from '@/utils/clipboard'
 import { menuSubtitle } from '@/config/menu'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { useEnterpriseStore } from '@/stores/enterprise'
+import { useTenantStore } from '@/stores/tenant'
 
 const { t } = useI18n()
 const enterpriseStore = useEnterpriseStore()
+const tenantStore = useTenantStore()
 
 const loading = ref(false)
 const keys = ref<ApiKeyVO[]>([])
@@ -221,6 +223,17 @@ const submitApply = async () => {
   applyVisible.value = false
   applyPurpose.value = ''
 }
+
+// 多租户下切换顶部租户 → 重新拉取「我的密钥」（后端按 X-Tenant-Id + owner 双重过滤）。
+// 社区版 enterpriseStore.multiTenant=false，不 watch，行为零变化。
+watch(
+  () => tenantStore.currentTenantId,
+  (next, prev) => {
+    if (enterpriseStore.multiTenant && next !== prev) {
+      loadKeys()
+    }
+  }
+)
 
 onMounted(() => {
   // 功能位探测：billing 关闭（社区版）→ keyMixedPrice 恒 null，金额估算整页隐藏

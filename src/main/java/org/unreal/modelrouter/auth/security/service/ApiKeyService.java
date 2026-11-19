@@ -116,6 +116,12 @@ public class ApiKeyService {
     public Mono<ApiKeyCreationVO> createApiKey(ApiKeyCreateRequest req) { return createApiKey(req, "system", null); }
 
     public Mono<ApiKeyCreationVO> createApiKey(ApiKeyCreateRequest req, String by, String ip) {
+        return createApiKey(req, by, ip, null);
+    }
+
+    /** controller 透传 X-Tenant-Id：新建 Key 绑定顶部当前租户，唯一可靠来源。 */
+    public Mono<ApiKeyCreationVO> createApiKey(final ApiKeyCreateRequest req, final String by, final String ip,
+                                               final String tenantHeader) {
         return Mono.fromCallable(() -> {
             // issue #96：创建路径此前对 quotaAlertThreshold 完全没有校验，现与更新路径统一区间
             QuotaLimits.validateAlertThreshold(req.getQuotaAlertThreshold());
@@ -139,9 +145,10 @@ public class ApiKeyService {
             apiKeyWhitelistValidator.validate(validatedPermissions, req.getAllowedGroups());
             // 持有人（分配给谁）：未指定时回落为操作者本人
             final String holder = resolveHolder(req.getHolder(), by);
-            // 归属租户：签发请求带 X-Tenant-Id 时由企业侧过滤器写入上下文；单租户恒 default。
-            // 绑在 Key 上而非用户上——智能体调用不带租户头，靠 Key 反查归属。
-            final String tenantId = TenantContextHolder.currentTenantId();
+            // 归属租户（多租户强制绑定）：用户平台级共享，Key 承载调用归属。
+            // 「全部密钥」是跨租户管理视图，不能靠当前请求上下文隐式推断——必须显式指定。
+            // 归属租户取当前请求上下文（顶部租户切换器经 X-Tenant-Id 注入），唯一数据源
+            final String tenantId = resolveCreationTenantIdFromHeader(tenantHeader);
             ApiKey ak = ApiKey.builder().keyId(kid).keyHash(kh).keyPrefix("sk-")
                 .tenantId(tenantId)
                 // 明文只在创建时可得：此刻落盘脱敏展示串与加密明文，明文本身不落盘（C6 + 2026-11 复制能力）
@@ -227,6 +234,77 @@ public class ApiKeyService {
     }
 
     /**
+     * 解析新建 Key 的归属租户：直接取当前请求上下文租户（由顶部租户切换器经
+     * {@code X-Tenant-Id} 注入，请求拦截器每请求携带）。租户只有「顶部当前租户」一个数据源，
+     * 不再由创建表单显式指定——避免表单与顶部两处选择不一致。单租户（无 delegate）下
+     * 上下文恒为 {@code default}，行为零变化。
+     */
+    private String resolveCreationTenantId() {
+        final String normalized = TenantContextHolder.normalize(TenantContextHolder.currentTenantId());
+        if (!TenantContextHolder.isValidTenantId(normalized)) {
+            throw new IllegalArgumentException("无法识别当前租户，请先在顶部选择租户");
+        }
+        return normalized;
+    }
+
+    /**
+     * 新建 Key 的归属租户：优先用 controller 透传的 {@code X-Tenant-Id}（顶部切换器唯一可靠来源），
+     * 缺失时回落上下文（内部/单测调用）。单租户恒 default，行为零变化。
+     */
+    private String resolveCreationTenantIdFromHeader(final String tenantHeader) {
+        if (!TenantContextHolder.isMultiTenant()) {
+            return TenantContextHolder.normalize(TenantContextHolder.currentTenantId());
+        }
+        final String source = (tenantHeader != null && !tenantHeader.isBlank())
+                ? tenantHeader : TenantContextHolder.currentTenantId();
+        final String normalized = TenantContextHolder.normalize(source);
+        if (!TenantContextHolder.isValidTenantId(normalized)) {
+            throw new IllegalArgumentException("无法识别当前租户，请先在顶部选择租户");
+        }
+        return normalized;
+    }
+
+    // ===== 密钥链路多租户隔离（2026-11-19）=====
+    //
+    // 关键时序：管理端 controller 方法在「装配阶段」执行——此时 TenantContextWebFilter 的
+    // Mono.defer 尚未订阅、租户还没写进 ThreadLocal/Reactor Context。因此绝不能在装配阶段
+    // 读 TenantContextHolder.currentTenantId()（那正是「切换租户列表不变」的根因），必须由
+    // controller 从 HTTP 请求头显式取 X-Tenant-Id 透传进来，再在订阅阶段（Mono.fromCallable
+    // 内）用下面的 helper 归一化并过滤。请求头是此链路唯一可靠、与顶部切换器同源的租户来源。
+
+    /**
+     * 管理端请求的租户作用域：多租户下取请求头归一化的租户 ID；单租户返回 {@code null}（不过滤）。
+     */
+    public String tenantScope(final String tenantHeader) {
+        return TenantContextHolder.isMultiTenant()
+                ? TenantContextHolder.normalize(tenantHeader)
+                : null;
+    }
+
+    /** 密钥是否属于作用域；{@code scope=null}（单租户）恒成立。 */
+    private static boolean inScope(final ApiKey ak, final String scope) {
+        return scope == null || scope.equals(TenantContextHolder.normalize(ak.getTenantId()));
+    }
+
+    /** 供配额等兄弟服务复用的归属判定：按 keyId 判断密钥是否属于 scope。 */
+    public boolean isKeyInScope(final String keyId, final String scope) {
+        if (scope == null) return true;
+        final String kh = keyIdIndex.get(keyId);
+        final ApiKey ak = kh != null ? apiKeyCache.get(kh) : null;
+        return ak != null && inScope(ak, scope);
+    }
+
+    /** 取密钥并校验归属；跨租户访问按「不存在」处理（404），不泄露他租户密钥是否存在。 */
+    private ApiKey requireInScope(final String kid, final String scope) {
+        final String kh = keyIdIndex.get(kid);
+        if (kh == null) throw new ApiKeyNotFoundException("API Key不存在: " + kid);
+        final ApiKey ak = apiKeyCache.get(kh);
+        if (ak == null) throw new ApiKeyNotFoundException("API Key缓存不一致: " + kid);
+        if (!inScope(ak, scope)) throw new ApiKeyNotFoundException("API Key不存在: " + kid);
+        return ak;
+    }
+
+    /**
      * 校验多窗口配额限额字段非负（{@code 0} 表示不限制，负数视为非法配置）。
      *
      * @param name  字段名（用于错误信息）
@@ -239,11 +317,14 @@ public class ApiKeyService {
     }
 
     public Mono<ApiKeyVO> updateApiKey(String kid, ApiKeyUpdateRequest req) {
+        return updateApiKey(kid, req, null);
+    }
+
+    /** 更新密钥并校验归属当前租户；跨租户按「不存在」处理。 */
+    public Mono<ApiKeyVO> updateApiKey(final String kid, final ApiKeyUpdateRequest req, final String tenantHeader) {
+        final String scope = tenantScope(tenantHeader);
         return Mono.fromCallable(() -> {
-            String kh = keyIdIndex.get(kid);
-            if (kh == null) throw new ApiKeyNotFoundException("API Key不存在: " + kid);
-            ApiKey ak = apiKeyCache.get(kh);
-            if (ak == null) throw new ApiKeyNotFoundException("API Key缓存不一致: " + kid);
+            ApiKey ak = requireInScope(kid, scope);
 
             // 2026-10-24：白名单与权限分类一致性校验。
             // 只拦截「本次改动新引入的」不一致项 —— 存量数据里已有的不一致
@@ -296,10 +377,14 @@ public class ApiKeyService {
 
     public Mono<Void> deleteApiKey(String kid) { return deleteApiKey(kid, "system"); }
 
-    public Mono<Void> deleteApiKey(String kid, String by) {
+    public Mono<Void> deleteApiKey(String kid, String by) { return deleteApiKey(kid, by, null); }
+
+    /** 删除密钥并校验归属当前租户；跨租户按「不存在」处理。 */
+    public Mono<Void> deleteApiKey(final String kid, final String by, final String tenantHeader) {
+        final String scope = tenantScope(tenantHeader);
         return Mono.fromRunnable(() -> {
-            String kh = keyIdIndex.get(kid);
-            if (kh == null) throw new IllegalArgumentException("API Key不存在: " + kid);
+            ApiKey ak = requireInScope(kid, scope);
+            String kh = ak.getKeyHash();
             apiKeyCache.remove(kh); keyIdIndex.remove(kid);
             apiKeyPersistenceService.saveApiKeysToStore(apiKeyCache);
             eventPublisher.publishEvent(ApiKeyAuditEvent.revoked(kid, "手动删除", by));
@@ -308,12 +393,30 @@ public class ApiKeyService {
     }
 
     public Mono<ApiKeyListVO> getAllApiKeysVO() {
+        // 兼容旧调用方；生产链路一律走带 header 的重载（见下），避免装配阶段读上下文的时序坑。
+        return getAllApiKeysVOFromScope(null);
+    }
+
+    /**
+     * 「全部密钥」列表（管理端入口）：controller 透传 {@code X-Tenant-Id}，订阅阶段算 scope。
+     * 单租户 scope=null 不过滤，行为零变化。
+     */
+    public Mono<ApiKeyListVO> getAllApiKeysVO(final String tenantHeader) {
+        return getAllApiKeysVOFromScope(tenantScope(tenantHeader));
+    }
+
+    private Mono<ApiKeyListVO> getAllApiKeysVOFromScope(final String scope) {
         return Mono.fromCallable(() -> {
-            List<ApiKeyVO> items = apiKeyCache.values().stream().map(this::convertToVO)
+            List<ApiKeyVO> items = apiKeyCache.values().stream()
+                .filter(ak -> scope == null || scope.equals(TenantContextHolder.normalize(ak.getTenantId())))
+                .map(this::convertToVO)
                 .sorted(Comparator.comparing(ApiKeyVO::getCreatedAt).reversed()).toList();
             int en = 0, dis = 0, exp = 0; long ttr = 0, tsr = 0, tfr = 0;
             String td = LocalDateTime.now().toLocalDate().toString();
             for (ApiKey ak : apiKeyCache.values()) {
+                if (scope != null && !scope.equals(TenantContextHolder.normalize(ak.getTenantId()))) {
+                    continue;
+                }
                 if (ak.isEnabled()) en++; else dis++;
                 if (ak.isExpired()) exp++;
                 UsageStatistics us = ak.getUsage();
@@ -345,16 +448,22 @@ public class ApiKeyService {
      * @return 归属该用户的密钥列表（含汇总统计）
      */
     public Mono<ApiKeyListVO> getMineApiKeysVO(final String owner) {
+        return getMineApiKeysVO(owner, null);
+    }
+
+    /** 「我的密钥」带租户作用域版本：多租户下只看当前租户下、且归属本人的密钥。 */
+    public Mono<ApiKeyListVO> getMineApiKeysVO(final String owner, final String tenantHeader) {
+        final String scope = tenantScope(tenantHeader);
         return Mono.fromCallable(() -> {
             List<ApiKeyVO> items = apiKeyCache.values().stream()
-                    .filter(ak -> belongsTo(ak, owner))
+                    .filter(ak -> belongsTo(ak, owner) && inScope(ak, scope))
                     .map(this::convertToVO)
                     .sorted(Comparator.comparing(ApiKeyVO::getCreatedAt).reversed())
                     .toList();
             int en = 0, dis = 0, exp = 0; long ttr = 0, tsr = 0, tfr = 0;
             String td = LocalDateTime.now().toLocalDate().toString();
             for (ApiKey ak : apiKeyCache.values()) {
-                if (!belongsTo(ak, owner)) {
+                if (!belongsTo(ak, owner) || !inScope(ak, scope)) {
                     continue;
                 }
                 if (ak.isEnabled()) en++; else dis++;
@@ -392,9 +501,15 @@ public class ApiKeyService {
      * @return 归属该用户的密钥列表（含汇总统计与分组扩展信息）
      */
     public Mono<ApiKeyWithModelScopeVO> getMineApiKeysWithModelScope(final String owner) {
+        return getMineApiKeysWithModelScope(owner, null);
+    }
+
+    /** 「我的密钥」(含分组信息) 带租户作用域版本：多租户下只看当前租户下、且归属本人的密钥。 */
+    public Mono<ApiKeyWithModelScopeVO> getMineApiKeysWithModelScope(final String owner, final String tenantHeader) {
+        final String scope = tenantScope(tenantHeader);
         return Mono.fromCallable(() -> {
             final List<ApiKeyVO> items = apiKeyCache.values().stream()
-                    .filter(ak -> belongsTo(ak, owner))
+                    .filter(ak -> belongsTo(ak, owner) && inScope(ak, scope))
                     .map(this::convertToVO)
                     .sorted(Comparator.comparing(ApiKeyVO::getCreatedAt).reversed())
                     .toList();
@@ -402,7 +517,7 @@ public class ApiKeyService {
             long ttr = 0, tsr = 0, tfr = 0;
             final String td = LocalDateTime.now().toLocalDate().toString();
             for (final ApiKey ak : apiKeyCache.values()) {
-                if (!belongsTo(ak, owner)) {
+                if (!belongsTo(ak, owner) || !inScope(ak, scope)) {
                     continue;
                 }
                 if (ak.isEnabled()) {
@@ -455,6 +570,11 @@ public class ApiKeyService {
      * @throws IllegalStateException    明文不可恢复（存量未加密密钥）
      */
     public String revealMineApiKeyValue(final String owner, final String keyId) {
+        return revealMineApiKeyValue(owner, keyId, null);
+    }
+
+    /** 带租户作用域的明文取回：多租户下还须属于当前租户。 */
+    public String revealMineApiKeyValue(final String owner, final String keyId, final String tenantHeader) {
         final String keyHash = keyIdIndex.get(keyId);
         final ApiKey ak = keyHash != null ? apiKeyCache.get(keyHash) : null;
         if (ak == null) {
@@ -462,6 +582,9 @@ public class ApiKeyService {
         }
         if (!belongsTo(ak, owner)) {
             throw new IllegalArgumentException("该密钥不属于当前用户");
+        }
+        if (!inScope(ak, tenantScope(tenantHeader))) {
+            throw new IllegalArgumentException("API Key不存在: " + keyId);
         }
         final String encrypted = ak.getKeyEncrypted();
         if (encrypted == null || encrypted.isBlank()) {
@@ -593,21 +716,22 @@ public class ApiKeyService {
     }
 
     public Mono<ApiKeyVO> getApiKeyByIdVO(String kid) {
-        return Mono.fromCallable(() -> {
-            String kh = keyIdIndex.get(kid);
-            if (kh == null) throw new IllegalArgumentException("API Key不存在: " + kid);
-            ApiKey ak = apiKeyCache.get(kh);
-            if (ak == null) throw new IllegalArgumentException("API Key缓存不一致: " + kid);
-            return convertToVO(ak);
-        });
+        return getApiKeyByIdVO(kid, null);
     }
 
-    public Mono<ApiKeyVO> enableApiKey(String kid) {
+    /** 按 ID 查密钥并校验归属当前租户；跨租户按「不存在」处理。 */
+    public Mono<ApiKeyVO> getApiKeyByIdVO(final String kid, final String tenantHeader) {
+        final String scope = tenantScope(tenantHeader);
+        return Mono.fromCallable(() -> convertToVO(requireInScope(kid, scope)));
+    }
+
+    public Mono<ApiKeyVO> enableApiKey(String kid) { return enableApiKey(kid, null); }
+
+    /** 启用密钥并校验归属当前租户；跨租户按「不存在」处理。 */
+    public Mono<ApiKeyVO> enableApiKey(final String kid, final String tenantHeader) {
+        final String scope = tenantScope(tenantHeader);
         return Mono.fromCallable(() -> {
-            String kh = keyIdIndex.get(kid);
-            if (kh == null) throw new IllegalArgumentException("API Key不存在: " + kid);
-            ApiKey ak = apiKeyCache.get(kh);
-            if (ak == null) throw new IllegalArgumentException("API Key缓存不一致: " + kid);
+            ApiKey ak = requireInScope(kid, scope);
             ak.setEnabled(true);
             apiKeyPersistenceService.saveApiKeysToStore(apiKeyCache);
             log.info("启用API Key成功: {}", kid);
@@ -615,12 +739,13 @@ public class ApiKeyService {
         });
     }
 
-    public Mono<ApiKeyVO> disableApiKey(String kid) {
+    public Mono<ApiKeyVO> disableApiKey(String kid) { return disableApiKey(kid, null); }
+
+    /** 禁用密钥并校验归属当前租户；跨租户按「不存在」处理。 */
+    public Mono<ApiKeyVO> disableApiKey(final String kid, final String tenantHeader) {
+        final String scope = tenantScope(tenantHeader);
         return Mono.fromCallable(() -> {
-            String kh = keyIdIndex.get(kid);
-            if (kh == null) throw new IllegalArgumentException("API Key不存在: " + kid);
-            ApiKey ak = apiKeyCache.get(kh);
-            if (ak == null) throw new IllegalArgumentException("API Key缓存不一致: " + kid);
+            ApiKey ak = requireInScope(kid, scope);
             ak.setEnabled(false);
             apiKeyPersistenceService.saveApiKeysToStore(apiKeyCache);
             log.info("禁用API Key成功: {}", kid);
@@ -628,16 +753,36 @@ public class ApiKeyService {
         });
     }
 
-    public Mono<ApiKeyBatchExportVO> exportApiKeys() { return apiKeyBatchService.exportApiKeys(apiKeyCache); }
+    public Mono<ApiKeyBatchExportVO> exportApiKeys() { return exportApiKeys(null); }
+
+    /** 导出按当前租户过滤（多租户下只导出本租户密钥）。 */
+    public Mono<ApiKeyBatchExportVO> exportApiKeys(final String tenantHeader) {
+        final String scope = tenantScope(tenantHeader);
+        if (scope == null) return apiKeyBatchService.exportApiKeys(apiKeyCache);
+        final Map<String, ApiKey> scoped = new java.util.LinkedHashMap<>();
+        apiKeyCache.forEach((hash, ak) -> { if (inScope(ak, scope)) scoped.put(hash, ak); });
+        return apiKeyBatchService.exportApiKeys(scoped);
+    }
 
     public Mono<ApiKeyBatchImportResult> importApiKeys(ApiKeyBatchImportRequest req, String by, String ip) {
-        return apiKeyBatchService.importApiKeys(req, apiKeyCache, keyIdIndex, by, ip);
+        return importApiKeys(req, by, ip, null);
+    }
+
+    /** 导入绑定当前租户；REPLACE 模式只清当前租户的密钥，绝不跨租户清空。 */
+    public Mono<ApiKeyBatchImportResult> importApiKeys(final ApiKeyBatchImportRequest req, final String by,
+                                                       final String ip, final String tenantHeader) {
+        return apiKeyBatchService.importApiKeys(req, apiKeyCache, keyIdIndex, by, ip, tenantScope(tenantHeader));
     }
 
     public Mono<Integer> rotateExpiredKeys() { return apiKeyBatchService.rotateExpiredKeys(apiKeyCache, keyIdIndex); }
 
-    public Mono<ApiKeyCreationVO> forceRotateKey(String kid, String by) {
-        return apiKeyBatchService.forceRotateKey(kid, apiKeyCache, keyIdIndex, by);
+    public Mono<ApiKeyCreationVO> forceRotateKey(String kid, String by) { return forceRotateKey(kid, by, null); }
+
+    /** 强制轮换并校验归属当前租户；跨租户按「不存在」处理。 */
+    public Mono<ApiKeyCreationVO> forceRotateKey(final String kid, final String by, final String tenantHeader) {
+        final String scope = tenantScope(tenantHeader);
+        return Mono.fromCallable(() -> { requireInScope(kid, scope); return true; })
+                .then(apiKeyBatchService.forceRotateKey(kid, apiKeyCache, keyIdIndex, by));
     }
 
     public Mono<Integer> cleanupExpiredKeys() { return apiKeyBatchService.cleanupExpiredKeys(apiKeyCache); }
@@ -857,6 +1002,7 @@ public class ApiKeyService {
 
     private ApiKeyVO convertToVO(ApiKey ak) {
         ApiKeyVO vo = ApiKeyVO.builder().keyId(ak.getKeyId()).description(ak.getDescription())
+            .tenantId(TenantContextHolder.normalize(ak.getTenantId()))
             // 优先用创建/轮换/导入时持久化的脱敏串；存量无明文密钥回落（仍为 null → 前端显示「—」）
             .keyMasked(ak.getKeyMasked() != null ? ak.getKeyMasked() : maskKeyValue(ak.getKeyValue()))
             .permissions(normalizeStoredPermissions(ak.getPermissions()))

@@ -108,6 +108,12 @@
             <span class="key-holder">{{ scope.row.holder || scope.row.createdBy || t('apiKeys.unknownHolder') }}</span>
           </template>
         </el-table-column>
+        <!-- 归属租户（仅多租户视图展示）：单租户恒 default，无需占用列宽 -->
+        <el-table-column v-if="multiTenant" :label="t('apiKeys.columns.tenant')" min-width="110" show-overflow-tooltip>
+          <template #default="scope">
+            <el-tag size="small" type="info" effect="plain">{{ scope.row.tenantId || 'default' }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column :label="t('apiKeys.columns.allowedGroups')" min-width="200">
           <template #default="scope">
             <div class="group-chips">
@@ -683,6 +689,7 @@ import { useI18n } from 'vue-i18n'
 import { usePermission } from '@/composables/usePermission'
 import { useQuotaLedger } from '@/composables/useQuotaLedger'
 import { useEnterpriseStore } from '@/stores/enterprise'
+import { useTenantStore } from '@/stores/tenant'
 import { usePersistedState } from '@/composables/usePersistedState'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { confirmDanger } from '@/utils/dangerConfirm'
@@ -724,8 +731,15 @@ import type {
 const { t } = useI18n()
 const { hasPermission } = usePermission()
 const enterpriseStore = useEnterpriseStore()
+const tenantStore = useTenantStore()
 /** 计费功能位（open-core 门控）：关（社区版）→ mixedPriceForGroups 恒 null，金额维度整页隐藏 */
 const billingEnabled = computed(() => enterpriseStore.billing)
+/**
+ * 多租户功能位（license 闸门）：开（企业版）→「全部密钥」按当前租户隔离，
+ * 新建密钥自动绑定顶部当前租户；关（社区版）→ 无租户概念，行为与旧版一致。
+ * 与后端 TenantContextHolder.isMultiTenant() 同源。
+ */
+const multiTenant = computed(() => enterpriseStore.multiTenant)
 const canWrite = hasPermission('security:apikeys:manage')
 const router = useRouter()
 const route = useRoute()
@@ -1354,6 +1368,19 @@ watch(
   { deep: true }
 )
 
+// 多租户下切换顶部租户 → 重新拉取「全部密钥」列表（后端按 X-Tenant-Id 行级过滤）。
+// 社区版 multiTenant=false，不 watch，行为零变化。
+watch(
+  () => tenantStore.currentTenantId,
+  (next, prev) => {
+    if (multiTenant.value && next !== prev) {
+      clearSelection()
+      pagination.currentPage = 1
+      void fetchApiKeys()
+    }
+  }
+)
+
 // ===== 原型 modal7：密钥排查 =====
 interface TroubleshootCheck { icon: string; text: string; tone: 'ok' | 'warn' | 'info' }
 
@@ -1887,7 +1914,6 @@ const handleSave = async () => {
       ElMessage.error(t('apiKeys.form.descriptionRequired'))
       return
     }
-
     // 「可调用的模型分类」已移除：分类权限由后端按白名单自动推导，前端不再提交 permissions
 
     if (isEdit.value) {

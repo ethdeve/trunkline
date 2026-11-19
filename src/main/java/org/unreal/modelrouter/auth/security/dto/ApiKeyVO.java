@@ -35,6 +35,9 @@ public class ApiKeyVO {
      */
     private String description;
 
+    /** 归属租户 ID（多租户下列表展示 + 行级隔离判定；单租户为 default） */
+    private String tenantId;
+
     /**
      * 创建者用户名
      */

@@ -66,6 +66,7 @@
     "columns": {
       "keyId": "密钥ID",
       "description": "描述",
+      "tenant": "归属租户",
       "permissions": "权限",
       "createdAt": "创建时间",
       "createdBy": "创建者",

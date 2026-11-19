@@ -77,13 +77,14 @@ class ApiKeyManagementControllerQuotaBlockingTest {
 
         when(apiKeyService.getApiKeyCache()).thenReturn(cache);
         when(apiKeyService.getKeyIdIndex()).thenReturn(index);
-        when(apiKeyService.updateApiKey(eq(KEY_ID), any())).thenReturn(Mono.just(new ApiKeyVO()));
+        when(apiKeyService.isKeyInScope(eq(KEY_ID), any())).thenReturn(true);
+        when(apiKeyService.updateApiKey(eq(KEY_ID), any(), any())).thenReturn(Mono.just(new ApiKeyVO()));
         when(rateLimiter.getCurrentCount(KEY_ID)).thenReturn(0);
 
         final ApiKeyUpdateRequest request = new ApiKeyUpdateRequest();
         request.setDailyRequestLimit(500L);
 
-        StepVerifier.create(controller.updateApiKeyQuota(KEY_ID, request)
+        StepVerifier.create(controller.updateApiKeyQuota(KEY_ID, request, null)
                         .subscribeOn(Schedulers.parallel()))
                 .assertNext(response -> assertTrue(response.isSuccess(),
                         "配额更新不应因在 Reactor 非阻塞线程上调用 block() 而失败: "

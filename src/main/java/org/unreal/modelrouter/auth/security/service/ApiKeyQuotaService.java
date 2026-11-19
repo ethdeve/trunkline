@@ -54,6 +54,14 @@ public class ApiKeyQuotaService {
      * @return 配额使用详情，未找到返回 empty
      */
     public Optional<QuotaUsageDetail> getQuotaUsage(String keyId) {
+        return getQuotaUsage(keyId, null);
+    }
+
+    /** 带租户作用域的配额查询：跨租户 Key 一律视为不存在。 */
+    public Optional<QuotaUsageDetail> getQuotaUsage(final String keyId, final String scope) {
+        if (!apiKeyService.isKeyInScope(keyId, scope)) {
+            return Optional.empty();
+        }
         Map<String, ApiKey> cache = apiKeyService.getApiKeyCache();
         Map<String, String> index = apiKeyService.getKeyIdIndex();
 
@@ -185,12 +193,18 @@ public class ApiKeyQuotaService {
      * @return 告警列表
      */
     public List<QuotaAlertInfo> getAlerts() {
+        return getAlerts(null);
+    }
+
+    /** 告警列表按租户作用域过滤。 */
+    public List<QuotaAlertInfo> getAlerts(final String scope) {
         Map<String, ApiKey> cache = apiKeyService.getApiKeyCache();
         Map<String, String> index = apiKeyService.getKeyIdIndex();
 
         return index.keySet().stream()
+            .filter(keyId -> apiKeyService.isKeyInScope(keyId, scope))
             .map(keyId -> {
-                Optional<QuotaUsageDetail> detail = getQuotaUsage(keyId);
+                Optional<QuotaUsageDetail> detail = getQuotaUsage(keyId, scope);
                 return detail.orElse(null);
             })
             .filter(Objects::nonNull)
@@ -212,9 +226,15 @@ public class ApiKeyQuotaService {
      * @return 配额使用概览列表
      */
     public List<QuotaUsageDetail> getAllQuotaUsage() {
+        return getAllQuotaUsage(null);
+    }
+
+    /** 配额概览按租户作用域过滤。 */
+    public List<QuotaUsageDetail> getAllQuotaUsage(final String scope) {
         Map<String, String> index = apiKeyService.getKeyIdIndex();
         return index.keySet().stream()
-            .map(this::getQuotaUsage)
+            .filter(keyId -> apiKeyService.isKeyInScope(keyId, scope))
+            .map(keyId -> getQuotaUsage(keyId, scope))
             .filter(Optional::isPresent)
             .map(Optional::get)
             .collect(Collectors.toList());
@@ -225,7 +245,13 @@ public class ApiKeyQuotaService {
      *
      * @param keyId API Key ID
      */
-    public void resetDailyQuota(String keyId) {
+    public void resetDailyQuota(String keyId) { resetDailyQuota(keyId, null); }
+
+    /** 带租户作用域的配额重置：跨租户 Key 拒绝重置。 */
+    public void resetDailyQuota(final String keyId, final String scope) {
+        if (!apiKeyService.isKeyInScope(keyId, scope)) {
+            throw new IllegalArgumentException("API Key不存在: " + keyId);
+        }
         // P2：管理接口也在 WebFlux 链路上，block 必须带超时且工作放到 boundedElastic
         apiKeyService.resetDailyQuota(keyId)
                 .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
@@ -246,6 +272,15 @@ public class ApiKeyQuotaService {
      * @return 更新后的配额详情
      */
     public QuotaUsageDetail updateQuotaLimits(final String keyId, final ApiKeyUpdateRequest request) {
+        return updateQuotaLimits(keyId, request, null);
+    }
+
+    /** 带租户作用域的配额更新：跨租户 Key 拒绝更新。 */
+    public QuotaUsageDetail updateQuotaLimits(final String keyId, final ApiKeyUpdateRequest request,
+                                              final String scope) {
+        if (!apiKeyService.isKeyInScope(keyId, scope)) {
+            throw new IllegalArgumentException("API Key不存在: " + keyId);
+        }
         if (request == null) {
             throw new IllegalArgumentException("配额更新请求不能为空");
         }
@@ -266,10 +301,11 @@ public class ApiKeyQuotaService {
         validateLimitNonNegative("hourlyTokenLimit", request.getHourlyTokenLimit());
         validateLimitNonNegative("monthlyRequestLimit", request.getMonthlyRequestLimit());
         validateLimitNonNegative("monthlyTokenLimit", request.getMonthlyTokenLimit());
-        apiKeyService.updateApiKey(keyId, request)
+        // 传已归一化的 scope：单租户 tenantScope 恒 null（不过滤）；多租户 normalize(scope)=scope
+        apiKeyService.updateApiKey(keyId, request, scope)
                 .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
                 .block(java.time.Duration.ofSeconds(5));
-        return getQuotaUsage(keyId)
+        return getQuotaUsage(keyId, scope)
                 .orElseThrow(() -> new IllegalArgumentException("API Key 不存在: " + keyId));
     }
 
@@ -287,6 +323,11 @@ public class ApiKeyQuotaService {
      * @return 实际成功重置的数量
      */
     public int resetDailyQuotas(final List<String> keyIds) {
+        return resetDailyQuotas(keyIds, null);
+    }
+
+    /** 批量重置按租户作用域过滤：跨租户 keyId 静默跳过（不计入成功数）。 */
+    public int resetDailyQuotas(final List<String> keyIds, final String scope) {
         if (keyIds == null || keyIds.isEmpty()) {
             return 0;
         }
@@ -296,8 +337,11 @@ public class ApiKeyQuotaService {
             if (keyId == null || keyId.isBlank() || !index.containsKey(keyId)) {
                 continue;
             }
+            if (!apiKeyService.isKeyInScope(keyId, scope)) {
+                continue;
+            }
             try {
-                resetDailyQuota(keyId);
+                resetDailyQuota(keyId, scope);
                 ok++;
             } catch (Exception e) {
                 log.warn("批量重置配额失败: keyId={}, error={}", keyId, e.toString());
@@ -309,18 +353,26 @@ public class ApiKeyQuotaService {
     /**
      * 重置所有 API Key 的每日配额计数器
      */
-    public void resetAllDailyQuotas() {
-        Map<String, ApiKey> cache = apiKeyService.getApiKeyCache();
+    public void resetAllDailyQuotas() { resetAllDailyQuotas(null); }
+
+    /** 重置全部配额：单租户全量；多租户只重置当前归属租户的密钥。 */
+    public void resetAllDailyQuotas(final String scope) {
         Map<String, String> index = apiKeyService.getKeyIdIndex();
 
         for (String keyId : index.keySet()) {
+            if (!apiKeyService.isKeyInScope(keyId, scope)) {
+                continue;
+            }
             apiKeyService.resetDailyQuota(keyId)
                     .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
                     .block(java.time.Duration.ofSeconds(5));
             resetLedger(keyId);
         }
-        rateLimiter.resetAll();
-        log.info("已重置所有 API Key 每日配额和速率限制");
+        // 速率限制器是全站内存态：单租户全清；多租户无 per-tenant 维度，保守起见仅单租户清
+        if (scope == null) {
+            rateLimiter.resetAll();
+        }
+        log.info("已重置{} API Key 每日配额", scope == null ? "所有" : ("租户 " + scope + " 的"));
     }
 
     /**

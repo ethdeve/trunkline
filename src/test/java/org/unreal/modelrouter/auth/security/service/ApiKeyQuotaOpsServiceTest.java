@@ -63,7 +63,9 @@ class ApiKeyQuotaOpsServiceTest {
 
         when(apiKeyService.getApiKeyCache()).thenReturn(Map.of("hash-1", key));
         when(apiKeyService.getKeyIdIndex()).thenReturn(Map.of("key-1", "hash-1"));
-        when(apiKeyService.updateApiKey(anyString(), any())).thenAnswer(inv -> {
+        when(apiKeyService.isKeyInScope(anyString(), any())).thenAnswer(inv ->
+                "key-1".equals(inv.getArgument(0)));
+        when(apiKeyService.updateApiKey(anyString(), any(), any())).thenAnswer(inv -> {
             final ApiKeyUpdateRequest req = inv.getArgument(1);
             if (req.getDailyRequestLimit() != null) {
                 key.setDailyRequestLimit(req.getDailyRequestLimit());
@@ -100,7 +102,7 @@ class ApiKeyQuotaOpsServiceTest {
         assertEquals(120, detail.getRateLimitPerMinute());
         assertEquals(0.9, detail.getQuotaAlertThreshold());
         assertEquals(30L, detail.getTodayRequestCount());
-        verify(apiKeyService).updateApiKey(eq("key-1"), any(ApiKeyUpdateRequest.class));
+        verify(apiKeyService).updateApiKey(eq("key-1"), any(ApiKeyUpdateRequest.class), any());
     }
 
     @Test

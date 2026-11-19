@@ -29,6 +29,8 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -68,6 +70,8 @@ class ApiKeyQuotaServiceLedgerTest {
         final Map<String, String> keyIdIndex = new HashMap<>();
         when(apiKeyService.getApiKeyCache()).thenReturn(apiKeyCache);
         when(apiKeyService.getKeyIdIndex()).thenReturn(keyIdIndex);
+        when(apiKeyService.isKeyInScope(anyString(), any())).thenAnswer(inv ->
+                keyIdIndex.containsKey(inv.getArgument(0)));
 
         ledgerRepository = InMemoryQuotaLedgerRepository.create();
         quotaProperties = new QuotaProperties();

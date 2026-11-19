@@ -82,6 +82,7 @@ export interface ApiKeyVO {
   createdAt: string
   createdBy?: string          // 创建者用户名
   holder?: string             // 密钥持有人（分配给谁）；为空回落显示 createdBy
+  tenantId?: string           // 归属租户 ID（多租户下列表展示；单租户为 default）
   creatorIpAddress?: string   // 创建者 IP 地址
   expiresAt: string
   lastUsedAt?: string

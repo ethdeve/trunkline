@@ -67,7 +67,7 @@ class ApiKeyManagementControllerUpdateErrorMappingTest {
 
         final ApiKeyUpdateRequest request = ApiKeyUpdateRequest.builder().description("d").build();
 
-        StepVerifier.create(controller.updateApiKey("k1", request))
+        StepVerifier.create(controller.updateApiKey("k1", request, null))
                 .expectErrorSatisfies(ex -> {
                     final ApiException apiEx = assertInstanceOf(ApiException.class, ex);
                     assertEquals("INVALID_REQUEST", apiEx.getErrorCode());
@@ -84,7 +84,7 @@ class ApiKeyManagementControllerUpdateErrorMappingTest {
 
         final ApiKeyUpdateRequest request = ApiKeyUpdateRequest.builder().description("d").build();
 
-        StepVerifier.create(controller.updateApiKey("k1", request))
+        StepVerifier.create(controller.updateApiKey("k1", request, null))
                 .expectErrorSatisfies(ex -> {
                     final ApiException apiEx = assertInstanceOf(ApiException.class, ex);
                     assertEquals("NOT_FOUND", apiEx.getErrorCode());
@@ -101,7 +101,7 @@ class ApiKeyManagementControllerUpdateErrorMappingTest {
 
         final ApiKeyUpdateRequest request = ApiKeyUpdateRequest.builder().description("d").build();
 
-        StepVerifier.create(controller.updateApiKey("k1", request))
+        StepVerifier.create(controller.updateApiKey("k1", request, null))
                 .expectErrorSatisfies(ex -> {
                     final ApiException apiEx = assertInstanceOf(ApiException.class, ex);
                     assertEquals("INVALID_REQUEST", apiEx.getErrorCode());
@@ -118,7 +118,7 @@ class ApiKeyManagementControllerUpdateErrorMappingTest {
 
         final ApiKeyUpdateRequest request = ApiKeyUpdateRequest.builder().description("d").build();
 
-        StepVerifier.create(controller.updateApiKey("k1", request))
+        StepVerifier.create(controller.updateApiKey("k1", request, null))
                 .expectErrorSatisfies(ex -> {
                     final ApiException apiEx = assertInstanceOf(ApiException.class, ex);
                     assertEquals("CONFLICT_STATE", apiEx.getErrorCode());
@@ -135,7 +135,7 @@ class ApiKeyManagementControllerUpdateErrorMappingTest {
 
         final ApiKeyUpdateRequest request = ApiKeyUpdateRequest.builder().description("d").build();
 
-        StepVerifier.create(controller.updateApiKey("k1", request))
+        StepVerifier.create(controller.updateApiKey("k1", request, null))
                 .expectErrorSatisfies(ex -> {
                     final ApiException apiEx = assertInstanceOf(ApiException.class, ex);
                     assertEquals("NOT_FOUND", apiEx.getErrorCode());
@@ -159,7 +159,7 @@ class ApiKeyManagementControllerUpdateErrorMappingTest {
         }
 
         @Override
-        public Mono<ApiKeyVO> updateApiKey(final String kid, final ApiKeyUpdateRequest req) {
+        public Mono<ApiKeyVO> updateApiKey(final String kid, final ApiKeyUpdateRequest req, final String tenantHeader) {
             return Mono.error(error);
         }
     }

@@ -52,6 +52,8 @@ class ApiKeyQuotaServiceTest {
         keyIdIndex = new HashMap<>();
         when(apiKeyService.getApiKeyCache()).thenReturn(apiKeyCache);
         when(apiKeyService.getKeyIdIndex()).thenReturn(keyIdIndex);
+        when(apiKeyService.isKeyInScope(anyString(), any())).thenAnswer(inv ->
+                keyIdIndex.containsKey(inv.getArgument(0)));
     }
 
     private ApiKey createMockApiKey(String keyId, long dailyRequestLimit,
