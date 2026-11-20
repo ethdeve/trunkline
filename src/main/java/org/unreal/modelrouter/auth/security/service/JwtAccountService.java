@@ -207,7 +207,7 @@ public class JwtAccountService {
     }
 
     private JwtAccountDTO convertToDTO(final JwtAccountEntity entity) {
-        List<String> roles = List.of();
+        List<Object> roles = List.of();
         try {
             if (entity.getRoles() != null) {
                 roles = objectMapper.readValue(entity.getRoles(), List.class);

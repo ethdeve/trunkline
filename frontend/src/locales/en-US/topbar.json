@@ -13,6 +13,11 @@
     "clusterTipOk": "Multi-replica deployment: live counters on this page usually cover the current replica only",
     "clusterTipGap": "Multi-replica deployment with cross-replica shared state disabled — data may differ between replicas. See State & Storage for details",
     "tenant": "Tenant",
-    "tenantSwitcher": "Switch tenant"
+    "tenantSwitcher": "Switch tenant",
+    "tenantDefault": "Default tenant",
+    "tenantSingleHint": "Only one tenant exists; no switching needed",
+    "tenantDefaultHint": "Multi-tenant is enabled but no tenant has been created yet; all data lives in the default tenant",
+    "globalScope": "Global · unaffected by tenant",
+    "globalScopeHint": "This is a shared global page; switching tenants does not change its data"
   }
 }

@@ -39,7 +39,7 @@
         <el-statistic :title="t('accounts.disabledAccounts')" :value="accounts.filter(a => !a.enabled).length" />
       </el-col>
       <el-col :span="6">
-        <el-statistic :title="t('accounts.adminAccounts')" :value="accounts.filter(a => a.roles?.includes('ADMIN')).length" />
+        <el-statistic :title="t('accounts.adminAccounts')" :value="accounts.filter(a => hasRoleCode(a.roles, 'ADMIN')).length" />
       </el-col>
     </el-row>
 
@@ -58,16 +58,16 @@
           <span v-else class="cell-muted">{{ t('accounts.departmentUnassigned') }}</span>
         </template>
       </el-table-column>
-      <el-table-column :label="t('accounts.roles')" min-width="150">
+        <el-table-column :label="t('accounts.roles')" min-width="150">
         <template #default="scope">
           <el-tag
-            v-for="role in scope.row.roles"
-            :key="role"
-            :type="roleTagType(role)"
+            v-for="(item, idx) in roleDisplayList(scope.row.roles)"
+            :key="idx"
+            :type="item.type"
             size="small"
             style="margin-right: 5px;"
           >
-            {{ t('accounts.roleLabels.' + role) }}
+            {{ item.label }}
           </el-tag>
         </template>
       </el-table-column>
@@ -202,6 +202,57 @@
             {{ t(ROLE_DESCRIPTIONS[accountForm.role as RoleName]) }}
           </div>
         </el-form-item>
+
+        <!-- 企业版多租户：ADMIN/OPERATOR 配置"每租户一行角色"（P0-c）。USER/AUDITOR 不显示 -->
+        <el-form-item
+          v-if="tenantScopedEnabled && roleNeedsTenantScope"
+          :label="t('accounts.tenantScope')"
+        >
+          <div class="role-binding-list">
+            <div
+              v-for="(binding, index) in accountForm.roleBindings"
+              :key="index"
+              class="role-binding-row"
+            >
+              <el-select
+                v-model="binding.t"
+                size="small"
+                :placeholder="t('accounts.tenantScopeTenant')"
+                style="width: 55%"
+              >
+                <el-option
+                  v-for="opt in scopeTenantOptions"
+                  :key="opt.tenantId"
+                  :label="opt.displayName ? `${opt.displayName}（${opt.tenantId}）` : opt.tenantId"
+                  :value="opt.tenantId"
+                />
+              </el-select>
+              <el-select v-model="binding.r" size="small" style="width: 35%">
+                <!-- 只允许管理员/运维两类管理作用域；USER 的租户归属由密钥自动关联，
+                     不在此处配置（配置了也无消费方，纯属误导） -->
+                <el-option :label="t('accounts.roleLabels.ADMIN')" value="ADMIN" />
+                <el-option :label="t('accounts.roleLabels.OPERATOR')" value="OPERATOR" />
+              </el-select>
+              <el-button size="small" type="danger" text @click="removeRoleBinding(index)">
+                <el-icon><Delete /></el-icon>
+              </el-button>
+            </div>
+            <el-button size="small" @click="addRoleBinding" :disabled="accountForm.roleBindings.length >= scopeTenantOptions.length">
+              <el-icon><Plus /></el-icon>{{ t('accounts.addTenantScope') }}
+            </el-button>
+            <div class="form-hint">{{ t('accounts.tenantScopeHint') }}</div>
+          </div>
+        </el-form-item>
+        <!-- USER/AUDITOR 提示：归属由密钥自动关联 / 固定全局只读 -->
+        <el-form-item
+          v-else-if="tenantScopedEnabled && (accountForm.role === 'USER' || accountForm.role === 'AUDITOR')"
+          :label="t('accounts.tenantScope')"
+        >
+          <div class="form-hint">
+            {{ accountForm.role === 'USER' ? t('accounts.tenantScopeUserHint') : t('accounts.tenantScopeAuditorHint') }}
+          </div>
+        </el-form-item>
+
         <el-form-item :label="t('accounts.status')" prop="enabled">
           <el-switch v-model="accountForm.enabled" :active-text="t('accounts.enabled')" :inactive-text="t('accounts.disabled')" />
         </el-form-item>
@@ -224,7 +275,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { confirmDanger } from '@/utils/dangerConfirm'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -243,16 +294,34 @@ import {
   deleteJwtAccount,
   toggleJwtAccountStatus
 } from '@/api/account'
-import type { JwtAccount, CreateJwtAccountRequest } from '@/api/account'
-/** 可选角色（社区版权权固定化：三档固定角色，与后端固定角色矩阵一致） */
-const ROLES = ['ADMIN', 'OPERATOR', 'USER'] as const
-type RoleName = (typeof ROLES)[number]
+import type { JwtAccount, CreateJwtAccountRequest, RoleBinding, RoleValue } from '@/api/account'
+import { useEnterpriseStore } from '@/stores/enterprise'
+import { useTenantStore } from '@/stores/tenant'
+/** 可选角色（社区版三档固定角色；企业版多租户额外可选 AUDITOR 审计员） */
+const COMMUNITY_ROLES = ['ADMIN', 'OPERATOR', 'USER'] as const
+type RoleName = 'ADMIN' | 'OPERATOR' | 'USER' | 'AUDITOR'
+
+const enterpriseStore = useEnterpriseStore()
+const tenantStore = useTenantStore()
+/** 企业版且开通多租户：显示"每租户一行角色"作用域列表 */
+const tenantScopedEnabled = computed(() =>
+  enterpriseStore.enterpriseEdition && enterpriseStore.multiTenant && enterpriseStore.tenantManagement
+)
+/** 当前角色是否需要配置租户作用域（只有 ADMIN/OPERATOR 需要；USER/AUDITOR 不需要） */
+const roleNeedsTenantScope = computed(() =>
+  accountForm.role === 'ADMIN' || accountForm.role === 'OPERATOR'
+)
+/** 角色下拉选项：社区版三档逐字不变；企业版多租户追加 AUDITOR */
+const ROLES = computed<RoleName[]>(() =>
+  tenantScopedEnabled.value ? [...COMMUNITY_ROLES, 'AUDITOR'] : [...COMMUNITY_ROLES]
+)
 
 /** 角色说明 i18n key（文案位于 locales 的 permissions.json roleDescriptions 节点） */
 const ROLE_DESCRIPTIONS: Record<RoleName, string> = {
   ADMIN: 'permissions.roleDescriptions.ADMIN',
   OPERATOR: 'permissions.roleDescriptions.OPERATOR',
-  USER: 'permissions.roleDescriptions.USER'
+  USER: 'permissions.roleDescriptions.USER',
+  AUDITOR: 'permissions.roleDescriptions.AUDITOR'
 }
 
 const { t } = useI18n()
@@ -261,7 +330,10 @@ const canWrite = hasPermission('system:accounts:manage')
 
 /** 角色标签颜色：ADMIN 红 / OPERATOR 橙 / USER 蓝 / VIEWER 灰 */
 const roleTagType = (role: string) =>
-  role === 'ADMIN' ? 'danger' : role === 'OPERATOR' ? 'warning' : role === 'VIEWER' ? 'info' : 'primary'
+  role === 'ADMIN' ? 'danger'
+    : role === 'OPERATOR' ? 'warning'
+    : role === 'AUDITOR' ? 'info'
+    : role === 'VIEWER' ? 'info' : 'primary'
 
 // 数据状态
 const accounts = ref<JwtAccount[]>([])
@@ -284,16 +356,70 @@ const accountForm = reactive({
   department: '',
   name: '',
   role: '' as RoleName | '',
+  /** 企业版多租户下 ADMIN/OPERATOR 的每租户角色绑定（P0-c） */
+  roleBindings: [] as RoleBinding[],
   enabled: true
 })
 
+/** 租户下拉选项（作用域配置用），来自租户 store；社区版不会用到 */
+const scopeTenantOptions = computed(() =>
+  tenantStore.tenants.filter(t => !t.status || t.status === 'active')
+)
+
+/** 新增一行租户角色绑定 */
+const addRoleBinding = () => {
+  if (!scopeTenantOptions.value.length) return
+  const used = new Set(accountForm.roleBindings.map(b => b.t))
+  const next = scopeTenantOptions.value.find(t => !used.has(t.tenantId))
+  // 默认取当前所选角色；本区域仅 ADMIN/OPERATOR 可用，兜底不落到 USER
+  const fallback = accountForm.role === 'ADMIN' || accountForm.role === 'OPERATOR'
+    ? accountForm.role : 'OPERATOR'
+  accountForm.roleBindings.push({ t: next?.tenantId ?? '', r: fallback })
+}
+
+/** 删除一行角色绑定 */
+const removeRoleBinding = (index: number) => {
+  accountForm.roleBindings.splice(index, 1)
+}
+
 /** 编辑回填：存量账号理论上只有一个角色，历史多角色账号取权限最高的一档 */
-const pickPrimaryRole = (roles?: string[]): RoleName | '' => {
+const pickPrimaryRole = (roles?: RoleValue[]): RoleName | '' => {
   if (!roles || roles.length === 0) return ''
-  for (const role of ROLES) {
-    if (roles.includes(role)) return role
+  // 展开新格式的 r 字段 + 旧格式字符串
+  const names = roles.map(r => typeof r === 'string' ? r : r.r)
+  for (const role of ROLES.value) {
+    if (names.includes(role)) return role
   }
   return ''
+}
+
+/** 判断 roles 是否含某角色码（兼容旧字符串与新 {t,r}） */
+const hasRoleCode = (roles: RoleValue[] | undefined, code: string): boolean =>
+  !!roles?.some(r => (typeof r === 'string' ? r : r?.r) === code)
+
+/** 列表展示：把 RoleValue[]（旧字符串 / 新 {t,r}）转成待渲染的标签 */
+const roleDisplayList = (roles?: RoleValue[]): { label: string; type: string }[] => {
+  if (!roles) return []
+  return roles.map(r => {
+    if (typeof r === 'string') {
+      return { label: t(`accounts.roleLabels.${r}`), type: roleTagType(r) }
+    }
+    const tenantLabel = r.t === '*'
+      ? t('accounts.tenantGlobal')
+      : (tenantStore.tenants.find(x => x.tenantId === r.t)?.displayName || r.t)
+    return { label: `${t(`accounts.roleLabels.${r.r}`)}@${tenantLabel}`, type: roleTagType(r.r) }
+  })
+}
+
+/** 从 roles 中提取新格式的租户绑定（旧格式返回空） */
+const pickRoleBindings = (roles?: RoleValue[]): RoleBinding[] => {
+  if (!roles) return []
+  return roles
+    .filter((r): r is RoleBinding => typeof r !== 'string' && !!r && typeof r === 'object' && !!r.t && !!r.r)
+    // 原样保留存量绑定的角色值，绝不在此处"纠正"——把 USER 改成 OPERATOR 等于静默提权。
+    // 本区域下拉只提供 ADMIN/OPERATOR 两个选项；万一存量是 USER，Element Plus 会
+    // 原样显示该值，用户可主动改成管理角色或删除该行。
+    .map(b => ({ t: b.t, r: b.r }))
 }
 
 /** 已有部门清单（下拉可复用，也可直接输入新部门名） */
@@ -393,10 +519,15 @@ const submitAccount = async () => {
   await accountFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
+        // 角色值：企业版多租户 + 需作用域角色 → 新格式 [{t,r}]；否则旧格式 [role]（社区版逐字不变）
+        const rolesValue: RoleValue[] = tenantScopedEnabled.value && roleNeedsTenantScope.value
+          ? accountForm.roleBindings.map(b => ({ t: b.t, r: b.r }))
+          : (accountForm.role ? [accountForm.role] : [])
+
         if (editingAccount.value) {
           // 更新账户 - 只传需要更新的字段
           const updateData: Partial<JwtAccount> = {
-            roles: accountForm.role ? [accountForm.role] : [],
+            roles: rolesValue,
             department: accountForm.department,
             name: accountForm.name,
             enabled: accountForm.enabled
@@ -413,7 +544,7 @@ const submitAccount = async () => {
           const createRequest: CreateJwtAccountRequest = {
             username: accountForm.username,
             password: accountForm.password,
-            roles: accountForm.role ? [accountForm.role] : [],
+            roles: rolesValue,
             department: accountForm.department,
             name: accountForm.name,
             enabled: accountForm.enabled
@@ -441,6 +572,7 @@ const editAccount = (account: JwtAccount) => {
   accountForm.password = ''
   accountForm.confirmPassword = ''
   accountForm.role = pickPrimaryRole(account.roles)
+  accountForm.roleBindings = pickRoleBindings(account.roles)
   accountForm.department = account.department || ''
   accountForm.name = account.name || ''
   accountForm.enabled = account.enabled
@@ -499,6 +631,7 @@ const resetForm = () => {
   accountForm.department = ''
   accountForm.name = ''
   accountForm.role = ''
+  accountForm.roleBindings = []
   accountForm.enabled = true
   editingAccount.value = null
   if (accountFormRef.value) {
@@ -507,7 +640,18 @@ const resetForm = () => {
 }
 
 // 组件挂载时获取账户列表
-onMounted(() => {
+// 打开创建/编辑弹窗时强制刷新租户选项：租户管理在企业子应用（独立 pinia）里，
+// 创建/停用后宿主 store 依赖 rev 信号感知；此处兜底重拉，避免「添加租户」按钮
+// 因陈旧空列表被误禁用（0 >= 0）
+watch(showCreateDialog, async (open) => {
+  if (open && tenantScopedEnabled.value) await tenantStore.ensureLoaded(true)
+})
+
+onMounted(async () => {
+  await enterpriseStore.ensureLoaded()
+  if (tenantScopedEnabled.value) {
+    await tenantStore.ensureLoaded()
+  }
   fetchAccounts()
   loadDepartments()
 })
@@ -542,6 +686,17 @@ onMounted(() => {
 /* 统计卡片样式 */
 .el-statistic {
   text-align: center;
+}
+
+/* 企业版多租户：每租户一行角色绑定（P0-c） */
+.role-binding-list {
+  width: 100%;
+}
+.role-binding-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 
 /* 表格样式 */

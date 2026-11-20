@@ -39,34 +39,45 @@ class PoolConfigControllerTest {
     private PoolSelector poolSelector;
     private PoolConfigController controller;
 
-    /** 内存版持久化,避免依赖 StoreManager */
+    /** 内存版持久化,避免依赖 StoreManager；支持按 currentTenant 模拟 @Filter(tenantFilter) 行级隔离 */
     private static class InMemoryPoolPersistence extends PoolPersistenceService {
-        private final List<PoolDefinition> store = new ArrayList<>();
+        private final java.util.Map<String, List<PoolDefinition>> storeByTenant = new java.util.LinkedHashMap<>();
+        private String currentTenant = "default";
 
         InMemoryPoolPersistence() {
             super(null, null);
         }
 
+        void useTenant(final String tenant) {
+            this.currentTenant = tenant;
+        }
+
+        private List<PoolDefinition> bucket() {
+            return storeByTenant.computeIfAbsent(currentTenant, k -> new ArrayList<>());
+        }
+
         @Override
         public void saveAll(final List<PoolDefinition> pools) {
-            store.clear();
-            store.addAll(pools);
+            List<PoolDefinition> bucket = bucket();
+            bucket.clear();
+            bucket.addAll(pools);
         }
 
         @Override
         public List<PoolDefinition> loadAll() {
-            return new ArrayList<>(store);
+            return new ArrayList<>(bucket());
         }
 
         @Override
         public void save(final PoolDefinition pool) {
-            store.removeIf(p -> p.getPoolName() != null && p.getPoolName().equals(pool.getPoolName()));
-            store.add(pool);
+            List<PoolDefinition> bucket = bucket();
+            bucket.removeIf(p -> p.getPoolName() != null && p.getPoolName().equals(pool.getPoolName()));
+            bucket.add(pool);
         }
 
         @Override
         public void remove(final String poolName) {
-            store.removeIf(p -> p.getPoolName() != null && p.getPoolName().equals(poolName));
+            bucket().removeIf(p -> p.getPoolName() != null && p.getPoolName().equals(poolName));
         }
     }
 
@@ -255,6 +266,70 @@ class PoolConfigControllerTest {
 
             List<PoolDefinition> pools = controller.getAllPools().getBody().getData();
             assertEquals(2, pools.size());
+        }
+    }
+
+    // ==================== 租户隔离：列表按当前租户实时读取（切租户/新建即时可见） ====================
+
+    @Nested
+    @DisplayName("租户隔离测试（资源池 = 租户业务数据，列表按当前租户实时读取）")
+    class TenantIsolationTests {
+
+        @Test
+        @DisplayName("POOL-TENANT-001: 切租户后列表只反映当前租户的池，不返回旧租户快照")
+        void listReflectsCurrentTenant() {
+            // 租户 A 建池
+            persistenceService.useTenant("tenant-a");
+            controller.createPool(validPool("pool-a"));
+            assertEquals(1, controller.getAllPools().getBody().getData().size());
+
+            // 切到租户 B：仍调用同一个 controller 单例的 getAllPools，应为空（不得命中 A 的缓存）
+            persistenceService.useTenant("tenant-b");
+            assertTrue(controller.getAllPools().getBody().getData().isEmpty(),
+                    "切租户后不得看到其它租户的池");
+
+            // 切回租户 A：A 的池仍在
+            persistenceService.useTenant("tenant-a");
+            assertEquals(1, controller.getAllPools().getBody().getData().size());
+        }
+
+        @Test
+        @DisplayName("POOL-TENANT-002: 新建池后在当前租户列表即时可见，且不泄漏到其它租户")
+        void createdPoolVisibleImmediately() {
+            persistenceService.useTenant("tenant-a");
+            controller.createPool(validPool("pool-a"));
+
+            // 新建后立刻查列表（走实时读取，不再依赖构造期快照）
+            List<PoolDefinition> pools = controller.getAllPools().getBody().getData();
+            assertEquals(1, pools.size());
+            assertEquals("pool-a", pools.get(0).getPoolName());
+
+            // B 租户看不到 A 刚建的池
+            persistenceService.useTenant("tenant-b");
+            assertTrue(controller.getAllPools().getBody().getData().isEmpty());
+
+            // B 用同名池不与 A 冲突
+            ResponseEntity<RouterResponse<PoolDefinition>> resp = controller.createPool(validPool("pool-a"));
+            assertEquals(HttpStatus.CREATED, resp.getStatusCode(),
+                    "不同租户下同名池不应冲突（唯一键含 tenant_id）");
+            assertEquals(1, controller.getAllPools().getBody().getData().size());
+        }
+
+        @Test
+        @DisplayName("POOL-TENANT-003: 单条查询与删除均按当前租户视角")
+        void getAndDeleteScopedToCurrentTenant() {
+            persistenceService.useTenant("tenant-a");
+            controller.createPool(validPool("shared-name"));
+
+            persistenceService.useTenant("tenant-b");
+            // B 租户下按名字查 A 的池 → 404
+            assertThrows(ResponseStatusException.class, () -> controller.getPool("shared-name"));
+            // B 租户下删 A 的池 → 404，不得误删
+            assertThrows(ResponseStatusException.class, () -> controller.deletePool("shared-name"));
+
+            persistenceService.useTenant("tenant-a");
+            assertEquals(200, controller.getPool("shared-name").getStatusCode().value(),
+                    "A 租户的池不得被 B 租户误删");
         }
     }
 

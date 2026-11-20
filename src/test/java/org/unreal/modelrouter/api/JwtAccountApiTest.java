@@ -168,7 +168,9 @@ class JwtAccountApiTest {
         return JwtAccountDTO.builder()
                 .id(id)
                 .username(username)
-                .roles(roles)
+                // P0-c：DTO.roles 升为 List<Object> 以兼容 [{t,r}] 新格式；
+                // 旧格式测试入参仍是 List<String>，这里显式复制成 Object 列表。
+                .roles(roles == null ? null : new java.util.ArrayList<Object>(roles))
                 .enabled(true)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())

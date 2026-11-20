@@ -83,9 +83,19 @@ public class ConfigEntity {
     /**
      * 落库前回填归属租户（多租户）。配置写入经管理 API 在请求线程同步 save，
      * 此处 ThreadLocal 可读；社区版 currentTenantId 恒为 default，行为不变。
+     *
+     * <p><b>全局配置强制归入哨兵租户</b>：{@code config_data} 里混放两类数据——
+     * 按租户隔离的业务配置（虚拟模型池 / 路由规则）与全部署唯一的字典配置
+     * （模型分类 / 提示词模板 / Key 审批 / 组-角色映射 / 适配器生命周期）。
+     * 后者必须对所有租户一致可见，否则每个租户都要重复维护一份、切租户就"看不见"。
+     * 判定见 {@link GlobalConfigKeys}。</p>
      */
     @PrePersist
     public void prePersist() {
+        if (GlobalConfigKeys.isGlobal(configKey)) {
+            tenantId = org.unreal.modelrouter.enterprise.config.TenantJpaFilterDefinition.SHARED_TENANT_ID;
+            return;
+        }
         if (tenantId == null || tenantId.isBlank()
                 || org.unreal.modelrouter.enterprise.noop.SingleTenantContext.DEFAULT_TENANT_ID.equals(tenantId)) {
             tenantId = org.unreal.modelrouter.enterprise.config.TenantContextHolder.currentTenantId();

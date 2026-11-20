@@ -13,6 +13,11 @@
     "clusterTipOk": "多副本部署：页面上的实时计数通常只含当前副本",
     "clusterTipGap": "多副本部署，但有跨副本共享态未开启，副本间数据可能不一致。到「状态监控」查看详情",
     "tenant": "租户",
-    "tenantSwitcher": "切换租户"
+    "tenantSwitcher": "切换租户",
+    "tenantDefault": "默认租户",
+    "tenantSingleHint": "当前只有一个租户，无需切换",
+    "tenantDefaultHint": "企业版已开通多租户，但尚未创建租户，所有数据都在默认租户下",
+    "globalScope": "全局配置 · 不受租户切换影响",
+    "globalScopeHint": "当前页面是全局共享页，切换租户不会改变本页数据"
   }
 }

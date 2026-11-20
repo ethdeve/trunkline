@@ -12,6 +12,7 @@ import { watch } from 'vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useEnterpriseStore } from '@/stores/enterprise'
+import { useTenantStore } from '@/stores/tenant'
 import { menuGroups, flattenMenuItems, ENTERPRISE_ONLY_PATHS, type LogicalRole } from '@/config/menu'
 import { i18n } from '@/i18n'
 import { probeSetupGate } from '@/api/setup'
@@ -177,7 +178,7 @@ export const routes: RouteRecordRaw[] = [
         path: 'strategy',
         name: 'strategy',
         component: () => import('@/views/strategy/StrategyView.vue'),
-        meta: { title: 'nav.routingRules.title' }
+        meta: { title: 'nav.routingRules.title', tenantScoped: false }
       },
       {
         path: 'quota',
@@ -217,37 +218,45 @@ export const routes: RouteRecordRaw[] = [
         path: 'settings/accounts',
         name: 'settings-accounts',
         component: () => import('@/views/settings/SettingsView.vue'),
-        meta: { title: 'nav.accounts.title', defaultGroup: 'access' }
+        meta: { title: 'nav.accounts.title', defaultGroup: 'access', tenantScoped: false }
       },
       {
         path: 'settings/model-config',
         name: 'settings-model-config',
         component: () => import('@/views/settings/SettingsView.vue'),
-        meta: { title: 'nav.modelConfig.title', defaultGroup: 'modelConfig' }
+        meta: { title: 'nav.modelConfig.title', defaultGroup: 'modelConfig', tenantScoped: false }
       },
       {
         path: 'settings/audit-versions',
         name: 'settings-audit-versions',
         component: () => import('@/views/settings/SettingsView.vue'),
-        meta: { title: 'nav.auditVersions.title', defaultGroup: 'auditVersions' }
+        meta: { title: 'nav.auditVersions.title', defaultGroup: 'auditVersions', tenantScoped: false }
       },
       {
         path: 'settings/monitoring',
         name: 'settings-monitoring',
         component: () => import('@/views/settings/SettingsView.vue'),
-        meta: { title: 'nav.statusMonitoring.title', defaultGroup: 'monitoring' }
+        meta: { title: 'nav.statusMonitoring.title', defaultGroup: 'monitoring', tenantScoped: false }
       },
       {
         path: 'settings/tenants',
         name: 'settings-tenants',
         component: () => import('@/views/settings/SettingsView.vue'),
-        meta: { title: 'nav.tenants.title', defaultGroup: 'tenants' }
+        meta: { title: 'nav.tenants.title', defaultGroup: 'tenants', tenantScoped: false }
       },
       {
         path: 'settings/enterprise',
         name: 'settings-enterprise',
         component: () => import('@/views/settings/SettingsView.vue'),
-        meta: { title: 'nav.enterpriseAdmin.title', defaultGroup: 'enterprise' }
+        meta: { title: 'nav.enterpriseAdmin.title', defaultGroup: 'enterprise', tenantScoped: false }
+      },
+      {
+        // P1 企业用量总览：承载页仍是 SettingsView，页签 usage 由企业子应用渲染
+        path: 'settings/enterprise/usage',
+        name: 'settings-enterprise-usage',
+        component: () => import('@/views/settings/SettingsView.vue'),
+        // 跨租户汇总页本身不随当前租户切换 → 全局页，显示徽章
+        meta: { title: 'nav.usageOverview.title', defaultGroup: 'enterprise', tenantScoped: false }
       },
       {
         // v3.5 Trunkline：网关级默认配置的集中入口
@@ -255,7 +264,7 @@ export const routes: RouteRecordRaw[] = [
         path: 'settings/global',
         name: 'settings-global',
         component: () => import('@/views/settings/GlobalSettingsView.vue'),
-        meta: { title: 'nav.globalConfig.title' }
+        meta: { title: 'nav.globalConfig.title', tenantScoped: false }
       },
       // ---- v3.5 四组菜单新增路由 ----
       {
@@ -295,7 +304,7 @@ export const routes: RouteRecordRaw[] = [
         path: 'providers',
         name: 'providers',
         component: () => import('@/views/providers/ProviderConsoleView.vue'),
-        meta: { title: 'nav.providers.title' }
+        meta: { title: 'nav.providers.title', tenantScoped: false }
       },
       {
         // 全部密钥：复用既有密钥管理视图（管理员视角）
@@ -434,6 +443,16 @@ router.beforeEach(async (to) => {
       return {
         path: '/403',
         query: { from: to.path, role: menuItem.roles.join(',') }
+      }
+    }
+    // P1 租户数门槛：手输 /settings/enterprise/usage 时按真实活跃租户数兜底，
+    // 与侧栏隐藏口径一致；N<2 回我的额度，不落到一张空汇总表。
+    if (menuItem.minTenants && menuItem.minTenants > 1) {
+      const tenant = useTenantStore()
+      await tenant.ensureLoaded()
+      // 用部署级租户数（与侧栏 usePermission 同口径），不因 USER 可见集窄而被误挡
+      if (tenant.deploymentTenantCount < menuItem.minTenants) {
+        return { name: 'my-quota' }
       }
     }
     return true

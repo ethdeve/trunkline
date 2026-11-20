@@ -635,4 +635,41 @@ class ApiKeyServiceTest {
             assertTrue(result.contains("rerank"));
         }
     }
+
+    @Nested
+    @DisplayName("我的可见租户（P2：按密钥归属反推）")
+    class VisibleTenantIds {
+
+        @Test
+        @DisplayName("按有效持有人归属：holder 优先于 createdBy，管理员不代持员工的租户")
+        void derivedByEffectiveHolder() {
+            apiKeyCache.clear();
+            // 管理员代员工建：createdBy=admin, holder=alice → 算 alice，不算 admin
+            apiKeyCache.put("h-alice", ApiKey.builder().keyId("k-alice").keyHash("h-alice")
+                    .createdBy("admin").holder("alice").tenantId("test").build());
+            // alice 自己的另一把 key 在默认租户（tenantId 缺失 → 归一化为 default）
+            apiKeyCache.put("h-default", ApiKey.builder().keyId("k-default").keyHash("h-default")
+                    .createdBy("alice").build());
+            // bob 的 key 在 globex
+            apiKeyCache.put("h-bob", ApiKey.builder().keyId("k-bob").keyHash("h-bob")
+                    .createdBy("bob").tenantId("globex").build());
+
+            assertEquals(java.util.Set.of("default", "test"), apiKeyService.visibleTenantIdsFor("alice"));
+            assertEquals(java.util.Set.of("globex"), apiKeyService.visibleTenantIdsFor("bob"));
+            assertTrue(apiKeyService.visibleTenantIdsFor("admin").isEmpty(), "管理员代建不算其可见租户");
+        }
+
+        @Test
+        @DisplayName("大小写归一化 + 去重 + 空白 owner 返回空集")
+        void normalizedAndFailClosed() {
+            apiKeyCache.clear();
+            apiKeyCache.put("h1", ApiKey.builder().keyId("k1").keyHash("h1")
+                    .createdBy("alice").tenantId("  Test  ").build());
+            apiKeyCache.put("h2", ApiKey.builder().keyId("k2").keyHash("h2")
+                    .createdBy("alice").tenantId("test").build());
+            assertEquals(java.util.Set.of("test"), apiKeyService.visibleTenantIdsFor("alice"));
+            assertTrue(apiKeyService.visibleTenantIdsFor(" ").isEmpty());
+            assertTrue(apiKeyService.visibleTenantIdsFor(null).isEmpty());
+        }
+    }
 }

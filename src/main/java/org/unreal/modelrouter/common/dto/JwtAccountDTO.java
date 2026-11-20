@@ -20,7 +20,10 @@ public final class JwtAccountDTO {
 
     private Long id;
     private String username;
-    private List<String> roles;
+    /**
+     * 角色配置，兼容旧格式 ["ADMIN"] 与新格式 [{"t":"t1","r":"ADMIN"}]（P0-c）。
+     */
+    private List<Object> roles;
     /** 所属部门（团队用量按部门统计的维度来源；历史数据可能为 null） */
     private String department;
     /** 用户真实姓名（展示用；可为 null） */

@@ -17,6 +17,7 @@ import org.springframework.core.annotation.Order;
 import org.unreal.modelrouter.enterprise.spi.TenantContext;
 
 import jakarta.persistence.EntityManagerFactory;
+import java.util.List;
 
 /**
  * 租户行级过滤器启用器（S2 任务 36 预埋，默认关闭）。
@@ -77,8 +78,8 @@ public class TenantJpaFilter {
                     final org.hibernate.Session session =
                         holder.getEntityManager().unwrap(org.hibernate.Session.class);
                     final org.hibernate.Filter filter = session.enableFilter(TenantJpaFilterDefinition.NAME);
-                    filter.setParameter(TenantJpaFilterDefinition.PARAM_TENANT_ID,
-                        tenantContext.currentTenantId());
+                    filter.setParameterList(TenantJpaFilterDefinition.PARAM_TENANT_IDS,
+                        visibleTenantIds(tenantContext.currentTenantId()));
                 }
             } else {
                 log.debug("tenant filter skipped: no session bound yet (aspect ran before transaction)");
@@ -90,5 +91,26 @@ public class TenantJpaFilter {
                             + "(tenant isolation would be bypassed): " + e.getMessage(), e);
         }
         return joinPoint.proceed();
+    }
+
+    /**
+     * 当前请求可见的租户 ID 集合 = 本租户 + 全局共享哨兵。
+     *
+     * <p>过滤条件在实体的 {@code @FilterDef} 里写成
+     * {@code tenant_id in (:tenantIds)}，因此全局配置（模型分类 / 提示词模板 /
+     * Key 审批等，恒写入 {@code __shared__}）对每个租户都可见，
+     * 而虚拟模型池、路由规则等业务配置仍严格按本租户隔离。</p>
+     *
+     * <p>单租户/社区版下当前租户恒为 {@code default}，集合为
+     * {@code [default, __shared__]}——历史数据全在 {@code default}，读行为与改造前一致。</p>
+     */
+    private List<String> visibleTenantIds(final String currentTenantId) {
+        final String tenant = (currentTenantId == null || currentTenantId.isBlank())
+                ? org.unreal.modelrouter.enterprise.noop.SingleTenantContext.DEFAULT_TENANT_ID
+                : currentTenantId;
+        if (TenantJpaFilterDefinition.SHARED_TENANT_ID.equals(tenant)) {
+            return List.of(tenant);
+        }
+        return List.of(tenant, TenantJpaFilterDefinition.SHARED_TENANT_ID);
     }
 }

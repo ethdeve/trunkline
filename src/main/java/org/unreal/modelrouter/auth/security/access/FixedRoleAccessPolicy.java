@@ -149,6 +149,16 @@ public class FixedRoleAccessPolicy {
                 // 响应仅含能力键值对（社区版恒为 {}），无敏感信息。必须显式登记为 SELF：
                 // 未登记端点 fail-closed 仅 ADMIN，普通用户/运维会被挡在特性探测之外。
                 AccessRule.get("/api/v1/enterprise/features", AccessLevel.SELF),
+                // 「我的可见租户」（P2）：前端每个请求都要据此注入 X-Tenant-Id，
+                // 必须登记为 SELF——否则未登记落 fail-closed 仅 ADMIN，USER/AUDITOR
+                // 拿不到自己的租户集，又会回到「切租户账单不显示」的 bug。身份收窄在
+                // 企业侧 VisibleTenantService 内做，URL 层只保证"已登录可读自己的可见集"。
+                AccessRule.get("/api/v1/enterprise/tenants/mine", AccessLevel.SELF),
+                // 企业用量总览（P1）：只读跨租户汇总，允许平台超管 + 审计员。必须显式登记——
+                // 未登记会落 fail-closed 仅 ADMIN，AUDITOR 在 URL 层就被 403 到不了 Controller；
+                // 也不能登记为 SELF/OPS，否则 USER/OPERATOR 越权读到跨租户金额。不进豁免清单：
+                // 豁免是「已认证即放行」，会把判定后移到 Controller，破坏 fail-closed 默认边界。
+                AccessRule.get("/api/v1/enterprise/usage/overview", AccessLevel.AUDIT),
 
                 // API Key 管理：自助端点在前（首条命中优先）
                 AccessRule.get("/api/auth/api-keys/mine", AccessLevel.SELF),

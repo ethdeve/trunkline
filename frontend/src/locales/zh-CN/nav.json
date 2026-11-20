@@ -77,6 +77,10 @@
       "title": "企业管理",
       "subtitle": "许可证 / 对账 / Agent 工具 / 安全能力"
     },
+    "usageOverview": {
+      "title": "企业用量总览",
+      "subtitle": "按租户汇总本月用量与成本，只读、不提供明细下钻"
+    },
     "pages": {
       "modelCategories": "模型分类",
       "quickStartWizard": "快速接入",

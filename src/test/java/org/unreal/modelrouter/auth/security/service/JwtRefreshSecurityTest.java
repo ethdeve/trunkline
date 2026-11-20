@@ -230,13 +230,28 @@ class JwtRefreshSecurityTest {
     class ClaimConstants {
 
         @Test
-        @DisplayName("jti/roles/permissions 属于必须重算/剔除的声明")
+        @DisplayName("jti/roles/permissions/tenantRoles 属于必须重算/剔除的声明")
         void recomputedClaimsClassification() {
             assertTrue(JwtRefreshClaimResolver.isRecomputedClaim("jti"));
             assertTrue(JwtRefreshClaimResolver.isRecomputedClaim("roles"));
             assertTrue(JwtRefreshClaimResolver.isRecomputedClaim("permissions"));
+            assertTrue(JwtRefreshClaimResolver.isRecomputedClaim("tenantRoles"));
             assertFalse(JwtRefreshClaimResolver.isRecomputedClaim("userId"));
             assertFalse(JwtRefreshClaimResolver.isRecomputedClaim(null));
+        }
+
+        @Test
+        @DisplayName("刷新剔除旧 tenantRoles，防租户角色撤销后复活（P0-c）")
+        void refreshDropsOldTenantRoles() {
+            Map<String, Object> old = new java.util.HashMap<>();
+            old.put("tenantRoles", java.util.List.of(
+                    java.util.Map.of("t", "t1", "r", "ADMIN")));
+            old.put("roles", java.util.List.of("ADMIN"));
+            old.put("customKeep", "value");
+            Map<String, Object> copied = JwtRefreshClaimResolver.copyClaimsForRefresh(old);
+            assertFalse(copied.containsKey("tenantRoles"));
+            assertFalse(copied.containsKey("roles"));
+            assertEquals("value", copied.get("customKeep"));
         }
     }
 }

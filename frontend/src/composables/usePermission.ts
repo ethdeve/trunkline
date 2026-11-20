@@ -1,5 +1,6 @@
 import { useUserStore } from '@/stores/user'
 import { useEnterpriseStore } from '@/stores/enterprise'
+import { useTenantStore } from '@/stores/tenant'
 import type { MenuGroup, MenuItem } from '@/config/menu'
 
 /**
@@ -15,6 +16,7 @@ import type { MenuGroup, MenuItem } from '@/config/menu'
 export function usePermission() {
   const userStore = useUserStore()
   const enterprise = useEnterpriseStore()
+  const tenant = useTenantStore()
 
   /**
    * 判断当前用户是否拥有权限码
@@ -52,9 +54,14 @@ export function usePermission() {
         children: group.children
           .filter(
             item =>
-              (hasPermission(item.permission) && userStore.hasLogicalRoleOneOf(item.roles)) ||
-              // P0-B 置灰例外：命中 greyFor 的角色保留该项，标记为 greyed
-              (!!item.greyFor?.length && userStore.hasLogicalRoleOneOf(item.greyFor))
+              // P1：部署级租户数门槛（真实 listActive().size()，不是功能位、不是可见集）。
+              // N<2 的汇总页没有意义，直接隐藏；避免功能位为 true 但没建租户时露出空表。
+              // 用 deploymentTenantCount 而非可见集长度：平台超管看全部、USER 只看密钥租户，
+              // 二者可见数不同，但「部署是否多租户」对所有人是同一个事实（M11 决策）。
+              tenant.deploymentTenantCount >= (item.minTenants ?? 0) &&
+              ((hasPermission(item.permission) && userStore.hasLogicalRoleOneOf(item.roles)) ||
+                // P0-B 置灰例外：命中 greyFor 的角色保留该项，标记为 greyed
+                (!!item.greyFor?.length && userStore.hasLogicalRoleOneOf(item.greyFor)))
           )
           .map((item): MenuItem => ({
             ...item,

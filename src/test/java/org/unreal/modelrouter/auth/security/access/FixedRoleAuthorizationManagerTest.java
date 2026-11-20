@@ -81,6 +81,22 @@ class FixedRoleAuthorizationManagerTest {
         }
 
         @Test
+        @DisplayName("P2：AUDITOR 也能读「我的可见租户」——否则切换器恒空、逐租户只读失效")
+        void auditorCanReadMyVisibleTenants() {
+            assertTrue(decide(jwt("AUDITOR"), "GET", "/api/v1/enterprise/tenants/mine").isGranted(),
+                    "AUDITOR 必须能取到自己的可见租户集，否则 X-Tenant-Id 永远回落 default");
+        }
+
+        @Test
+        @DisplayName("P2：AUDITOR 在 SELF 级放行不等于越权——OPS/ADMIN 独占端点仍拒绝")
+        void auditorStillBlockedOnOpsEndpoints() {
+            assertFalse(decide(jwt("AUDITOR"), "GET", "/api/token-usage/summary").isGranted(),
+                    "团队用量仍归 OPS；AUDITOR 的只读汇总走企业用量总览");
+            assertFalse(decide(jwt("AUDITOR"), "POST", "/api/config/providers/x").isGranted(),
+                    "AUDITOR 不得有任何写权限");
+        }
+
+        @Test
         @DisplayName("我的密钥用量自助端点 → 所有登录角色放行；全局用量端点仍仅 OPS")
         void myQuotaUsageIsSelf() {
             for (final String role : List.of("USER", "OPERATOR", "ADMIN")) {
@@ -164,6 +180,24 @@ class FixedRoleAuthorizationManagerTest {
         void accountManagement() {
             assertFalse(decide(jwt("OPERATOR"), "GET", "/api/security/jwt/accounts").isGranted());
             assertTrue(decide(jwt("ADMIN"), "GET", "/api/security/jwt/accounts").isGranted());
+        }
+    }
+
+    @Nested
+    @DisplayName("AUDIT 级：企业跨租户只读汇总，仅 ADMIN + AUDITOR")
+    class AuditLevel {
+
+        private static final String PATH = "/api/v1/enterprise/usage/overview";
+
+        @Test
+        @DisplayName("AUDITOR 与 ADMIN 放行；USER / OPERATOR 拒绝（不得越权读跨租户金额）")
+        void enterpriseUsageOverview() {
+            assertTrue(decide(jwt("AUDITOR"), "GET", PATH).isGranted());
+            assertTrue(decide(jwt("ADMIN"), "GET", PATH).isGranted());
+            assertFalse(decide(jwt("USER"), "GET", PATH).isGranted());
+            assertFalse(decide(jwt("OPERATOR"), "GET", PATH).isGranted());
+            // AUDITOR 不因新增级别获得任何 fail-closed 端点的管理员权限
+            assertFalse(decide(jwt("AUDITOR"), "GET", "/api/unknown/resource").isGranted());
         }
     }
 

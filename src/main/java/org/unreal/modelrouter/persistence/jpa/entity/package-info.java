@@ -16,8 +16,8 @@
  */
 @FilterDef(
     name = TenantJpaFilterDefinition.NAME,
-    parameters = @ParamDef(name = "tenantId", type = String.class),
-    defaultCondition = "tenant_id = :tenantId"
+    parameters = @ParamDef(name = "tenantIds", type = String.class),
+    defaultCondition = "tenant_id in (:tenantIds)"
 )
 package org.unreal.modelrouter.persistence.jpa.entity;
 

@@ -11,8 +11,10 @@
  * <ul>
  *   <li><b>调用历史</b>（默认）——唯一事实来源：时间/员工/虚拟模型/实际路由到/成败/耗时，
  *       点 Trace ID 打开追踪详情抽屉（原「调用详情-调用列表」的信息由此承接）</li>
- *   <li><b>调用分析</b>——原 /tracing 的追踪总览（趋势图与服务维度统计），
- *       需 {@code tracing:dashboard:read} 权限</li>
+ *   <li><b>全局调用分析</b>（原「调用分析」，2026-11-20 更名以体现其口径）——原 /tracing 的
+ *       追踪总览（趋势图与服务维度统计），需 {@code tracing:dashboard:read} 权限；
+ *       数据源为进程内 TraceQueryService.traceStore（无 tenantId 字段），<b>全租户共享一份，不按租户隔离</b>，
+ *       与「调用历史」tab（api_call_history 表、按 X-Tenant-Id 行级过滤）口径不同。</li>
  * </ul>
  *
  * <p>原「高级查询」tab 已于 2026-11-06 移除：调用历史已覆盖其全部核心能力

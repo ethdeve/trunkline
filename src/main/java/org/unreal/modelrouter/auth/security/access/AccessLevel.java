@@ -33,7 +33,17 @@ public enum AccessLevel {
     OPS,
 
     /** 仅管理员——「系统」分组与未登记端点的兜底 */
-    ADMIN;
+    ADMIN,
+
+    /**
+     * 平台超管 + 审计员——企业只读汇总端点专用（P1）。
+     *
+     * <p>AUDITOR 是非等级横切只读角色，不能塞进 SELF/OPS 的 ≥ 语义（会让 OPERATOR 越权），
+     * 也不能复用 ADMIN（会让审计员在 fail-closed 兜底端点拿到管理员权限）。故单独登记级别：
+     * 只有显式声明本级别的端点才放行 ROLE_AUDITOR，其余未登记端点仍 fail-closed 仅 ADMIN。
+     * 社区版不签发 AUDITOR，本级别在社区版无任何命中端点，行为零变化。</p>
+     */
+    AUDIT;
 
     /**
      * 判断给定角色 authority 集合是否满足本级别。
@@ -49,7 +59,15 @@ public enum AccessLevel {
             final String role = authority == null ? "" : authority.toUpperCase();
             switch (this) {
                 case SELF:
-                    if (role.equals("ROLE_USER") || role.equals("ROLE_OPERATOR") || role.equals("ROLE_ADMIN")) {
+                    // P2 修复：AUDITOR 也必须有「我自己的」自助能力子集——不是因为它能用个人
+                    // 密钥/账单（AUDITOR_ALLOWED_CODES 不含那些码，前端不放行），而是因为前端
+                    // 每个请求都要先读 /enterprise/tenants/mine 才能决定 X-Tenant-Id。若此处
+                    // 不认 ROLE_AUDITOR，审计员连自己的可见租户集都拿不到，切换器恒为空、
+                    // 所有隔离页都只能落在 default 租户 → 审计员的"逐租户只读"彻底失效。
+                    // 数据级越权不靠这里拦：具体页面由权限码（前端）与 OPS/ADMIN/AUDIT
+                    // 级别（后端）各自把关，SELF 只覆盖「读自己的身份与归属」这类端点。
+                    if (role.equals("ROLE_USER") || role.equals("ROLE_OPERATOR")
+                            || role.equals("ROLE_ADMIN") || role.equals("ROLE_AUDITOR")) {
                         return true;
                     }
                     break;
@@ -60,6 +78,12 @@ public enum AccessLevel {
                     break;
                 case ADMIN:
                     if (role.equals("ROLE_ADMIN")) {
+                        return true;
+                    }
+                    break;
+                case AUDIT:
+                    // 企业只读汇总：平台超管与审计员可读；OPERATOR/USER 不得越权。
+                    if (role.equals("ROLE_ADMIN") || role.equals("ROLE_AUDITOR")) {
                         return true;
                     }
                     break;

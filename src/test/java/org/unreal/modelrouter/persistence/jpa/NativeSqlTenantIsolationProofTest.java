@@ -130,7 +130,8 @@ class NativeSqlTenantIsolationProofTest {
     private void enableFilter(final String tenantId) {
         entityManager.unwrap(Session.class)
                 .enableFilter(TenantJpaFilterDefinition.NAME)
-                .setParameter(TenantJpaFilterDefinition.PARAM_TENANT_ID, tenantId);
+                .setParameterList(TenantJpaFilterDefinition.PARAM_TENANT_IDS,
+                        java.util.List.of(tenantId, TenantJpaFilterDefinition.SHARED_TENANT_ID));
     }
 
     private int countAll() {

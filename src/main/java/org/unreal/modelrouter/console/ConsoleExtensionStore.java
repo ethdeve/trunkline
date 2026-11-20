@@ -24,6 +24,14 @@ import java.util.Map;
  * <p>数据形态：每个 configKey 下固定一个 {@code Map}，列表型数据放在
  * {@code items} 键下（值为 {@code List<Map<String,Object>>}）；键值型数据直接
  * 用顶层键。本类只负责存取与结构规整，不承载业务语义。</p>
+ *
+ * <p><b>多租户口径：全部 {@code console.*} 配置为全局共享</b>。本类承载的提示词模板、
+ * Key 审批单、组-角色映射、适配器生命周期都是平台级能力，各租户看到的必须一致。
+ * 落地方式不在本类做——{@code ConfigEntity#prePersist} 通过
+ * {@link org.unreal.modelrouter.persistence.jpa.entity.GlobalConfigKeys} 判定，
+ * 把 {@code console.} 前缀的键统一写入哨兵租户 {@code __shared__}，
+ * 读取时过滤器条件 {@code tenant_id in (本租户, __shared__)} 使其对所有租户可见。
+ * 因此本类无需感知租户，这是刻意的：语义归属由实体层单点决定，避免两处判断漂移。</p>
  */
 @Service
 public class ConsoleExtensionStore {

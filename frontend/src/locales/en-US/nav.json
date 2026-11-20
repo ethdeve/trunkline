@@ -77,6 +77,10 @@
       "title": "Enterprise Admin",
       "subtitle": "License / reconciliation / Agent tools / security controls"
     },
+    "usageOverview": {
+      "title": "Enterprise Usage Overview",
+      "subtitle": "Monthly usage and cost by tenant, read-only with no drill-down"
+    },
     "pages": {
       "modelCategories": "Model Categories",
       "quickStartWizard": "Quick Integration",

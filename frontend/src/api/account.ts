@@ -1,12 +1,22 @@
 import request from '@/utils/request'
 import type { RouterResponse } from '@/types'
 
+/**
+ * 角色绑定（多租户二维角色，P0-c）。t=租户ID（"*" 表示全局），r=角色码。
+ * 社区版/存量数据仍用旧格式字符串数组 ["ADMIN"]，两者共存于 roles 数组。
+ */
+export interface RoleBinding {
+  t: string
+  r: string
+}
+export type RoleValue = string | RoleBinding
+
 // 定义账户类型
 export interface JwtAccount {
   id?: number
   username: string
   password?: string
-  roles: string[]
+  roles: RoleValue[]
   /** 所属部门（团队用量按部门统计的维度来源；历史数据可能为空） */
   department?: string
   /** 用户真实姓名（展示用；可为空） */
@@ -21,7 +31,7 @@ export interface JwtAccount {
 export interface CreateJwtAccountRequest {
   username: string
   password: string
-  roles: string[]
+  roles: RoleValue[]
   /** 所属部门（如「研发部」） */
   department?: string
   /** 用户真实姓名（展示用） */

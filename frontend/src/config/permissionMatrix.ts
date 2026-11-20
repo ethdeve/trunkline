@@ -77,6 +77,10 @@ export const PERMISSION_MIN_ROLE: Record<string, MinLogicalRole> = {
   'security:audit:read': 'ops',
   'security:audit:write': 'ops',
 
+  // P1 企业用量总览：专用码，绝不能复用 ops 级的 monitoring:tokenusage:read，
+  // 否则 OPERATOR 可越权读跨租户金额。AUDITOR 走下方 AUDITOR_ALLOWED_CODES 二维判定。
+  'enterprise:usage:read': 'admin',
+
   // ---- ADMIN：系统分组与敏感面 ----
   'tracing:config:manage': 'admin',
   'security:jwttokens:manage': 'admin',
@@ -107,4 +111,37 @@ export function roleSatisfiesPermission(
   const min = PERMISSION_MIN_ROLE[code]
   if (!min) return true
   return ROLE_ORDER[role] >= ROLE_ORDER[min]
+}
+
+// ============================================================================
+// 二维角色地基（P0-c）：AUDITOR 非等级角色支持
+// ============================================================================
+// AUDITOR 是"横切只读"角色，不在 user<ops<admin 线性等级链上，故 ROLE_ORDER 的 ≥
+// 比较撑不住它。这里用"权限码 → 允许角色集合"的二维判定：AUDITOR 只看下列只读页，
+// 不含任何写权限、不含「我的」自助分组（保持审计独立性）。
+//
+// 社区版零变化：社区版不签发 AUDITOR，hasAuditorRole() 恒 false，以下分支不会进入，
+// 原有 ≥ 判定逐字保留。
+
+/** JWT 中的审计员角色码（企业版签发；社区版绝不出现）。 */
+export const AUDITOR_ROLE = 'AUDITOR'
+
+/**
+ * AUDITOR 可见的只读权限码集合。命中=可见，其余一律不可见（fail-closed）。
+ * 对应文档B §4 授权矩阵中 AUDITOR 的 🔶/✅ 项，均为只读语义。
+ */
+export const AUDITOR_ALLOWED_CODES: ReadonlySet<string> = new Set([
+  'monitoring:tokenusage:read',      // 团队用量（只读汇总）
+  'callhistory:view',                // 调用历史（只读）
+  'monitoring:metrics:read',         // 状态监控 / 安全态势只读
+  'security:audit:read',             // 审计与版本（只读）
+  'enterprise:usage:read'            // 企业用量总览（P1 新增，只读汇总）
+])
+
+/**
+ * AUDITOR 对权限码的二维判定。仅当确认是 AUDITOR 身份时调用。
+ * 未列入 AUDITOR_ALLOWED_CODES 的码一律拒绝（含所有写操作与「我的」自助分组）。
+ */
+export function auditorSatisfiesPermission(code: string): boolean {
+  return AUDITOR_ALLOWED_CODES.has(code)
 }

@@ -21,6 +21,7 @@ import org.unreal.modelrouter.auth.security.config.properties.SecurityProperties
 import org.unreal.modelrouter.auth.security.config.properties.SsoConfig;
 import org.unreal.modelrouter.auth.security.audit.ExtendedSecurityAuditService;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyVO;
+import org.unreal.modelrouter.auth.security.util.RoleScopeParser;
 import org.unreal.modelrouter.common.exception.ApiException;
 import org.unreal.modelrouter.enterprise.spi.SsoConnector;
 import org.unreal.modelrouter.persistence.jpa.entity.JwtAccountEntity;
@@ -528,15 +529,46 @@ public class AccountManager implements UserDetailsService {
 
         // 构建JWT令牌（使用JJWT 0.12.x API）
         // 社区版已移除权限码体系：令牌只携带角色，URL 级授权由固定角色矩阵按角色裁决
-        return Jwts.builder()
+        final var builder = Jwts.builder()
                 .subject(userDetails.getUsername())
                 .claim("roles", roles)
                 .issuer(securityProperties.getJwt().getIssuer())
                 .issuedAt(now)
                 .expiration(expiration)
-                .id(UUID.randomUUID().toString()) // 设置JTI用于黑名单管理
-                .signWith(signingKey)
-                .compact();
+                .id(UUID.randomUUID().toString()); // 设置JTI用于黑名单管理
+
+        // 多租户二维角色地基（P0-c）：仅当账户存储的是新格式 [{t,r}] 时，额外签发
+        // tenantRoles claim（绑定结构），供企业侧 P2 做数据级作用域收窄。旧格式/社区版
+        // 【不签发此 claim】，令牌内容与改造前逐字一致 —— 社区版零变化。
+        final RoleScopeParser scope = resolveRoleScope(username);
+        if (scope != null && !scope.isLegacy() && scope.hasTenantScopedBindings()) {
+            try {
+                builder.claim("tenantRoles", objectMapper.readValue(
+                        scope.toTenantRolesJson(), new com.fasterxml.jackson.core.type.TypeReference<>() {}));
+            } catch (JsonProcessingException e) {
+                log.warn("签发 tenantRoles claim 失败，按旧令牌处理: {}", e.getMessage());
+            }
+        }
+
+        return builder.signWith(signingKey).compact();
+    }
+
+    /**
+     * 解析账户的原始角色作用域（用于签发 tenantRoles claim）。
+     *
+     * <p>DB 账户读 roles 列原始 JSON；YAML 静态账户的角色恒为旧格式全局，返回 null（不签发）。
+     * 私有方法，失败降级 null，不影响主签发链路。</p>
+     */
+    private RoleScopeParser resolveRoleScope(final String username) {
+        try {
+            final java.util.Optional<JwtAccountEntity> entity = jwtAccountRepository.findByUsername(username);
+            if (entity.isPresent() && entity.get().getRoles() != null) {
+                return RoleScopeParser.parse(entity.get().getRoles());
+            }
+        } catch (Exception e) {
+            log.debug("查询账户角色作用域失败，跳过 tenantRoles claim: {}", e.getMessage());
+        }
+        return null;
     }
 
     @Override
@@ -585,12 +617,21 @@ public class AccountManager implements UserDetailsService {
         if (rolesJson == null || rolesJson.isBlank()) {
             return List.of();
         }
-        try {
-            return objectMapper.readerForListOf(String.class).readValue(rolesJson);
-        } catch (JsonProcessingException e) {
-            log.warn("解析数据库账户角色失败，按无角色处理: {}", e.getMessage());
-            return List.of();
+        // 多租户二维角色地基（P0-c）：RoleScopeParser 同时兼容旧格式 ["ADMIN"] 与新格式
+        // [{t,r}]。allRoles() 返回全部角色并集，用于生成 URL 级 authority——旧格式时
+        // 结果与改造前逐字一致（全部角色），社区版零变化；新格式时租户级角色也进 authority，
+        // 保证"t1 的租户管理员"持有 ROLE_ADMIN 能进管理页（数据级收窄在企业侧 P2 叠加）。
+        final RoleScopeParser parsed = RoleScopeParser.parse(rolesJson);
+        if (parsed.isLegacy()) {
+            // 旧格式走与改造前完全一致的解析路径（readerForListOf），行为零变化。
+            try {
+                return objectMapper.readerForListOf(String.class).readValue(rolesJson);
+            } catch (JsonProcessingException e) {
+                log.warn("解析数据库账户角色失败，按无角色处理: {}", e.getMessage());
+                return List.of();
+            }
         }
+        return new java.util.ArrayList<>(parsed.allRoles());
     }
 
     /**

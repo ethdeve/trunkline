@@ -17,6 +17,7 @@
       "ADMIN": "Full access: My + Team/Strategy + System groups, including account management, security settings and fallback access to unlisted endpoints",
       "OPERATOR": "Daily ops: My + Team/Strategy groups — overview, team usage, model access and virtual models, all API keys, observability, tracing, strategy center; no System group (accounts, security)",
       "USER": "Regular employee: My group only — my quota, my keys, quick start, playground, my billing; no Team/Strategy or System features",
+      "AUDITOR": "Compliance auditor (enterprise): global read-only — audit evidence, security posture, usage summaries and call records; cannot change config, view key secrets, or export per-person details",
       "VIEWER": "Read-only: view data on all pages, cannot modify anything"
     },
     "groups": {

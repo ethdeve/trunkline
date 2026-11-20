@@ -12,7 +12,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -21,6 +20,15 @@ import java.time.LocalDateTime;
 /**
  * 服务配置实体 (JPA 版本)
  * v1.5.2: 从 R2DBC 迁移到 JPA
+ *
+ * <p><b>多租户口径：全局共享，不挂 {@code @Filter}</b>。本表记录的是「模型分类」定义
+ * （{@code chat / embedding / rerank / tts / stt / imgGen / imgEdit} 各自用哪个适配器、
+ * 哪种负载均衡），它是协议事实而非租户偏好——文本、音频这些分类对全平台只有一套。
+ * 若按租户隔离，每个租户都要重复维护同一份分类，切租户就会"看不见自己刚配的分类"，
+ * 且同一部署内出现互相矛盾的适配器映射。</p>
+ *
+ * <p>因此本实体标 {@link TenantShared}：{@code tenant_id} 列保留（表结构不动、历史数据不动），
+ * 但读取时不追加租户条件，写入时统一落哨兵租户以保持数据来源单一。</p>
  */
 @Data
 @Builder
@@ -28,7 +36,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Entity
 @Table(name = "service_config", indexes = @Index(name = "idx_service_config_tenant", columnList = "tenant_id"))
-@Filter(name = "tenantFilter")
+@TenantShared(reason = "模型分类（文本/音频等）是协议事实而非租户偏好，全平台仅一套定义")
 public class ServiceConfigEntity {
 
     @Id
@@ -67,15 +75,14 @@ public class ServiceConfigEntity {
     private String tenantId = "default";
 
     /**
-     * 落库前回填归属租户（多租户）。配置写入经管理 API 在请求线程同步 save，
-     * 此处 ThreadLocal 可读；社区版 currentTenantId 恒为 default，行为不变。
+     * 落库前固定归属哨兵租户（全局共享）。
+     *
+     * <p>不再跟随当前请求租户：模型分类全平台一份，写入必须落到同一处，
+     * 否则多租户下会写出 N 份内容相同、彼此不可见的分类定义。</p>
      */
     @PrePersist
     public void prePersist() {
-        if (tenantId == null || tenantId.isBlank()
-                || org.unreal.modelrouter.enterprise.noop.SingleTenantContext.DEFAULT_TENANT_ID.equals(tenantId)) {
-            tenantId = org.unreal.modelrouter.enterprise.config.TenantContextHolder.currentTenantId();
-        }
+        tenantId = org.unreal.modelrouter.enterprise.config.TenantJpaFilterDefinition.SHARED_TENANT_ID;
     }
 
 }

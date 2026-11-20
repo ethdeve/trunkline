@@ -84,7 +84,8 @@ class QuotaLedgerTenantFilterIntegrationTest {
     void tenantASeesOnlyItsRows() {
         final Session session = entityManager.unwrap(Session.class);
         session.enableFilter(TenantJpaFilterDefinition.NAME)
-                .setParameter(TenantJpaFilterDefinition.PARAM_TENANT_ID, "tenant-a");
+                .setParameterList(TenantJpaFilterDefinition.PARAM_TENANT_IDS,
+                        java.util.List.of("tenant-a", TenantJpaFilterDefinition.SHARED_TENANT_ID));
 
         final List<QuotaLedgerEntity> visible = quotaLedgerRepository.findAll();
         assertEquals(1, visible.size());
@@ -97,7 +98,8 @@ class QuotaLedgerTenantFilterIntegrationTest {
     void tenantBSeesOnlyItsRows() {
         final Session session = entityManager.unwrap(Session.class);
         session.enableFilter(TenantJpaFilterDefinition.NAME)
-                .setParameter(TenantJpaFilterDefinition.PARAM_TENANT_ID, "tenant-b");
+                .setParameterList(TenantJpaFilterDefinition.PARAM_TENANT_IDS,
+                        java.util.List.of("tenant-b", TenantJpaFilterDefinition.SHARED_TENANT_ID));
 
         final List<QuotaLedgerEntity> visible = quotaLedgerRepository.findAll();
         assertEquals(1, visible.size());

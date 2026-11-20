@@ -129,6 +129,36 @@ class FixedRoleAccessPolicyTest {
     }
 
     @Nested
+    @DisplayName("AUDIT：企业跨租户只读汇总（ADMIN + AUDITOR）")
+    class AuditEndpoints {
+
+        @Test
+        @DisplayName("企业用量总览显式登记为 AUDIT——不能落 fail-closed 把审计员挡在门外")
+        void enterpriseUsageOverviewIsAuditLevel() {
+            assertEquals(AccessLevel.AUDIT,
+                    levelOf(HttpMethod.GET, "/api/v1/enterprise/usage/overview"));
+        }
+    }
+
+    @Nested
+    @DisplayName("我的可见租户（P2：SELF 供切换器使用）")
+    class MyTenantsEndpoints {
+
+        @Test
+        @DisplayName("GET /api/v1/enterprise/tenants/mine 登记为 SELF——不能落 fail-closed 把 USER 挡在门外")
+        void myTenantsIsSelfLevel() {
+            assertEquals(AccessLevel.SELF,
+                    levelOf(HttpMethod.GET, "/api/v1/enterprise/tenants/mine"));
+        }
+
+        @Test
+        @DisplayName("管理端全量列表仍不登记（fail-closed 仅 ADMIN），不与 /mine 混淆")
+        void managementListStaysUnmatched() {
+            assertTrue(policy.findRule(HttpMethod.GET, "/api/v1/enterprise/tenants").isEmpty());
+        }
+    }
+
+    @Nested
     @DisplayName("未登记端点（fail-closed 兜底语义由授权管理器执行）")
     class UnmatchedEndpoints {
 

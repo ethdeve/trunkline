@@ -420,7 +420,7 @@ class JwtAccountServiceTest {
 
             // Then
             assertEquals(1, result.size());
-            List<String> roles = result.get(0).getRoles();
+            List<Object> roles = result.get(0).getRoles();
             assertNotNull(roles);
             assertEquals(2, roles.size());
             assertTrue(roles.contains("ADMIN"));
@@ -439,7 +439,7 @@ class JwtAccountServiceTest {
 
             // Then
             assertEquals(1, result.size());
-            List<String> roles = result.get(0).getRoles();
+            List<Object> roles = result.get(0).getRoles();
             assertNotNull(roles);
             assertTrue(roles.isEmpty());
         }

@@ -67,6 +67,7 @@ type SubKey =
   | 'guardrails'
   | 'alertChannels'
   | 'keyApproval'
+  | 'usage'
 
 /** 分组 → 子页签（顺序即展示顺序；企业块各自按功能位在组件内门控） */
 const GROUPS: { key: GroupKey; sub: SubKey[] }[] = [
@@ -75,7 +76,7 @@ const GROUPS: { key: GroupKey; sub: SubKey[] }[] = [
   { key: 'auditVersions', sub: ['audit', 'versions', 'evidence', 'archive', 'securityReport'] },
   { key: 'monitoring', sub: ['persistence', 'securityDashboard'] },
   { key: 'tenants', sub: ['tenants'] },
-  { key: 'enterprise', sub: ['license', 'reconciliation', 'agentTools', 'guardrails', 'alertChannels', 'keyApproval'] }
+  { key: 'enterprise', sub: ['license', 'reconciliation', 'agentTools', 'guardrails', 'alertChannels', 'keyApproval', 'usage'] }
 ]
 
 /** 路由路径 → 分组（与 router 里各 settings 路由一一对应） */
@@ -85,7 +86,8 @@ const GROUP_BY_PATH: Record<string, GroupKey> = {
   '/settings/audit-versions': 'auditVersions',
   '/settings/monitoring': 'monitoring',
   '/settings/tenants': 'tenants',
-  '/settings/enterprise': 'enterprise'
+  '/settings/enterprise': 'enterprise',
+  '/settings/enterprise/usage': 'enterprise'
 }
 
 /** 子页签 → 组件（企业视图一律走 EnterpriseModuleHost，从企业 jar 加载） */
@@ -110,7 +112,8 @@ const SUB_COMPONENTS: Record<SubKey, Component> = {
   agentTools: entPage('agentTools'),
   guardrails: entPage('guardrails'),
   alertChannels: entPage('alertChannels'),
-  keyApproval: entPage('keyApproval')
+  keyApproval: entPage('keyApproval'),
+  usage: entPage('usage')
 }
 
 /** 子页签顶部说明（人话一句话，告诉用户这页管什么、什么时候需要管） */

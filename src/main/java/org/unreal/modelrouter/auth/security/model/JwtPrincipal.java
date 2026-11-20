@@ -87,6 +87,33 @@ public final class JwtPrincipal implements Principal {
     }
 
     /**
+     * 多租户二维角色绑定（P0-c）。JWT 的 {@code tenantRoles} claim 形如
+     * {@code [{"t":"t1","r":"ADMIN"},...]}；社区版/旧令牌无此 claim → 返回空列表，
+     * 行为与改造前一致。列表元素为不可信外部数据，调用方按需校验字段类型。
+     */
+    @SuppressWarnings("unchecked")
+    public java.util.List<java.util.Map<String, Object>> getTenantRoles() {
+        final Object value = getClaim("tenantRoles");
+        if (value instanceof java.util.List<?> list) {
+            final java.util.List<java.util.Map<String, Object>> result = new java.util.ArrayList<>();
+            for (final Object item : list) {
+                if (item instanceof java.util.Map<?, ?> map) {
+                    final java.util.Map<String, Object> binding = new java.util.LinkedHashMap<>();
+                    map.forEach((k, v) -> binding.put(String.valueOf(k), v));
+                    result.add(binding);
+                }
+            }
+            return result;
+        }
+        return java.util.List.of();
+    }
+
+    /** 是否携带二维角色绑定（企业版新令牌 true；社区版/旧令牌 false）。 */
+    public boolean hasTenantRoles() {
+        return !getTenantRoles().isEmpty();
+    }
+
+    /**
      * 是否平台超管（角色预留，S2 任务 39；社区版不会签发该角色）
      */
     public boolean isPlatformAdmin() {

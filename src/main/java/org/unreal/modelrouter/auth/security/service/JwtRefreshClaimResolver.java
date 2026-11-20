@@ -41,13 +41,23 @@ public final class JwtRefreshClaimResolver {
     public static final String CLAIM_PERMISSIONS = "permissions";
 
     /**
+     * 多租户二维角色绑定声明（P0-c）。刷新时**剔除**旧值：当前 RoleSource 仅重算全局
+     * roles，不重算 tenantRoles；若沿用旧 tenantRoles，会出现「租户角色被撤销后靠刷新复活」
+     * 的越权。剔除后本次会话降级为旧令牌语义（全局角色仍正确），下次登录重新签发。
+     * 待企业侧 P2 接入作用域收窄判定时，再扩展 RoleSource 同步重算此 claim。
+     */
+    public static final String CLAIM_TENANT_ROLES = "tenantRoles";
+
+    /**
      * 刷新时**不得**沿用旧令牌值的声明集合。
      *
      * <p>{@code jti} 必须重新生成；{@code roles}/{@code permissions} 必须按当前
-     * 角色重算或不再写入，否则「撤销角色权限」在刷新后失效（越权复活）。
+     * 角色重算或不再写入，否则「撤销角色权限」在刷新后失效（越权复活）；
+     * {@code tenantRoles} 剔除以防租户角色撤销后复活（见上）。
      */
     private static final Set<String> RECOMPUTED_CLAIMS =
-            Collections.unmodifiableSet(new LinkedHashSet<>(List.of(CLAIM_JTI, CLAIM_ROLES, CLAIM_PERMISSIONS)));
+            Collections.unmodifiableSet(new LinkedHashSet<>(
+                    List.of(CLAIM_JTI, CLAIM_ROLES, CLAIM_PERMISSIONS, CLAIM_TENANT_ROLES)));
 
     private JwtRefreshClaimResolver() {
         throw new IllegalStateException("工具类不允许实例化");

@@ -4,7 +4,11 @@ import request from '@/utils/request'
 import { i18n } from '@/i18n'
 import type { ApiResponse, RouterResponse } from '@/types'
 import type { LogicalRole } from '@/config/menu'
-import { roleSatisfiesPermission } from '@/config/permissionMatrix'
+import {
+  roleSatisfiesPermission,
+  auditorSatisfiesPermission,
+  AUDITOR_ROLE
+} from '@/config/permissionMatrix'
 
 // i18n.global.t 轻量包装（兜底 Error 文案，调用时求值，随语言切换生效）
 const gt = (key: string): string =>
@@ -125,6 +129,11 @@ export const useUserStore = defineStore('user', () => {
    * 后端只认角色）。未登记的码不限制（兜住未知码），拼写错误由一致性巡检脚本兜底。
    */
   const hasPermission = (code: string): boolean => {
+    // 二维角色地基（P0-c）：AUDITOR 是非等级角色，走独立的只读集合判定（fail-closed）。
+    // 社区版不签发 AUDITOR，hasRole(AUDITOR_ROLE) 恒 false，下面逻辑逐字不变。
+    if (hasRole(AUDITOR_ROLE)) {
+      return auditorSatisfiesPermission(code)
+    }
     const roles = logicalRoles.value
     if (roles.length === 0) return true
     return roles.some(role => roleSatisfiesPermission(role, code))

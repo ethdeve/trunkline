@@ -1139,6 +1139,33 @@ public class ApiKeyService {
     }
 
     /**
+     * 「我的可见租户」数据来源（P2）：当前用户持有的密钥所覆盖的租户 ID 集合。
+     *
+     * <p>归属口径与 {@link #isOwnedBy} / 「我的密钥」列表完全一致（有效持有人
+     * {@code holder || createdBy}，见 {@link #belongsTo}）——管理员代员工建密钥时算员工、
+     * 不算管理员。租户 ID 经 {@link TenantContextHolder#normalize(String)} 归一化，
+     * 存量无 tenantId 的密钥回落 {@code default}；按 ID 自然排序，便于前端稳定渲染。</p>
+     *
+     * <p>不读租户上下文、不看当前 {@code X-Tenant-Id}——本方法回答"这个人的密钥分布在
+     * 哪些租户"，是跨租户的账号级查询（管理面），不能套用业务行的行级过滤器。</p>
+     *
+     * @param owner 当前登录用户名（取自 {@code Authentication#getName()}）
+     * @return 归一化、去重、排序后的租户 ID 集合；owner 空白 / 无密钥时返回空集合
+     */
+    public Set<String> visibleTenantIdsFor(final String owner) {
+        if (owner == null || owner.isBlank()) {
+            return Set.of();
+        }
+        final Set<String> ids = new TreeSet<>();
+        for (final ApiKey ak : apiKeyCache.values()) {
+            if (belongsTo(ak, owner)) {
+                ids.add(TenantContextHolder.normalize(ak.getTenantId()));
+            }
+        }
+        return java.util.Collections.unmodifiableSet(ids);
+    }
+
+    /**
      * 验证权限列表是否有效.
      *
      * <p>权限值必须是 ServiceTypeConstants 中定义的服务类型（如 chat, embedding 等）。

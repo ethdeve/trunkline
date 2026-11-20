@@ -295,7 +295,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
@@ -319,9 +319,13 @@ import TermHelp from '@/components/common/TermHelp.vue'
 import { usePermission } from '@/composables/usePermission'
 import { useQuotaLedger } from '@/composables/useQuotaLedger'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
+import { useEnterpriseStore } from '@/stores/enterprise'
+import { useTenantStore } from '@/stores/tenant'
 import { menuSubtitle } from '@/config/menu'
 
 const { t } = useI18n()
+const enterpriseStore = useEnterpriseStore()
+const tenantStore = useTenantStore()
 // 配额账本开关（单例探针）：关闭时额度配置弹窗里的每小时 / 每月字段禁用
 const { multiWindowEnforced, loadQuotaLedgerState } = useQuotaLedger()
 const { hasPermission } = usePermission()
@@ -842,6 +846,21 @@ const handleDelete = async (row: PoolDefinition) => {
     ElMessage.error(t('pool.messages.deleteFailed'))
   }
 }
+
+/**
+ * 多租户下切换顶部租户 → 重新拉取虚拟模型列表。
+ * 后端 config_data 按 X-Tenant-Id 行级过滤，列表必须跟随当前租户重取；
+ * 价格目录 / 实例清单是平台级数据，不受租户影响，无需重拉。
+ * 社区版 enterpriseStore.multiTenant=false，不重载，行为零变化。
+ */
+watch(
+  () => tenantStore.currentTenantId,
+  (next, prev) => {
+    if (enterpriseStore.multiTenant && next !== prev) {
+      void fetchPools()
+    }
+  }
+)
 
 onMounted(() => {
   fetchPools()

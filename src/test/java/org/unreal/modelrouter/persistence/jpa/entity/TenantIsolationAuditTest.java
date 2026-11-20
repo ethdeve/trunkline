@@ -71,9 +71,10 @@ class TenantIsolationAuditTest {
         assertEquals(List.of(), declaration.undeclared(),
                 "以下实体未声明数据层归属（会构成假隔离）：" + declaration.undeclared()
                         + "。请挂 @Filter 或标 @TenantShared(reason=...)");
-        assertTrue(declaration.isolated().size() >= 5,
-                "行级隔离实体数量下降：当前仅 5 个（ApiCallHistory / Config / QuotaLedger / ServiceConfig / TokenUsage），"
-                        + "其余均按「上游基础设施 / 身份 / 运维审计」平面全局共享，实际 "
-                        + declaration.isolated().size());
+        assertTrue(declaration.isolated().size() >= 4,
+                "行级隔离实体数量下降：当前仅 4 个（ApiCallHistory / Config / QuotaLedger / TokenUsage），"
+                        + "其余均按「上游基础设施 / 身份 / 运维审计 / 全局字典」平面全局共享，实际 "
+                        + declaration.isolated().size()
+                        + "。注意 ServiceConfig 已改为全局共享（模型分类是协议事实），不再计入隔离集");
     }
 }

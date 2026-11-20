@@ -80,7 +80,7 @@ class TenantJpaFilterTransactionTest {
     }
 
     @Test
-    @DisplayName("事务内：切面读到当前租户并写入 Hibernate 过滤器参数")
+    @DisplayName("事务内：切面写入「本租户 + 全局哨兵」集合，让全局配置对所有租户可见")
     void insideTransactionEnablesFilterWithCurrentTenant() throws Throwable {
         when(tenantContext.currentTenantId()).thenReturn("acme-corp");
         when(joinPoint.proceed()).thenReturn("ok");
@@ -90,7 +90,8 @@ class TenantJpaFilterTransactionTest {
 
         verify(session, times(1)).enableFilter(TenantJpaFilterDefinition.NAME);
         verify(hibernateFilter, times(1))
-                .setParameter(TenantJpaFilterDefinition.PARAM_TENANT_ID, "acme-corp");
+                .setParameterList(TenantJpaFilterDefinition.PARAM_TENANT_IDS,
+                        java.util.List.of("acme-corp", TenantJpaFilterDefinition.SHARED_TENANT_ID));
         verify(joinPoint, times(1)).proceed();
     }
 

@@ -81,8 +81,15 @@ public class JpaStoreManager implements StoreManager {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Map<String, Object> getConfig(final String key) {
         // E1: 当前值 = version=0 行；兼容迁移前数据（无 v0 行时回退 isLatest 行）。
+        // 【多租户】必须显式开启只读事务：TenantJpaFilter 切面只在「事务已激活」时
+        // enableFilter（见 TenantJpaFilter.applyTenantFilter 的 isActualTransactionActive 判定），
+        // 且事务拦截器 order 严格小于切面 order（见 TenantAspectOrderingConfiguration）。
+        // 若本方法不带事务，Spring Data 仓库方法自带的事务在切面之后才开启，切面跳过过滤 →
+        // findByConfigKeyAndVersion(key, 0) 返回所有租户的行 → NonUniqueResultException
+        // 被调用方（如 PoolPersistenceService.loadAll）吞成空集合，表现为「切租户/新建后看不到数据」。
         final Optional<ConfigEntity> currentRow =
                 configRepository.findByConfigKeyAndVersion(key, CURRENT_CONFIG_VERSION);
         if (currentRow.isPresent()) {

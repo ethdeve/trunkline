@@ -197,6 +197,17 @@ class JpaStoreManagerCurrentVersionSeparationTest {
         }
     }
 
+    @Test
+    @DisplayName("【多租户读取】getConfig 必须带 @Transactional(readOnly=true)，否则 TenantJpaFilter 不生效导致跨租户 NonUnique")
+    void getConfig_shouldBeTransactionalForTenantFilter() throws Exception {
+        java.lang.reflect.Method method = JpaStoreManager.class.getMethod("getConfig", String.class);
+        org.springframework.transaction.annotation.Transactional tx =
+                method.getAnnotation(org.springframework.transaction.annotation.Transactional.class);
+        assertNotNull(tx, "getConfig 必须显式标注 @Transactional，"
+                + "否则 TenantJpaFilter 切面在事务未激活时跳过过滤，多租户下同 key 多行会 NonUnique 而被吞成空");
+        assertTrue(tx.readOnly(), "getConfig 是只读查询，应标注 readOnly=true");
+    }
+
     // ==================== 测试基础设施 ====================
 
     private static String toJson(final Map<String, Object> config) {

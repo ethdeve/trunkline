@@ -78,6 +78,12 @@ export interface MenuItem {
    * 路由守卫用 ENTERPRISE_ONLY_PATHS 兜底拦截社区版手输 URL 绕过。
    */
   enterpriseOnly?: boolean
+  /**
+   * P1：菜单项所需的最小「部署级活跃租户数」（listActive().size()）。
+   * 用于「企业用量总览」这类只有 N≥2 才有意义的企业页——N<2 时隐藏，
+   * 判定依据是真实租户数，不是 multiTenant 功能位（功能位在 N=0 也可能为 true）。
+   */
+  minTenants?: number
 }
 
 export interface MenuGroup {
@@ -90,8 +96,9 @@ export interface MenuGroup {
 }
 
 /**
- * 菜单配置：三组 16 项（我的 5 / 团队 7 / 系统 4）。
- * 其中「审计与版本」为保留项（不改造）。与路由表一一对应。
+ * 菜单配置：三组（我的 / 团队 / 系统）。P1 新增「企业用量总览」后系统组共 7 项，
+ * 全量 19 项（含企业专属项，社区版灰态可见）。其中「审计与版本」为保留项（不改造）。
+ * 与路由表一一对应。
  *
  * 可见性 = (无 permission 或拥有该权限码) 且 (无 roles 或命中其一逻辑角色)。
  */
@@ -261,6 +268,18 @@ export const menuGroups: MenuGroup[] = [
         subtitle: 'nav.enterpriseAdmin.subtitle'
       },
       {
+        // P1 企业用量总览：跨租户只读汇总。不声明 roles —— AUDITOR 不在 user/ops/admin
+        // 等级链上，靠专用权限码 enterprise:usage:read 的二维判定放行/拒绝。
+        // N<2 时隐藏（见 minTenants），避免单租户下展示一张无意义的汇总表。
+        path: '/settings/enterprise/usage',
+        title: 'nav.usageOverview.title',
+        permission: 'enterprise:usage:read',
+        enterpriseOnly: true,
+        minTenants: 2,
+        icon: 'data-analysis',
+        subtitle: 'nav.usageOverview.subtitle'
+      },
+      {
         // 保留项（用户决策 #4）：维持现状皮肤与位置，不搬进新视觉改造
         path: '/settings/audit-versions',
         title: 'nav.auditVersions.title',
@@ -296,7 +315,11 @@ export function flattenMenuItems(): MenuItem[] {
  * 企业版专属菜单路径：社区版菜单显示为灰态锁，路由守卫拦住手输 URL / 旧书签绕过。
  * 与 menu.ts 中 `enterpriseOnly: true` 的项保持一致，由守卫消费。
  */
-export const ENTERPRISE_ONLY_PATHS: string[] = ['/settings/tenants', '/settings/enterprise']
+export const ENTERPRISE_ONLY_PATHS: string[] = [
+  '/settings/tenants',
+  '/settings/enterprise',
+  '/settings/enterprise/usage'
+]
 
 /**
  * 企业版专属的「设置页」子页签：社区版从子页签栏移除。
@@ -319,7 +342,8 @@ export const ENTERPRISE_ONLY_SUBS: string[] = [
   'groupRoles',
   'promptTemplates',
   'adapterLifecycle',
-  'securityDashboard'
+  'securityDashboard',
+  'usage'
 ]
 
 /**

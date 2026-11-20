@@ -8,7 +8,7 @@
     <!-- ---------- 维度与月份 ---------- -->
     <div class="toolbar">
       <el-radio-group v-model="dimension" size="small" @change="loadUsage">
-        <el-radio-button value="COMPANY">{{ t('v.tu.t001') }}</el-radio-button>
+        <el-radio-button value="COMPANY">{{ dimCompanyLabel }}</el-radio-button>
         <el-radio-button value="DEPARTMENT">{{ t('v.tu.t002') }}</el-radio-button>
       </el-radio-group>
 
@@ -51,7 +51,7 @@
         :lg="4"
       >
         <el-card shadow="never" class="dept-card" :class="{ 'dept-card--company': d.company }">
-          <div class="dept-name">{{ d.department }}</div>
+          <div class="dept-name">{{ companyCardLabel(d) }}</div>
           <div class="dept-amount">
             <template v-if="billingEnabled">¥{{ formatAmount(d.amount) }}</template>
             <template v-else>{{ formatCompact(d.totalTokens) }} <span class="dept-unit">{{ t('v.tu.t021') }}</span></template>
@@ -154,12 +154,12 @@
         <el-card shadow="never">
           <template #header>
             <div class="card-head">
-              <span>{{ dimension === 'DEPARTMENT' ? t('v.tu.t025') : t('v.tu.t026') }}</span>
+              <span>{{ dimension === 'DEPARTMENT' ? t('v.tu.t025') : memberUsageLabel }}</span>
               <span class="card-head__hint">{{ t('v.tu.t013') }}</span>
             </div>
           </template>
           <el-table ref="groupUsageTableRef" :data="usage.groups" :max-height="groupUsageMaxHeight" v-loading="loading" size="small">
-            <el-table-column :label="dimension === 'DEPARTMENT' ? t('v.tu.t027') : t('v.tu.t028')" min-width="110">
+            <el-table-column :label="dimension === 'DEPARTMENT' ? t('v.tu.t027') : memberColumnLabel" min-width="110">
               <template #default="{ row }">
                 <span class="cell-title">{{ row.label }}</span>
               </template>
@@ -259,6 +259,35 @@ const { t } = useI18n()
 const enterpriseStore = useEnterpriseStore()
 /** 计费功能位：开=金额口径；关（社区版）=Token 用量口径（无单价来源，金额无意义） */
 const billingEnabled = computed(() => enterpriseStore.billing)
+/**
+ * 是否真正多租户（N≥2）。数据源是部署级活跃租户数，不看企业功能位、也不看可见集：
+ * 社区版接口不可达→0、企业不建租户→0、企业 1 个租户→1，均走单租户口径（逐字不变）；
+ * 仅 N≥2 时用「本租户」措辞。
+ *
+ * 必须用 deploymentTenantCount：USER 的可见集只含密钥覆盖的租户（可能只有 1 个），
+ * 若用可见集长度会把多租户部署误判成单租户、显示「全公司」错误文案（M11 决策）。
+ */
+const tenantStore = useTenantStore()
+const isRealMultiTenant = computed(() => tenantStore.deploymentTenantCount >= 2)
+/** 维度一标签：多租户=「本租户」，单租户=「全公司」（逐字不变） */
+const dimCompanyLabel = computed(() => t(isRealMultiTenant.value ? 'v.tu.t040' : 'v.tu.t001'))
+/** 明细表标题（维度一态）：多租户=「本租户成员用量」，单租户=「成员用量」 */
+const memberUsageLabel = computed(() => t(isRealMultiTenant.value ? 'v.tu.t041' : 'v.tu.t026'))
+/**
+ * 明细表首列：两种形态都用「成员」（t028）。
+ * 这一列的值就是成员名，再加「本租户」前缀只会变成「本租户成员」这种冗余表头；
+ * 边界信息已由维度一标签「本租户」和表标题「本租户成员用量」表达，无需重复。
+ */
+const memberColumnLabel = computed(() => t('v.tu.t028'))
+/**
+ * 部门汇总卡「公司合计卡」标题：后端 COMPANY_LABEL 恒为「全公司」，多租户下前端覆写为
+ * 「本租户合计」（t042）——这层「合计」语义不能丢，否则该卡与普通部门卡无法区分。
+ * 单租户沿用「全公司」（与改动前逐字一致）。后端零改动。
+ */
+const companyCardLabel = (d: { company?: boolean; department: string }) =>
+  d.company
+    ? t(isRealMultiTenant.value ? 'v.tu.t042' : 'v.tu.t001')
+    : d.department
 const loading = ref(false)
 const dimension = ref('COMPANY')
 const department = ref('')
@@ -475,16 +504,18 @@ watch(billingEnabled, () => {
   renderCharts()
 })
 
-onMounted(() => {
+onMounted(async () => {
   // 拉取企业功能位（社区版接口不可用 → 静默降级为 false，整页按 Token 口径展示）
-  void enterpriseStore.ensureLoaded()
+  await enterpriseStore.ensureLoaded()
+  // 先加载租户列表再渲染文案，避免"先按单租户渲染、加载完跳变多租户文案"的闪烁：
+  // 社区版/未开通时 ensureLoaded 直接置空数组（available=false），文案恒走单租户，逐字不变。
+  await tenantStore.ensureLoaded()
   loadUsage()
   loadDepartments()
   window.addEventListener('resize', resizeCharts)
 })
 
 // 多租户：顶部切换租户后重新拉取团队用量（用量聚合基于 TokenUsage，后端按 X-Tenant-Id 行级过滤）
-const tenantStore = useTenantStore()
 watch(
   () => tenantStore.currentTenantId,
   () => {

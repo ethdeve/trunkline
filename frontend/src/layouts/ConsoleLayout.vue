@@ -106,6 +106,17 @@ function onLockedClick() {
 /** 面包屑右半段：router meta.title 存的是 i18n key，同样随语言实时切换 */
 const currentPageTitle = computed(() => tr((route.meta.title as string) || ''))
 
+/**
+ * 作用域徽章（P2 §4.4）：当前页为全局共享页时，在切换器旁提示"不受租户切换影响"。
+ *
+ * 只在真实多租户（部署级 N≥2）下显示——单租户/社区版没有"切了没用"的困惑，显示反而成噪音；
+ * 判定取 route.meta.tenantScoped === false（全局页显式标记，隔离页默认 undefined/true）。
+ * 隔离页什么都不加，避免把提示变成视觉噪音。
+ */
+const showScopeBadge = computed(
+  () => tenant.available && tenant.deploymentTenantCount >= 2 && route.meta.tenantScoped === false
+)
+
 // 菜单高亮：先按完整路径精确匹配菜单项（/settings/* 四个子项共用 /settings 前缀，
 // 首段回退无法区分），无命中再回退首段（子路由如 /strategy/quota 高亮到 /strategy）
 const activePath = computed(() => {
@@ -302,6 +313,18 @@ async function onLogout() {
         <!-- 租户切换器（多租户且已开通租户管理时显示） -->
         <TenantSwitcher />
 
+        <!-- 作用域徽章：全局共享页提示"不受租户切换影响"，隔离页不显示 -->
+        <el-tooltip
+          v-if="showScopeBadge"
+          :content="t('topbar.globalScopeHint')"
+          placement="bottom"
+        >
+          <span class="topbar-scope-badge">
+            <el-icon><InfoFilled /></el-icon>
+            {{ t('topbar.globalScope') }}
+          </span>
+        </el-tooltip>
+
         <div class="palette-trigger" @click="paletteVisible = true">
           <el-icon><Search /></el-icon>
           <span>{{ t('topbar.search') }}</span>
@@ -493,6 +516,22 @@ async function onLogout() {
 .topbar-crumb {
   font-size: 13px;
   color: var(--ja-text-secondary);
+}
+
+/* 作用域徽章（P2）：全局页的灰色小提示，克制、不抢主操作视觉 */
+.topbar-scope-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 4px;
+  background: var(--ja-bg-secondary, #f5f6f8);
+  color: var(--ja-text-secondary, var(--el-text-color-regular));
+  font-size: 11.5px;
+  cursor: default;
+  white-space: nowrap;
 }
 
 /* 顶栏部署标识（S4）：视觉上比面包屑更「硬」，提示这是环境事实而非导航 */

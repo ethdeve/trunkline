@@ -36,6 +36,16 @@ public final class TenantContextHolder {
         delegate = tenantContext;
     }
 
+    /**
+     * 恢复为「未注入」状态，{@link #currentTenantId()} 回落 {@code default}。
+     *
+     * <p>仅供测试在替换 {@link #setDelegate} 后清理静态状态，避免污染同 JVM 内的后续用例。
+     * 生产链路不使用——那里由 AutoConfiguration 一次性注入。</p>
+     */
+    public static void restoreDefault() {
+        delegate = null;
+    }
+
     /** 当前租户 ID；无 Spring 上下文时返回 {@code default} */
     public static String currentTenantId() {
         final org.unreal.modelrouter.enterprise.spi.TenantContext ctx = delegate;

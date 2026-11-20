@@ -60,6 +60,35 @@ export const listTenants = async (): Promise<TenantRecord[]> => {
 }
 
 /**
+ * 我的可见租户（P2）：{@code GET /v1/enterprise/tenants/mine}。
+ *
+ * <p>与 {@link listTenants} 的区别：本端点按身份收窄（USER 由密钥反推、作用域 ADMIN/OPERATOR
+ * 按绑定、平台超管/AUDITOR 全部），且 URL 层登记为 SELF，普通用户也能取到自己的选项。
+ * 响应自带部署级租户数，供切换器四态判定——不要把两者混为一谈（M11 决策）。</p>
+ */
+export interface MyTenantsResult {
+  /** 部署级活跃租户数（listActive().size()），与身份无关 */
+  deploymentTenantCount: number
+  /** 当前用户可见租户（下拉选项） */
+  tenants: TenantRecord[]
+}
+
+export const listMyTenants = async (): Promise<MyTenantsResult> => {
+  try {
+    const res = await request.get('/v1/enterprise/tenants/mine')
+    const payload = unwrapEnterprise<Record<string, unknown>>(res.data)
+    const raw = Array.isArray(payload?.tenants) ? (payload.tenants as TenantRecord[]) : []
+    const count = Number(payload?.deploymentTenantCount)
+    return {
+      deploymentTenantCount: Number.isFinite(count) && count > 0 ? count : raw.length,
+      tenants: raw
+    }
+  } catch {
+    return { deploymentTenantCount: 0, tenants: [] }
+  }
+}
+
+/**
  * 开通（创建）租户；受 license maxTenants 刻度约束。
  *
  * <p>成功返回后端落库的 TenantRecord；失败抛可读 Error（超限 / 格式非法 / 无权限）。</p>

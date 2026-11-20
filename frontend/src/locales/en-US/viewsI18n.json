@@ -210,6 +210,9 @@
       "t030": "Community edition: amount statistics are an enterprise feature, so this page shows token usage. Amounts become available in the enterprise edition once billing is enabled.",
       "t031": "This month · by usage",
       "t032": "By usage",
+      "t040": "This tenant",
+      "t041": "This tenant's member usage",
+      "t042": "This tenant total",
       "x008": "<br/>Tokens {tokens}<br/>{calls} calls",
       "x009": "<br/>Tokens {tokens}<br/>{percent}% of total"
     },
@@ -345,7 +348,7 @@
       "t006": "Show failed calls only (with error codes and reasons)",
       "t007": "Show all calls; click a Trace ID to view the trace",
       "t008": "You do not have permission to view call history",
-      "t009": "Call analytics",
+      "t009": "Global call analytics",
       "t010": "CSV (opens directly in Excel)",
       "t011": "This shows the state of the current gateway replica; when several replicas run together, shared storage keeps their state in sync"
     }

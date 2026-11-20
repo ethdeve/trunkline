@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * 资源池配置管理控制器
@@ -55,8 +54,10 @@ public class PoolConfigController {
     /** 2026-10-26: 删除前依赖检测（密钥白名单引用该分组时拒绝删除） */
     private final DependencyCheckService dependencyCheckService;
 
-    // 当前生效资源池(YAML 默认 + 持久化用户池,按 poolName 唯一)
-    private final CopyOnWriteArrayList<PoolDefinition> activePools = new CopyOnWriteArrayList<>();
+    // 注意：不再持有进程级 activePools 单例缓存。
+    // 资源池（虚拟模型）属于「租户业务数据」平面，config_data 受 @Filter(tenantFilter) 行级隔离。
+    // 若把某个请求线程的租户快照缓存到单例字段，切换租户后 GET /list 仍返回旧租户快照，
+    // 表现为「切租户后虚拟模型没了 / 新建后看不到」。改为每次请求按当前租户实时读取。
 
     public PoolConfigController(final PoolDefinitionProperties poolProperties,
                                 final PoolPersistenceService persistenceService,
@@ -70,13 +71,18 @@ public class PoolConfigController {
         this.serviceTypeResolver = serviceTypeResolver;
         this.modelServiceRegistry = modelServiceRegistry;
         this.dependencyCheckService = dependencyCheckService;
-        reloadActivePools();
+        // 启动时预热一次路由选择器（仅用于运行时路由，与管理端列表数据源解耦）
+        refreshRouterPools();
     }
 
     /**
-     * 重新加载生效资源池(YAML 默认 + 持久化,持久化同 poolName 覆盖 YAML)并热生效
+     * 按「当前请求租户」加载生效资源池（YAML 默认 + 当前租户持久化用户池，持久化同 poolName 覆盖 YAML）。
+     *
+     * <p>{@link PoolPersistenceService#loadAll()} 经 {@code StoreManager.getConfig → ConfigRepository}
+     * 访问 {@code config_data}，该实体挂 {@code @Filter(tenantFilter)}，在租户行级隔离开启时自动按
+     * 当前请求租户过滤。因此本方法天然租户感知：切租户后立刻反映该租户自己的池。</p>
      */
-    private synchronized void reloadActivePools() {
+    private List<PoolDefinition> loadPoolsForCurrentTenant() {
         List<PoolDefinition> yamlPools = poolProperties.getPools() != null
                 ? poolProperties.getPools() : new ArrayList<>();
         List<PoolDefinition> persistedPools = persistenceService.loadAll();
@@ -86,21 +92,25 @@ public class PoolConfigController {
             merged.removeIf(p -> p.getPoolName() != null && p.getPoolName().equals(pool.getPoolName()));
             merged.add(pool);
         }
-
-        activePools.clear();
-        activePools.addAll(merged);
-        poolSelector.reloadPools(merged);
-        logger.info("资源池已加载: YAML {} 个 + 持久化 {} 个 = {} 个",
-                yamlPools.size(), persistedPools.size(), merged.size());
+        return merged;
     }
 
     /**
-     * 获取所有资源池列表
+     * 热更新运行时路由选择器（CRUD 后调用，仅服务于网关路由命中，不作为管理端列表数据源）。
+     */
+    private synchronized void refreshRouterPools() {
+        List<PoolDefinition> merged = loadPoolsForCurrentTenant();
+        poolSelector.reloadPools(merged);
+        logger.info("资源池路由已加载: {} 个（当前租户）", merged.size());
+    }
+
+    /**
+     * 获取所有资源池列表（按当前请求租户实时读取）
      */
     @GetMapping("/list")
-    @Operation(summary = "获取所有资源池", description = "获取全部资源池(含 YAML 默认与持久化)")
+    @Operation(summary = "获取所有资源池", description = "获取当前租户全部资源池(含 YAML 默认与持久化)")
     public ResponseEntity<RouterResponse<List<PoolDefinition>>> getAllPools() {
-        List<PoolDefinition> sorted = new ArrayList<>(activePools);
+        List<PoolDefinition> sorted = new ArrayList<>(loadPoolsForCurrentTenant());
         sorted.sort((a, b) -> {
             String ka = a.getPoolName() != null ? a.getPoolName() : "";
             String kb = b.getPoolName() != null ? b.getPoolName() : "";
@@ -125,13 +135,16 @@ public class PoolConfigController {
     @Operation(summary = "创建资源池", description = "创建新资源池并热生效")
     public ResponseEntity<RouterResponse<PoolDefinition>> createPool(@RequestBody final PoolDefinition pool) {
         validatePool(pool);
-        if (activePools.stream().anyMatch(p -> p.getPoolName() != null
+        // 重名校验按「当前租户的持久化视图」（loadAll 受 @Filter 约束，天然租户感知）。
+        // 不纳入 YAML 池，保留「持久化同名覆盖 YAML 默认池」的既有语义（issue #708）；
+        // 跨租户同名不冲突（唯一键含 tenant_id）。
+        if (persistenceService.loadAll().stream().anyMatch(p -> p.getPoolName() != null
                 && p.getPoolName().equals(pool.getPoolName()))) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Pool '" + pool.getPoolName() + "' already exists");
         }
         persistenceService.save(pool);
-        reloadActivePools();
+        refreshRouterPools();
         return ResponseEntity.status(HttpStatus.CREATED).body(RouterResponse.success(pool));
     }
 
@@ -153,7 +166,7 @@ public class PoolConfigController {
         assertNoOrphanedInstances(existing, pool);
         pool.setPoolName(existing.getPoolName());
         persistenceService.save(pool);
-        reloadActivePools();
+        refreshRouterPools();
         return ResponseEntity.ok(RouterResponse.success(pool));
     }
 
@@ -222,7 +235,7 @@ public class PoolConfigController {
                 dependencyCheckService.checkPool(poolName);
         dependencyCheckService.assertDeletable(report);
         persistenceService.remove(poolName);
-        reloadActivePools();
+        refreshRouterPools();
         // report 可为 null（未装配依赖校验的极简上下文）：与 assertDeletable 的容错口径保持一致
         final java.util.List<String> warnings = report != null ? report.getWarnings() : null;
         final String message = warnings == null || warnings.isEmpty()
@@ -232,7 +245,7 @@ public class PoolConfigController {
     }
 
     private PoolDefinition findPool(final String poolName) {
-        return activePools.stream()
+        return loadPoolsForCurrentTenant().stream()
                 .filter(p -> p.getPoolName() != null && p.getPoolName().equals(poolName))
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pool not found: " + poolName));
