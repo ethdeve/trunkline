@@ -45,6 +45,10 @@ package org.unreal.modelrouter.enterprise.spi;
  *       （Agent 工具治理扩展点，嵌套 record / Verdict）——同 B1/B2 口径，新接口不改既有
  *       签名，社区版 Noop 恒注册放行；{@code VERSION} 保持 3。失败语义同 B2：实现可抛
  *       异常，主干兜底 fail-closed 拒绝出站（{@code TOOL_BLOCKED}）。</li>
+ *   <li>{@code v3 续}（部门/组织候选，兼容扩展不推版本）：新增 {@code DepartmentOptionsProvider}
+ *       接口（账号编辑部门下拉的额外组织候选，全 default）——企业版把已同步组织名并入
+ *       {@code JwtAccountService.getDepartments()}；社区版无 Bean 时退化为历史部门。新接口
+ *       不改既有签名；{@code VERSION} 保持 3。</li>
  * </ul>
  *
  * @author Trunkline Team

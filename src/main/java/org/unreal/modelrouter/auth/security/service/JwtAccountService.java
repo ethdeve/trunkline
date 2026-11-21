@@ -11,8 +11,11 @@ import org.unreal.modelrouter.common.dto.CreateJwtAccountRequest;
 import org.unreal.modelrouter.common.dto.JwtAccountDTO;
 import org.unreal.modelrouter.persistence.jpa.entity.JwtAccountEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.JwtAccountRepository;
+import org.unreal.modelrouter.enterprise.spi.DepartmentOptionsProvider;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 /**
@@ -34,6 +37,13 @@ public class JwtAccountService {
      */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private AccountStatusGuard accountStatusGuard;
+
+    /**
+     * 部门/组织候选扩展点（可选依赖）：企业版同步组织机构后并入账号编辑的下拉候选。
+     * 社区版无 Bean 时仅保留账号表历史部门（手动填写），行为与既有版本一致。
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private DepartmentOptionsProvider departmentOptionsProvider;
 
     /**
      * 获取所有账户
@@ -170,18 +180,37 @@ public class JwtAccountService {
     }
 
     /**
-     * 获取全部部门列表（去重、按名称排序）。
+     * 获取全部部门/组织候选项（去重、按名称排序）。
      *
-     * <p>供账号页部门下拉与「团队用量」部门维度筛选使用，避免前端硬编码部门清单。</p>
+     * <p>供账号页部门下拉与「团队用量」部门维度筛选使用，避免前端硬编码部门清单。
+     * 候选 = 账号表历史部门（手动填写）+ 企业版 SPI 注入的已同步组织名。
+     * 社区版无 SPI Bean 时退化为历史部门，与既有行为一致。</p>
      */
     public List<String> getDepartments() {
-        return jwtAccountRepository.findAll().stream()
+        // TreeSet 同时去重 + 排序，替代原 distinct().sorted()
+        final TreeSet<String> result = jwtAccountRepository.findAll().stream()
                 .map(JwtAccountEntity::getDepartment)
                 .filter(d -> d != null && !d.isBlank())
                 .map(String::trim)
-                .distinct()
-                .sorted()
-                .toList();
+                .filter(d -> !d.isEmpty())
+                .collect(Collectors.toCollection(TreeSet::new));
+
+        if (departmentOptionsProvider != null) {
+            try {
+                final List<String> extra = departmentOptionsProvider.extraDepartments();
+                if (extra != null) {
+                    extra.stream()
+                            .filter(Objects::nonNull)
+                            .map(String::trim)
+                            .filter(d -> !d.isEmpty())
+                            .forEach(result::add);
+                }
+            } catch (RuntimeException e) {
+                // fail-soft：企业 SPI 故障不得拖垮账号页部门端点
+                log.warn("部门候选扩展点调用失败，仅返回账号历史部门: {}", e.toString());
+            }
+        }
+        return List.copyOf(result);
     }
 
     /**

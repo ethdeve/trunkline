@@ -7,14 +7,14 @@
     "searchPlaceholder": "搜索模型分类或适配器（回车或暂停）",
     "filters": {
       "loadBalance": "负载策略",
-      "adapter": "适配器",
+      "adapter": "自定义接入协议",
       "all": "全部"
     },
     "unset": "未设置",
     "loading": "加载中...",
     "table": {
       "serviceType": "模型分类",
-      "adapter": "适配器",
+      "adapter": "自定义接入协议",
       "loadBalanceType": "负载均衡策略",
       "actions": "操作",
       "notFound": "未找到服务",

@@ -19,7 +19,7 @@
       "guardrails": "Security Controls",
       "securityReport": "Security Report",
       "alertChannels": "Alert Channels",
-      "groupRoles": "Groups & Roles",
+      "groupRoles": "Organizations",
       "promptTemplates": "Prompt Templates",
       "adapterLifecycle": "Adapter Lifecycle",
       "keyApproval": "Key Approvals",
@@ -68,7 +68,16 @@
       "noRisks": "No high-risk events in this window",
       "capabilities": "Compliance capability health",
       "capAvailable": "Available",
-      "capUnavailable": "Unavailable"
+      "capUnavailable": "Unavailable",
+      "capNames": {
+        "auditChain": "Audit hash chain",
+        "archive": "WORM archive",
+        "dlp": "Outbound DLP",
+        "kms": "KMS encryption",
+        "reconciliation": "Usage reconciliation",
+        "moderation": "Content moderation",
+        "license": "License check"
+      }
     },
     "enterpriseAlert": {
       "evidence": "Generate an evidence bundle for a time window and verify the hash chain; the bundle includes per-row self-checks for independent audit review",
@@ -444,7 +453,14 @@
       "clear": "Clear",
       "empty": "No departments yet. Register one to start.",
       "loadFailed": "Failed to load",
-      "actionFailed": "Action failed"
+      "actionFailed": "Action failed",
+      "scimTitle": "Synced Organizations",
+      "scimHint": "Organizations synced from the SCIM/IdP directory. They appear in the account editor's department dropdown; empty when SCIM is off or not yet synced.",
+      "scimEmpty": "No synced organizations (SCIM disabled or not yet synced)",
+      "scimName": "Organization",
+      "scimExternalId": "External ID",
+      "scimMembers": "Members",
+      "scimLoadFailed": "Failed to load synced organizations (expected when SCIM is locked)"
     },
     "enterprise": {
       "moduleUnavailable": "Enterprise module failed to load. Verify the enterprise edition is installed."

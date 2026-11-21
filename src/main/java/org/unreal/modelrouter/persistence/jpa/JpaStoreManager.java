@@ -113,6 +113,7 @@ public class JpaStoreManager implements StoreManager {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public boolean exists(final String key) {
         return configRepository.existsByConfigKeyAndIsLatestTrue(key);
     }

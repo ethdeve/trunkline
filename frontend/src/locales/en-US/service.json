@@ -7,14 +7,14 @@
     "searchPlaceholder": "Search model category or adapter (press Enter or pause)",
     "filters": {
       "loadBalance": "Load Balance",
-      "adapter": "Adapter",
+      "adapter": "Custom Protocol",
       "all": "All"
     },
     "unset": "Not set",
     "loading": "Loading...",
     "table": {
       "serviceType": "Model Category",
-      "adapter": "Adapter",
+      "adapter": "Custom Protocol",
       "loadBalanceType": "Load Balance Strategy",
       "actions": "Actions",
       "notFound": "No services found",

@@ -1,5 +1,6 @@
 package org.unreal.modelrouter.config.sync.repository;
 
+import org.unreal.modelrouter.config.core.ConfigMergeService;
 import org.unreal.modelrouter.persistence.store.ConfigKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +18,11 @@ import java.util.Optional;
  * 负责服务配置的数据访问，封装 StoreManager 的底层操作。
  * 提供强类型的 ServiceConfiguration 访问接口。
  *
+ * <p>读取链与分类目录（{@code ConfigMergeService#getPersistedConfig}）同源：
+ * 当前配置行（v0）读不到时回退版本快照，再回退 YAML 默认——否则
+ * 「目录能列出分类、单查却报不存在」的读分裂会把编辑页打成 500
+ * （2026-11-21 模型分类适配器列全空 + 编辑报服务内部错误的根因）。</p>
+ *
  * @author JAiRouter Team
  * @modified Trunkline Team
  */
@@ -27,9 +33,25 @@ public class StoreConfigRepository {
     private static final String CONFIG_KEY = ConfigKeys.CURRENT_CONFIG_KEY;
 
     private final StoreManager storeManager;
+    private final ConfigMergeService configMergeService;
 
-    public StoreConfigRepository(final StoreManager storeManager) {
+    public StoreConfigRepository(final StoreManager storeManager,
+                                 final ConfigMergeService configMergeService) {
         this.storeManager = storeManager;
+        this.configMergeService = configMergeService;
+    }
+
+    /**
+     * 读取合并后的主配置：当前配置行优先，读不到时走 ConfigMergeService 的
+     * 版本快照 / YAML 默认回退链，保证与 getAvailableServiceTypes 目录同源。
+     */
+    private Map<String, Object> loadMergedConfig() {
+        Map<String, Object> config = storeManager.getConfig(CONFIG_KEY);
+        if (config == null) {
+            logger.warn("当前持久化配置不可读（v0 行缺失），回退版本快照 / YAML 默认：key={}", CONFIG_KEY);
+            config = configMergeService.getPersistedConfig();
+        }
+        return config;
     }
 
     /**
@@ -39,7 +61,7 @@ public class StoreConfigRepository {
      */
     public Map<String, ServiceConfiguration> findAll() {
         try {
-            Map<String, Object> config = storeManager.getConfig(CONFIG_KEY);
+            Map<String, Object> config = loadMergedConfig();
             if (config == null || !config.containsKey("services")) {
                 return Map.of();
             }
@@ -62,7 +84,7 @@ public class StoreConfigRepository {
      */
     public Optional<ServiceConfiguration> findById(final String serviceType) {
         try {
-            Map<String, Object> config = storeManager.getConfig(CONFIG_KEY);
+            Map<String, Object> config = loadMergedConfig();
             if (config == null || !config.containsKey("services")) {
                 return Optional.empty();
             }
@@ -178,7 +200,7 @@ public class StoreConfigRepository {
     @SuppressWarnings("unchecked")
     public Optional<Map<String, Object>> findRateLimitRaw(final String serviceType) {
         try {
-            Map<String, Object> config = storeManager.getConfig(CONFIG_KEY);
+            Map<String, Object> config = loadMergedConfig();
             if (config == null || !(config.get("services") instanceof Map)) {
                 return Optional.empty();
             }
@@ -229,13 +251,16 @@ public class StoreConfigRepository {
      * 获取当前配置
      */
     private Map<String, Object> getCurrentConfig() {
-        Map<String, Object> config = storeManager.getConfig(CONFIG_KEY);
-        if (config == null) {
-            config = new HashMap<>();
+        Map<String, Object> config = loadMergedConfig();
+        // 防御性拷贝：合并配置（版本快照 / YAML 兜底）可能不可变或被多个调用方共享，
+        // 保存路径要在独立可变副本上改写，不能就地污染源 Map。
+        config = config == null ? new HashMap<>() : new HashMap<>(config);
+        if (!(config.get("services") instanceof Map)) {
             config.put("services", new HashMap<String, Object>());
-        }
-        if (!config.containsKey("services")) {
-            config.put("services", new HashMap<String, Object>());
+        } else {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> services = (Map<String, Object>) config.get("services");
+            config.put("services", new HashMap<>(services));
         }
         return config;
     }

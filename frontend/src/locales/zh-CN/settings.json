@@ -19,7 +19,7 @@
       "guardrails": "安全能力",
       "securityReport": "安全报告",
       "alertChannels": "告警渠道",
-      "groupRoles": "组与角色",
+      "groupRoles": "组织",
       "promptTemplates": "提示词模板",
       "adapterLifecycle": "适配器生命周期",
       "keyApproval": "密钥审批",
@@ -68,7 +68,16 @@
       "noRisks": "当前窗口内无高风险事件",
       "capabilities": "合规能力健康度",
       "capAvailable": "可用",
-      "capUnavailable": "不可用"
+      "capUnavailable": "不可用",
+      "capNames": {
+        "auditChain": "审计哈希链",
+        "archive": "归档存储（WORM）",
+        "dlp": "出站内容防护",
+        "kms": "密钥管理（KMS）",
+        "reconciliation": "用量对账",
+        "moderation": "内容审核",
+        "license": "许可证校验"
+      }
     },
     "enterpriseAlert": {
       "evidence": "按时间窗生成证据包并做哈希链校验；证据包含逐行自验结论，可交给审计方独立复核",
@@ -444,7 +453,14 @@
       "clear": "清除映射",
       "empty": "暂无部门，先登记一个部门",
       "loadFailed": "加载失败",
-      "actionFailed": "操作失败"
+      "actionFailed": "操作失败",
+      "scimTitle": "已同步组织",
+      "scimHint": "来自 SCIM/IdP 目录同步的组织，账号编辑的部门下拉可直接选择；未启用 SCIM 或未同步时为空。",
+      "scimEmpty": "暂无同步组织（未启用 SCIM 或尚未同步）",
+      "scimName": "组织名称",
+      "scimExternalId": "外部 ID",
+      "scimMembers": "成员数",
+      "scimLoadFailed": "同步组织加载失败（SCIM 未解锁时属正常）"
     },
     "enterprise": {
       "moduleUnavailable": "企业扩展模块加载失败，请确认企业版已正确安装"

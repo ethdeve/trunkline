@@ -316,8 +316,8 @@ export const ENTERPRISE_ONLY_PATHS: string[] = [
  *
  * - auditVersions 组：evidence=合规证据（B1 哈希链）、archive=合规归档（B7 WORM）、
  *   securityReport=安全报告。
- * - access 组：groupRoles=组与角色（A5 企业身份链——稳定 deptId + 组→角色白名单，
- *   禁止 IdP 角色透传，属企业身份治理能力，OSS 无对应交付）。
+ * - access 组：groupRoles=组织（企业组织机构管理——展示 SCIM 同步组织 + 稳定 deptId 登记，
+ *   账号编辑的部门下拉从这里取候选；属企业身份治理能力，OSS 无对应交付）。
  * - modelConfig 组：promptTemplates=提示词模板、adapterLifecycle=适配器生命周期
  *   （后端虽落在 OSS config_data，但产品口径随企业版交付，OSS 不暴露入口）。
  * - monitoring 组：securityDashboard=安全态势（B6 企业合规包能力）。

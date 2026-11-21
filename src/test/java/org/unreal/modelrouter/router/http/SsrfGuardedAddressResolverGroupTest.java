@@ -65,6 +65,32 @@ class SsrfGuardedAddressResolverGroupTest {
     }
 
     @Test
+    @DisplayName("【审计 M1】严格口径额外拦回环 / 私网 / CGNAT / ULA，堵 DNS rebinding 到内网")
+    void strictMode_rejectsPrivateAddresses() throws UnknownHostException {
+        for (final String literal : List.of("127.0.0.1", "10.0.0.5", "172.16.3.4",
+                "192.168.1.9", "100.64.0.1", "0.0.0.0", "fc00::1")) {
+            final Future<InetSocketAddress> result =
+                    strictGuarded(List.of(address(literal))).resolve(UNRESOLVED);
+            result.awaitUninterruptibly();
+
+            assertFalse(result.isSuccess(), literal + " 在严格口径下应被拒绝");
+            assertInstanceOf(SecurityException.class, result.cause(), literal + " 应给出 SecurityException");
+        }
+    }
+
+    @Test
+    @DisplayName("【审计 M1】严格口径仍放行公网地址（不误伤正常出站）")
+    void strictMode_allowsPublicAddress() throws UnknownHostException {
+        final InetSocketAddress target = address("93.184.216.34");
+        final Future<InetSocketAddress> result =
+                strictGuarded(List.of(target)).resolve(UNRESOLVED);
+        result.awaitUninterruptibly();
+
+        assertTrue(result.isSuccess(), "公网地址在严格口径下应放行");
+        assertEquals(target, result.getNow());
+    }
+
+    @Test
     @DisplayName("resolveAll 剔除危险地址、保留安全地址")
     void resolveAll_dropsDangerousAndKeepsSafe() throws UnknownHostException {
         final InetSocketAddress safe = address("10.0.0.5");
@@ -115,6 +141,13 @@ class SsrfGuardedAddressResolverGroupTest {
     private static AddressResolver<InetSocketAddress> guarded(final List<InetSocketAddress> resolvedByDelegate) {
         return SsrfGuardedAddressResolverGroup
                 .withDelegate(executor -> StubAddressResolvers.fixed(resolvedByDelegate))
+                .getResolver(ImmediateEventExecutor.INSTANCE);
+    }
+
+    private static AddressResolver<InetSocketAddress> strictGuarded(
+            final List<InetSocketAddress> resolvedByDelegate) {
+        return SsrfGuardedAddressResolverGroup
+                .withDelegate(executor -> StubAddressResolvers.fixed(resolvedByDelegate), true)
                 .getResolver(ImmediateEventExecutor.INSTANCE);
     }
 

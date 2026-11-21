@@ -521,14 +521,29 @@ public class ExtendedSecurityAuditServiceImpl implements ExtendedSecurityAuditSe
      * {@link #persistAll}，保证「审计行入库 ⇒ 订阅者可见快照」不变量只写一处。
      */
     private SecurityAuditEventEntity persist(final SecurityAuditEventEntity entity) {
-        auditRepository.save(entity);
-        publishChainEvent(entity);
-        return entity;
+        try {
+            final SecurityAuditEventEntity saved = auditRepository.save(entity);
+            publishChainEvent(saved);
+            return saved;
+        } catch (final RuntimeException e) {
+            // 审计是合规底座：主存储失败必须留痕，绝不静默丢事件。
+            // 结构化 ERROR 日志供日志采集兜底；不吞异常，让上游 error consumer 感知。
+            log.error("AUDIT_LOSS audit persist failed: eventType={}, time={}, id={}, userId={}",
+                    entity.getEventType(), entity.getTimestamp(), entity.getEventId(), entity.getUserId(), e);
+            throw e;
+        }
     }
 
     private void persistAll(final List<SecurityAuditEventEntity> entities) {
-        auditRepository.saveAll(entities);
-        publishChainEvents(entities);
+        try {
+            auditRepository.saveAll(entities);
+            publishChainEvents(entities);
+        } catch (final RuntimeException e) {
+            // 批量落库同样不留静默丢失：逐条可辨识信息 + 原始异常，向上抛出。
+            log.error("AUDIT_LOSS audit persistAll failed: size={}, eventTypes={}",
+                    entities.size(), entities.stream().map(SecurityAuditEventEntity::getEventType).toList(), e);
+            throw e;
+        }
     }
 
     private void publishChainEvent(final SecurityAuditEventEntity entity) {

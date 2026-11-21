@@ -45,6 +45,8 @@ class AdapterTestServiceTest {
         WebClient.ResponseSpec mockResponseSpec = mock(WebClient.ResponseSpec.class);
 
         lenient().when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
+        // 【审计 M2】生产代码在 baseUrl 后插入 clientConnector 挂 SSRF 守卫，mock 需保持链式返回
+        lenient().when(webClientBuilder.clientConnector(any())).thenReturn(webClientBuilder);
         lenient().when(webClientBuilder.build()).thenReturn(mockWebClient);
         lenient().when(mockWebClient.get()).thenReturn(mockGetSpec);
         lenient().when(mockWebClient.post()).thenReturn(mock(WebClient.RequestBodyUriSpec.class));

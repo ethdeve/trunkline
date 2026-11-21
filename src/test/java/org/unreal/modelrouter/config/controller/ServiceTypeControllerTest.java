@@ -7,10 +7,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.unreal.modelrouter.config.core.ConfigurationService;
 import org.unreal.modelrouter.config.core.ServiceConfigManager;
 import org.unreal.modelrouter.config.core.ConfigurationValidator;
+import org.unreal.modelrouter.config.core.dto.ServiceConfiguration;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -140,5 +142,33 @@ class ServiceTypeControllerTest {
 
         verify(configurationValidator).isValidServiceType("nonexistent");
         verify(serviceConfigManager, never()).deleteService(anyString());
+    }
+
+    @Test
+    @DisplayName("获取服务配置成功")
+    void testGetServiceConfigSuccess() {
+        when(configurationValidator.isValidServiceType("chat")).thenReturn(true);
+        when(serviceConfigManager.getServiceConfiguration("chat"))
+                .thenReturn(ServiceConfiguration.defaultConfig());
+
+        ResponseEntity<RouterResponse<Map<String, Object>>> response = controller.getServiceConfig("chat");
+
+        assertTrue(response.getStatusCode().is2xxSuccessful());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().isSuccess());
+    }
+
+    @Test
+    @DisplayName("获取服务配置不存在时返回 404 而非 500（2026-11-21 编辑页报服务内部错误的回归）")
+    void testGetServiceConfigNotFoundReturns404() {
+        when(configurationValidator.isValidServiceType("chat")).thenReturn(true);
+        when(serviceConfigManager.getServiceConfiguration("chat"))
+                .thenThrow(new ServiceConfigManager.NotFoundException("服务配置不存在：chat"));
+
+        ResponseEntity<RouterResponse<Map<String, Object>>> response = controller.getServiceConfig("chat");
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertFalse(response.getBody().isSuccess());
     }
 }

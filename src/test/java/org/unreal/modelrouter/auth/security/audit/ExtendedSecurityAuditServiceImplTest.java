@@ -80,6 +80,22 @@ class ExtendedSecurityAuditServiceImplTest {
         }
 
         @Test
+        @DisplayName("M-3 方案B - 落库失败时异常向上传递（AUDIT_LOSS 留痕，不静默丢事件）")
+        void testAuditPersistFailure_PropagatesError() {
+            // Arrange: 主存储落库失败
+            when(auditRepository.save(any(SecurityAuditEventEntity.class)))
+                    .thenThrow(new RuntimeException("db down"));
+
+            // Act
+            var result = service.auditTokenIssued("user-001", "token-123", "192.168.1.1", "Mozilla/5.0");
+
+            // Assert: 异常不被吞，沿 Mono 错误信号向上传播（上游 error consumer 可感知）
+            StepVerifier.create(result)
+                    .expectErrorMatches(e -> e instanceof RuntimeException && "db down".equals(e.getMessage()))
+                    .verify();
+        }
+
+        @Test
         @DisplayName("auditTokenRefreshed - 成功记录令牌刷新")
         void testAuditTokenRefreshed_Success() {
             // Arrange

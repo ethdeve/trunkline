@@ -4,13 +4,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.unreal.modelrouter.common.exception.ApiException;
 import org.unreal.modelrouter.common.util.UrlSecurityValidator;
 import org.unreal.modelrouter.router.adapter.AdapterRegistry;
+import org.unreal.modelrouter.router.http.SsrfGuardedAddressResolverGroup;
 import reactor.core.publisher.Mono;
+import reactor.netty.http.client.HttpClient;
 import reactor.util.retry.Retry;
 
 import java.net.ConnectException;
@@ -53,6 +56,28 @@ public class AdapterTestService {
     }
 
     /**
+     * 【审计 M2】测试端点的 WebClient 必须挂连接期 SSRF 守卫。
+     *
+     * <p>写入侧 {@link #validateAdapterTestUrl} 只校验"校验那一刻"的解析结果，WebClient 建连时会
+     * 再解析一次；攻击者控制域名且 DNS 应答可变时可在两次解析间翻成内网地址（DNS rebinding）。
+     * 这里把守卫绑到连接期解析结果上，且口径与写入侧一致：默认严格模式挂 {@code strictInstance()}
+     * （额外拦回环/私网），运维显式放行内网时挂常规 {@code instance()}（仅拦元数据/链路本地），
+     * 避免"写入侧放行、连接期却拦掉"导致内网连通性测试失效。</p>
+     *
+     * <p>用注入的 {@link WebClient.Builder} 派生，保留其既有 codec / 过滤器配置。</p>
+     */
+    private WebClient buildGuardedClient(final String safeBaseUrl) {
+        final SsrfGuardedAddressResolverGroup resolver = allowPrivateNetwork
+                ? SsrfGuardedAddressResolverGroup.instance()
+                : SsrfGuardedAddressResolverGroup.strictInstance();
+        final HttpClient httpClient = HttpClient.create().resolver(resolver);
+        return webClientBuilder
+                .baseUrl(safeBaseUrl)
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .build();
+    }
+
+    /**
      * PING 测试：验证连通性和认证
      * 向目标 API 发送 GET /models 请求
      */
@@ -72,7 +97,7 @@ public class AdapterTestService {
             return Mono.error(ApiException.of("INVALID_BASE_URL", "Base URL 不合法，禁止访问该地址"));
         }
 
-        WebClient client = webClientBuilder.baseUrl(safeBaseUrl).build(); // lgtm[java/ssrf]
+        WebClient client = buildGuardedClient(safeBaseUrl); // lgtm[java/ssrf]
 
         return client.get()
                 .uri("/models")
@@ -141,7 +166,7 @@ public class AdapterTestService {
             return Mono.error(ApiException.of("INVALID_BASE_URL", "Base URL 不合法，禁止访问该地址"));
         }
 
-        WebClient client = webClientBuilder.baseUrl(safeBaseUrl).build(); // lgtm[java/ssrf]
+        WebClient client = buildGuardedClient(safeBaseUrl); // lgtm[java/ssrf]
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", model);

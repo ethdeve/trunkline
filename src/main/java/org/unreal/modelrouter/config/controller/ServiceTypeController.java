@@ -209,14 +209,21 @@ public class ServiceTypeController {
             throw new IllegalArgumentException("无效的服务类型: " + serviceType);
         }
 
-        // 使用 ServiceConfigManager 替代废弃方法
-        ServiceConfiguration config = serviceConfigManager.getServiceConfiguration(serviceType);
-        Map<String, Object> serviceConfig = config != null ? config.toMap() : null;
-        if (serviceConfig == null) {
+        // 使用 ServiceConfigManager 替代废弃方法；配置不存在时返回 404 而非 500
+        //（NotFoundException 落全局兜底会被标成「服务内部错误」，误导前端与排障）。
+        try {
+            ServiceConfiguration config = serviceConfigManager.getServiceConfiguration(serviceType);
+            Map<String, Object> serviceConfig = config != null ? config.toMap() : null;
+            if (serviceConfig == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(RouterResponse.error("服务类型不存在: " + serviceType));
+            }
+            return ResponseEntity.ok(RouterResponse.success(serviceConfig, "获取服务配置成功"));
+        } catch (ServiceConfigManager.NotFoundException e) {
+            logger.warn("服务配置不存在，返回 404：serviceType={}, reason={}", serviceType, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(RouterResponse.error("服务类型不存在: " + serviceType));
+                    .body(RouterResponse.error(e.getMessage()));
         }
-        return ResponseEntity.ok(RouterResponse.success(serviceConfig, "获取服务配置成功"));
     }
 
     /**

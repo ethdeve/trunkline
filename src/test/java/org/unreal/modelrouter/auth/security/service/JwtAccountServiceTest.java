@@ -18,8 +18,11 @@ import org.unreal.modelrouter.common.dto.CreateJwtAccountRequest;
 import org.unreal.modelrouter.common.dto.JwtAccountDTO;
 import org.unreal.modelrouter.persistence.jpa.entity.JwtAccountEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.JwtAccountRepository;
+import org.unreal.modelrouter.enterprise.spi.DepartmentOptionsProvider;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -48,6 +51,9 @@ class JwtAccountServiceTest {
 
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();
+
+    @Mock
+    private DepartmentOptionsProvider departmentOptionsProvider;
 
     @InjectMocks
     private JwtAccountService jwtAccountService;
@@ -442,6 +448,54 @@ class JwtAccountServiceTest {
             List<Object> roles = result.get(0).getRoles();
             assertNotNull(roles);
             assertTrue(roles.isEmpty());
+        }
+    }
+
+    // ==================== 部门/组织候选项测试 ====================
+
+    @Nested
+    @DisplayName("部门/组织候选项测试")
+    class GetDepartmentsTests {
+
+        @Test
+        @DisplayName("无 SPI 时仅返回账号历史部门（社区版手动填写行为）")
+        void onlyHistoryDepartments() {
+            ReflectionTestUtils.setField(jwtAccountService, "departmentOptionsProvider", null);
+            testEntity.setDepartment("  研发部  ");
+            when(jwtAccountRepository.findAll()).thenReturn(List.of(testEntity));
+
+            List<String> result = jwtAccountService.getDepartments();
+
+            assertEquals(List.of("研发部"), result);
+        }
+
+        @Test
+        @DisplayName("合并 SPI 注入的已同步组织名（去重+排序+trim）")
+        void mergeSpiOrganizations() {
+            ReflectionTestUtils.setField(jwtAccountService, "departmentOptionsProvider", departmentOptionsProvider);
+            testEntity.setDepartment("研发部");
+            when(jwtAccountRepository.findAll()).thenReturn(List.of(testEntity));
+            when(departmentOptionsProvider.extraDepartments())
+                    .thenReturn(Arrays.asList("  财务部  ", "研发部", "", null, "SCIM-销售部"));
+
+            List<String> result = jwtAccountService.getDepartments();
+
+            // 去重（研发部）、去空、trim、自然字典序：SCIM-销售部 / 研发部 / 财务部
+            assertEquals(List.of("SCIM-销售部", "研发部", "财务部"), result);
+        }
+
+        @Test
+        @DisplayName("SPI 抛异常时 fail-soft，仅返回历史部门")
+        void spiFailureFailSoft() {
+            ReflectionTestUtils.setField(jwtAccountService, "departmentOptionsProvider", departmentOptionsProvider);
+            testEntity.setDepartment("研发部");
+            when(jwtAccountRepository.findAll()).thenReturn(List.of(testEntity));
+            when(departmentOptionsProvider.extraDepartments())
+                    .thenThrow(new RuntimeException("scim down"));
+
+            List<String> result = jwtAccountService.getDepartments();
+
+            assertEquals(List.of("研发部"), result);
         }
     }
 }

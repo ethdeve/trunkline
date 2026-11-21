@@ -53,42 +53,73 @@ public final class SsrfGuardedAddressResolverGroup extends AddressResolverGroup<
     private static final DnsAddressResolverGroup DEFAULT_DNS =
             new DnsAddressResolverGroup(NioDatagramChannel.class, DefaultDnsServerAddressStreamProvider.INSTANCE);
 
+    /** 常规口径共享实例：只拦链路本地 / 云元数据，放行管理员登记的内网 AI 服务（Ollama/LocalAI）。 */
     private static final SsrfGuardedAddressResolverGroup INSTANCE =
-            new SsrfGuardedAddressResolverGroup(DEFAULT_DNS::getResolver);
+            new SsrfGuardedAddressResolverGroup(DEFAULT_DNS::getResolver, false);
+
+    /**
+     * 严格口径共享实例：额外拦回环 / 私网 / CGNAT / ULA。
+     *
+     * <p>供 baseUrl 完全来自外部输入的适配器测试端点使用——与写入侧
+     * {@link UrlSecurityValidator#validateOutboundBaseUrl(String, boolean)} 的严格模式同口径，
+     * 堵住「写入侧解析到公网、连接期重绑定到内网」的 DNS rebinding 绕过（审计 M1/M2）。</p>
+     */
+    private static final SsrfGuardedAddressResolverGroup STRICT_INSTANCE =
+            new SsrfGuardedAddressResolverGroup(DEFAULT_DNS::getResolver, true);
 
     private final Function<EventExecutor, AddressResolver<InetSocketAddress>> delegateFactory;
+    private final boolean strict;
 
     private SsrfGuardedAddressResolverGroup(
-            final Function<EventExecutor, AddressResolver<InetSocketAddress>> delegateFactory) {
+            final Function<EventExecutor, AddressResolver<InetSocketAddress>> delegateFactory,
+            final boolean strict) {
         this.delegateFactory = delegateFactory;
+        this.strict = strict;
     }
 
     /**
-     * @return 接入出站 {@link reactor.netty.http.client.HttpClient} 的共享实例
+     * @return 常规口径共享实例（放行内网 AI 服务），接入出站 {@link reactor.netty.http.client.HttpClient}
      */
     public static SsrfGuardedAddressResolverGroup instance() {
         return INSTANCE;
     }
 
+    /** @return 严格口径共享实例（额外拦内网），供外部输入 URL 的端点使用 */
+    public static SsrfGuardedAddressResolverGroup strictInstance() {
+        return STRICT_INSTANCE;
+    }
+
     /**
-     * 用可控的委托解析器构造一份守卫（包内可见，供测试模拟「同一主机名解析出不同地址」）。
+     * 用可控的委托解析器构造一份常规口径守卫（包内可见，供测试模拟「同一主机名解析出不同地址」）。
      *
      * @param delegateFactory 按 event loop 提供委托解析器
      * @return 守卫实例
      */
     static SsrfGuardedAddressResolverGroup withDelegate(
             final Function<EventExecutor, AddressResolver<InetSocketAddress>> delegateFactory) {
-        return new SsrfGuardedAddressResolverGroup(delegateFactory);
+        return new SsrfGuardedAddressResolverGroup(delegateFactory, false);
+    }
+
+    /** 可控委托 + 可控口径（供严格口径单测）。 */
+    static SsrfGuardedAddressResolverGroup withDelegate(
+            final Function<EventExecutor, AddressResolver<InetSocketAddress>> delegateFactory,
+            final boolean strict) {
+        return new SsrfGuardedAddressResolverGroup(delegateFactory, strict);
     }
 
     @Override
     protected AddressResolver<InetSocketAddress> newResolver(final EventExecutor executor) {
-        return new GuardedAddressResolver(delegateFactory.apply(executor), executor);
+        return new GuardedAddressResolver(delegateFactory.apply(executor), executor, strict);
     }
 
-    private static boolean isBlocked(final InetSocketAddress address) {
+    /** 严格口径额外调用 {@link UrlSecurityValidator#isPrivateResolvedAddress(InetAddress)}。 */
+    private static boolean isBlocked(final InetSocketAddress address, final boolean strict) {
         final InetAddress resolved = address.getAddress();
-        return resolved != null && UrlSecurityValidator.isDangerousResolvedAddress(resolved);
+        if (resolved == null) {
+            return false;
+        }
+        return UrlSecurityValidator.isDangerousResolvedAddress(resolved)
+                || (strict && UrlSecurityValidator.isPrivateResolvedAddress(resolved));
     }
 
     private static SecurityException blockedError(final InetSocketAddress address) {
@@ -105,10 +136,13 @@ public final class SsrfGuardedAddressResolverGroup extends AddressResolverGroup<
 
         private final AddressResolver<InetSocketAddress> delegate;
         private final EventExecutor executor;
+        private final boolean strict;
 
-        GuardedAddressResolver(final AddressResolver<InetSocketAddress> delegate, final EventExecutor executor) {
+        GuardedAddressResolver(final AddressResolver<InetSocketAddress> delegate,
+                               final EventExecutor executor, final boolean strict) {
             this.delegate = delegate;
             this.executor = executor;
+            this.strict = strict;
         }
 
         @Override
@@ -154,22 +188,22 @@ public final class SsrfGuardedAddressResolverGroup extends AddressResolverGroup<
             delegate.close();
         }
 
-        private static void completeSingle(final Promise<InetSocketAddress> promise,
-                                           final Future<InetSocketAddress> resolved) {
+        private void completeSingle(final Promise<InetSocketAddress> promise,
+                                    final Future<InetSocketAddress> resolved) {
             if (!resolved.isSuccess()) {
                 promise.tryFailure(resolved.cause());
                 return;
             }
             final InetSocketAddress target = resolved.getNow();
-            if (isBlocked(target)) {
+            if (isBlocked(target, strict)) {
                 promise.tryFailure(blockedError(target));
                 return;
             }
             promise.trySuccess(target);
         }
 
-        private static void completeAll(final Promise<List<InetSocketAddress>> promise,
-                                        final Future<List<InetSocketAddress>> resolved) {
+        private void completeAll(final Promise<List<InetSocketAddress>> promise,
+                                 final Future<List<InetSocketAddress>> resolved) {
             if (!resolved.isSuccess()) {
                 promise.tryFailure(resolved.cause());
                 return;
@@ -177,7 +211,7 @@ public final class SsrfGuardedAddressResolverGroup extends AddressResolverGroup<
             final List<InetSocketAddress> all = resolved.getNow();
             final List<InetSocketAddress> safe = new ArrayList<>(all.size());
             for (final InetSocketAddress address : all) {
-                if (!isBlocked(address)) {
+                if (!isBlocked(address, strict)) {
                     safe.add(address);
                 }
             }
