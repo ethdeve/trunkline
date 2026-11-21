@@ -123,12 +123,22 @@ export function useStreaming() {
   ): Promise<Response> => {
     abortController.value = new AbortController()
 
+    // 多租户：本请求用原生 fetch，不经过 axios 拦截器，必须在此注入当前选中租户。
+    // 否则 chat 流式请求回落 default 租户，当前租户的虚拟模型 pool 找不到 →
+    // 404 "Model 'xxx' is not a model group"（与 api/playground.ts 非流式同口径）。
+    // 无选中租户则不注入，社区版行为零变化；调用方已显式传入时不覆盖。
+    const tenantId = localStorage.getItem('trunkline_tenant_id')
+    const requestHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...headers
+    }
+    if (tenantId && !requestHeaders['X-Tenant-Id']) {
+      requestHeaders['X-Tenant-Id'] = tenantId
+    }
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers
-      },
+      headers: requestHeaders,
       body: JSON.stringify(body),
       signal: abortController.value.signal
     })

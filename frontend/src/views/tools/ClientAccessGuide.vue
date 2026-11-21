@@ -223,8 +223,13 @@ const loadModels = async () => {
       modelLoadFailed.value = true
       return
     }
+    // /v1/models 的模型列表按当前租户隔离（getAllPools → currentPools）；
+    // 这里是原生 fetch，需显式带租户头，否则列出的是 default 租户的模型。
+    const tenantId = localStorage.getItem('trunkline_tenant_id')
+    const modelHeaders: Record<string, string> = { 'Trunkline_Token': token }
+    if (tenantId) modelHeaders['X-Tenant-Id'] = tenantId
     const resp = await fetch(`${origin}/v1/models`, {
-      headers: { 'Trunkline_Token': token },
+      headers: modelHeaders,
     })
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     const json = await resp.json()

@@ -251,12 +251,19 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: 'nav.enterpriseAdmin.title', defaultGroup: 'enterprise', tenantScoped: false }
       },
       {
-        // P1 企业用量总览：承载页仍是 SettingsView，页签 usage 由企业子应用渲染
+        // 企业用量总览：不再占左侧独立菜单项，作为「企业管理」页的用量 tab 存在。
+        // 本路由作为深链/旧书签入口保留，走非菜单路由的 meta.permissions 判定，
+        // 以保留 AUDITOR 靠 enterprise:usage:read 放行的二维权限（菜单路由那边是 admin 角色）。
+        // 承载页仍是 SettingsView，由 STANDALONE_SUB_BY_PATH 锁定到 usage 子页（不带企业管理 tab 栏）。
         path: 'settings/enterprise/usage',
         name: 'settings-enterprise-usage',
         component: () => import('@/views/settings/SettingsView.vue'),
         // 跨租户汇总页本身不随当前租户切换 → 全局页，显示徽章
-        meta: { title: 'nav.usageOverview.title', defaultGroup: 'enterprise', tenantScoped: false }
+        meta: {
+          title: 'nav.usageOverview.title',
+          permissions: ['enterprise:usage:read'],
+          tenantScoped: false
+        }
       },
       {
         // v3.5 Trunkline：网关级默认配置的集中入口

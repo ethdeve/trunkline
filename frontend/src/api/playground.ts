@@ -32,6 +32,16 @@ playgroundRequest.interceptors.request.use(
     if (token && config.headers) {
       config.headers['Trunkline_Token'] = token
     }
+
+    // 多租户：测试场走的是本文件独立的 axios 实例（不经过 utils/request 的全局拦截器），
+    // 必须在此注入当前选中租户，否则 /v1/** 请求回落 default —— 表现为下拉能看到当前租户的
+    // 虚拟模型（列表走全局 request），但发送请求时后端在 default 下找不到该 pool，
+    // 报 404 "Model 'xxx' is not a model group"。口径与 utils/request.ts 完全一致：
+    // 无选中租户则不注入，社区版行为零变化。
+    const tenantId = localStorage.getItem('trunkline_tenant_id')
+    if (tenantId && config.headers) {
+      config.headers['X-Tenant-Id'] = tenantId
+    }
     
     return config
   },

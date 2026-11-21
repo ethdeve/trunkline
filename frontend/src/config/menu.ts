@@ -96,8 +96,10 @@ export interface MenuGroup {
 }
 
 /**
- * 菜单配置：三组（我的 / 团队 / 系统）。P1 新增「企业用量总览」后系统组共 7 项，
- * 全量 19 项（含企业专属项，社区版灰态可见）。其中「审计与版本」为保留项（不改造）。
+ * 菜单配置：三组（我的 / 团队 / 系统）。系统组 6 项，全量 18 项
+ * （含企业专属项，社区版灰态可见）。其中「审计与版本」为保留项（不改造）。
+ * 「企业用量总览」不占独立菜单项——它作为「企业管理」页的用量 tab 存在，
+ * 路由 /settings/enterprise/usage 保留为深链入口（非菜单路由，走 meta.permissions）。
  * 与路由表一一对应。
  *
  * 可见性 = (无 permission 或拥有该权限码) 且 (无 roles 或命中其一逻辑角色)。
@@ -266,18 +268,6 @@ export const menuGroups: MenuGroup[] = [
         enterpriseOnly: true,
         icon: 'setting',
         subtitle: 'nav.enterpriseAdmin.subtitle'
-      },
-      {
-        // P1 企业用量总览：跨租户只读汇总。不声明 roles —— AUDITOR 不在 user/ops/admin
-        // 等级链上，靠专用权限码 enterprise:usage:read 的二维判定放行/拒绝。
-        // N<2 时隐藏（见 minTenants），避免单租户下展示一张无意义的汇总表。
-        path: '/settings/enterprise/usage',
-        title: 'nav.usageOverview.title',
-        permission: 'enterprise:usage:read',
-        enterpriseOnly: true,
-        minTenants: 2,
-        icon: 'data-analysis',
-        subtitle: 'nav.usageOverview.subtitle'
       },
       {
         // 保留项（用户决策 #4）：维持现状皮肤与位置，不搬进新视觉改造

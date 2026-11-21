@@ -1,10 +1,11 @@
 // Playground 数据管理 Composable
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getCachedInstances, getCachedModels, getCachedGroups } from '@/stores/playgroundCache'
 import { getInstanceServiceType } from '@/api/models'
 import { i18n } from '@/i18n'
 import { useEmployeeModelScope } from '@/composables/useEmployeeModelScope'
+import { useTenantStore } from '@/stores/tenant'
 const { t: gt } = i18n.global as unknown as {
   t: (key: string, named?: Record<string, string | number>) => string
 }
@@ -52,6 +53,7 @@ const mergeGroups = (
 export const usePlaygroundData = (playgroundServiceType: string) => {
   // P1 员工侧⑤：员工侧只显示自己密钥白名单内的虚拟模型（运维侧不受影响）
   const { filterGroups, loadEmployeeAllowedGroups, groupDisplayName } = useEmployeeModelScope()
+  const tenantStore = useTenantStore()
 
   // 响应式状态
   const availableInstances = ref<ServiceInstance[]>([])
@@ -253,6 +255,28 @@ export const usePlaygroundData = (playgroundServiceType: string) => {
   const refreshData = async () => {
     await fetchData(true, true)
   }
+
+  /**
+   * 切换租户后重新加载候选模型。
+   *
+   * <p><b>为什么必须显式重拉</b>：虚拟模型（资源池）按租户隔离，同一个人切到另一个租户
+   * 能调用的模型集完全不同。缓存键虽然已带租户（见 playgroundCache 的 currentOwnerKey），
+   * 但本组件不会因为 localStorage 变化而自动重渲染——必须由 watch 触发一次拉取，
+   * 否则下拉框仍显示上一个租户的模型，选中后网关报 "is not a model group"。</p>
+   *
+   * <p>切租户时同时清空已选项：旧租户的模型名在新租户下大概率不存在，
+   * 保留会让用户直接点到必失败的请求。</p>
+   */
+  watch(
+    () => tenantStore.currentTenantId,
+    async (next, prev) => {
+      if (!next || next === prev) return
+      selectedInstanceId.value = ''
+      availableInstances.value = []
+      availableModels.value = []
+      await fetchData(false, false)
+    }
+  )
 
   return {
     // 响应式状态

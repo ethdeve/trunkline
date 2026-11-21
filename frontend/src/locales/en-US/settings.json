@@ -22,7 +22,8 @@
       "groupRoles": "Groups & Roles",
       "promptTemplates": "Prompt Templates",
       "adapterLifecycle": "Adapter Lifecycle",
-      "keyApproval": "Key Approvals"
+      "keyApproval": "Key Approvals",
+      "usage": "Enterprise Usage"
     },
     "monitoring": {
       "securityDashboardAlert": "One-screen view of security events and open risks. Resolutions are written to the audit hash chain; enterprise compliance package only",

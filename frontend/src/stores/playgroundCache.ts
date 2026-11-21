@@ -24,10 +24,25 @@ const { t: gt } = i18n.global as unknown as {
  * 因此缓存键绑定当前用户名，用户切换即换键（旧键自然失效）。</p>
  */
 const currentOwnerKey = (): string => {
+  const user = (() => {
+    try {
+      return useUserStore().userInfo?.username || 'anonymous'
+    } catch {
+      return 'anonymous'
+    }
+  })()
+  // 多租户：同一个人在 t1 / t2 的可用分组完全不同（虚拟模型按租户隔离），
+  // 缓存键必须带租户，否则切租户后 5 分钟内仍返回上一个租户的分组，
+  // 表现为下拉框串租户、选中后请求报 "is not a model group"。
+  return `${user}::${currentTenantKey()}`
+}
+
+/** 当前租户（读 localStorage 而非 store，避免本模块引入 pinia 循环依赖）。 */
+const currentTenantKey = (): string => {
   try {
-    return useUserStore().userInfo?.username || 'anonymous'
+    return localStorage.getItem('trunkline_tenant_id') || 'default'
   } catch {
-    return 'anonymous'
+    return 'default'
   }
 }
 

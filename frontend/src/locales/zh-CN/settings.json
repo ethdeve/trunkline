@@ -22,7 +22,8 @@
       "groupRoles": "组与角色",
       "promptTemplates": "提示词模板",
       "adapterLifecycle": "适配器生命周期",
-      "keyApproval": "密钥审批"
+      "keyApproval": "密钥审批",
+      "usage": "企业用量总览"
     },
     "monitoring": {
       "securityDashboardAlert": "一屏查看安全事件与待处理风险；风险处置会写入审计哈希链，仅企业合规包可用",

@@ -90,6 +90,23 @@ const GROUP_BY_PATH: Record<string, GroupKey> = {
   '/settings/enterprise/usage': 'enterprise'
 }
 
+/** 专属路由 → 默认子页签：菜单里的「企业用量总览」path 是 /settings/enterprise/usage，
+ *  但本页签状态走 ?sub=，手点菜单时 URL 不带 sub，需按 path 兜底到 usage，
+ *  否则 resolveCurrent 会回退到第一个子页（license），点菜单却看到许可证页。 */
+const PATH_DEFAULT_SUB: Partial<Record<string, SubKey>> = {
+  '/settings/enterprise/usage': 'usage'
+}
+
+/**
+ * 独立承载路由：整页只渲染指定子页，不显示分组子页签栏。
+ * 「企业用量总览」是系统组下的独立菜单项，与「企业管理」（/settings/enterprise，
+ * 许可证 / 对账与归因 / Agent 工具等 7 个子页签）是两个不同入口——不应共用聚合页外壳，
+ * 否则用量页会带出一整排与用量无关的企业管理 tab（2026-11-21 修正）。
+ */
+const STANDALONE_SUB_BY_PATH: Partial<Record<string, SubKey>> = {
+  '/settings/enterprise/usage': 'usage'
+}
+
 /** 子页签 → 组件（企业视图一律走 EnterpriseModuleHost，从企业 jar 加载） */
 const SUB_COMPONENTS: Record<SubKey, Component> = {
   accounts: JwtAccountManagement,
@@ -181,12 +198,16 @@ function onSubTabClick(pane: { name?: string | number }) {
 const selectableSubs = (group: GroupKey): SubKey[] => allSubs(group).filter(s => !isSubLocked(s))
 
 /** 由当前路由解析 { group, sub }：分组看路径（meta 兜底），子页签看 query.sub；
- *  sub 必须是该分组当前可进入的子页签，否则回退到第一个（防手输 ?sub=evidence 深链绕过）*/
+ *  sub 必须是该分组当前可进入的子页签，否则回退到第一个（防手输 ?sub=evidence 深链绕过）。
+ *  独立承载路由（企业用量总览）直接锁定到指定子页，忽略 query.sub 的其它取值。 */
 const resolveCurrent = (): { group: GroupKey; sub: SubKey } => {
   const group =
     GROUP_BY_PATH[route.path] || (route.meta.defaultGroup as GroupKey | undefined) || 'access'
+  const standalone = STANDALONE_SUB_BY_PATH[route.path]
+  if (standalone) return { group, sub: standalone }
   const subs = selectableSubs(group)
-  const sub = subs.includes(route.query.sub as SubKey) ? (route.query.sub as SubKey) : subs[0]
+  const wanted = (route.query.sub as SubKey) || PATH_DEFAULT_SUB[route.path]
+  const sub = subs.includes(wanted) ? wanted : subs[0]
   return { group, sub }
 }
 
@@ -194,8 +215,12 @@ const resolved = resolveCurrent()
 const activeGroup = ref<GroupKey>(resolved.group)
 const activeSub = ref<SubKey>(resolved.sub)
 
-/** 当前分组下的全部子页签列表（含灰态锁项，随企业版探测结果响应式重算锁定态） */
-const currentSubs = computed(() => allSubs(activeGroup.value))
+/** 当前分组下的全部子页签列表（含灰态锁项，随企业版探测结果响应式重算锁定态）。
+ *  独立承载路由（企业用量总览）退化为单项，模板走「单子页签」分支、不渲染 tab 栏。 */
+const currentSubs = computed(() => {
+  const standalone = STANDALONE_SUB_BY_PATH[route.path]
+  return standalone ? [standalone] : allSubs(activeGroup.value)
+})
 
 // 功能位探测完成后，若当前 sub 落在灰态锁项上（如社区版曾深链到企业子页签），
 // 自动回退到第一个可进入页，避免「选中一个锁定页签但内容加载不出来」的错位状态。
@@ -251,7 +276,7 @@ watch(
   () => enterprise.enterpriseEdition,
   () => {
     const selectable = selectableSubs(activeGroup.value)
-    const wanted = route.query.sub as SubKey | undefined
+    const wanted = (route.query.sub as SubKey | undefined) || PATH_DEFAULT_SUB[route.path]
     if (wanted && selectable.includes(wanted)) {
       activeSub.value = wanted
     } else if (selectable.length > 0 && !selectable.includes(activeSub.value)) {

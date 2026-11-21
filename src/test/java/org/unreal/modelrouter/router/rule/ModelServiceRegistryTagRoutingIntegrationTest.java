@@ -317,12 +317,9 @@ class ModelServiceRegistryTagRoutingIntegrationTest {
             pool.setMembers(List.of(m1, m2));
 
             PoolSelector poolSelector = new PoolSelector(serviceStateManager, circuitBreakerManager);
-            // findPool/isPoolName 直接遍历 pools 列表,反射注入即可(无额外索引需要重建)
-            Field poolsField = PoolSelector.class.getDeclaredField("pools");
-            poolsField.setAccessible(true);
-            @SuppressWarnings("unchecked")
-            List<PoolDefinition> pools = (List<PoolDefinition>) poolsField.get(poolSelector);
-            pools.add(pool);
+            // 多租户改造后池按租户分桶存储，不再有单一 pools 字段；
+            // 直接用公开的 reloadPools 写入当前租户（测试无租户上下文 → default）。
+            poolSelector.reloadPools(new java.util.ArrayList<>(List.of(pool)));
 
             registry.setPoolSelector(poolSelector);
         }

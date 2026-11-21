@@ -24,28 +24,35 @@ const tenant = useTenantStore()
 const options = computed(() =>
   tenant.tenants.map(tn => ({
     value: tn.tenantId,
-    label: tn.displayName ? `${tn.displayName}（${tn.tenantId}）` : tn.tenantId
+    // default 是企业后端注入的隐式兼容租户（displayName 为 null），用宿主 i18n 词条生成本地化标签；
+    // 其余租户沿用后端 displayName（缺则回退 ID）。避免企业后端硬编码中文。
+    label: tn.tenantId === 'default'
+      ? t('topbar.tenantDefault')
+      : (tn.displayName ? `${tn.displayName}（${tn.tenantId}）` : tn.tenantId)
   }))
 )
 
 /**
- * 四态判定（按部署级真实租户数，不看功能位、不看可见集长度）：
+ * 四态判定（以部署级租户数为主，v5 起兼顾可见集长度以让 default 可选）：
  *   - 不可达/未开通（!available）→ 灰态锁
  *   - 已开通但租户数 0（N=0，企业版单租户不建租户）→ 静态「默认租户」标签
- *   - 仅 1 个租户（N=1）→ 静态标签（显示该租户名，不可点）
- *   - ≥2 个租户 → 正常下拉
+ *   - 仅 1 个租户（N=1）→ 旧版后端未注入 default 且可见集仅 1 项时为静态标签；注入后走下拉
+ *   - ≥2 个租户、或可见集 ≥2 项 → 正常下拉
  *
- * 判据必须是 deploymentTenantCount（部署级），不是可见集长度（M11 决策）：
- * USER 只见密钥覆盖的租户，若用可见集判定会把多租户部署误显示成单租户静态标签；
+ * 判据以 deploymentTenantCount（部署级）为主，兼顾可见集长度（M11 决策 + v5 default 修复）：
+ * USER 只见密钥覆盖的租户，若纯用可见集判定会把多租户部署误显示成单租户静态标签；
  * 反过来功能位 multiTenant 恒 true、不建租户时部署数为 0，也不能混用。
- * 下拉「有哪些项」才由可见集决定（options 来自 tenant.tenants）。
+ * v5 补 OR 条件：后端注入隐式 default 后，N=1 的可见集也有 2 项（真实租户 + default），
+ * 此时必须给下拉，否则用户切不回 default（早期在该命名空间建的密钥会"消失"）。
+ * 下拉「有哪些项」由可见集决定（options 来自 tenant.tenants）。
  */
 const tenantCount = computed(() => tenant.deploymentTenantCount)
-const isDropdown = computed(() => tenant.available && tenantCount.value >= 2)
+const isDropdown = computed(
+  () => tenant.available && (tenantCount.value >= 2 || tenant.tenants.length >= 2)
+)
 const singleTenant = computed(() => {
-  if (!tenant.available || tenantCount.value < 1) return null
-  // N=1 时部署级只有一个租户，可见集理论上含它；若身份源暂不可用则回退显示该 ID，
-  // 保持"表达你在这个租户下"的语义（不显示空标签）。
+  if (!tenant.available || tenantCount.value < 1 || isDropdown.value) return null
+  // 可见集长度 <2 的 N=1（旧版后端未注入 default 的兜底）：显示该租户名，保持"表达你在这个租户下"。
   return tenant.tenants[0] ?? null
 })
 /** N=0 时展示的静态标签：所有数据落隐式 default 租户，表达"你在这个租户下"（C1） */
