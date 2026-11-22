@@ -64,7 +64,7 @@ public class ModelCapabilityController {
 
     @GetMapping("/{modelId}")
     @Operation(summary = "单模型画像", description = "按 modelId / 别名 / canonicalId 查询画像")
-    public ResponseEntity<RouterResponse<ModelCapabilityProfile>> get(@PathVariable final String modelId) {
+    public ResponseEntity<RouterResponse<ModelCapabilityProfile>> get(@PathVariable("modelId") final String modelId) {
         return service.findByModelName(modelId)
                 .map(p -> ResponseEntity.ok(RouterResponse.success(p)))
                 .orElseGet(() -> ResponseEntity.ok(RouterResponse.success(null, "未找到该模型的画像")));

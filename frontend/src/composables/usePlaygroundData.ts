@@ -1,7 +1,7 @@
 // Playground 数据管理 Composable
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getCachedInstances, getCachedModels, getCachedGroups } from '@/stores/playgroundCache'
+import { getCachedInstances, getCachedModels, getCachedGroups, type PlaygroundGroup } from '@/stores/playgroundCache'
 import { getInstanceServiceType } from '@/api/models'
 import { i18n } from '@/i18n'
 import { useEmployeeModelScope } from '@/composables/useEmployeeModelScope'
@@ -22,26 +22,30 @@ export interface ServiceInstance {
   isGroup?: boolean
   // 分组友好名（P0-L）：来自「我的密钥」的 modelScope；未配置时为空
   displayName?: string
+  // 虚拟模型中文描述（运维在「虚拟模型」编辑弹窗填写）；测试场下拉在英文名旁展示
+  description?: string
   type?: string
   [key: string]: any
 }
 
-// 将分组（资源池）名合并为与实例同构的伪实例，使测试场模型下拉可直选分组作为虚拟模型
+// 将分组（资源池）合并为与实例同构的伪实例，使测试场模型下拉可直选分组作为虚拟模型
 //
 // P0-L：`displayName` 为分组友好名（来自「我的密钥」的 modelScope，服务端按白名单下发），
-// 不再需要员工侧拉取全公司资源池；`name` 始终保持分组名本身 —— 它是发给网关的模型名。
+// `description` 为运维填写的中文描述（运维来自池定义、员工来自 modelScope 下发）；
+// `name` 始终保持分组名本身 —— 它是发给网关的模型名，描述只作展示、不影响调用。
 const mergeGroups = (
   instances: ServiceInstance[],
-  groups: string[],
+  groups: PlaygroundGroup[],
   displayNameOf?: (groupName: string) => string
 ): ServiceInstance[] => {
   const groupItems: ServiceInstance[] = (groups || [])
-    .filter((name) => Boolean(name))
-    .map((name) => ({
-      id: name,
-      instanceId: name,
-      name,
-      displayName: displayNameOf?.(name) || '',
+    .filter((g) => Boolean(g?.name))
+    .map((g) => ({
+      id: g.name,
+      instanceId: g.name,
+      name: g.name,
+      description: g.description || '',
+      displayName: displayNameOf?.(g.name) || '',
       status: 'active',
       healthStatus: 'UNKNOWN',
       isGroup: true,

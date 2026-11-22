@@ -131,6 +131,9 @@ public class FixedRoleAccessPolicy {
                 // 未登记时 OPERATOR 在 URL 层 fail-closed 403，故显式登记为 OPS。
                 AccessRule.get("/api/config/model-capabilities/**", AccessLevel.OPS),
                 AccessRule.write("/api/config/model-capabilities/**", AccessLevel.OPS),
+                // 一键虚拟模型（v0.2.0，ScenarioTemplateController）：建池/建规则均为 OPS 动作。
+                AccessRule.get("/api/config/scenarios/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/scenarios/**", AccessLevel.OPS),
 
                 // 监控（Token 用量 / 熔断监控 / 限流监控 / 路由监控 / 指标）
                 AccessRule.get("/api/token-usage/**", AccessLevel.OPS),

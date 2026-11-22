@@ -81,7 +81,7 @@ frontend/logs/
 data/
 # v0.2.0 内置模型画像需随包发布，不能被上面的 data/ 规则吞掉
 !src/main/resources/data/
-!src/main/resources/data/model-capability-profiles.json
+!src/main/resources/data/*.json
 *.db
 *.mv.db
 *.trace.db

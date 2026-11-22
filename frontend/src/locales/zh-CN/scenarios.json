@@ -1,0 +1,53 @@
+{
+  "scenarios": {
+    "help": {
+      "title": "一键虚拟模型（场景模板）",
+      "body": "选一个用途，系统按模型能力画像挑实例，自动生成虚拟模型池与路由规则；先预览再应用，避免误建。"
+    },
+    "list": {
+      "title": "场景模板",
+      "empty": "暂无可用场景模板"
+    },
+    "action": {
+      "preview": "预览将创建的配置",
+      "apply": "一键应用"
+    },
+    "meta": {
+      "serviceTypes": "服务类型",
+      "prefer": "偏好画像",
+      "poolStrategy": "池策略",
+      "fallback": "未命中时"
+    },
+    "result": {
+      "poolsTitle": "将创建 / 已创建的虚拟模型池",
+      "rulesTitle": "将创建 / 已创建的路由规则",
+      "empty": "选一个场景后点「预览」查看将创建的内容"
+    },
+    "col": {
+      "pool": "池名（调用 model）",
+      "serviceType": "类型",
+      "instance": "选中实例",
+      "profile": "画像命中",
+      "status": "状态",
+      "rule": "规则名",
+      "target": "动作目标"
+    },
+    "status": {
+      "created": "已创建",
+      "previewOnly": "仅预览",
+      "fallback": "未命中画像"
+    },
+    "warnings": {
+      "title": "注意 / 跳过项"
+    },
+    "example": {
+      "title": "应用后可用这个 model 发一条真实请求"
+    },
+    "messages": {
+      "loadFailed": "加载场景模板失败",
+      "previewFailed": "预览失败",
+      "applyFailed": "一键应用失败",
+      "applied": "已应用，池与规则已热生效"
+    }
+  }
+}

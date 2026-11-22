@@ -42,6 +42,17 @@ provide('skeletonEmbedded', true)
         </el-button>
       </div>
     </el-card>
+    <el-card v-if="canUseQuickStart" shadow="never" class="qs-cta" style="margin-top: 16px">
+      <div class="qs-cta-inner">
+        <div>
+          <div class="qs-cta-title">{{ t('nav.scenarios.title') }}</div>
+          <div class="qs-cta-desc">{{ t('scenarios.help.body') }}</div>
+        </div>
+        <el-button type="primary" plain :icon="MagicStick" @click="router.push('/model-pools?create=scenario')">
+          {{ t('scenarios.list.title') }}
+        </el-button>
+      </div>
+    </el-card>
     <el-card shadow="never" style="margin-top: 16px">
       <ClientAccessGuide />
     </el-card>

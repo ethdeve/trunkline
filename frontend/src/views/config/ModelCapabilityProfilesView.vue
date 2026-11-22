@@ -140,7 +140,7 @@ const loadList = async () => {
     } else {
       ElMessage.error(res.data?.message || t('modelCapability.messages.fetchFailed'))
     }
-  } catch (error) {
+  } catch {
     ElMessage.error(t('modelCapability.messages.fetchFailed'))
   } finally {
     loading.value = false

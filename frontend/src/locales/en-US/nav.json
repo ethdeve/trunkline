@@ -41,6 +41,10 @@
       "title": "Model Capabilities",
       "subtitle": "See what each model is good at, a reference for model selection"
     },
+    "scenarios": {
+      "title": "Scenario Templates",
+      "subtitle": "Build virtual models and routing rules from a purpose in one click"
+    },
     "routingRules": {
       "title": "Routing Rules",
       "subtitle": "Route requests to different models by conditions"

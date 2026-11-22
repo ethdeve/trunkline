@@ -110,6 +110,11 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: 'nav.modelCapabilities.title' }
       },
       {
+        // v0.2.0: 旧场景向导链接保留为重定向——入口已收进虚拟模型池页「按场景创建」按钮
+        path: 'scenarios',
+        redirect: { path: '/model-pools', query: { create: 'scenario' } }
+      },
+      {
         // 傻瓜式快速接入向导：选服务商 → 填密钥 → 导入模型 → 自动建分组+测试密钥+复制 curl
         path: 'quick-start',
         name: 'quick-start',

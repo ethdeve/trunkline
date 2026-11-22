@@ -1,0 +1,53 @@
+{
+  "scenarios": {
+    "help": {
+      "title": "One-click virtual models (scenario templates)",
+      "body": "Pick a purpose; the system selects instances from capability profiles and creates model pools plus routing rules. Preview before applying."
+    },
+    "list": {
+      "title": "Scenario templates",
+      "empty": "No scenario templates available"
+    },
+    "action": {
+      "preview": "Preview changes",
+      "apply": "Apply scenario"
+    },
+    "meta": {
+      "serviceTypes": "Service types",
+      "prefer": "Preferred strength",
+      "poolStrategy": "Pool strategy",
+      "fallback": "On profile miss"
+    },
+    "result": {
+      "poolsTitle": "Pools to create / created",
+      "rulesTitle": "Rules to create / created",
+      "empty": "Select a scenario, then preview the changes"
+    },
+    "col": {
+      "pool": "Pool name (model)",
+      "serviceType": "Type",
+      "instance": "Selected instance",
+      "profile": "Profile match",
+      "status": "Status",
+      "rule": "Rule",
+      "target": "Action target"
+    },
+    "status": {
+      "created": "Created",
+      "previewOnly": "Preview only",
+      "fallback": "No profile match"
+    },
+    "warnings": {
+      "title": "Notes / skipped items"
+    },
+    "example": {
+      "title": "Send a real request with this model after applying"
+    },
+    "messages": {
+      "loadFailed": "Failed to load scenario templates",
+      "previewFailed": "Preview failed",
+      "applyFailed": "Failed to apply scenario",
+      "applied": "Applied. Pools and rules are live."
+    }
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "templates": [
+    {
+      "id": "customer-support",
+      "name": "客服问答",
+      "description": "按中文/低延迟偏好选一个 chat 模型建池，并给该池加一条限流护栏规则。",
+      "useCases": ["客服问答"],
+      "selection": {
+        "useCases": ["客服问答"],
+        "serviceTypes": ["chat"],
+        "prefer": ["chinese"],
+        "maxLatency": "mid",
+        "fallback": "first-available"
+      },
+      "pool": {
+        "strategy": "weighted-random",
+        "namePattern": "scenario-customer-support-${serviceType}"
+      },
+      "rules": [
+        {
+          "name": "客服问答-池级限流",
+          "priority": 90,
+          "description": "对生成池的调用做每分钟 10 次 / 容量 100 的令牌桶限流，可按现场调整。",
+          "conditions": [
+            { "type": "MODEL_NAME", "operator": "CONTAINS", "value": "${poolName}" }
+          ],
+          "actions": [
+            { "type": "RATE_LIMIT", "capacity": 100, "rate": 10 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "doc-retrieval",
+      "name": "文档检索 RAG",
+      "description": "跨 chat / embedding / rerank 三类服务各建一个池，并按 SERVICE_TYPE 把请求路由到对应池。",
+      "useCases": ["文档检索"],
+      "selection": {
+        "useCases": ["文档检索"],
+        "serviceTypes": ["chat", "embedding", "rerank"],
+        "prefer": ["chinese"],
+        "maxLatency": "",
+        "fallback": "first-available"
+      },
+      "pool": {
+        "strategy": "weighted-random",
+        "namePattern": "scenario-doc-retrieval-${serviceType}"
+      },
+      "rules": [
+        {
+          "name": "RAG-按服务类型路由",
+          "priority": 95,
+          "description": "embedding 请求落到 embedding 池；chat / rerank 同理各有一条。",
+          "conditions": [
+            { "type": "SERVICE_TYPE", "operator": "EQUALS", "value": "embedding" }
+          ],
+          "actions": [
+            { "type": "TARGET_MODEL", "modelName": "${poolName.embedding}" }
+          ]
+        },
+        {
+          "name": "RAG-对话池路由",
+          "priority": 94,
+          "conditions": [
+            { "type": "SERVICE_TYPE", "operator": "EQUALS", "value": "chat" }
+          ],
+          "actions": [
+            { "type": "TARGET_MODEL", "modelName": "${poolName.chat}" }
+          ]
+        },
+        {
+          "name": "RAG-重排池路由",
+          "priority": 93,
+          "conditions": [
+            { "type": "SERVICE_TYPE", "operator": "EQUALS", "value": "rerank" }
+          ],
+          "actions": [
+            { "type": "TARGET_MODEL", "modelName": "${poolName.rerank}" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "code-assistant",
+      "name": "代码助手",
+      "description": "按 code 强项画像选一个 chat 池，并用 model-rewrite 规则把代码类请求注入真实池名。",
+      "useCases": ["代码助手"],
+      "selection": {
+        "useCases": ["代码助手"],
+        "serviceTypes": ["chat"],
+        "prefer": ["code"],
+        "maxLatency": "",
+        "fallback": "first-available"
+      },
+      "pool": {
+        "strategy": "weighted-random",
+        "namePattern": "scenario-code-assistant-${serviceType}"
+      },
+      "rules": [
+        {
+          "name": "代码助手-模型重写",
+          "priority": 92,
+          "description": "chat 请求重写到按 code 画像生成的池，动作值是模板注入的真实池名。",
+          "conditions": [
+            { "type": "SERVICE_TYPE", "operator": "EQUALS", "value": "chat" }
+          ],
+          "actions": [
+            { "type": "TARGET_MODEL", "modelName": "${poolName.chat}" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cost-guardrail",
+      "name": "成本护栏",
+      "description": "不建新池，只生成一条全局限流规则，覆盖「场景只出规则」的组合形态。",
+      "useCases": [],
+      "selection": {
+        "useCases": [],
+        "serviceTypes": [],
+        "prefer": [],
+        "maxLatency": "",
+        "fallback": "first-available"
+      },
+      "pool": null,
+      "rules": [
+        {
+          "name": "成本护栏-全局限流",
+          "priority": 10,
+          "description": "兜底限流，默认不启用任何池；阈值请按现场容量调整后再保留。",
+          "conditions": [
+            { "type": "CLIENT_IP", "operator": "CIDR_MATCH", "value": "0.0.0.0/0" }
+          ],
+          "actions": [
+            { "type": "RATE_LIMIT", "capacity": 1000, "rate": 60 }
+          ]
+        }
+      ]
+    }
+  ]
+}

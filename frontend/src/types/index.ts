@@ -60,6 +60,8 @@ export interface ApiKeyModelScopeVO {
   poolName: string
   /** 分组显示名（友好名，如「公司主力」）；未配置时回落展示 poolName */
   displayName?: string
+  /** 虚拟模型中文描述（运维在「虚拟模型」编辑弹窗填写的用途说明）；测试场下拉在英文名旁展示 */
+  description?: string
   /** 服务类型（chat / embedding / rerank / tts / stt / imgGen / imgEdit） */
   serviceType?: string
   /** 加权均价（¥ / 千 token）；组内成员均未配价时为 null */

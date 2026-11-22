@@ -8,8 +8,11 @@
     </template>
     <template #actions>
       <el-button :icon="Refresh" circle @click="fetchPools" :title="t('pool.refreshList')" />
-      <el-button v-if="canWrite" type="primary" @click="handleCreate">
+      <el-button v-if="canWrite" @click="handleCreate">
         <el-icon><Plus /></el-icon>&nbsp;{{ t('pool.addPool') }}
+      </el-button>
+      <el-button v-if="canWrite" type="primary" @click="openScenario">
+        <el-icon><MagicStick /></el-icon>&nbsp;{{ t('pool.createFromScenario') }}
       </el-button>
     </template>
 
@@ -26,6 +29,7 @@
               <span class="vm-name__title">{{ row.name || row.poolName }}</span>
             </div>
             <div class="vm-name__sub" v-if="row.name && row.name !== row.poolName">model-name: {{ row.poolName }}</div>
+            <div class="vm-name__desc" v-if="row.description">{{ row.description }}</div>
           </template>
         </el-table-column>
         <el-table-column :label="t('pool.backingModels')" min-width="420">
@@ -110,10 +114,22 @@
 
       <div v-if="!loading && pools.length === 0" class="list-empty">
         <el-empty :description="t('pool.emptyText')">
-          <el-button v-if="canWrite" type="primary" @click="handleCreate">{{ t('pool.addPool') }}</el-button>
+          <el-button v-if="canWrite" @click="handleCreate">{{ t('pool.addPool') }}</el-button>
+          <el-button v-if="canWrite" type="primary" @click="openScenario">{{ t('pool.createFromScenario') }}</el-button>
         </el-empty>
       </div>
   </PageSkeleton>
+
+  <!-- 按场景创建：内嵌场景向导，应用成功后 emit applied 刷新上方列表 -->
+  <el-dialog
+    v-model="scenarioVisible"
+    :title="t('pool.scenarioDialogTitle')"
+    width="min(1080px, 94vw)"
+    top="5vh"
+    destroy-on-close
+  >
+    <ScenarioWizard @applied="onScenarioApplied" />
+  </el-dialog>
 
   <!-- 新建 / 编辑 对话框（原型风格：名称 + 模型清单 + 故障转移策略） -->
   <el-dialog
@@ -133,6 +149,21 @@
         <el-input v-model="form.poolName" :placeholder="t('pool.nameFieldPlaceholder')" />
         <!-- 固定解释句：创建与编辑都给（解决「参照系不明 / 该填什么 / 为何看不到厂商模型」） -->
         <div class="form-tip">{{ t('pool.nameFieldHelp') }}</div>
+      </div>
+
+      <!-- 中文描述：给虚拟模型写一句人能看懂的说明，测试场模型下拉会在英文名旁展示它 -->
+      <div class="vm-field">
+        <label class="vm-label">{{ t('pool.description') }}</label>
+        <el-input
+          v-model="form.description"
+          type="textarea"
+          :rows="2"
+          maxlength="200"
+          show-word-limit
+          resize="none"
+          :placeholder="t('pool.descriptionPlaceholder')"
+        />
+        <div class="form-tip">{{ t('pool.descriptionHelp') }}</div>
       </div>
 
       <!-- 创建：模型勾选清单（带单次价格标签）；顺序即勾选顺序 -->
@@ -296,9 +327,10 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { Plus, Refresh } from '@element-plus/icons-vue'
+import { MagicStick, Plus, Refresh } from '@element-plus/icons-vue'
 import { ALL_SERVICE_TYPES as SERVICE_TYPES, getServiceTypeLabel } from '@/constants/serviceTypes'
 import {
   getPoolList,
@@ -322,8 +354,10 @@ import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { useEnterpriseStore } from '@/stores/enterprise'
 import { useTenantStore } from '@/stores/tenant'
 import { menuSubtitle } from '@/config/menu'
+import ScenarioWizard from '@/views/tools/ScenarioWizard.vue'
 
 const { t } = useI18n()
+const route = useRoute()
 const enterpriseStore = useEnterpriseStore()
 const tenantStore = useTenantStore()
 // 配额账本开关（单例探针）：关闭时额度配置弹窗里的每小时 / 每月字段禁用
@@ -348,6 +382,11 @@ const { maxHeight: poolsMaxHeight } = useTableMaxHeight(poolsTableRef)
 const saving = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
+
+// 「按场景创建」弹窗：内嵌场景向导，应用成功后刷新池列表
+const scenarioVisible = ref(false)
+const openScenario = () => { scenarioVisible.value = true }
+const onScenarioApplied = () => { void fetchPools() }
 
 /** 各虚拟模型的「本月调用」次数（按池名索引；null = 暂无用量 / 取数失败） */
 const poolUsageMap = ref<Record<string, number | null>>({})
@@ -867,6 +906,10 @@ onMounted(() => {
   loadPriceCatalog()
   // 探测配额账本开关 → 决定额度配置弹窗里每小时 / 每月字段是否禁用
   void loadQuotaLedgerState()
+  // 旧 /scenarios 链接与指南页 CTA 重定向到 ?create=scenario，自动打开向导弹窗
+  if (canWrite && route.query.create === 'scenario') {
+    scenarioVisible.value = true
+  }
 })
 </script>
 
@@ -967,6 +1010,13 @@ onMounted(() => {
   color: var(--ja-text-tertiary, #6b7d7c);
   font-family: var(--ja-font-mono);
   margin-top: 2px;
+}
+
+.vm-name__desc {
+  font-size: 12px;
+  color: var(--ja-text-secondary);
+  margin-top: 3px;
+  line-height: 1.4;
 }
 
 /* 背后挂的模型：有序 chip（主 / 备 N） */

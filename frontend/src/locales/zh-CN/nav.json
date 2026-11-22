@@ -41,6 +41,10 @@
       "title": "模型能力档案",
       "subtitle": "看每个模型擅长什么，选模配池的参考"
     },
+    "scenarios": {
+      "title": "场景模板",
+      "subtitle": "按用途一键建虚拟模型与路由规则"
+    },
     "routingRules": {
       "title": "路由规则",
       "subtitle": "按条件把请求转给不同的模型"

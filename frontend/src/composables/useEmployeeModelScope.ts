@@ -33,6 +33,7 @@
 import { ref, computed } from 'vue'
 import { getMyApiKeys } from '@/api/apiKey'
 import { useUserStore } from '@/stores/user'
+import type { PlaygroundGroup } from '@/stores/playgroundCache'
 
 /**
  * 白名单状态（三态拆分，避免 null 同时承载多种语义）：
@@ -193,9 +194,12 @@ export function useEmployeeModelScope() {
     return allowedGroups.value!.has(groupName)
   }
 
-  /** 收窄分组列表（运维侧原样返回） */
-  const filterGroups = (groups: string[]): string[] =>
-    isOpsScope.value ? groups : (groups || []).filter(g => isGroupVisible(g))
+  /**
+   * 收窄分组列表（运维侧原样返回）。
+   * 分组项为 { name, description }，过滤只针对 name；描述随项透传到测试场下拉展示。
+   */
+  const filterGroups = (groups: PlaygroundGroup[]): PlaygroundGroup[] =>
+    isOpsScope.value ? groups : (groups || []).filter(g => isGroupVisible(g.name))
 
   /**
    * 分组的友好名（未配置时返回空串，调用方回落展示分组名本身）。

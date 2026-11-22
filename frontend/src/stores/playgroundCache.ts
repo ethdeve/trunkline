@@ -68,7 +68,18 @@ const isOpsScope = (): boolean => {
 }
 
 /**
- * 解析候选分组名。
+ * 候选分组项：分组名（发给网关的 model）+ 运维填写的中文描述。
+ * 描述随分组一起传递到测试场下拉，在英文名旁展示，帮助识别用途。
+ */
+export interface PlaygroundGroup {
+  /** 分组名 = 虚拟模型名（发给网关的 model 值） */
+  name: string
+  /** 运维在「虚拟模型」编辑弹窗填写的中文描述；未填为空串 */
+  description: string
+}
+
+/**
+ * 解析候选分组。
  *
  * <p><b>P0-L 越权泄漏收敛</b>：员工（非 ops/admin）**不再**调用
  * {@code GET /api/config/pools/list}（返回全公司资源池，含成员 instanceId / weight；
@@ -77,20 +88,26 @@ const isOpsScope = (): boolean => {
  *
  * <p>运维 / 管理员保持拉取全量资源池 —— 排障需要看到全部模型。</p>
  *
+ * <p>两路数据源均携带 {@code description}：运维来自资源池定义，员工来自后端
+ * modelScope 下发的池描述（见 ApiKeyModelScopeResolver）。</p>
+ *
  * @param serviceType 服务类型（chat / embedding / …）
- * @returns 该服务类型下的候选分组名
+ * @returns 该服务类型下的候选分组（含中文描述）
  */
-const resolveGroupNames = async (serviceType: string): Promise<string[]> => {
+const resolveGroupNames = async (serviceType: string): Promise<PlaygroundGroup[]> => {
   if (!isOpsScope()) {
     const list = await getMyApiKeys()
     const scope = list?.modelScope || []
-    const names: string[] = []
+    const groups: PlaygroundGroup[] = []
+    const seen = new Set<string>()
     for (const s of scope) {
       if (!s?.poolName) continue
       if ((s.serviceType || '').toLowerCase() !== serviceType.toLowerCase()) continue
-      if (!names.includes(s.poolName)) names.push(s.poolName)
+      if (seen.has(s.poolName)) continue
+      seen.add(s.poolName)
+      groups.push({ name: s.poolName, description: s.description || '' })
     }
-    return names
+    return groups
   }
 
   const response = await getPoolList()
@@ -98,11 +115,12 @@ const resolveGroupNames = async (serviceType: string): Promise<string[]> => {
     poolName?: string
     serviceType?: string
     enabled?: boolean
+    description?: string
   }>
 
   return pools
     .filter((p) => (p.serviceType || '').toLowerCase() === serviceType.toLowerCase() && p.enabled !== false && Boolean(p.poolName))
-    .map((p) => p.poolName as string)
+    .map((p) => ({ name: p.poolName as string, description: p.description || '' }))
 }
 
 // 缓存接口定义
@@ -129,7 +147,7 @@ const CACHE_EXPIRE_TIME = 5 * 60 * 1000
 // 会被下一个登录的员工继承（跨账号缓存泄漏，等于绕过刚收回的 config:instances:read）。
 const instancesCache = reactive<Record<string, CacheItem<ServiceInstance[]>>>({})
 const modelsCache = reactive<Record<string, CacheItem<string[]>>>({})
-const groupsCache = reactive<Record<string, CacheItem<string[]>>>({})
+const groupsCache = reactive<Record<string, CacheItem<PlaygroundGroup[]>>>({})
 
 /** 复合缓存键：用户名::服务类型 */
 const cacheKeyOf = (serviceType: string): string => `${currentOwnerKey()}::${serviceType}`
@@ -310,13 +328,13 @@ export const getCachedModels = async (serviceType: string, forceRefresh = false)
 //
 // P0-L：缓存键绑定当前用户名（`用户名::服务类型`）——模块级缓存不得跨账号复用，
 // 否则运维缓存的全量分组会被下一个登录的员工读到（越权泄漏）。
-export const getCachedGroups = async (serviceType: string, forceRefresh = false): Promise<string[]> => {
+export const getCachedGroups = async (serviceType: string, forceRefresh = false): Promise<PlaygroundGroup[]> => {
   const owner = currentOwnerKey()
   const cacheKey = cacheKeyOf(serviceType)
 
   // 初始化缓存
   if (!groupsCache[cacheKey]) {
-    groupsCache[cacheKey] = createEmptyCache<string[]>([])
+    groupsCache[cacheKey] = createEmptyCache<PlaygroundGroup[]>([])
   }
 
   const cache = groupsCache[cacheKey]

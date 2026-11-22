@@ -42,8 +42,12 @@
             ●
           </span>
           <span class="instance-name">{{ inst.name }}</span>
-          <!-- P0-L：分组友好名（来自「我的密钥」的 modelScope）；分组名本身仍作为主文本，便于照抄 -->
-          <span v-if="inst.isGroup && inst.displayName" class="group-display-name">
+          <!-- 中文描述（运维在「虚拟模型」里填的用途说明）：分组名仍是主文本便于照抄，描述作补充展示 -->
+          <span v-if="inst.isGroup && inst.description" class="group-description">
+            {{ inst.description }}
+          </span>
+          <!-- P0-L：分组友好名（来自「我的密钥」的 modelScope），无中文描述时兜底展示 -->
+          <span v-else-if="inst.isGroup && inst.displayName" class="group-display-name">
             {{ inst.displayName }}
           </span>
           <span v-if="inst.isGroup" class="group-badge">
@@ -257,6 +261,13 @@ onMounted(() => {
   background-color: var(--ja-bg-card);
   border: 1px solid var(--ja-border-dark);
   border-radius: 3px;
+}
+
+/* 中文描述：分组名仍是主文本，描述作次要文本补充用途说明 */
+.group-description {
+  flex: none;
+  font-size: 12px;
+  color: var(--ja-text-secondary);
 }
 
 /* P0-L：分组友好名（次要文本，分组名本身仍是主文本） */

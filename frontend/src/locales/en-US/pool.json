@@ -25,8 +25,9 @@
     "selectInstance": "Select instance",
     "weightPlaceholder": "Weight",
     "addMember": "Add Member",
-    "description": "Description",
-    "descriptionPlaceholder": "Optional",
+    "description": "Description (optional)",
+    "descriptionPlaceholder": "e.g. Main chat model for daily Q&A",
+    "descriptionHelp": "A note for teammates. Once filled, it shows next to the English name in the playground model dropdown, making the purpose easy to recognize. It does not change the model name employees type in their AI tools.",
     "noInstancesTip": "No instances under this model category. Connect provider models in Access Management first.",
     "categoryLockedHint": "A \"{type}\" model is selected. Only models of the same category can be added — virtual models route by category, so mixing other categories (e.g. image generation, embedding) would never be invoked.",
     "memberWeightTip": "Members reference specific model channels; weight determines the probability of being selected (ignored under the consistent-hash strategy).",
@@ -160,6 +161,8 @@
     "priceVector": "Embedding",
     "quotaButton": "Quota",
     "quotaDialogTitle": "Quota for {name}",
-    "quotaSave": "Save quota"
+    "quotaSave": "Save quota",
+    "createFromScenario": "Create from scenario",
+    "scenarioDialogTitle": "Create a virtual model from a scenario"
   }
 }

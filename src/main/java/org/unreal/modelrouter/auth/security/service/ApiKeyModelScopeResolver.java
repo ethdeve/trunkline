@@ -214,6 +214,8 @@ public class ApiKeyModelScopeResolver {
         return ApiKeyModelScopeVO.builder()
                 .poolName(pool.getPoolName())
                 .displayName(null)
+                // 中文描述是用途说明、非成本信息，「不限制模型」分支同样下发，供测试场下拉识别用途
+                .description(pool.getDescription())
                 .serviceType(pool.getServiceType())
                 .mixedPrice(null)
                 .modelScopeAvailable(scopeAvailable)
@@ -232,6 +234,7 @@ public class ApiKeyModelScopeResolver {
         return ApiKeyModelScopeVO.builder()
                 .poolName(pool.getPoolName())
                 .displayName(pool.getName())
+                .description(pool.getDescription())
                 .serviceType(pool.getServiceType())
                 .mixedPrice(mixedPrice(pool, priceResolver, instanceNameIndex))
                 .modelScopeAvailable(scopeAvailable)

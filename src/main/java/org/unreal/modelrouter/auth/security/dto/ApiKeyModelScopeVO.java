@@ -47,6 +47,15 @@ public class ApiKeyModelScopeVO {
     private String displayName;
 
     /**
+     * 虚拟模型的中文描述（备注用途，如「公司主力对话模型」）。
+     *
+     * <p>来自资源池 {@code PoolDefinition.description}，由运维在「虚拟模型」编辑弹窗填写。
+     * 测试场模型下拉在英文名（{@link #poolName}）旁展示它，方便员工识别用途。
+     * 描述是用途说明、非成本信息，因此「不限制模型」分支同样下发（与 displayName/mixedPrice 的成本脱敏口径不同）。</p>
+     */
+    private String description;
+
+    /**
      * 服务类型（chat / embedding / rerank / tts / stt / imgGen / imgEdit）。
      */
     private String serviceType;

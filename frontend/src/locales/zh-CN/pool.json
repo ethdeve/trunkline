@@ -25,8 +25,9 @@
     "selectInstance": "选择实例",
     "weightPlaceholder": "权重",
     "addMember": "添加成员",
-    "description": "描述",
-    "descriptionPlaceholder": "可选",
+    "description": "中文描述（可选）",
+    "descriptionPlaceholder": "例如：公司主力对话模型，适合日常问答",
+    "descriptionHelp": "给同事看的说明。填写后，测试场选模型的下拉里会在英文名旁边显示它，方便识别用途；不影响员工在 AI 工具里填写的模型名。",
     "noInstancesTip": "该模型分类下暂无实例，请先在接入管理里把厂商模型接进来",
     "categoryLockedHint": "已选择「{type}」分类模型，仅能继续选择同分类模型——虚拟模型按分类路由，混入其他分类（如图片生成、向量）不会被调用",
     "memberWeightTip": "成员按具体模型通道引用；权重决定被选中概率（一致哈希策略下无效）",
@@ -160,6 +161,8 @@
     "memberWeightLabel": "流量权重",
     "memberWeightDesc": "数字越大，这个模型分到的流量越多（默认都是 1）",
     "explainBodyV2": "员工在工具里只能填这里建好的虚拟模型名（如 company-main），不能直接填 gpt-4o / claude-3-opus——这样才能统一管控额度、记审计日志。一个虚拟模型背后可以挂多个真实模型，流量怎么分有 5 种方式：按权重随机（默认，推荐）、轮流使用、最少连接优先（好机器多接活）、按使用者固定（同一员工总走同一个模型，适合知识库向量一致）、一致性哈希（实例增删时影响最小）。",
-    "weightColumnLabel": "流量权重"
+    "weightColumnLabel": "流量权重",
+    "createFromScenario": "按场景创建",
+    "scenarioDialogTitle": "按场景创建虚拟模型"
   }
 }
