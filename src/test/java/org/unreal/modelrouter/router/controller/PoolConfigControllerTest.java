@@ -13,6 +13,7 @@ import org.unreal.modelrouter.router.checker.ServiceStateManager;
 import org.unreal.modelrouter.router.circuitbreaker.CircuitBreakerManager;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
 import org.unreal.modelrouter.router.model.ModelServiceRegistry;
+import org.unreal.modelrouter.router.pool.PoolConfigService;
 import org.unreal.modelrouter.router.pool.PoolDefinitionProperties;
 import org.unreal.modelrouter.router.pool.PoolPersistenceService;
 import org.unreal.modelrouter.router.pool.PoolSelector;
@@ -88,7 +89,14 @@ class PoolConfigControllerTest {
         poolSelector = new PoolSelector(mock(ServiceStateManager.class), mock(CircuitBreakerManager.class));
         controller = new PoolConfigController(
                 poolProperties, persistenceService, poolSelector, new ServiceTypeResolver(), mockRegistry(),
-                mock(org.unreal.modelrouter.config.dependency.DependencyCheckService.class));
+                mock(org.unreal.modelrouter.config.dependency.DependencyCheckService.class),
+                newPoolConfigService());
+    }
+
+    /** 用与 Controller 相同的依赖构造下沉服务（场景 apply 共用的那一个）。 */
+    private PoolConfigService newPoolConfigService() {
+        return new PoolConfigService(poolProperties, persistenceService, poolSelector,
+                new ServiceTypeResolver(), mockRegistry());
     }
 
     /**
@@ -261,7 +269,8 @@ class PoolConfigControllerTest {
             poolProperties.setPools(List.of(validPool("yaml-pool")));
             controller = new PoolConfigController(
                     poolProperties, persistenceService, poolSelector, new ServiceTypeResolver(), mockRegistry(),
-                mock(org.unreal.modelrouter.config.dependency.DependencyCheckService.class));
+                mock(org.unreal.modelrouter.config.dependency.DependencyCheckService.class),
+                newPoolConfigService());
             controller.createPool(validPool("auto-model"));
 
             List<PoolDefinition> pools = controller.getAllPools().getBody().getData();
@@ -398,7 +407,8 @@ class PoolConfigControllerTest {
             poolProperties.setPools(new ArrayList<>(List.of(validPool(poolName))));
             return new PoolConfigController(
                     poolProperties, persistenceService, poolSelector, new ServiceTypeResolver(), mockRegistry(),
-                    mock(org.unreal.modelrouter.config.dependency.DependencyCheckService.class));
+                    mock(org.unreal.modelrouter.config.dependency.DependencyCheckService.class),
+                    newPoolConfigService());
         }
 
         @Test

@@ -21,6 +21,7 @@ import org.unreal.modelrouter.config.core.helper.ServiceTypeResolver;
 import org.unreal.modelrouter.config.dependency.DependencyCheckService;
 import org.unreal.modelrouter.router.model.ModelRouterProperties;
 import org.unreal.modelrouter.router.model.ModelServiceRegistry;
+import org.unreal.modelrouter.router.pool.PoolConfigService;
 import org.unreal.modelrouter.router.pool.PoolDefinitionProperties;
 import org.unreal.modelrouter.router.pool.PoolPersistenceService;
 import org.unreal.modelrouter.router.pool.PoolSelector;
@@ -53,6 +54,8 @@ public class PoolConfigController {
     private final ModelServiceRegistry modelServiceRegistry;
     /** 2026-10-26: 删除前依赖检测（密钥白名单引用该分组时拒绝删除） */
     private final DependencyCheckService dependencyCheckService;
+    /** v0.2.0: create 校验+落库下沉服务（场景模板与 Controller 共用） */
+    private final PoolConfigService poolConfigService;
 
     // 注意：不再持有进程级 activePools 单例缓存。
     // 资源池（虚拟模型）属于「租户业务数据」平面，config_data 受 @Filter(tenantFilter) 行级隔离。
@@ -64,13 +67,15 @@ public class PoolConfigController {
                                 final PoolSelector poolSelector,
                                 final ServiceTypeResolver serviceTypeResolver,
                                 final ModelServiceRegistry modelServiceRegistry,
-                                final DependencyCheckService dependencyCheckService) {
+                                final DependencyCheckService dependencyCheckService,
+                                final PoolConfigService poolConfigService) {
         this.poolProperties = poolProperties;
         this.persistenceService = persistenceService;
         this.poolSelector = poolSelector;
         this.serviceTypeResolver = serviceTypeResolver;
         this.modelServiceRegistry = modelServiceRegistry;
         this.dependencyCheckService = dependencyCheckService;
+        this.poolConfigService = poolConfigService;
         // 启动时预热一次路由选择器（仅用于运行时路由，与管理端列表数据源解耦）
         refreshRouterPools();
     }
@@ -134,18 +139,10 @@ public class PoolConfigController {
     @PostMapping
     @Operation(summary = "创建资源池", description = "创建新资源池并热生效")
     public ResponseEntity<RouterResponse<PoolDefinition>> createPool(@RequestBody final PoolDefinition pool) {
-        validatePool(pool);
-        // 重名校验按「当前租户的持久化视图」（loadAll 受 @Filter 约束，天然租户感知）。
-        // 不纳入 YAML 池，保留「持久化同名覆盖 YAML 默认池」的既有语义（issue #708）；
-        // 跨租户同名不冲突（唯一键含 tenant_id）。
-        if (persistenceService.loadAll().stream().anyMatch(p -> p.getPoolName() != null
-                && p.getPoolName().equals(pool.getPoolName()))) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Pool '" + pool.getPoolName() + "' already exists");
-        }
-        persistenceService.save(pool);
-        refreshRouterPools();
-        return ResponseEntity.status(HttpStatus.CREATED).body(RouterResponse.success(pool));
+        // v0.2.0: 校验+重名+落库+热刷新下沉到 PoolConfigService，与场景模板 apply 共用；
+        // 逻辑逐字照搬自本方法原实现，对外行为不变。
+        PoolDefinition created = poolConfigService.createValidated(pool);
+        return ResponseEntity.status(HttpStatus.CREATED).body(RouterResponse.success(created));
     }
 
     /**

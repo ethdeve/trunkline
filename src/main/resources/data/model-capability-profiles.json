@@ -1,0 +1,159 @@
+{
+  "version": "1",
+  "updated": "2026-11-22",
+  "disclaimer": "内置基线画像，仅覆盖公开可查的通用能力；未知维度标 unknown，非厂商承诺。中转站/算力中心的自由模型名请通过现场注入或名称识别补充。",
+  "profiles": [
+    {
+      "modelId": "gpt-4o", "canonicalId": "gpt-4o", "vendor": "openai",
+      "aliases": ["openai/gpt-4o"], "serviceType": "chat",
+      "functionCall": "yes", "contextWindow": "128000", "multimodal": "yes", "streaming": true,
+      "strengths": { "code": "high", "chinese": "mid", "math": "high", "reasoning": "high" },
+      "cost": "high", "latency": "mid", "useCases": ["客服问答", "代码助手", "文档检索", "内容生成"],
+      "source": "builtin", "description": "OpenAI 旗舰多模态模型"
+    },
+    {
+      "modelId": "gpt-4o-mini", "canonicalId": "gpt-4o-mini", "vendor": "openai",
+      "aliases": [], "serviceType": "chat",
+      "functionCall": "yes", "contextWindow": "128000", "multimodal": "yes", "streaming": true,
+      "strengths": { "code": "mid", "chinese": "mid", "math": "mid", "reasoning": "mid" },
+      "cost": "low", "latency": "low", "useCases": ["客服问答", "内容生成"],
+      "source": "builtin", "description": "低成本轻量多模态模型"
+    },
+    {
+      "modelId": "text-embedding-3-small", "canonicalId": "text-embedding-3-small", "vendor": "openai",
+      "aliases": [], "serviceType": "embedding",
+      "functionCall": "no", "contextWindow": "8191", "multimodal": "no", "streaming": false,
+      "strengths": { "code": "unknown", "chinese": "mid", "math": "unknown", "reasoning": "unknown" },
+      "cost": "low", "latency": "low", "useCases": ["文档检索"],
+      "source": "builtin", "description": "嵌入模型"
+    },
+    {
+      "modelId": "deepseek-chat", "canonicalId": "deepseek-v3", "vendor": "deepseek",
+      "aliases": ["deepseek-ai/DeepSeek-V3", "DeepSeek-V3-0324"], "serviceType": "chat",
+      "functionCall": "yes", "contextWindow": "64000", "multimodal": "no", "streaming": true,
+      "strengths": { "code": "high", "chinese": "high", "math": "high", "reasoning": "mid" },
+      "cost": "low", "latency": "mid", "useCases": ["客服问答", "代码助手", "文档检索", "内容生成"],
+      "source": "builtin", "description": "DeepSeek 通用对话模型（V3 系列）"
+    },
+    {
+      "modelId": "deepseek-coder", "canonicalId": "deepseek-coder", "vendor": "deepseek",
+      "aliases": [], "serviceType": "chat",
+      "functionCall": "yes", "contextWindow": "16000", "multimodal": "no", "streaming": true,
+      "strengths": { "code": "high", "chinese": "mid", "math": "mid", "reasoning": "mid" },
+      "cost": "low", "latency": "mid", "useCases": ["代码助手"],
+      "source": "builtin", "description": "DeepSeek 代码专用模型"
+    },
+    {
+      "modelId": "deepseek-reasoner", "canonicalId": "deepseek-r1", "vendor": "deepseek",
+      "aliases": ["deepseek-ai/DeepSeek-R1", "DeepSeek-R1"], "serviceType": "chat",
+      "functionCall": "unknown", "contextWindow": "64000", "multimodal": "no", "streaming": true,
+      "strengths": { "code": "high", "chinese": "high", "math": "high", "reasoning": "high" },
+      "cost": "mid", "latency": "high", "useCases": ["代码助手", "推理分析"],
+      "source": "builtin", "description": "DeepSeek 推理模型（R1 系列），慢但推理强"
+    },
+    {
+      "modelId": "glm-4", "canonicalId": "glm-4", "vendor": "zhipu",
+      "aliases": [], "serviceType": "chat",
+      "functionCall": "yes", "contextWindow": "128000", "multimodal": "unknown", "streaming": true,
+      "strengths": { "code": "high", "chinese": "high", "math": "mid", "reasoning": "high" },
+      "cost": "mid", "latency": "mid", "useCases": ["客服问答", "代码助手", "内容生成"],
+      "source": "builtin", "description": "智谱 GLM 旗舰模型"
+    },
+    {
+      "modelId": "glm-4-flash", "canonicalId": "glm-4-flash", "vendor": "zhipu",
+      "aliases": [], "serviceType": "chat",
+      "functionCall": "yes", "contextWindow": "128000", "multimodal": "no", "streaming": true,
+      "strengths": { "code": "mid", "chinese": "high", "math": "mid", "reasoning": "mid" },
+      "cost": "low", "latency": "low", "useCases": ["客服问答", "内容生成"],
+      "source": "builtin", "description": "智谱 GLM 轻量模型"
+    },
+    {
+      "modelId": "embedding-3", "canonicalId": "embedding-3", "vendor": "zhipu",
+      "aliases": [], "serviceType": "embedding",
+      "functionCall": "no", "contextWindow": "8192", "multimodal": "no", "streaming": false,
+      "strengths": { "code": "unknown", "chinese": "high", "math": "unknown", "reasoning": "unknown" },
+      "cost": "low", "latency": "low", "useCases": ["文档检索"],
+      "source": "builtin", "description": "智谱嵌入模型"
+    },
+    {
+      "modelId": "qwen-max", "canonicalId": "qwen-max", "vendor": "qwen",
+      "aliases": [], "serviceType": "chat",
+      "functionCall": "yes", "contextWindow": "32000", "multimodal": "unknown", "streaming": true,
+      "strengths": { "code": "high", "chinese": "high", "math": "high", "reasoning": "high" },
+      "cost": "mid", "latency": "mid", "useCases": ["客服问答", "代码助手", "文档检索", "内容生成"],
+      "source": "builtin", "description": "通义千问旗舰模型"
+    },
+    {
+      "modelId": "qwen-plus", "canonicalId": "qwen-plus", "vendor": "qwen",
+      "aliases": [], "serviceType": "chat",
+      "functionCall": "yes", "contextWindow": "131072", "multimodal": "unknown", "streaming": true,
+      "strengths": { "code": "mid", "chinese": "high", "math": "mid", "reasoning": "mid" },
+      "cost": "mid", "latency": "mid", "useCases": ["客服问答", "内容生成"],
+      "source": "builtin", "description": "通义千问均衡模型"
+    },
+    {
+      "modelId": "qwen-turbo", "canonicalId": "qwen-turbo", "vendor": "qwen",
+      "aliases": [], "serviceType": "chat",
+      "functionCall": "yes", "contextWindow": "1000000", "multimodal": "unknown", "streaming": true,
+      "strengths": { "code": "mid", "chinese": "high", "math": "mid", "reasoning": "mid" },
+      "cost": "low", "latency": "low", "useCases": ["客服问答", "内容生成"],
+      "source": "builtin", "description": "通义千问快速模型"
+    },
+    {
+      "modelId": "text-embedding-v3", "canonicalId": "text-embedding-v3", "vendor": "qwen",
+      "aliases": [], "serviceType": "embedding",
+      "functionCall": "no", "contextWindow": "8192", "multimodal": "no", "streaming": false,
+      "strengths": { "code": "unknown", "chinese": "high", "math": "unknown", "reasoning": "unknown" },
+      "cost": "low", "latency": "low", "useCases": ["文档检索"],
+      "source": "builtin", "description": "通义千问嵌入模型"
+    },
+    {
+      "modelId": "moonshot-v1-8k", "canonicalId": "moonshot-v1", "vendor": "moonshot",
+      "aliases": [], "serviceType": "chat",
+      "functionCall": "yes", "contextWindow": "8000", "multimodal": "no", "streaming": true,
+      "strengths": { "code": "mid", "chinese": "high", "math": "mid", "reasoning": "mid" },
+      "cost": "low", "latency": "mid", "useCases": ["客服问答", "文档检索", "内容生成"],
+      "source": "builtin", "description": "Kimi 8K 上下文版本"
+    },
+    {
+      "modelId": "moonshot-v1-128k", "canonicalId": "moonshot-v1", "vendor": "moonshot",
+      "aliases": [], "serviceType": "chat",
+      "functionCall": "yes", "contextWindow": "128000", "multimodal": "no", "streaming": true,
+      "strengths": { "code": "mid", "chinese": "high", "math": "mid", "reasoning": "mid" },
+      "cost": "high", "latency": "mid", "useCases": ["文档检索", "内容生成"],
+      "source": "builtin", "description": "Kimi 128K 长上下文版本"
+    },
+    {
+      "modelId": "gemini-2.5-pro", "canonicalId": "gemini-2.5-pro", "vendor": "gemini",
+      "aliases": [], "serviceType": "chat",
+      "functionCall": "yes", "contextWindow": "1048576", "multimodal": "yes", "streaming": true,
+      "strengths": { "code": "high", "chinese": "mid", "math": "high", "reasoning": "high" },
+      "cost": "high", "latency": "high", "useCases": ["代码助手", "文档检索", "推理分析", "内容生成"],
+      "source": "builtin", "description": "Gemini 旗舰超长上下文多模态模型"
+    },
+    {
+      "modelId": "gemini-2.5-flash", "canonicalId": "gemini-2.5-flash", "vendor": "gemini",
+      "aliases": [], "serviceType": "chat",
+      "functionCall": "yes", "contextWindow": "1048576", "multimodal": "yes", "streaming": true,
+      "strengths": { "code": "mid", "chinese": "mid", "math": "mid", "reasoning": "mid" },
+      "cost": "low", "latency": "low", "useCases": ["客服问答", "文档检索", "内容生成"],
+      "source": "builtin", "description": "Gemini 快速多模态模型"
+    },
+    {
+      "modelId": "llama-3.3-70b-versatile", "canonicalId": "llama-3.3-70b", "vendor": "meta",
+      "aliases": ["meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"], "serviceType": "chat",
+      "functionCall": "yes", "contextWindow": "128000", "multimodal": "no", "streaming": true,
+      "strengths": { "code": "high", "chinese": "low", "math": "mid", "reasoning": "high" },
+      "cost": "mid", "latency": "mid", "useCases": ["代码助手", "内容生成"],
+      "source": "builtin", "description": "Llama 3.3 70B 开源模型"
+    },
+    {
+      "modelId": "anthropic/claude-3.5-sonnet", "canonicalId": "claude-3.5-sonnet", "vendor": "anthropic",
+      "aliases": ["claude-3.5-sonnet"], "serviceType": "chat",
+      "functionCall": "yes", "contextWindow": "200000", "multimodal": "yes", "streaming": true,
+      "strengths": { "code": "high", "chinese": "mid", "math": "high", "reasoning": "high" },
+      "cost": "high", "latency": "mid", "useCases": ["客服问答", "代码助手", "文档检索", "内容生成"],
+      "source": "builtin", "description": "Claude 3.5 Sonnet 模型"
+    }
+  ]
+}

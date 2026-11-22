@@ -37,6 +37,10 @@
       "title": "虚拟模型",
       "subtitle": "员工用的模型名，背后可以挂多个厂商模型"
     },
+    "modelCapabilities": {
+      "title": "模型能力档案",
+      "subtitle": "看每个模型擅长什么，选模配池的参考"
+    },
     "routingRules": {
       "title": "路由规则",
       "subtitle": "按条件把请求转给不同的模型"

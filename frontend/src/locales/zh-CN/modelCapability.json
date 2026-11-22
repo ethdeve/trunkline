@@ -1,0 +1,46 @@
+{
+  "modelCapability": {
+    "help": {
+      "title": "模型能力档案",
+      "body": "内置主流模型的公开能力基线，按用途、厂商、能力筛选，帮你选模配池，不必逐个试。",
+      "sourceNote": "来源标注：builtin=内置基线（非厂商承诺）；probe=主动实测；resolver=名称识别；persisted/spi=现场或企业注入。"
+    },
+    "filter": {
+      "useCase": "用途",
+      "vendor": "厂商",
+      "serviceType": "服务类型",
+      "preferStrength": "偏好强度",
+      "maxLatency": "最慢延迟",
+      "any": "不限",
+      "apply": "筛选",
+      "reset": "重置"
+    },
+    "col": {
+      "model": "模型 / 标准型号",
+      "vendor": "厂商",
+      "serviceType": "类型",
+      "strengths": "强度 (代码/中文/数学/推理)",
+      "functionCall": "工具调用",
+      "contextWindow": "上下文",
+      "multimodal": "多模态",
+      "cost": "成本",
+      "latency": "延迟",
+      "useCases": "适用场景",
+      "source": "来源"
+    },
+    "level": {
+      "high": "高",
+      "mid": "中",
+      "low": "低",
+      "unknown": "未知"
+    },
+    "bool": {
+      "yes": "支持",
+      "no": "不支持",
+      "unknown": "未知"
+    },
+    "messages": {
+      "fetchFailed": "加载模型能力档案失败"
+    }
+  }
+}

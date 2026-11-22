@@ -127,6 +127,10 @@ public class FixedRoleAccessPolicy {
                 AccessRule.write("/api/config/rules/**", AccessLevel.OPS),
                 AccessRule.get("/api/config/pools/**", AccessLevel.OPS),
                 AccessRule.write("/api/config/pools/**", AccessLevel.OPS),
+                // 模型能力档案（v0.2.0，ModelCapabilityController）：静态画像只读查询。
+                // 未登记时 OPERATOR 在 URL 层 fail-closed 403，故显式登记为 OPS。
+                AccessRule.get("/api/config/model-capabilities/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/model-capabilities/**", AccessLevel.OPS),
 
                 // 监控（Token 用量 / 熔断监控 / 限流监控 / 路由监控 / 指标）
                 AccessRule.get("/api/token-usage/**", AccessLevel.OPS),

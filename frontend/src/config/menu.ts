@@ -181,6 +181,15 @@ export const menuGroups: MenuGroup[] = [
         subtitle: 'nav.modelPools.subtitle'
       },
       {
+        // v0.2.0: 模型能力档案——选型与配池的运维参考数据，放团队组（非员工自助）
+        path: '/model-capabilities',
+        title: 'nav.modelCapabilities.title',
+        permission: 'config:instances:read',
+        roles: ['ops', 'admin'],
+        icon: 'data-analysis',
+        subtitle: 'nav.modelCapabilities.subtitle'
+      },
+      {
         // 【2026-11-05】原「策略」分组只有这一项（策略中心，页面仅剩路由规则一个 tab），
         // 单项成组浪费一层菜单层级 → 并入「团队」分组，更名「路由规则」如实描述页面内容。
         // 路由路径 /strategy 不变，旧链接与 ?tab= 深链均不受影响。

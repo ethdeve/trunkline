@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.config.core.MonitoringProperties;
+import org.unreal.modelrouter.router.rule.RuleConfigService;
 import org.unreal.modelrouter.router.rule.RuleDefinitionPersistenceService;
 import org.unreal.modelrouter.router.rule.RuleEngineService;
 import org.unreal.modelrouter.router.rule.RuleStatsService;
@@ -76,7 +77,8 @@ class RuleConfigControllerTest {
         persistenceService = new InMemoryPersistence();
         ruleStatsService = new RuleStatsService(new SimpleMeterRegistry(), new MonitoringProperties());
         rateLimitManager = mock(RateLimitManager.class);
-        controller = new RuleConfigController(ruleEngineService, persistenceService, ruleStatsService, rateLimitManager);
+        controller = new RuleConfigController(ruleEngineService, persistenceService, ruleStatsService, rateLimitManager,
+                new RuleConfigService(ruleEngineService, persistenceService));
     }
 
     private RuleDefinition validRule(final String name) {
@@ -583,7 +585,8 @@ class RuleConfigControllerTest {
             RuleEngineService engine = mock(RuleEngineService.class);
             when(engine.getYamlRules()).thenReturn(new ArrayList<>(List.of(yamlRule)));
             yamlPersistence = new InMemoryPersistence();
-            return new RuleConfigController(engine, yamlPersistence, ruleStatsService, rateLimitManager);
+            return new RuleConfigController(engine, yamlPersistence, ruleStatsService, rateLimitManager,
+                    new RuleConfigService(engine, yamlPersistence));
         }
 
         @Test
@@ -629,8 +632,11 @@ class RuleConfigControllerTest {
         @Test
         @DisplayName("RULEC-704: 持久化规则删除仍返回 200（不受新规则影响）")
         void persistedRuleDeleteStill200() {
+            RuleEngineService freshEngine = new RuleEngineService();
+            InMemoryPersistence freshPersistence = new InMemoryPersistence();
             RuleConfigController freshController = new RuleConfigController(
-                    new RuleEngineService(), new InMemoryPersistence(), ruleStatsService, rateLimitManager);
+                    freshEngine, freshPersistence, ruleStatsService, rateLimitManager,
+                    new RuleConfigService(freshEngine, freshPersistence));
             RuleDefinition created = freshController.createRule(validRule("persisted-rule"))
                     .getBody().getData();
 

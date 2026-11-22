@@ -28,6 +28,9 @@ import org.unreal.modelrouter.enterprise.spi.OutboundContentInspector;
 import org.unreal.modelrouter.enterprise.spi.ToolGovernanceProvider;
 import org.unreal.modelrouter.enterprise.spi.SsoConnector;
 import org.unreal.modelrouter.enterprise.spi.TenantContext;
+import org.unreal.modelrouter.router.capability.ModelCapabilityProfileProvider;
+import org.unreal.modelrouter.router.capability.DefaultModelCapabilityProfileProvider;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Trunkline 企业扩展点装配（社区版兜底，S2 任务 34）。
@@ -129,5 +132,19 @@ public class TrunklineEnterpriseAutoConfiguration {
     @ConditionalOnMissingBean(EnterpriseFeaturesProvider.class)
     public CommunityFeaturesProvider communityFeaturesProvider() {
         return new CommunityFeaturesProvider();
+    }
+
+    /**
+     * 模型能力画像数据源（v0.2.0）：社区版读内置 JSON，企业版/现场可覆盖。
+     *
+     * <p>商业版 jar 通过 {@code @AutoConfiguration(before=...)} 先注册自己的
+     * {@link ModelCapabilityProfileProvider} 后本 Bean 退位，构成确定覆盖链——
+     * 与 {@link #communityPriceResolver()} 完全同构。解析失败时默认实现 fail-soft
+     * 返回空列表，不阻断启动。</p>
+     */
+    @Bean
+    @ConditionalOnMissingBean(ModelCapabilityProfileProvider.class)
+    public DefaultModelCapabilityProfileProvider modelCapabilityProfileProvider(final ObjectMapper objectMapper) {
+        return new DefaultModelCapabilityProfileProvider(objectMapper);
     }
 }

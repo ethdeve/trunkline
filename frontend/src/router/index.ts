@@ -103,6 +103,13 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: 'nav.modelPools.title' }
       },
       {
+        // v0.2.0: 模型能力档案（静态画像浏览/筛选），运维配置参考数据
+        path: 'model-capabilities',
+        name: 'model-capabilities',
+        component: () => import('@/views/config/ModelCapabilityProfilesView.vue'),
+        meta: { title: 'nav.modelCapabilities.title' }
+      },
+      {
         // 傻瓜式快速接入向导：选服务商 → 填密钥 → 导入模型 → 自动建分组+测试密钥+复制 curl
         path: 'quick-start',
         name: 'quick-start',

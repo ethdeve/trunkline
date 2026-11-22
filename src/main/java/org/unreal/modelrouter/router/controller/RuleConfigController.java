@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.router.model.ModelServiceRegistry;
 import org.unreal.modelrouter.router.rule.RuleDecision;
+import org.unreal.modelrouter.router.rule.RuleConfigService;
 import org.unreal.modelrouter.router.rule.RuleDefinitionPersistenceService;
 import org.unreal.modelrouter.router.rule.RuleEngineService;
 import org.unreal.modelrouter.router.rule.RuleStatsService;
@@ -31,8 +32,6 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 /**
@@ -51,45 +50,29 @@ public class RuleConfigController {
     private final RuleDefinitionPersistenceService persistenceService;
     private final RuleStatsService ruleStatsService;
     private final RateLimitManager rateLimitManager;
-
-    // 当前生效规则(含 YAML 默认 + 持久化用户规则,按 priority 降序)
-    private final CopyOnWriteArrayList<RuleDefinition> activeRules = new CopyOnWriteArrayList<>();
+    /** v0.2.0: 生效规则状态 + create 校验落库下沉服务（Controller 与场景模板共用同一份状态）。 */
+    private final RuleConfigService ruleConfigService;
 
     public RuleConfigController(final RuleEngineService ruleEngineService,
                                 final RuleDefinitionPersistenceService persistenceService,
                                 final RuleStatsService ruleStatsService,
-                                final RateLimitManager rateLimitManager) {
+                                final RateLimitManager rateLimitManager,
+                                final RuleConfigService ruleConfigService) {
         this.ruleEngineService = ruleEngineService;
         this.persistenceService = persistenceService;
         this.ruleStatsService = ruleStatsService;
         this.rateLimitManager = rateLimitManager;
-        reloadActiveRules();
+        this.ruleConfigService = ruleConfigService;
     }
 
-    /**
-     * 重新加载生效规则(合并 YAML 默认 + 持久化,持久化同 id 覆盖 YAML)
-     */
-    private synchronized void reloadActiveRules() {
-        List<RuleDefinition> yamlRules = ruleEngineService.getYamlRules();
-        List<RuleDefinition> persistedRules = persistenceService.loadAll();
+    /** 重新加载生效规则——委派给 RuleConfigService（其构造时已 reload 一次）。 */
+    private void reloadActiveRules() {
+        ruleConfigService.reload();
+    }
 
-        List<RuleDefinition> merged = new ArrayList<>();
-        for (RuleDefinition rule : yamlRules) {
-            rule.setSource(RuleDefinition.Source.YAML);
-            merged.add(rule);
-        }
-        for (RuleDefinition rule : persistedRules) {
-            rule.setSource(RuleDefinition.Source.PERSISTED);
-            // 持久化规则同 id 覆盖 YAML
-            merged.removeIf(r -> r.getId().equals(rule.getId()));
-            merged.add(rule);
-        }
-
-        activeRules.clear();
-        activeRules.addAll(merged);
-        ruleEngineService.reloadRules(merged);
-        logger.info("规则已加载: YAML {} 条 + 持久化 {} 条 = {} 条",
-                yamlRules.size(), persistedRules.size(), merged.size());
+    /** 生效规则列表（下沉自 Controller，与场景模板共享）——所有读端点统一走此入口。 */
+    private List<RuleDefinition> activeRules() {
+        return ruleConfigService.getActiveRules();
     }
 
     /**
@@ -98,7 +81,7 @@ public class RuleConfigController {
     @GetMapping("/list")
     @Operation(summary = "获取所有规则列表", description = "获取全部路由规则(含 YAML 默认与持久化)")
     public ResponseEntity<RouterResponse<List<RuleDefinition>>> getAllRules() {
-        List<RuleDefinition> sorted = new ArrayList<>(activeRules);
+        List<RuleDefinition> sorted = new ArrayList<>(activeRules());
         sorted.sort((a, b) -> Integer.compare(b.getPriority(), a.getPriority()));
         return ResponseEntity.ok(RouterResponse.success(sorted));
     }
@@ -119,17 +102,10 @@ public class RuleConfigController {
     @PostMapping
     @Operation(summary = "创建规则", description = "创建新规则并热生效")
     public ResponseEntity<RouterResponse<RuleDefinition>> createRule(@RequestBody final RuleDefinition rule) {
-        validateRule(rule);
-        if (rule.getId() == null || rule.getId().isBlank()) {
-            rule.setId(UUID.randomUUID().toString());
-        }
-        if (activeRules.stream().anyMatch(r -> r.getId().equals(rule.getId()))) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Rule with id '" + rule.getId() + "' already exists");
-        }
-        persistenceService.save(rule);
-        reloadActiveRules();
-        return ResponseEntity.status(HttpStatus.CREATED).body(RouterResponse.success(rule));
+        // v0.2.0: 校验+id+重名+落库+热刷新下沉到 RuleConfigService，与场景模板 apply 共用；
+        // 逻辑逐字照搬自本方法原实现，对外行为不变。
+        RuleDefinition created = ruleConfigService.createValidated(rule);
+        return ResponseEntity.status(HttpStatus.CREATED).body(RouterResponse.success(created));
     }
 
     /**
@@ -325,7 +301,7 @@ public class RuleConfigController {
     @GetMapping("/stats")
     @Operation(summary = "规则命中统计", description = "返回各规则的累计命中与本月命中次数(基于内存计数)")
     public ResponseEntity<RouterResponse<List<RuleStat>>> getRuleStats() {
-        Map<String, RuleDefinition> activeById = activeRules.stream()
+        Map<String, RuleDefinition> activeById = activeRules().stream()
                 .collect(Collectors.toMap(RuleDefinition::getId, r -> r, (a, b) -> a));
         List<RuleStat> stats = ruleStatsService.getStats().stream()
                 .filter(s -> activeById.containsKey(s.getRuleId()))
@@ -336,10 +312,7 @@ public class RuleConfigController {
     }
 
     private RuleDefinition findRule(final String id) {
-        return activeRules.stream()
-                .filter(r -> r.getId().equals(id))
-                .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Rule not found: " + id));
+        return ruleConfigService.findRule(id);
     }
 
     /**

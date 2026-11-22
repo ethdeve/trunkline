@@ -70,6 +70,14 @@ class FixedRoleAccessPolicyTest {
         }
 
         @Test
+        @DisplayName("模型能力档案（v0.2.0）为 OPS——未登记会让 OPERATOR fail-closed 403")
+        void modelCapabilitiesAreOps() {
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/config/model-capabilities/list"));
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/config/model-capabilities/gpt-4o"));
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/config/model-capabilities/facets"));
+        }
+
+        @Test
         @DisplayName("调用历史列表（调用观测）为 OPS——修正存量运维 403 不一致")
         void callHistoryIsOps() {
             assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/call-history"));

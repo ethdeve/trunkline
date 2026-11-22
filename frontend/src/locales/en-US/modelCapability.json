@@ -1,0 +1,46 @@
+{
+  "modelCapability": {
+    "help": {
+      "title": "Model capability profiles",
+      "body": "Built-in capability baselines for mainstream models. Filter by use case, vendor and capability to pick a model without trying them all.",
+      "sourceNote": "Source: builtin=public baseline (not a vendor promise); probe=active measurement; resolver=name resolution; persisted/spi=site or enterprise injection."
+    },
+    "filter": {
+      "useCase": "Use case",
+      "vendor": "Vendor",
+      "serviceType": "Service type",
+      "preferStrength": "Prefer strength",
+      "maxLatency": "Max latency",
+      "any": "Any",
+      "apply": "Apply",
+      "reset": "Reset"
+    },
+    "col": {
+      "model": "Model / canonical",
+      "vendor": "Vendor",
+      "serviceType": "Type",
+      "strengths": "Strengths (code/chinese/math/reasoning)",
+      "functionCall": "Tool call",
+      "contextWindow": "Context",
+      "multimodal": "Multimodal",
+      "cost": "Cost",
+      "latency": "Latency",
+      "useCases": "Use cases",
+      "source": "Source"
+    },
+    "level": {
+      "high": "High",
+      "mid": "Mid",
+      "low": "Low",
+      "unknown": "Unknown"
+    },
+    "bool": {
+      "yes": "Yes",
+      "no": "No",
+      "unknown": "Unknown"
+    },
+    "messages": {
+      "fetchFailed": "Failed to load model capabilities"
+    }
+  }
+}

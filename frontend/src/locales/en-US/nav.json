@@ -37,6 +37,10 @@
       "title": "Virtual Models",
       "subtitle": "The model names employees use, backed by multiple provider models"
     },
+    "modelCapabilities": {
+      "title": "Model Capabilities",
+      "subtitle": "See what each model is good at, a reference for model selection"
+    },
     "routingRules": {
       "title": "Routing Rules",
       "subtitle": "Route requests to different models by conditions"
