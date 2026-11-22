@@ -283,7 +283,9 @@ public final class RuleDefinition {
     }
 
     public void setMatchMode(final String matchMode) {
-        this.matchMode = matchMode;
+        // 2026-11-22：null/空白回退默认 ALL，保持「缺省即 AND」契约；
+        // 引擎侧 ANY 判定对 null 天然为 false，但字段值也应稳定为 ALL 便于回显与持久化。
+        this.matchMode = (matchMode == null || matchMode.isBlank()) ? "ALL" : matchMode;
     }
 
     public List<Condition> getConditions() {

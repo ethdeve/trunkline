@@ -3,7 +3,6 @@ package org.unreal.modelrouter.console;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,14 +43,12 @@ public class PromptTemplateController {
 
     @GetMapping
     @Operation(summary = "列出全部提示词模板")
-    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<List<Map<String, Object>>>> list() {
         return ResponseEntity.ok(RouterResponse.success(store.list(KEY)));
     }
 
     @PostMapping
     @Operation(summary = "新增或更新模板（同 id 覆盖并保留版本历史）")
-    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<Map<String, Object>>> save(
             @RequestBody final Map<String, Object> body) {
         final String name = str(body.get("name"));
@@ -85,7 +82,6 @@ public class PromptTemplateController {
 
     @GetMapping("/{templateId}/versions")
     @Operation(summary = "查看模板版本历史")
-    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<List<Object>>> versions(@PathVariable final String templateId) {
         for (final Map<String, Object> t : store.list(KEY)) {
             if (templateId.equals(str(t.get("templateId")))) {
@@ -97,7 +93,6 @@ public class PromptTemplateController {
 
     @PostMapping("/compose")
     @Operation(summary = "按模板 id 顺序编排（返回拼接后的文本，不落库）")
-    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<Map<String, Object>>> compose(
             @RequestBody final Map<String, Object> body) {
         final List<?> ids = asList(body.get("templateIds"));
@@ -123,7 +118,6 @@ public class PromptTemplateController {
 
     @DeleteMapping("/{templateId}")
     @Operation(summary = "删除模板")
-    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<Void>> delete(@PathVariable final String templateId) {
         store.delete(KEY, "templateId", templateId);
         return ResponseEntity.ok(RouterResponse.success(null));

@@ -408,4 +408,57 @@ class RuleEngineServiceTest {
             assertEquals("vllm-adapter", d.getTargetAdapterName());
         }
     }
+
+    // ==================== matchMode ANY/ALL 组合 ====================
+
+    @Nested
+    @DisplayName("matchMode 条件组合（2026-11-22 整改：ANY 未实现）")
+    class MatchModeTests {
+
+        private RuleDefinition twoConditionRule(final String matchMode) {
+            RuleDefinition r = rule("mm-1", 1, true, null,
+                    action(RuleDefinition.ActionType.TARGET_ADAPTER, "vllm"));
+            // 两个条件：MODEL_NAME=gpt-4 且 CLIENT_IP=10.0.0.5
+            r.setConditions(List.of(
+                    cond(RuleDefinition.ConditionType.MODEL_NAME, RuleDefinition.Operator.EQUALS, "gpt-4"),
+                    cond(RuleDefinition.ConditionType.CLIENT_IP, RuleDefinition.Operator.EQUALS, "10.0.0.5")));
+            r.setMatchMode(matchMode);
+            return r;
+        }
+
+        @Test
+        @DisplayName("ANY 模式：只满足其中一个条件即命中")
+        void anyModeHitsWhenSingleConditionMatches() {
+            engine.reloadRules(List.of(twoConditionRule("ANY")));
+
+            // 只满足 MODEL_NAME（IP 不符）
+            assertNotNull(engine.evaluate(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1", null));
+            // 只满足 CLIENT_IP（模型不符）
+            assertNotNull(engine.evaluate(ModelServiceRegistry.ServiceType.chat, "claude-3", "10.0.0.5", null));
+            // 两个都不满足
+            assertNull(engine.evaluate(ModelServiceRegistry.ServiceType.chat, "claude-3", "1.1.1.1", null));
+        }
+
+        @Test
+        @DisplayName("ALL 模式（默认）：必须全部条件命中")
+        void allModeRequiresEveryCondition() {
+            engine.reloadRules(List.of(twoConditionRule("ALL")));
+
+            assertNotNull(engine.evaluate(ModelServiceRegistry.ServiceType.chat, "gpt-4", "10.0.0.5", null));
+            assertNull(engine.evaluate(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1", null));
+            assertNull(engine.evaluate(ModelServiceRegistry.ServiceType.chat, "claude-3", "10.0.0.5", null));
+        }
+
+        @Test
+        @DisplayName("matchMode 缺省为 ALL，大小写不敏感")
+        void defaultAndCaseInsensitive() {
+            RuleDefinition defaultMode = twoConditionRule(null);
+            assertEquals("ALL", defaultMode.getMatchMode());
+            engine.reloadRules(List.of(defaultMode));
+            assertNull(engine.evaluate(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1", null));
+
+            engine.reloadRules(List.of(twoConditionRule("any")));
+            assertNotNull(engine.evaluate(ModelServiceRegistry.ServiceType.chat, "gpt-4", "1.1.1.1", null));
+        }
+    }
 }

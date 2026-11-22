@@ -23,6 +23,8 @@ import org.unreal.modelrouter.persistence.jpa.repository.ModelProviderRepository
 import org.unreal.modelrouter.persistence.jpa.repository.ServiceConfigRepository;
 import org.unreal.modelrouter.persistence.jpa.repository.ServiceInstanceRepository;
 import org.unreal.modelrouter.router.model.ModelServiceRegistry;
+import org.unreal.modelrouter.router.model.InstanceKeys;
+import org.unreal.modelrouter.router.model.ModelRouterProperties;
 import org.unreal.modelrouter.router.circuitbreaker.CircuitBreakerManager;
 import org.unreal.modelrouter.common.util.SecurityUtils;
 import org.unreal.modelrouter.common.util.SensitiveHeaderSanitizer;
@@ -742,6 +744,8 @@ public class ServiceInstanceManager {
 
         InstanceRateLimitEntity saved = rateLimitRepository.save(entity);
         log.info("Saved rate limit config for instance: {}", instanceId);
+        // 2026-11-22 整改：落库后同步注册到运行时限流管理器（修复「配置只落库、不注册」断链）
+        applyInstanceRateLimit(instanceId, saved);
         return convertRateLimitToDTO(saved);
     }
 
@@ -751,6 +755,8 @@ public class ServiceInstanceManager {
     @Transactional
     public void deleteRateLimitConfig(final Long instanceId) {
         rateLimitRepository.deleteByInstanceId(instanceId);
+        // 2026-11-22 整改：对称移除运行时限流桶，回落为不限流
+        removeInstanceRateLimit(instanceId);
         log.info("Deleted rate limit config for instance: {}", instanceId);
     }
 
@@ -864,6 +870,85 @@ public class ServiceInstanceManager {
             log.info("Loaded existing instance circuit breaker configs into runtime manager");
         } catch (final Exception e) {
             log.warn("Skipped loading circuit breaker configs at startup (will apply on next save): {}",
+                    e.getMessage());
+        }
+    }
+
+    /**
+     * 2026-11-22 整改：保存限流配置后同步注册运行时实例限流桶。
+     *
+     * <p>原实现只调 rateLimitRepository.save，而 setInstanceRateLimiter 全仓零调用方，
+     * 导致 instanceLimiters 恒空、实例级限流完全不生效。key 口径统一用
+     * InstanceKeys.resolveParts（id → baseUrl → name），与消费侧 ServiceInstanceSelector
+     * 的 InstanceKeys.resolve 完全一致，避免「写入侧 Long id / 消费侧业务 key」错位。</p>
+     */
+    private void applyInstanceRateLimit(final Long instanceId, final InstanceRateLimitEntity saved) {
+        serviceInstanceRepository.findById(instanceId).ifPresent(inst -> {
+            final String serviceTypeName = serviceConfigRepository.findById(inst.getServiceConfigId())
+                    .map(ServiceConfigEntity::getServiceType).orElse(null);
+            final ModelServiceRegistry.ServiceType type = resolveServiceTypeEnum(serviceTypeName);
+            if (type == null) {
+                log.warn("跳过实例限流注册：无法识别服务类型 {}（dbId={}）", serviceTypeName, instanceId);
+                return;
+            }
+            final ModelRouterProperties.ModelInstance runtimeInstance =
+                    new ModelRouterProperties.ModelInstance();
+            runtimeInstance.setInstanceId(InstanceKeys.resolveParts(
+                    inst.getInstanceId(), inst.getBaseUrl(), inst.getInstanceName()));
+            runtimeInstance.setName(inst.getInstanceName());
+            runtimeInstance.setBaseUrl(inst.getBaseUrl());
+
+            final ModelRouterProperties.RateLimitConfig cfg = new ModelRouterProperties.RateLimitConfig();
+            cfg.setEnabled(saved.getEnabled());
+            cfg.setAlgorithm(saved.getAlgorithm());
+            cfg.setCapacity(saved.getCapacity() != null ? saved.getCapacity().longValue() : null);
+            cfg.setRate(saved.getRate() != null ? saved.getRate().longValue() : null);
+            cfg.setScope(saved.getScope());
+            cfg.setKey(saved.getRateLimitKey());
+            cfg.setClientIpEnable(saved.getClientIpEnable());
+
+            rateLimitManager.setInstanceRateLimiter(type, runtimeInstance, cfg);
+            log.info("Applied instance rate limiter after save: dbId={}, key={}, enabled={}",
+                    instanceId, runtimeInstance.getInstanceId(), saved.getEnabled());
+        });
+    }
+
+    /**
+     * 2026-11-22 整改：删除限流配置时对称移除运行时限流桶。
+     */
+    private void removeInstanceRateLimit(final Long instanceId) {
+        serviceInstanceRepository.findById(instanceId).ifPresent(inst -> {
+            final String serviceTypeName = serviceConfigRepository.findById(inst.getServiceConfigId())
+                    .map(ServiceConfigEntity::getServiceType).orElse(null);
+            final ModelServiceRegistry.ServiceType type = resolveServiceTypeEnum(serviceTypeName);
+            if (type == null) {
+                return;
+            }
+            final ModelRouterProperties.ModelInstance runtimeInstance =
+                    new ModelRouterProperties.ModelInstance();
+            runtimeInstance.setInstanceId(InstanceKeys.resolveParts(
+                    inst.getInstanceId(), inst.getBaseUrl(), inst.getInstanceName()));
+            rateLimitManager.removeInstanceRateLimiter(type, runtimeInstance);
+            log.info("Removed instance rate limiter after delete: dbId={}, key={}",
+                    instanceId, runtimeInstance.getInstanceId());
+        });
+    }
+
+    /**
+     * 2026-11-22 整改：启动加载，将 instance_rate_limit 表中既有配置注入运行时限流管理器。
+     *
+     * <p>仿照 {@link #loadCircuitBreakerConfigsIntoManager()}——否则历史配置只在保存后生效，
+     * 重启即丢失。包在 try/catch 中：Flyway 尚未完成迁移（表不存在）时仅告警，
+     * 待下次保存时再注入。</p>
+     */
+    @PostConstruct
+    public void loadRateLimitConfigsIntoManager() {
+        try {
+            rateLimitRepository.findAll().forEach(entity ->
+                    applyInstanceRateLimit(entity.getInstanceId(), entity));
+            log.info("Loaded existing instance rate limit configs into runtime manager");
+        } catch (final Exception e) {
+            log.warn("Skipped loading instance rate limit configs at startup (will apply on next save): {}",
                     e.getMessage());
         }
     }

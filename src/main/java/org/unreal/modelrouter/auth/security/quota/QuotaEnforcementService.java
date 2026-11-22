@@ -236,7 +236,8 @@ public class QuotaEnforcementService {
                         QuotaWindow.DAY,
                         apiKey.getDailyTokenLimit(),
                         todayUsed,
-                        retryAfter));
+                        retryAfter,
+                        "API Key " + apiKeyId));
             }
         } catch (Exception e) {
             log.warn("N-2 Token 配额预估校验异常，按放行处理: apiKeyId={}, error={}", apiKeyId, e.toString());
@@ -554,7 +555,9 @@ public class QuotaEnforcementService {
                                           final long limit,
                                           final long used,
                                           final LocalDateTime now) {
-        return new QuotaLimitViolation(metric, window, limit, used, retryAfterSeconds(window, now));
+        // 2026-11-22：本工厂仅用于 API Key 维度判定，显式传标签避免 describe() 回退为中性文案
+        return new QuotaLimitViolation(metric, window, limit, used,
+                retryAfterSeconds(window, now), "API Key");
     }
 
     /**

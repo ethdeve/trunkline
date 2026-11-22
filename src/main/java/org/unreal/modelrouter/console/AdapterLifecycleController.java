@@ -3,7 +3,6 @@ package org.unreal.modelrouter.console;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,7 +47,6 @@ public class AdapterLifecycleController {
 
     @GetMapping
     @Operation(summary = "列出所有适配器的生命周期状态（含未登记的，默认上线）")
-    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<List<Map<String, Object>>>> list() {
         final Map<String, Object> configured = store.getMap(KEY);
         final Map<String, Map<String, Object>> byName = new LinkedHashMap<>();
@@ -71,7 +69,6 @@ public class AdapterLifecycleController {
 
     @PostMapping("/{name}/state")
     @Operation(summary = "设置某适配器的生命周期状态")
-    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<Map<String, Object>>> set(
             @PathVariable final String name, @RequestBody final Map<String, Object> body) {
         if (!adapterNames().contains(name)) {

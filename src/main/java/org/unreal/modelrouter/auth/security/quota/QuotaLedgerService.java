@@ -485,15 +485,37 @@ public class QuotaLedgerService {
                                                               final LocalDateTime now) {
         // CAS 拒绝时计数未包含本笔，used 即当前窗口累计值
         final long[] usage = localBackend.totals(key);
+        // 2026-11-22：按命中维度生成可读标签，修正 429 文案统一误报为 API Key 的缺陷
+        final String scopeLabel = scopeLabelOf(key.dimension());
         if (maxRequests > 0L) {
             final long used = usage == null ? maxRequests : usage[0];
             final String metric = requestMetricFor(window);
             return Optional.of(new QuotaLimitViolation(metric, window, maxRequests,
-                    Math.max(0L, used), retryAfterSeconds(window, now)));
+                    Math.max(0L, used), retryAfterSeconds(window, now), scopeLabel));
         }
         final long usedTokens = usage == null ? maxTokens : usage[1];
         return Optional.of(new QuotaLimitViolation(tokenMetricFor(window),
-                window, maxTokens, Math.max(0L, usedTokens), retryAfterSeconds(window, now)));
+                window, maxTokens, Math.max(0L, usedTokens), retryAfterSeconds(window, now), scopeLabel));
+    }
+
+    /**
+     * 2026-11-22：按账本维度推导 429 文案前缀，优先「池 > 厂商模型 > API Key」。
+     * 池（分组桶）命中时带出池名，避免再误报为「API Key quota exceeded」。
+     */
+    private static String scopeLabelOf(final QuotaDimension dimension) {
+        if (dimension == null) {
+            return "Quota";
+        }
+        if (dimension.groupId() != null && !dimension.groupId().isEmpty()) {
+            return "模型分组 " + dimension.groupId();
+        }
+        if (dimension.model() != null && !dimension.model().isEmpty()) {
+            return "厂商模型 " + dimension.model();
+        }
+        if (dimension.apiKeyId() != null && !dimension.apiKeyId().isEmpty()) {
+            return "API Key " + dimension.apiKeyId();
+        }
+        return "Quota";
     }
 
     /** 取窗口对应的请求数限额指标名（对齐上游 3.4.0 四级窗口）。 */

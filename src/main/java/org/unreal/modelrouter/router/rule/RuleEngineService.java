@@ -80,11 +80,29 @@ public class RuleEngineService {
         return null;
     }
 
+    /**
+     * 条件组合求值：按 rule.matchMode 分流 ANY(OR) / ALL(AND)。
+     *
+     * <p>2026-11-22 整改：字段 {@code matchMode}（默认 {@code ALL}）此前只是预留、引擎从不读取，
+     * 导致 UI 配了 ANY 也恒按 AND 求值。现 ANY 只要任一条件命中即返回 true，ALL 保持原语义。
+     * evaluate 与 /rules/validate 共用本方法，两者语义天然一致。空条件列表在 evaluate 已被跳过，
+     * 此处 ALL 分支对空列表返回 true、ANY 分支返回 false，符合各自代数恒等值。</p>
+     */
     private boolean matches(final RuleDefinition rule,
                             final ModelServiceRegistry.ServiceType serviceType,
                             final String modelName,
                             final String clientIp,
                             final Map<String, String> headers) {
+        final boolean anyMode = "ANY".equalsIgnoreCase(rule.getMatchMode());
+        if (anyMode) {
+            for (RuleDefinition.Condition condition : rule.getConditions()) {
+                if (matchesCondition(condition, serviceType, modelName, clientIp, headers)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        // ALL（默认）：全部条件命中才通过
         for (RuleDefinition.Condition condition : rule.getConditions()) {
             if (!matchesCondition(condition, serviceType, modelName, clientIp, headers)) {
                 return false;

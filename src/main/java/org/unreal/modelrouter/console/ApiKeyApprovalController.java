@@ -3,7 +3,6 @@ package org.unreal.modelrouter.console;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -47,7 +46,6 @@ public class ApiKeyApprovalController {
     /** 员工提交申请：归属人从 principal 强制解析。 */
     @PostMapping
     @Operation(summary = "提交密钥申请单")
-    @PreAuthorize("hasAnyRole('USER','OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<Map<String, Object>>> submit(
             @RequestBody final Map<String, Object> body, final Authentication authentication) {
         final String purpose = body.get("purpose") == null ? "" : String.valueOf(body.get("purpose")).trim();
@@ -70,7 +68,6 @@ public class ApiKeyApprovalController {
     /** 我的申请单。 */
     @GetMapping("/mine")
     @Operation(summary = "列出我的申请单")
-    @PreAuthorize("hasAnyRole('USER','OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<List<Map<String, Object>>>> mine(final Authentication authentication) {
         final String user = authentication == null ? "anonymous" : authentication.getName();
         final List<Map<String, Object>> result = new java.util.ArrayList<>();
@@ -83,7 +80,6 @@ public class ApiKeyApprovalController {
     /** 管理端：全部申请单。 */
     @GetMapping
     @Operation(summary = "列出全部申请单")
-    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<List<Map<String, Object>>>> all() {
         final List<Map<String, Object>> result = new java.util.ArrayList<>();
         for (final Map<String, Object> r : store.list(KEY)) result.add(store.plain(r));
@@ -93,7 +89,6 @@ public class ApiKeyApprovalController {
     /** 审批：APPROVED / REJECTED。 */
     @PostMapping("/{requestId}/decide")
     @Operation(summary = "审批申请单")
-    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<Map<String, Object>>> decide(
             @PathVariable final String requestId,
             @RequestBody final Map<String, Object> body,

@@ -3,7 +3,6 @@ package org.unreal.modelrouter.console;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -52,7 +51,6 @@ public class GroupRoleMappingController {
 
     @GetMapping("/departments")
     @Operation(summary = "列出稳定部门注册表")
-    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<List<Map<String, Object>>>> departments() {
         return ResponseEntity.ok(RouterResponse.success(plainList(store.list(DEPT_KEY))));
     }
@@ -60,7 +58,6 @@ public class GroupRoleMappingController {
     /** 登记/更新部门，生成稳定 deptId（同部门名幂等）。 */
     @PostMapping("/departments")
     @Operation(summary = "登记部门（生成稳定 deptId）")
-    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<Map<String, Object>>> registerDepartment(
             @RequestBody final Map<String, Object> body) {
         final String name = body.get("name") == null ? "" : String.valueOf(body.get("name")).trim();
@@ -79,7 +76,6 @@ public class GroupRoleMappingController {
 
     @GetMapping("/mappings")
     @Operation(summary = "列出部门→角色白名单映射")
-    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<List<Map<String, Object>>>> mappings() {
         return ResponseEntity.ok(RouterResponse.success(plainList(store.list(MAP_KEY))));
     }
@@ -87,7 +83,6 @@ public class GroupRoleMappingController {
     /** 设置某部门的允许角色（仅白名单内角色生效）。 */
     @PostMapping("/mappings")
     @Operation(summary = "设置部门→角色白名单")
-    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<Map<String, Object>>> setMapping(
             @RequestBody final Map<String, Object> body) {
         final String deptId = body.get("deptId") == null ? "" : String.valueOf(body.get("deptId")).trim();
@@ -110,7 +105,6 @@ public class GroupRoleMappingController {
     /** 查询某部门可用角色（供账号管理页下拉用）。 */
     @GetMapping("/mappings/{deptId}/roles")
     @Operation(summary = "查询某部门允许的角色")
-    @PreAuthorize("hasAnyRole('USER','OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<List<String>>> rolesFor(@PathVariable final String deptId) {
         for (final Map<String, Object> m : store.list(MAP_KEY)) {
             if (deptId.equals(m.get("deptId"))) {
@@ -127,7 +121,6 @@ public class GroupRoleMappingController {
 
     @DeleteMapping("/mappings/{deptId}")
     @Operation(summary = "删除部门→角色映射")
-    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public ResponseEntity<RouterResponse<Void>> deleteMapping(@PathVariable final String deptId) {
         store.delete(MAP_KEY, "deptId", deptId);
         return ResponseEntity.ok(RouterResponse.success(null));

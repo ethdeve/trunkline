@@ -141,6 +141,44 @@ class FixedRoleAccessPolicyTest {
     }
 
     @Nested
+    @DisplayName("2026-11-22 整改新增：4 个 Controller 的 URL 矩阵兜底")
+    class NewlyRegisteredControllerEndpoints {
+
+        @Test
+        @DisplayName("提示词模板全方法为 OPS——含根路径与各子路径")
+        void promptTemplatesAreOps() {
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/config/prompt-templates"));
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.POST, "/api/config/prompt-templates"));
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/config/prompt-templates/t1/versions"));
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.POST, "/api/config/prompt-templates/compose"));
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.DELETE, "/api/config/prompt-templates/t1"));
+        }
+
+        @Test
+        @DisplayName("密钥申请：submit/mine 为 SELF，all/decide 为 OPS——USER 绝不能审批")
+        void apiKeyRequestsAreCorrectlyScoped() {
+            assertEquals(AccessLevel.SELF, levelOf(HttpMethod.POST, "/api/auth/api-key-requests"));
+            assertEquals(AccessLevel.SELF, levelOf(HttpMethod.GET, "/api/auth/api-key-requests/mine"));
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/auth/api-key-requests"));
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.POST, "/api/auth/api-key-requests/r1/decide"));
+            assertTrue(AccessLevel.SELF.isSatisfiedBy(java.util.List.of("ROLE_USER")),
+                    "USER 应能提交申请/查自己申请");
+            assertTrue(!AccessLevel.OPS.isSatisfiedBy(java.util.List.of("ROLE_USER")),
+                    "USER 绝不能越权审批");
+        }
+
+        @Test
+        @DisplayName("组织映射：rolesFor 为 SELF，其余为 OPS")
+        void groupRolesAreCorrectlyScoped() {
+            assertEquals(AccessLevel.SELF,
+                    levelOf(HttpMethod.GET, "/api/security/group-roles/mappings/d1/roles"));
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/security/group-roles/mappings"));
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.POST, "/api/security/group-roles/mappings"));
+            assertEquals(AccessLevel.OPS, levelOf(HttpMethod.GET, "/api/security/group-roles/departments"));
+        }
+    }
+
+    @Nested
     @DisplayName("我的可见租户（P2：SELF 供切换器使用）")
     class MyTenantsEndpoints {
 

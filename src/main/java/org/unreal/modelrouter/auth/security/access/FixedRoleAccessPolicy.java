@@ -120,6 +120,9 @@ public class FixedRoleAccessPolicy {
                 AccessRule.write("/api/config/circuit-breaker/**", AccessLevel.OPS),
                 AccessRule.get("/api/config/adapter/**", AccessLevel.OPS),
                 AccessRule.write("/api/config/adapter/**", AccessLevel.OPS),
+                // 提示词模板配置（PromptTemplateController）：2026-11-22 整改前未登记 URL 规则，
+                // OPERATOR 在 URL 层即被 fail-closed 403。删除方法级 @PreAuthorize 后由本条兜底。
+                AccessRule.any("/api/config/prompt-templates/**", AccessLevel.OPS),
                 AccessRule.get("/api/config/rules/**", AccessLevel.OPS),
                 AccessRule.write("/api/config/rules/**", AccessLevel.OPS),
                 AccessRule.get("/api/config/pools/**", AccessLevel.OPS),
@@ -168,6 +171,15 @@ public class FixedRoleAccessPolicy {
                 // 「全部密钥」菜单对运维可见 → OPS（修正存量 security:apikeys:manage 仅 ADMIN 的不一致）
                 AccessRule.any("/api/auth/api-keys/**", AccessLevel.OPS),
 
+                // 密钥申请（ApiKeyApprovalController）：2026-11-22 整改前未登记，USER 提交
+                // 申请/查自己申请在 URL 层就被 403。注意 api-keys/** ≠ api-key-requests。
+                // 首条命中优先：SELF 两条精确规则必须在 OPS 通配之前；decide 同为 POST，
+                // 靠「/mine + 根路径精确 SELF在前、/** OPS 在后」区分，切勿把 write 写宽到 /**，
+                // 否则 USER 可越权审批。
+                AccessRule.write("/api/auth/api-key-requests", AccessLevel.SELF),
+                AccessRule.get("/api/auth/api-key-requests/mine", AccessLevel.SELF),
+                AccessRule.any("/api/auth/api-key-requests/**", AccessLevel.OPS),
+
                 // 员工自助：账单/额度（我的额度 / 我的账单）
                 AccessRule.get("/api/billing/my/recent", AccessLevel.SELF),
                 AccessRule.get("/api/billing/my", AccessLevel.SELF),
@@ -180,6 +192,11 @@ public class FixedRoleAccessPolicy {
                 // 安全审计扩展（后端维持与旧矩阵一致的 OPS 有效权限；菜单仅管理员可见）
                 AccessRule.get("/api/security/audit/extended/**", AccessLevel.OPS),
                 AccessRule.write("/api/security/audit/extended/**", AccessLevel.OPS),
+
+                // 组织角色映射（GroupRoleMappingController）：2026-11-22 整改前未登记，USER
+                // 查本部门角色在 URL 层就被 403。rolesFor 精确 SELF 在前，其余 OPS 在后。
+                AccessRule.get("/api/security/group-roles/mappings/*/roles", AccessLevel.SELF),
+                AccessRule.any("/api/security/group-roles/**", AccessLevel.OPS),
 
                 // 慢查询 / 模型统计
                 AccessRule.get("/api/monitoring/slow-queries/**", AccessLevel.OPS),

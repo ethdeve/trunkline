@@ -16,13 +16,23 @@ package org.unreal.modelrouter.auth.security.quota;
  *                          {@link #METRIC_RATE_PER_MINUTE} 为请求数，{@link #METRIC_DAILY_TOKENS}
  *                          为 token 数）
  * @param retryAfterSeconds 距离窗口重置（下一窗口边界）的秒数，最小为 1
+ * @param scopeLabel        命中维度的可读标签（如 {@code API Key} / {@code 模型分组 xxx} /
+ *                          {@code 厂商模型 xxx}）；为空时 {@link #describe()} 回退为通用文案。
+ *                          2026-11-22：用于修正「池超限却报 API Key quota exceeded」的错标。
  * @author JAiRouter Team
  */
 public record QuotaLimitViolation(String metric,
                                  QuotaWindow window,
                                  long limit,
                                  long used,
-                                 long retryAfterSeconds) {
+                                 long retryAfterSeconds,
+                                 String scopeLabel) {
+
+    /** 兼容旧 5 参构造：不带维度标签，describe() 回退为通用文案。 */
+    public QuotaLimitViolation(final String metric, final QuotaWindow window,
+                               final long limit, final long used, final long retryAfterSeconds) {
+        this(metric, window, limit, used, retryAfterSeconds, null);
+    }
 
     /** 日请求数限额（{@code ApiKey.dailyRequestLimit}） */
     public static final String METRIC_DAILY_REQUESTS = "dailyRequestLimit";
@@ -57,10 +67,15 @@ public record QuotaLimitViolation(String metric,
     /**
      * 生成 429 响应体中使用的说明文本（响应体本身仍由仓库既有错误响应惯例渲染）。
      *
-     * @return 说明文本，如 {@code "API Key quota exceeded: metric=dailyTokenLimit, window=DAY, limit=1000, used=900"}
+     * <p>2026-11-22：前缀按 {@link #scopeLabel} 渲染，修正「池超限却报 API Key quota
+     * exceeded」的错标；未带标签时回退为中性 {@code Quota exceeded}，不再默认甩锅给 API Key。</p>
+     *
+     * @return 说明文本，如 {@code "模型分组 my-pool quota exceeded: metric=dailyRequestLimit, ..."}
      */
     public String describe() {
-        return "API Key quota exceeded: metric=" + metric + ", window=" + window.name()
+        final String prefix = (scopeLabel == null || scopeLabel.isBlank())
+                ? "Quota exceeded" : scopeLabel + " quota exceeded";
+        return prefix + ": metric=" + metric + ", window=" + window.name()
             + ", limit=" + limit + ", used=" + used;
     }
 }
