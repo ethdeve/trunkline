@@ -317,12 +317,14 @@ public class ExtendedSecurityAuditServiceImpl implements ExtendedSecurityAuditSe
                     Sort.by(Sort.Direction.fromString(query.getSortDirection()), query.getSortBy())
             );
 
-            // eventTypes 集合参数在 PG 上无法参与 `:x IS NULL` 判型（42P18），
-            // 查询侧已去掉 IS NULL 子句：null/空 = 不过滤，这里兜底传全枚举值。
+            // 只保留可落 security_audit.event_type 列的类型。枚举超集含身份/SCIM/KMS
+            // 等走 B1 链的类型，塞进 IN 参数会被 H2 enum CHECK 拒绝（SQL 22030 → 500）。
             final List<AuditEventType> effectiveEventTypes =
-                    (query.getEventTypes() == null || query.getEventTypes().isEmpty())
-                            ? Arrays.asList(AuditEventType.values())
-                            : query.getEventTypes();
+                    AuditEventType.normalizeForQuery(query.getEventTypes());
+            if (effectiveEventTypes.isEmpty()) {
+                // 请求的类型均不落本表（如 SCIM_* 记录在 B1 审计链）→ 本表无匹配
+                return java.util.Collections.<AuditEvent>emptyList();
+            }
 
             Page<SecurityAuditEventEntity> page = auditRepository.findByConditions(
                     query.getStartTime(),
@@ -348,12 +350,15 @@ public class ExtendedSecurityAuditServiceImpl implements ExtendedSecurityAuditSe
     @Override
     public Mono<Long> countAuditEvents(final AuditEventQuery query) {
         return Mono.fromCallable(() -> {
+            final List<AuditEventType> effectiveEventTypes =
+                    AuditEventType.normalizeForQuery(query.getEventTypes());
+            if (effectiveEventTypes.isEmpty()) {
+                return 0L;
+            }
             return auditRepository.countByConditions(
                     query.getStartTime(),
                     query.getEndTime(),
-                    (query.getEventTypes() == null || query.getEventTypes().isEmpty())
-                            ? Arrays.asList(AuditEventType.values())
-                            : query.getEventTypes(),
+                    effectiveEventTypes,
                     query.getUserId(),
                     query.getResourceId(),
                     query.getIpAddress(),

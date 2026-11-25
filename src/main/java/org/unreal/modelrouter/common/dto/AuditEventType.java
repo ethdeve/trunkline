@@ -1,5 +1,8 @@
 package org.unreal.modelrouter.common.dto;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * 审计事件类型枚举
  */
@@ -56,5 +59,45 @@ public enum AuditEventType {
 
     // 系统事件
     SYSTEM_CLEANUP,         // 系统清理
-    SYSTEM_MAINTENANCE      // 系统维护
+    SYSTEM_MAINTENANCE;     // 系统维护
+
+    /**
+     * 可落 security_audit.event_type 列的事件类型全集。
+     *
+     * <p>必须与两库 db/migration 目录下 V1__baseline.sql 中 security_audit.event_type 的
+     * enum/CHECK 定义保持一致（当前 17 项）。其余枚举值——身份生命周期、SCIM、KMS、
+     * 审批以及 DATA_ERASURE——走 B1 哈希审计链（eventType 为字符串，落 canonicalJson），
+     * 不写入该列。若把它们塞进该表的 IN 查询参数，H2 enum 列会报
+     * SQL 22030 Value not permitted for column（表现为审计查询端点 500）。</p>
+     */
+    private static final List<AuditEventType> PERSISTABLE_TYPES = List.of(
+            JWT_TOKEN_ISSUED, JWT_TOKEN_REFRESHED, JWT_TOKEN_REVOKED,
+            JWT_TOKEN_VALIDATED, JWT_TOKEN_EXPIRED,
+            API_KEY_CREATED, API_KEY_USED, API_KEY_REVOKED, API_KEY_EXPIRED, API_KEY_UPDATED,
+            SECURITY_ALERT, SUSPICIOUS_ACTIVITY, AUTHENTICATION_FAILED,
+            AUTHORIZATION_FAILED, DATA_SANITIZATION,
+            SYSTEM_CLEANUP, SYSTEM_MAINTENANCE);
+
+    /** 该类型是否可落 security_audit.event_type 列。 */
+    public static boolean isPersistable(AuditEventType type) {
+        return type != null && PERSISTABLE_TYPES.contains(type);
+    }
+
+    /**
+     * 归一化审计查询的 eventTypes 参数：
+     * null/空 → 全部可落库类型（等价“不过滤”，因为本表只可能存这 17 类）；
+     * 非空 → 剔除不可落库类型；返回空列表表示请求的类型均不在本表，调用方应直接返回空结果。
+     */
+    public static List<AuditEventType> normalizeForQuery(List<AuditEventType> requested) {
+        if (requested == null || requested.isEmpty()) {
+            return PERSISTABLE_TYPES;
+        }
+        List<AuditEventType> result = new ArrayList<>();
+        for (AuditEventType type : requested) {
+            if (isPersistable(type) && !result.contains(type)) {
+                result.add(type);
+            }
+        }
+        return result;
+    }
 }
