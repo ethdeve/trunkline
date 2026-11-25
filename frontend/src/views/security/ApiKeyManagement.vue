@@ -103,8 +103,8 @@
             </div>
           </template>
         </el-table-column>
-        <!-- 数据密级（#9 数据分级出境）：PUBLIC 跳过出境策略，其余按策略校验 -->
-        <el-table-column :label="t('apiKeys.columns.classification')" width="120" align="center">
+        <!-- 数据密级（#9 数据分级出境）：商业版能力，未解锁时整列隐藏（社区版零暴露） -->
+        <el-table-column v-if="classificationEnabled" :label="t('apiKeys.columns.classification')" width="120" align="center">
           <template #default="scope">
             <el-tag size="small" :type="classificationTagType(scope.row.classification)" effect="plain">
               {{ scope.row.classification || 'PUBLIC' }}
@@ -488,10 +488,17 @@
           <div class="proto-field__hint">{{ t('apiKeys.form.holderHint') }}</div>
         </div>
 
-        <!-- 数据密级（#9 数据分级出境）：决定该 Key 能否调用境外模型 -->
+        <!-- 数据密级（#9 数据分级出境）：商业版能力；未解锁显示「商业版」灰态锁，不可设置 -->
         <div class="proto-field">
-          <div class="proto-field__label">{{ t('apiKeys.form.classificationLabel') }}</div>
-          <el-select v-model="form.classification" style="width: 100%">
+          <div class="proto-field__label">
+            {{ t('apiKeys.form.classificationLabel') }}
+            <el-tooltip v-if="!classificationEnabled" :content="t('nav.feature.lockedTooltip')" placement="top">
+              <el-tag size="small" type="warning" class="proto-enterprise-tag">
+                <el-icon><Lock /></el-icon>{{ t('nav.feature.enterpriseBadge') }}
+              </el-tag>
+            </el-tooltip>
+          </div>
+          <el-select v-if="classificationEnabled" v-model="form.classification" style="width: 100%">
             <el-option
               v-for="opt in classificationOptions"
               :key="opt.value"
@@ -499,7 +506,11 @@
               :value="opt.value"
             />
           </el-select>
-          <div class="proto-field__hint">{{ t('apiKeys.form.classificationHint') }}</div>
+          <button v-else type="button" class="proto-locked-control" @click="onClassificationLockedClick">
+            <el-icon><Lock /></el-icon>
+            <span>{{ form.classification || 'PUBLIC' }}</span>
+          </button>
+          <div v-if="classificationEnabled" class="proto-field__hint">{{ t('apiKeys.form.classificationHint') }}</div>
         </div>
 
         <!-- 能用哪些虚拟模型 -->
@@ -716,7 +727,7 @@ import { usePersistedState } from '@/composables/usePersistedState'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { confirmDanger } from '@/utils/dangerConfirm'
 import { effectMessage, revokeMessage } from '@/utils/effectScope'
-import { Key, CircleCheck, CircleClose, Warning } from '@element-plus/icons-vue'
+import { Key, CircleCheck, CircleClose, Warning, Lock } from '@element-plus/icons-vue'
 import StatCard from '@/components/StatCard.vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import { formatDateTime } from '@/utils/format'
@@ -756,6 +767,16 @@ const enterpriseStore = useEnterpriseStore()
 const tenantStore = useTenantStore()
 /** 计费功能位（open-core 门控）：关（社区版）→ mixedPriceForGroups 恒 null，金额维度整页隐藏 */
 const billingEnabled = computed(() => enterpriseStore.billing)
+/**
+ * 数据密级（#9 数据分级出境）属商业版能力：
+ * 未解锁时密级列隐藏、编辑表单显示「商业版」灰态锁且提交不下发 classification，
+ * 与社区版 open-core 边界一致（企业版正常可设）。
+ */
+const classificationEnabled = computed(() => enterpriseStore.isEnabled('dataClassification'))
+/** 灰态锁点击：不修改，提示需商业版授权 */
+const onClassificationLockedClick = () => {
+  ElMessage({ message: t('nav.feature.lockedHint'), type: 'info', showClose: true })
+}
 /**
  * 多租户功能位（license 闸门）：开（企业版）→「全部密钥」按当前租户隔离，
  * 新建密钥自动绑定顶部当前租户；关（社区版）→ 无租户概念，行为与旧版一致。
@@ -1961,7 +1982,7 @@ const handleSave = async () => {
       const updateData: ApiKeyUpdateRequest = {
         description: form.value.description,
         holder: form.value.holder || undefined,
-        classification: form.value.classification,
+        ...(classificationEnabled.value ? { classification: form.value.classification } : {}),
         expiresAt: form.value.expiresAt || undefined,
         enabled: form.value.enabled,
         allowedIpAddresses: form.value.allowedIpAddresses,
@@ -1984,7 +2005,7 @@ const handleSave = async () => {
         keyId: form.value.keyId || undefined,
         description: form.value.description,
         holder: form.value.holder || undefined,
-        classification: form.value.classification,
+        ...(classificationEnabled.value ? { classification: form.value.classification } : {}),
         expiresAt: form.value.expiresAt || undefined,
         enabled: form.value.enabled,
         allowedIpAddresses: form.value.allowedIpAddresses,
@@ -2672,6 +2693,36 @@ const applyRoutePrefill = () => {
   font-size: 11.5px;
   color: var(--el-text-color-placeholder);
   line-height: 1.6;
+}
+
+/* 商业版灰态锁：label 旁的「商业版」徽章（与菜单/顶栏/设置子页同款） */
+.proto-enterprise-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  transform: scale(0.85);
+  transform-origin: left center;
+}
+
+/* 密级未解锁时的只读占位：灰态不可设置，点击提示需商业版授权 */
+.proto-locked-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px dashed var(--el-border-color);
+  border-radius: 4px;
+  background: var(--ja-bg-secondary, #f5f6f8);
+  color: var(--ja-text-placeholder, var(--el-text-color-placeholder));
+  font-size: 12.5px;
+  cursor: not-allowed;
+  opacity: 0.85;
+  text-align: left;
+}
+.proto-locked-control:hover {
+  opacity: 1;
 }
 
 /* 每月额度：金额输入下方的「每月Token上限」小标题 */
