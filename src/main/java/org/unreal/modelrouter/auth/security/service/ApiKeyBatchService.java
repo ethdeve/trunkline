@@ -202,6 +202,9 @@ public class ApiKeyBatchService {
                     try {
                         rotateKeyInternal(apiKey, apiKeyCache, keyIdIndex, now);
                         rotatedCount++;
+                        // 身份全生命周期举证：自动轮换也必须留痕（mode=auto，操作者=调度器）。
+                        auditHelper.auditApiKeyRotated(extendedAuditService, apiKey.getKeyId(),
+                                "scheduler", "auto");
                         log.info("自动轮换密钥: {}", apiKey.getKeyId());
                     } catch (Exception e) {
                         log.error("轮换密钥失败: {}", apiKey.getKeyId(), e);
@@ -267,7 +270,7 @@ public class ApiKeyBatchService {
             }
 
             // 记录审计
-            auditHelper.auditApiKeyRotated(extendedAuditService, keyId, rotatedBy);
+            auditHelper.auditApiKeyRotated(extendedAuditService, keyId, rotatedBy, "manual");
 
             log.info("强制轮换密钥成功: {}, 操作者: {}", keyId, rotatedBy);
 

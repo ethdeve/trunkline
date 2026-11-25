@@ -2,6 +2,7 @@ package org.unreal.modelrouter.console;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
+import org.unreal.modelrouter.auth.security.audit.ExtendedSecurityAuditService;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 
 import java.util.LinkedHashMap;
@@ -29,6 +31,10 @@ import java.util.UUID;
  *
  * <p>数据存放于 {@code config_data} 的 {@code console.api-key-requests}，零新表、
  * 零 V1 变更。申请人由服务端从 principal 解析，不信任前端传参（防越权）。</p>
+ *
+ * <p>身份全生命周期举证：提交（APPROVAL_SUBMITTED）与审批决定（APPROVAL_DECIDED）
+ * 均写安全审计进 B1 哈希链（fire-and-forget，审计故障不阻断业务）；审批决定记录
+ * 审批人与决定结果，举证链可回答「谁批了这把密钥」。</p>
  */
 @RestController
 @RequestMapping("/api/auth/api-key-requests")
@@ -37,10 +43,16 @@ public class ApiKeyApprovalController {
 
     static final String KEY = "console.api-key-requests";
 
-    private final ConsoleExtensionStore store;
+    private static final org.slf4j.Logger LOGGER =
+            org.slf4j.LoggerFactory.getLogger(ApiKeyApprovalController.class);
 
-    public ApiKeyApprovalController(final ConsoleExtensionStore store) {
+    private final ConsoleExtensionStore store;
+    private final ObjectProvider<ExtendedSecurityAuditService> auditServiceProvider;
+
+    public ApiKeyApprovalController(final ConsoleExtensionStore store,
+                                    final ObjectProvider<ExtendedSecurityAuditService> auditServiceProvider) {
         this.store = store;
+        this.auditServiceProvider = auditServiceProvider;
     }
 
     /** 员工提交申请：归属人从 principal 强制解析。 */
@@ -66,6 +78,9 @@ public class ApiKeyApprovalController {
         record.put("decidedBy", "");
         record.put("decisionNote", "");
         store.upsert(KEY, "requestId", record);
+        audit("APPROVAL_SUBMITTED", String.valueOf(record.get("applicant")),
+                Map.of("requestId", String.valueOf(record.get("requestId")),
+                        "desiredClassification", desiredClassification));
         return ResponseEntity.ok(RouterResponse.success(store.plain(record)));
     }
 
@@ -122,7 +137,30 @@ public class ApiKeyApprovalController {
             target.put("finalClassification", normalizeClassification(requested));
         }
         store.upsert(KEY, "requestId", target);
+        final Map<String, Object> auditExtra = new LinkedHashMap<>();
+        auditExtra.put("requestId", requestId);
+        auditExtra.put("decision", decision);
+        auditExtra.put("decisionNote", String.valueOf(target.get("decisionNote")));
+        if (target.containsKey("finalClassification")) {
+            auditExtra.put("finalClassification", String.valueOf(target.get("finalClassification")));
+        }
+        audit("APPROVAL_DECIDED", String.valueOf(target.get("decidedBy")), auditExtra);
         return ResponseEntity.ok(RouterResponse.success(store.plain(target)));
+    }
+
+    /** 审批事件审计：fire-and-forget，经 persist 统一出口进 B1 哈希链。 */
+    private void audit(final String eventType, final String operator, final Map<String, Object> extra) {
+        try {
+            final ExtendedSecurityAuditService svc = auditServiceProvider.getIfAvailable();
+            if (svc == null) {
+                return;
+            }
+            final String details = eventType + " " + extra;
+            svc.auditSecurityEvent(eventType, details, operator, null)
+                    .subscribe(null, err -> LOGGER.warn("审批审计写入失败（业务不受影响）: {}", err.getMessage()));
+        } catch (final RuntimeException e) {
+            LOGGER.warn("审批审计构造失败（业务不受影响）: {}", e.getMessage());
+        }
     }
 
     /** 密级归一化：大小写不敏感，三档之外（含 null / 空）一律回落 PUBLIC。 */

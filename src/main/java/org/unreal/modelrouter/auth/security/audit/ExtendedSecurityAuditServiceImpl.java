@@ -256,6 +256,13 @@ public class ExtendedSecurityAuditServiceImpl implements ExtendedSecurityAuditSe
             AuditEventType type = entityMapper.parseEventType(eventType);
             RiskLevel riskLevel = entityMapper.determineRiskLevel(type, false);
 
+            // 身份全生命周期举证：原始事件类型串必须留痕（枚举未覆盖时落库不丢真名）；
+            // success 按事件名推断（*FAILED 为失败，其余视为成功动作），不再硬编码 false。
+            Map<String, Object> identityMeta = new HashMap<>();
+            identityMeta.put("rawEventType", eventType);
+            identityMeta.put("details", details == null ? "" : details);
+            boolean success = !eventType.toUpperCase().endsWith("FAILED");
+
             SecurityAuditEventEntity entity = SecurityAuditEventEntity.builder()
                     .eventId(UUID.randomUUID().toString())
                     .eventType(type)
@@ -263,7 +270,8 @@ public class ExtendedSecurityAuditServiceImpl implements ExtendedSecurityAuditSe
                     .clientIp(ipAddress)
                     .action("SECURITY_EVENT")
                     .details(details)
-                    .success(false)
+                    .success(success)
+                    .metadata(entityMapper.toJson(identityMeta))
                     .riskLevel(riskLevel)
                     .timestamp(LocalDateTime.now())
                     .build();

@@ -281,13 +281,14 @@ class ExtendedSecurityAuditServiceImplTest {
     class SecurityEventAuditTests {
 
         @Test
-        @DisplayName("auditSecurityEvent - 成功记录安全事件")
+        @DisplayName("auditSecurityEvent - 成功记录安全事件（success 按事件名推断，原类型串留痕）")
         void testAuditSecurityEvent_Success() {
             // Arrange
             when(auditRepository.save(any(SecurityAuditEventEntity.class)))
                     .thenReturn(createMockEntity());
             when(entityMapper.parseEventType(anyString())).thenReturn(AuditEventType.SECURITY_ALERT);
             when(entityMapper.determineRiskLevel(any(), anyBoolean())).thenReturn(RiskLevel.HIGH);
+            when(entityMapper.toJson(anyMap())).thenReturn("{\"rawEventType\":\"SECURITY_ALERT\"}");
 
             // Act
             var result = service.auditSecurityEvent("SECURITY_ALERT", "Multiple failed logins", "user-001", "192.168.1.1");
@@ -295,8 +296,30 @@ class ExtendedSecurityAuditServiceImplTest {
             // Assert
             StepVerifier.create(result)
                     .verifyComplete();
+            verify(entityMapper).toJson(argThat(map ->
+                    // 原始事件类型必须写入 metadata（枚举未覆盖时不丢真名）
+                    map != null && "SECURITY_ALERT".equals(((java.util.Map<?, ?>) map).get("rawEventType"))
+            ));
+            // 非 *FAILED 事件推断为成功动作（旧行为硬编码 false 已修正）
             verify(auditRepository).save(argThat(entity ->
-                    !entity.getSuccess()
+                    Boolean.TRUE.equals(entity.getSuccess())
+            ));
+        }
+
+        @Test
+        @DisplayName("auditSecurityEvent - *FAILED 事件推断为失败")
+        void testAuditSecurityEvent_FailedEventMarkedUnsuccessful() {
+            when(auditRepository.save(any(SecurityAuditEventEntity.class)))
+                    .thenReturn(createMockEntity());
+            when(entityMapper.parseEventType(anyString())).thenReturn(AuditEventType.AUTHENTICATION_FAILED);
+            when(entityMapper.determineRiskLevel(any(), anyBoolean())).thenReturn(RiskLevel.MEDIUM);
+            when(entityMapper.toJson(anyMap())).thenReturn("{}");
+
+            var result = service.auditSecurityEvent("AUTHENTICATION_FAILED", "bad password", "user-001", "10.0.0.1");
+
+            StepVerifier.create(result).verifyComplete();
+            verify(auditRepository).save(argThat(entity ->
+                    Boolean.FALSE.equals(entity.getSuccess())
             ));
         }
 

@@ -103,7 +103,7 @@ class ConsoleExtensionsTest {
     @Test
     @DisplayName("APR-1: 提交→审批为 APPROVED，重复审批 409")
     void approvalStateMachine() {
-        ApiKeyApprovalController controller = new ApiKeyApprovalController(store);
+        ApiKeyApprovalController controller = new ApiKeyApprovalController(store, null);
         Authentication alice = new UsernamePasswordAuthenticationToken("alice", "n/a", List.of());
         Map<String, Object> req = controller.submit(Map.of("purpose", "测试用途"), alice).getBody().getData();
         String rid = String.valueOf(req.get("requestId"));
@@ -120,7 +120,7 @@ class ConsoleExtensionsTest {
     @Test
     @DisplayName("APR-2: 申请人由 principal 解析，不信前端传参")
     void approvalApplicantFromPrincipal() {
-        ApiKeyApprovalController controller = new ApiKeyApprovalController(store);
+        ApiKeyApprovalController controller = new ApiKeyApprovalController(store, null);
         Authentication alice = new UsernamePasswordAuthenticationToken("alice", "n/a", List.of());
         Map<String, Object> req = controller.submit(
                 Map.of("purpose", "用途", "applicant", "bob"), alice).getBody().getData();
@@ -130,7 +130,7 @@ class ConsoleExtensionsTest {
     @Test
     @DisplayName("APR-3: 非法 decision 返回 400")
     void approvalBadDecision() {
-        ApiKeyApprovalController controller = new ApiKeyApprovalController(store);
+        ApiKeyApprovalController controller = new ApiKeyApprovalController(store, null);
         Authentication admin = new UsernamePasswordAuthenticationToken("admin", "n/a", List.of());
         Map<String, Object> req = controller.submit(Map.of("purpose", "用途"), admin).getBody().getData();
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
@@ -141,7 +141,7 @@ class ConsoleExtensionsTest {
     @Test
     @DisplayName("APR-4: 申请单密级默认 PUBLIC，非法值回落 PUBLIC，合法值大小写归一")
     void approvalDesiredClassificationNormalized() {
-        ApiKeyApprovalController controller = new ApiKeyApprovalController(store);
+        ApiKeyApprovalController controller = new ApiKeyApprovalController(store, null);
         Authentication alice = new UsernamePasswordAuthenticationToken("alice", "n/a", List.of());
 
         Map<String, Object> defaultReq = controller.submit(Map.of("purpose", "默认密级"), alice).getBody().getData();
@@ -159,7 +159,7 @@ class ConsoleExtensionsTest {
     @Test
     @DisplayName("APR-5: 审批通过未指定 finalClassification → 沿用申请人期望密级")
     void approvalFinalClassificationInheritsDesired() {
-        ApiKeyApprovalController controller = new ApiKeyApprovalController(store);
+        ApiKeyApprovalController controller = new ApiKeyApprovalController(store, null);
         Authentication alice = new UsernamePasswordAuthenticationToken("alice", "n/a", List.of());
         Authentication admin = new UsernamePasswordAuthenticationToken("admin", "n/a", List.of());
         Map<String, Object> req = controller.submit(
@@ -173,7 +173,7 @@ class ConsoleExtensionsTest {
     @Test
     @DisplayName("APR-6: 审批显式 finalClassification 覆盖期望密级，拒绝单不写最终密级")
     void approvalFinalClassificationOverrideAndReject() {
-        ApiKeyApprovalController controller = new ApiKeyApprovalController(store);
+        ApiKeyApprovalController controller = new ApiKeyApprovalController(store, null);
         Authentication alice = new UsernamePasswordAuthenticationToken("alice", "n/a", List.of());
         Authentication admin = new UsernamePasswordAuthenticationToken("admin", "n/a", List.of());
         Map<String, Object> req = controller.submit(

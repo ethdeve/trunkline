@@ -25,11 +25,16 @@ class ApiKeyAuditHelper {
         }
     }
 
+    /**
+     * 密钥轮换审计（身份全生命周期举证）。
+     *
+     * @param mode {@code auto}=调度器自动轮换；{@code manual}=管理员强制轮换
+     */
     void auditApiKeyRotated(final ExtendedSecurityAuditService auditService,
-                            final String keyId, final String rotatedBy) {
+                            final String keyId, final String rotatedBy, final String mode) {
         if (auditService != null) {
             auditService.auditSecurityEvent("API_KEY_ROTATED",
-                    "密钥已轮换", keyId, null)
+                    "密钥已轮换 mode=" + mode + " operator=" + rotatedBy, keyId, null)
                     .onErrorResume(ex -> {
                         log.warn("记录密钥轮换审计失败: {}", ex.getMessage());
                         return Mono.empty();
