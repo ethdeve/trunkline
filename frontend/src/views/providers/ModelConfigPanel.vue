@@ -169,6 +169,28 @@
         </template>
       </el-table-column>
 
+      <!-- #9 数据分级出境：地域列为企业版业务 UI，OSS 仅提供空挂载位（契约见 extension/types.ts） -->
+      <el-table-column v-if="residencyEnabled" width="150" align="center">
+        <template #header>
+          <EnterpriseSlot
+            kind="residency-header"
+            :ctx="{ canWrite, onChanged: reloadAfterResidency }"
+            :enabled="residencyEnabled"
+          />
+        </template>
+        <template #default="scope">
+          <EnterpriseSlot
+            kind="residency-cell"
+              :ctx="{
+                instanceName: String(scope.row.runtimeInstanceId || scope.row.name),
+                canWrite,
+                onChanged: reloadAfterResidency
+              }"
+            :enabled="residencyEnabled"
+          />
+        </template>
+      </el-table-column>
+
       <!-- 熔断 · 限流：两个实例级开关竖排。
            紧跟「状态」列 —— 原来它们排在第 10/11 列，右侧被固定操作列挡住、
            首屏根本看不见，管理员不知道去哪儿找；现在一眼可见。 -->
@@ -336,10 +358,16 @@
         </template>
       </el-table-column>
 
-      <!-- 操作：编辑实例 / 删除实例（额度配置入口已移到「额度与限速」列） -->
-      <el-table-column :label="t('instance.actions')" width="120" align="center" fixed="right">
+      <!-- 操作：编辑实例 / 删除实例（地域入口由企业子应用注入空位，OSS 不含业务 UI） -->
+      <el-table-column :label="t('instance.actions')" width="160" align="center" fixed="right">
         <template #default="scope">
           <div class="row-actions">
+            <EnterpriseSlot
+              v-if="residencyEnabled"
+              kind="instance-region-action"
+              :ctx="regionActionCtx(scope.row)"
+              :enabled="residencyEnabled && canWrite"
+            />
             <el-button
               v-if="canWrite"
               link
@@ -491,6 +519,7 @@
       :is-edit="true"
       :advanced="true"
       :simplified="true"
+      :region-enabled="residencyEnabled"
     />
     <template #footer>
       <span class="dialog-footer">
@@ -499,6 +528,8 @@
       </span>
     </template>
   </el-dialog>
+
+  <!-- ==================== 企业业务 UI 已迁至企业子应用 module.mjs，经 EnterpriseSlot 注入 ==================== -->
 </template>
 
 <script setup lang="ts">
@@ -553,6 +584,7 @@ import {
   circuitStateOf as sharedCircuitStateOf
 } from '@/composables/useInstanceAvailability'
 import CircuitBreakerConfig from '@/components/CircuitBreakerConfig.vue'
+import EnterpriseSlot from '@/components/EnterpriseSlot.vue'
 import RateLimitConfig from '@/components/RateLimitConfig.vue'
 import UpstreamInstanceForm from '@/components/UpstreamInstanceForm.vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
@@ -563,6 +595,7 @@ import { confirmDanger } from '@/utils/dangerConfirm'
 import { useDependencyGuard } from '@/composables/useDependencyGuard'
 import { useQuotaLedger } from '@/composables/useQuotaLedger'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
+import type { InstanceRegionActionCtx } from '@/extension/types'
 
 const { t } = useI18n()
 // 企业功能位（billing 决定是否显示「价格」tab）
@@ -575,6 +608,39 @@ provide('skeletonEmbedded', true)
 const { multiWindowEnforced, loadQuotaLedgerState } = useQuotaLedger()
 const { hasPermission } = usePermission()
 const canWrite = computed(() => hasPermission('config:instances:write'))
+
+// ---------- #9 数据出境：OSS 只留功能位门控 + 宿主回调，业务 UI 全在企业子应用 ----------
+const residencyEnabled = computed(() => enterpriseStore.isEnabled('dataClassification'))
+
+/** 企业「区域设置」入口的上下文；函数指纹由 EnterpriseSlot 忽略，不会误触发重挂载。 */
+const regionActionCtx = (row: ModelRow): InstanceRegionActionCtx => ({
+  source: 'table',
+  instanceName: String(row.runtimeInstanceId || row.name),
+  tags: { ...(row.tags || {}) },
+  onApplyTags: (tags: Record<string, string>) => applyRegionTags(row, tags)
+})
+
+/**
+ * 宿主持久化：只做「合并 tags + PUT 全量保存」，不含任何企业文案/提示。
+ * 成功同步本地行数据，返回布尔供企业侧自行 toast。
+ */
+const applyRegionTags = async (row: ModelRow, tags: Record<string, string>): Promise<boolean> => {
+  const config = toInstanceConfig(row, (row.status || 'active').toLowerCase() as 'active' | 'inactive')
+  config.tags = tags
+  try {
+    const res = await updateServiceInstance(row.serviceType, String(row.id), config)
+    if (!res.data?.success) return false
+    row.tags = tags
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** 企业侧完成预填/确认后刷新宿主列表。 */
+const reloadAfterResidency = (): void => {
+  void load()
+}
 
 const modelConfigTableRef = ref()
 const { maxHeight: modelConfigMaxHeight } = useTableMaxHeight(modelConfigTableRef)

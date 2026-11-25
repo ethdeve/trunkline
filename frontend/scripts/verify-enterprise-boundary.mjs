@@ -32,7 +32,9 @@ const FORBIDDEN = [
   '/v1/enterprise/alert-channels',
   '/config/prompt-templates',
   '/security/group-roles',
-  '/auth/api-key-requests'
+  '/auth/api-key-requests',
+  '/config/data-residency',
+  '/config/egress-policies'
 ]
 
 function walk(dir, base = '') {

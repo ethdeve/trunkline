@@ -12,6 +12,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.stereotype.Component;
+import org.unreal.modelrouter.auth.security.model.JwtPrincipal;
+import org.unreal.modelrouter.auth.security.util.RoleScopeParser;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
@@ -62,10 +64,44 @@ public class FixedRoleAuthorizationManager
         final AccessLevel level = rule.get().level();
         return authentication
                 .map(auth -> new AuthorizationDecision(
-                        isAuthenticated(auth) && level.isSatisfiedBy(roleAuthorities(auth))))
+                        isAuthenticated(auth) && isSatisfied(auth, level)))
                 .doOnNext(decision -> log.debug("固定权限判定: method={}, path={}, level={}, decision={}",
                         method, path, level, decision.isGranted()))
                 .defaultIfEmpty(new AuthorizationDecision(false));
+    }
+
+    /**
+     * 按级别裁决。{@link AccessLevel#PLATFORM} 必须读 JWT 的 {@code tenantRoles} claim 做
+     * 二维作用域判定——扁平 {@code ROLE_ADMIN} 无法区分「全局超管」与「租户级 ADMIN」
+     * （后者经 allRoles() 同样持有 ROLE_ADMIN）。其余级别沿用扁平 authority 判定。
+     */
+    private boolean isSatisfied(final Authentication auth, final AccessLevel level) {
+        if (level == AccessLevel.PLATFORM) {
+            return isPlatformAdmin(auth);
+        }
+        return level.isSatisfiedBy(roleAuthorities(auth));
+    }
+
+    /**
+     * 平台超管判定（纯作用域表达，不新增 PLATFORM_ADMIN 角色名）：
+     * <ol>
+     *   <li>无 {@code JwtPrincipal} details（API-Key / 内部主体）→ false，fail-closed；</li>
+     *   <li>无 {@code tenantRoles} claim（社区版 / 旧令牌）→ 扁平 ROLE_ADMIN 即全局超管，
+     *       判定链与改造前逐字一致（社区版零回归）；</li>
+     *   <li>有 claim → 仅全局作用域 ADMIN（{@code {t:"*",r:"ADMIN"}}）放行；
+     *       {@code {t:"t1",r:"ADMIN"}} 租户管理员拒绝。</li>
+     * </ol>
+     */
+    private boolean isPlatformAdmin(final Authentication auth) {
+        if (!(auth.getDetails() instanceof JwtPrincipal principal)) {
+            return false;
+        }
+        if (!principal.hasTenantRoles()) {
+            return roleAuthorities(auth).stream()
+                    .anyMatch(role -> "ROLE_ADMIN".equalsIgnoreCase(role));
+        }
+        return RoleScopeParser.fromList(principal.getTenantRoles())
+                .globalRoles().contains("ADMIN");
     }
 
     /**

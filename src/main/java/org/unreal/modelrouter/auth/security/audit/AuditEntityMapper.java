@@ -133,6 +133,10 @@ public class AuditEntityMapper {
         if (type == AuditEventType.JWT_TOKEN_REVOKED || type == AuditEventType.API_KEY_REVOKED) {
             return RiskLevel.MEDIUM;
         }
+        // #10 被遗忘权擦除属高敏合规操作，显式归 MEDIUM（不被默判为 SYSTEM/低风险）
+        if (type == AuditEventType.DATA_ERASURE) {
+            return RiskLevel.MEDIUM;
+        }
         return RiskLevel.LOW;
     }
 

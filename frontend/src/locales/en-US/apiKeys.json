@@ -82,7 +82,8 @@
       "monthlyQuota": "Monthly quota",
       "monthlyUsed": "Used this month",
       "allowedGroups": "Available virtual models",
-      "holder": "Holder"
+      "holder": "Holder",
+      "classification": "Classification"
     },
     "status": {
       "alert": "Alert",
@@ -160,7 +161,9 @@
       "monthlyTokenOnlyHint": "Unit: tokens, 0 = unlimited. The selected virtual models have no price configured, so a CNY amount cannot be derived.",
       "perMonth": "month",
       "groupsLabel": "Which virtual models can this person use?",
-      "holderLabel": "Who is it for?"
+      "holderLabel": "Who is it for?",
+      "classificationLabel": "Data classification",
+      "classificationHint": "Public has no egress restriction and may use cache; Internal and Confidential only allow domestic/private models and bypass the response cache. Defaults to Public."
     },
     "permissions": {
       "chat": "Chat",

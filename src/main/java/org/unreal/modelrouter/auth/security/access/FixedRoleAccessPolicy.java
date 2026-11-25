@@ -134,6 +134,18 @@ public class FixedRoleAccessPolicy {
                 // 一键虚拟模型（v0.2.0，ScenarioTemplateController）：建池/建规则均为 OPS 动作。
                 AccessRule.get("/api/config/scenarios/**", AccessLevel.OPS),
                 AccessRule.write("/api/config/scenarios/**", AccessLevel.OPS),
+                // 数据分级出境（#9）：密级字典/出境策略只读给 OPS，策略写与地域确认收紧到 ADMIN
+                // （地域确认即合规裁决，仿价格 write=ADMIN）；未登记时 fail-closed 仅 ADMIN。
+                AccessRule.any("/api/config/data-classification/**", AccessLevel.OPS),
+                AccessRule.get("/api/config/egress-policies/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/egress-policies/**", AccessLevel.ADMIN),
+                AccessRule.get("/api/config/data-residency/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/data-residency/**", AccessLevel.ADMIN),
+
+                // #10 被遗忘权擦除：本人擦自己=SELF（归属由服务端从 principal 强制解析）；
+                // 擦整租户=ADMIN（高危，须平台授权）。两条必须精确优先于任何通配规则。
+                AccessRule.any("/api/privacy/erasure/mine", AccessLevel.SELF),
+                AccessRule.any("/api/privacy/erasure/tenant", AccessLevel.ADMIN),
 
                 // 监控（Token 用量 / 熔断监控 / 限流监控 / 路由监控 / 指标）
                 AccessRule.get("/api/token-usage/**", AccessLevel.OPS),
@@ -164,6 +176,13 @@ public class FixedRoleAccessPolicy {
                 // 拿不到自己的租户集，又会回到「切租户账单不显示」的 bug。身份收窄在
                 // 企业侧 VisibleTenantService 内做，URL 层只保证"已登录可读自己的可见集"。
                 AccessRule.get("/api/v1/enterprise/tenants/mine", AccessLevel.SELF),
+                // 平台级租户管理（A 口径收紧）：开通/停用租户是平台级最高危操作，仅全局作用域
+                // ADMIN（{t:"*",r:"ADMIN"} 或旧格式 ["ADMIN"]）可执行。租户级 {t:"t1",r:"ADMIN"}
+                // 经 allRoles() 也持有扁平 ROLE_ADMIN，由 FixedRoleAuthorizationManager 的
+                // PLATFORM 专门分支读 tenantRoles claim 拒绝（403），不会因落 fail-closed 兜底而放行。
+                // 首条命中优先：上面的 /tenants/mine SELF 必须排在本通配规则之前，不能被吞掉。
+                AccessRule.any("/api/v1/enterprise/tenants", AccessLevel.PLATFORM),
+                AccessRule.any("/api/v1/enterprise/tenants/*", AccessLevel.PLATFORM),
                 // 企业用量总览（P1）：只读跨租户汇总，允许平台超管 + 审计员。必须显式登记——
                 // 未登记会落 fail-closed 仅 ADMIN，AUDITOR 在 URL 层就被 403 到不了 Controller；
                 // 也不能登记为 SELF/OPS，否则 USER/OPERATOR 越权读到跨租户金额。不进豁免清单：

@@ -54,6 +54,16 @@ public final class ApiKeyCreateRequest {
     private List<String> permissions;
 
     /**
+     * 数据密级（#9 数据分级出境）：PUBLIC / INTERNAL / CONFIDENTIAL（大小写不敏感）。
+     *
+     * <p>由服务端写入 {@code ApiKey.metadata.classification}，作为出境策略的信任锚；
+     * 请求头自报一律不采信。为 null / 空 / 非法值时按 {@code PUBLIC} 兜底
+     * （与 {@code DataClassification.fromCode()} 口径一致），不改变首版默认 PUBLIC 的行为。</p>
+     */
+    @Size(max = 32, message = "密级长度不能超过32字符")
+    private String classification;
+
+    /**
      * 可访问的模型分组（资源池 / pool）白名单（按分组名匹配）。
      * 为空表示不限制。
      */

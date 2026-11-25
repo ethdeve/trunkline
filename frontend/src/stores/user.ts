@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import request from '@/utils/request'
+import request, { beginAuthTransition, endAuthTransition } from '@/utils/request'
 import { i18n } from '@/i18n'
 import type { ApiResponse, RouterResponse } from '@/types'
 import type { LogicalRole } from '@/config/menu'
@@ -45,6 +45,23 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  // 从JWT token解析二维角色绑定（tenantRoles claim），用于「全局 ADMIN / 平台超管」判定。
+  // 旧格式（社区版 / 存量令牌）无此 claim → 返回 []，由 isGlobalAdmin 走扁平 ADMIN 兼容分支。
+  const parseTenantRolesFromToken = (
+    jwtToken: string
+  ): Array<{ t?: string; r?: string }> => {
+    try {
+      const payload = JSON.parse(atob(jwtToken.split('.')[1]))
+      const claim = payload.tenantRoles
+      if (!Array.isArray(claim)) return []
+      return claim.filter(
+        (b: unknown): b is { t?: string; r?: string } => !!b && typeof b === 'object'
+      )
+    } catch {
+      return []
+    }
+  }
+
   // 从JWT token解析用户名
   const parseUsernameFromToken = (jwtToken: string): string => {
     try {
@@ -70,6 +87,24 @@ export const useUserStore = defineStore('user', () => {
   // 检查是否为管理员
   const isAdmin = computed(() => {
     return userInfo.value?.roles?.includes('ADMIN') || false
+  })
+
+  /**
+   * 平台超管判定（与后端 FixedRoleAuthorizationManager.isPlatformAdmin 纯作用域口径对称）：
+   * 无 tenantRoles claim（社区版/旧令牌）→ 扁平 ADMIN 即超管，零回归；
+   * 有 claim → 必须含全局绑定 {t:"*",r:"ADMIN"}；{t:"t1",r:"ADMIN"} 租户管理员为 false。
+   * 仅用于菜单/路由体验层隐藏，安全底线由后端 PLATFORM URL 判定兜底。
+   */
+  const isGlobalAdmin = computed<boolean>(() => {
+    const bindings = parseTenantRolesFromToken(token.value || '')
+    if (bindings.length === 0) {
+      return userInfo.value?.roles?.includes('ADMIN') || false
+    }
+    return bindings.some(
+      b =>
+        String(b.t ?? '').toLowerCase() === '*' &&
+        String(b.r ?? '').toUpperCase() === 'ADMIN'
+    )
   })
 
   /**
@@ -240,17 +275,44 @@ export const useUserStore = defineStore('user', () => {
     } catch (error) {
       console.error('登出请求失败:', error)
     } finally {
-      clearToken()
-      // G4-5：租户上下文随账号走。不清会导致同一浏览器换账号登录后继承上一账号的
-      // X-Tenant-Id（请求拦截器每请求注入），形成跨账号数据串扰。
-      localStorage.removeItem('trunkline_tenant_id')
-      // P1 员工侧⑤：员工白名单缓存是模块级的，跨登录会话复用会造成越权泄漏
-      // （A 登出后 B 登录会继承 A 的「不限制」状态）。登出即清。
+      // 登出过渡窗口：从现在起到重置完成，期间发起的请求一律静默挂起。
+      // 不这么做的话，仍挂载的视图（MyQuotaView 等十余处 watch(currentTenantId)）
+      // 会在 tenant store 重置时同步触发重新请求——token 已清空 → 401/403 →
+      // 弹出「你还没有这个模型的使用权限」这类与登出无关的假错误。
+      beginAuthTransition()
       try {
-        const { resetEmployeeScopeCache } = await import('@/composables/useEmployeeModelScope')
-        resetEmployeeScopeCache()
-      } catch {
-        /* 动态导入失败不影响登出主流程 */
+        clearToken()
+        // G4-5：租户上下文随账号走。不清会导致同一浏览器换账号登录后继承上一账号的
+        // X-Tenant-Id（请求拦截器每请求注入），形成跨账号数据串扰。
+        localStorage.removeItem('trunkline_tenant_id')
+        // 先导航到登录页卸载全部控制台视图（销毁所有 watch(currentTenantId) 的
+        // watcher），再重置 tenant store——顺序反了 watcher 会立即用空 token 重发请求。
+        // 调用方（ConsoleLayout / CommandPalette）随后再 push 一次是同路由幂等操作。
+        try {
+          const { default: router } = await import('@/router')
+          await router.push({ name: 'login' })
+        } catch {
+          /* 导航失败不阻塞登出清理 */
+        }
+        // 越权修复：tenant store 的 pinia 模块单例会缓存上一账号的可见租户列表与 loaded 态，
+        // 换账号后若不重置，切换器会继承上一账号能看到的其他租户（横向下拉泄漏）。动态导入
+        // 规避 user/tenant store 循环依赖；即便此步失败，tenant store 的 token 指纹检测仍会兜底重拉。
+        try {
+          const { useTenantStore } = await import('@/stores/tenant')
+          useTenantStore().resetForAccountSwitch()
+        } catch {
+          /* 动态导入失败不影响登出主流程，token 指纹检测兜底 */
+        }
+        // P1 员工侧⑤：员工白名单缓存是模块级的，跨登录会话复用会造成越权泄漏
+        // （A 登出后 B 登录会继承 A 的「不限制」状态）。登出即清。
+        try {
+          const { resetEmployeeScopeCache } = await import('@/composables/useEmployeeModelScope')
+          resetEmployeeScopeCache()
+        } catch {
+          /* 动态导入失败不影响登出主流程 */
+        }
+      } finally {
+        endAuthTransition()
       }
     }
   }
@@ -286,6 +348,7 @@ export const useUserStore = defineStore('user', () => {
     token,
     userInfo,
     isAdmin,
+    isGlobalAdmin,
     logicalRoles,
     hasLogicalRole,
     hasLogicalRoleOneOf,

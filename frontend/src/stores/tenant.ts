@@ -40,6 +40,14 @@ export const useTenantStore = defineStore('tenant', () => {
   const loaded = ref(false)
   /** 上次成功加载时的失效信号版本；与 localStorage 当前值不一致即视为过期 */
   let cachedRev = localStorage.getItem(REV_KEY) || ''
+  /**
+   * 上次成功加载时的身份指纹（JWT token）。可见租户是「按身份收窄」的结果，
+   * 账号切换后必须重算——否则同一浏览器 A 登出换 B 登录时，pinia 模块单例的
+   * loaded/tenants 仍是 A 的可见集，B 会看到 A 的租户下拉（含无权租户）。
+   * 用 token 而非 username：覆盖 SSO / 刷新 / 令牌轮换等所有改 token 的路径，
+   * 且无需在 user store 与各登录入口埋点，单一职责。
+   */
+  let loadedToken: string | null = null
 
   /** 并发去重 */
   let pending: Promise<void> | null = null
@@ -69,11 +77,20 @@ export const useTenantStore = defineStore('tenant', () => {
   const ensureLoaded = async (force = false): Promise<void> => {
     if (!available.value) return
     const rev = localStorage.getItem(REV_KEY) || ''
-    const stale = rev !== cachedRev
+    // 身份变化即失效：与上次加载用的 token 不一致，说明换了账号（或令牌轮换），
+    // 必须重拉 /mine 收窄可见集，禁止复用上一账号的租户列表（水平越权显示面）。
+    const currentToken = localStorage.getItem('admin_token')
+    const identityChanged = loadedToken !== currentToken
+    const stale = rev !== cachedRev || identityChanged
     if (!force && loaded.value && !stale) return
     if (pending) return pending
 
     pending = (async () => {
+      // 身份已变：先清空上一账号的可见集，避免重拉期间短暂显示无权租户。
+      if (identityChanged) {
+        tenants.value = []
+        deploymentTenantCount.value = 0
+      }
       try {
         const result = await listMyTenants()
         tenants.value = result.tenants
@@ -89,6 +106,7 @@ export const useTenantStore = defineStore('tenant', () => {
         deploymentTenantCount.value = 0
       } finally {
         cachedRev = rev
+        loadedToken = currentToken
         loaded.value = true
         pending = null
       }
@@ -103,6 +121,23 @@ export const useTenantStore = defineStore('tenant', () => {
     pending = null
   }
 
+  /**
+   * 账号切换/登出时彻底重置：清空可见集与身份指纹、租户选择回落 default。
+   * 与 token 指纹检测形成双保险——即使某条登录路径没经过这里，ensureLoaded
+   * 也会因 token 变化自行重拉。
+   */
+  const resetForAccountSwitch = () => {
+    tenants.value = []
+    deploymentTenantCount.value = 0
+    loaded.value = false
+    pending = null
+    loadedToken = null
+    cachedRev = localStorage.getItem(REV_KEY) || ''
+    localStorage.removeItem(REV_KEY)
+    currentTenantId.value = 'default'
+    localStorage.removeItem(STORAGE_KEY)
+  }
+
   return {
     tenants,
     deploymentTenantCount,
@@ -111,6 +146,7 @@ export const useTenantStore = defineStore('tenant', () => {
     available,
     setTenant,
     ensureLoaded,
-    invalidate
+    invalidate,
+    resetForAccountSwitch
   }
 })

@@ -59,6 +59,9 @@ export function usePermission() {
               // 用 deploymentTenantCount 而非可见集长度：平台超管看全部、USER 只看密钥租户，
               // 二者可见数不同，但「部署是否多租户」对所有人是同一个事实（M11 决策）。
               tenant.deploymentTenantCount >= (item.minTenants ?? 0) &&
+              // 平台超管专属：租户级 {t:"t1",r:"ADMIN"} 扁平也是 admin，按全局作用域再收一层。
+              // 与后端 PLATFORM URL 判定同口径；旧令牌（无 tenantRoles claim）isGlobalAdmin=true 零回归。
+              (!item.requireGlobalAdmin || userStore.isGlobalAdmin) &&
               ((hasPermission(item.permission) && userStore.hasLogicalRoleOneOf(item.roles)) ||
                 // P0-B 置灰例外：命中 greyFor 的角色保留该项，标记为 greyed
                 (!!item.greyFor?.length && userStore.hasLogicalRoleOneOf(item.greyFor)))

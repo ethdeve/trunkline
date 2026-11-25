@@ -46,6 +46,15 @@ public final class ApiKeyUpdateRequest {
     private List<String> permissions;
 
     /**
+     * 数据密级（#9 数据分级出境）：PUBLIC / INTERNAL / CONFIDENTIAL（大小写不敏感）。
+     *
+     * <p>为 null 时不修改密级；传入时按 {@code DataClassification.fromCode()} 归一化写入
+     * {@code ApiKey.metadata.classification}，非法值兜底 PUBLIC。密级变更会记入审计日志。</p>
+     */
+    @Size(max = 32, message = "密级长度不能超过32字符")
+    private String classification;
+
+    /**
      * 可访问的模型分组（资源池 / pool）白名单（按分组名匹配）。
      * 为空表示不限制。
      */

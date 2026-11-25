@@ -198,9 +198,19 @@ class FixedRoleAccessPolicyTest {
         }
 
         @Test
-        @DisplayName("管理端全量列表仍不登记（fail-closed 仅 ADMIN），不与 /mine 混淆")
-        void managementListStaysUnmatched() {
-            assertTrue(policy.findRule(HttpMethod.GET, "/api/v1/enterprise/tenants").isEmpty());
+        @DisplayName("管理端租户开通/停用显式登记 PLATFORM（仅全局 ADMIN），不与 /mine 的 SELF 混淆")
+        void managementEndpointsArePlatformLevel() {
+            // A 口径收紧：平台级端点不再落 fail-closed 兜底，而是显式 PLATFORM 级别，
+            // 由 FixedRoleAuthorizationManager 读 tenantRoles claim 区分全局/租户级 ADMIN。
+            assertEquals(AccessLevel.PLATFORM,
+                    levelOf(HttpMethod.GET, "/api/v1/enterprise/tenants"));
+            assertEquals(AccessLevel.PLATFORM,
+                    levelOf(HttpMethod.POST, "/api/v1/enterprise/tenants"));
+            assertEquals(AccessLevel.PLATFORM,
+                    levelOf(HttpMethod.DELETE, "/api/v1/enterprise/tenants/t2"));
+            // /mine 必须仍是 SELF——首条命中优先，不能被 PLATFORM 通配吞掉
+            assertEquals(AccessLevel.SELF,
+                    levelOf(HttpMethod.GET, "/api/v1/enterprise/tenants/mine"));
         }
     }
 

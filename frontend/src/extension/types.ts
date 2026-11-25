@@ -45,6 +45,49 @@ export interface EnterpriseMenuGroup {
   children: EnterpriseMenuChild[]
 }
 
+/**
+ * 宿主预留的企业挂载位类型（OSS 冻结面机制，不含业务语义）。
+ *
+ * v1.1 追加：模型配置页的地域能力是企业版业务 UI，OSS 只提供空挂载位，
+ * 由企业子应用 module.mjs 的 mountSlot() 渲染；老模块未实现该方法时挂载位为空。
+ */
+export type EnterpriseSlotKind =
+  | 'instance-region-action'
+  | 'residency-header'
+  | 'residency-cell'
+
+/** 操作列 / 编辑弹窗的区域设置入口上下文。宿主只传数据与回调，不提供企业 API 或文案。 */
+export interface InstanceRegionActionCtx {
+  /** table=列表操作列（宿主 PUT 保存）；form=编辑弹窗（宿主改本地表单） */
+  source: 'table' | 'form'
+  instanceName: string
+  /** 只读快照；企业侧合并后经 onApplyTags 交还 */
+  tags: Record<string, string>
+  /** 企业侧交还合并后的 tags；持久化方式由宿主决定，结果由企业侧自行提示 */
+  onApplyTags: (tags: Record<string, string>) => void | Promise<boolean>
+}
+
+/** 地域列表头上下文（自动预填入口）。 */
+export interface ResidencyHeaderCtx {
+  /** 宿主已判定的写权限，企业侧不再重复取权限 */
+  canWrite: boolean
+  /** 企业侧完成预填/确认后通知宿主刷新行数据 */
+  onChanged: () => void
+}
+
+/** 地域单元格上下文。 */
+export interface ResidencyCellCtx {
+  instanceName: string
+  canWrite: boolean
+  /** 企业侧完成预填/确认后通知宿主刷新行数据 */
+  onChanged: () => void
+}
+
+export type EnterpriseSlotCtx =
+  | InstanceRegionActionCtx
+  | ResidencyHeaderCtx
+  | ResidencyCellCtx
+
 export interface EnterpriseModule {
   manifest: {
     version: string
@@ -61,5 +104,15 @@ export interface EnterpriseModule {
    * 由子应用自维护 page ref，宿主用本方法显式驱动，而非传 Ref 跨包共享）。
    */
   setPage?(page: string): void
+  /**
+   * 可选：在宿主预留的空挂载位渲染企业业务 UI（如模型配置页的地域能力）。
+   * OSS 侧只提供 el 与数据/回调上下文；返回值用于卸载 mini app。
+   * 老版本企业模块未实现时，挂载位保持为空，社区版零影响。
+   */
+  mountSlot?(
+    el: HTMLElement,
+    kind: EnterpriseSlotKind,
+    ctx: EnterpriseSlotCtx
+  ): (() => void) | void
   unmount(): void
 }

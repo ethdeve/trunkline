@@ -35,6 +35,7 @@ import org.unreal.modelrouter.monitor.tracing.wrapper.LoadBalancerTracingWrapper
 import org.unreal.modelrouter.router.loadbalancer.AffinityContextHolder;
 import org.unreal.modelrouter.router.loadbalancer.AffinityKeyResolver;
 import org.unreal.modelrouter.router.loadbalancer.impl.StickyLoadBalancer;
+import org.unreal.modelrouter.router.model.ModelRouterProperties.ModelInstance;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -120,6 +121,10 @@ public class ModelServiceRegistry {
     // v2.8.9: 资源池选择器(延迟注入,避免循环依赖)
     private PoolSelector poolSelector;
 
+    // #9 数据分级出境：地域解析 + 出境策略（延迟注入；社区版 Noop 兜底恒放行）
+    private org.unreal.modelrouter.enterprise.spi.DataResidencyResolver dataResidencyResolver;
+    private org.unreal.modelrouter.enterprise.spi.ClassificationRoutingPolicy classificationRoutingPolicy;
+
     // 配置和缓存
     private final ModelRouterProperties originalProperties;
     private volatile Map<String, Object> currentConfig;
@@ -159,6 +164,24 @@ public class ModelServiceRegistry {
     @Autowired(required = false)
     public void setSelectInstanceOptimizer(final SelectInstanceOptimizer selectInstanceOptimizer) {
         this.selectInstanceOptimizer = selectInstanceOptimizer;
+    }
+
+    /**
+     * #9: 地域解析器延迟注入（required=false，缺 Bean 时本文件的过滤逻辑整体跳过）。
+     */
+    @Autowired(required = false)
+    public void setDataResidencyResolver(
+            final org.unreal.modelrouter.enterprise.spi.DataResidencyResolver resolver) {
+        this.dataResidencyResolver = resolver;
+    }
+
+    /**
+     * #9: 出境策略延迟注入（required=false，缺 Bean 时不过滤，行为与改动前一致）。
+     */
+    @Autowired(required = false)
+    public void setClassificationRoutingPolicy(
+            final org.unreal.modelrouter.enterprise.spi.ClassificationRoutingPolicy policy) {
+        this.classificationRoutingPolicy = policy;
     }
 
     public ModelServiceRegistry(final ModelRouterProperties properties,
@@ -341,6 +364,12 @@ public class ModelServiceRegistry {
                                 + " for model '" + effectiveModelName + "'");
             }
         }
+
+        // #9 数据分级出境：在规则动作/标签过滤已应用、池尚未解析处按「密级 × 地域」过滤候选。
+        // 放在此处的理由：所有路由分支已收敛、限流令牌尚未扣（:450 之后已扣）；且池解析
+        // (resolveCandidates) 与 failover 分支都在下方，过滤一次即覆盖主路径与备用实例。
+        // 无策略 Bean 或 PUBLIC 密级时直接跳过——社区版/零策略行为完全不变。
+        candidates = applyEgressPolicy(candidates);
 
         // v2.8.9: 资源池路由 — effectiveModelName 命中池名 → 池成员候选 + 池策略;
         // v3.5 治理收口:未命中池时**不再**走「按实例名过滤」旁路——
@@ -888,6 +917,72 @@ public class ModelServiceRegistry {
         }
         // 默认: 实例>1时启用，使用 tenant_model 粒度
         return AffinityKeyResolver.SCOPE_TENANT_MODEL;
+    }
+
+    /**
+     * #9 数据分级出境：按「请求密级 × 实例地域」过滤候选。
+     *
+     * <p><b>fail-closed 三重保险</b>：① 无策略/无解析器 Bean → 跳过（社区版零策略行为不变，
+     * 由 ContextHolder 保证此时密级为 PUBLIC）；② PUBLIC 密级 → 跳过；③ 策略返回 null /
+     * 抛异常 / 决策不自洽 → 拒绝整个请求（403），绝不"当作允许放行"。</p>
+     *
+     * <p>覆盖 failover：本方法在池解析与备用实例分支之前执行，过滤后的候选即为后续所有
+     * 路由分支的输入，备用实例不可能跳出地域约束（9-D 加固）。</p>
+     */
+    private List<ModelInstance> applyEgressPolicy(final List<ModelInstance> candidates) {
+        final org.unreal.modelrouter.enterprise.spi.DataClassification classification =
+                org.unreal.modelrouter.enterprise.spi.ClassificationContextHolder.get();
+        // ①② 无策略/无解析器/PUBLIC：不做出境过滤，行为与改造前完全一致
+        if (classificationRoutingPolicy == null || dataResidencyResolver == null
+                || classification == org.unreal.modelrouter.enterprise.spi.DataClassification.PUBLIC) {
+            return candidates;
+        }
+        if (candidates == null || candidates.isEmpty()) {
+            return candidates;
+        }
+        final org.unreal.modelrouter.enterprise.spi.ClassificationRoutingPolicy.PolicyDecision decision;
+        try {
+            decision = classificationRoutingPolicy.decide(
+                    classification, candidates, dataResidencyResolver);
+        } catch (RuntimeException e) {
+            LOGGER.warn("Egress policy threw, failing closed: {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Egress policy evaluation failed; request denied");
+        }
+        // ③ fail-closed：null / 不自洽 / 未知判定一律拒绝
+        if (decision == null || !decision.isValid() || decision.verdict() == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Egress policy returned invalid decision; request denied");
+        }
+        return switch (decision.verdict()) {
+            case ALLOW -> candidates;
+            case DENY -> throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Data egress denied by policy: " + decision.reason());
+            case REROUTE -> {
+                // 白名单策略：只保留策略给出的实例引用，且必须是原候选的子集，防止策略注入未知实例
+                final List<ModelInstance> allowed = decision.allowedInstances();
+                final java.util.Set<String> allowedIds = allowed.stream()
+                        .filter(Objects::nonNull)
+                        .map(this::instanceKey)
+                        .collect(Collectors.toSet());
+                final List<ModelInstance> filtered = candidates.stream()
+                        .filter(i -> allowedIds.contains(instanceKey(i)))
+                        .collect(Collectors.toList());
+                if (filtered.isEmpty()) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                            "Egress reroute produced no eligible instance; request denied");
+                }
+                yield filtered;
+            }
+        };
+    }
+
+    /** 实例稳定键：instanceId 优先，回落 name（与标签过滤/锁定实例口径一致） */
+    private String instanceKey(final ModelInstance instance) {
+        if (instance.getInstanceId() != null && !instance.getInstanceId().isBlank()) {
+            return instance.getInstanceId();
+        }
+        return instance.getName();
     }
 
     /**

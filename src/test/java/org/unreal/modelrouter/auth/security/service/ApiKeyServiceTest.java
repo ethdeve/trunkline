@@ -19,6 +19,7 @@ import org.unreal.modelrouter.auth.security.dto.ApiKeyCreationVO;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyVO;
 import org.unreal.modelrouter.auth.security.dto.ApiKeyListVO;
 import org.unreal.modelrouter.auth.security.model.UsageStatistics;
+import org.unreal.modelrouter.auth.security.event.ApiKeyAuditEvent;
 import org.unreal.modelrouter.auth.security.util.ApiKeyHashUtil;
 import org.unreal.modelrouter.common.exception.AuthenticationException;
 import org.unreal.modelrouter.persistence.store.StoreManager;
@@ -633,6 +634,108 @@ class ApiKeyServiceTest {
             assertTrue(result.contains("chat"));
             assertTrue(result.contains("embedding"));
             assertTrue(result.contains("rerank"));
+        }
+    }
+
+    // ---------- #9 数据分级出境：v3.2 密级读写行为 ----------
+    @Nested
+    @DisplayName("API Key 密级读写测试（v3.2 增量）")
+    class ClassificationTests {
+
+        @Test
+        @DisplayName("CLS-1: 创建未指定密级 → 默认 PUBLIC 写入 metadata 并回填 VO")
+        void createDefaultsToPublic() {
+            ApiKeyCreateRequest request = new ApiKeyCreateRequest();
+            request.setDescription("classification-default");
+
+            StepVerifier.create(apiKeyService.createApiKey(request))
+                    .assertNext(vo -> assertEquals("PUBLIC", vo.getClassification()))
+                    .verifyComplete();
+
+            ApiKey created = apiKeyCache.values().stream()
+                    .filter(k -> "classification-default".equals(k.getDescription()))
+                    .findFirst().orElseThrow();
+            assertNotNull(created.getMetadata());
+            assertEquals("PUBLIC", created.getMetadata().get("classification"));
+        }
+
+        @Test
+        @DisplayName("CLS-2: 创建指定密级大小写归一化，非法值回落 PUBLIC")
+        void createNormalizesAndFallsBack() {
+            ApiKeyCreateRequest lower = new ApiKeyCreateRequest();
+            lower.setDescription("classification-lower");
+            lower.setClassification(" confidential ");
+            StepVerifier.create(apiKeyService.createApiKey(lower))
+                    .assertNext(vo -> assertEquals("CONFIDENTIAL", vo.getClassification()))
+                    .verifyComplete();
+
+            ApiKeyCreateRequest illegal = new ApiKeyCreateRequest();
+            illegal.setDescription("classification-illegal");
+            illegal.setClassification("TOP_SECRET");
+            StepVerifier.create(apiKeyService.createApiKey(illegal))
+                    .assertNext(vo -> assertEquals("PUBLIC", vo.getClassification()))
+                    .verifyComplete();
+        }
+
+        @Test
+        @DisplayName("CLS-3: 管理员改密级 → 写 metadata 且发 CLASSIFICATION_CHANGED 审计事件")
+        void updateClassificationEmitsSecurityEvent() {
+            // 存量 key 无 metadata → 旧值视为 PUBLIC
+            ApiKeyUpdateRequest request = new ApiKeyUpdateRequest();
+            request.setClassification("INTERNAL");
+
+            StepVerifier.create(apiKeyService.updateApiKey("test-key-id", request))
+                    .assertNext(vo -> assertEquals("INTERNAL", vo.getClassification()))
+                    .verifyComplete();
+
+            assertEquals("INTERNAL", testApiKey.getMetadata().get("classification"));
+            org.mockito.ArgumentCaptor<ApiKeyAuditEvent> captor =
+                    org.mockito.ArgumentCaptor.forClass(ApiKeyAuditEvent.class);
+            verify(eventPublisher, atLeastOnce()).publishEvent(captor.capture());
+            assertTrue(captor.getAllValues().stream().anyMatch(e ->
+                    e.message() != null && e.message().contains("[CLASSIFICATION_CHANGED]")
+                            && e.message().contains("PUBLIC -> INTERNAL")));
+        }
+
+        @Test
+        @DisplayName("CLS-4: 密级未变 → 不重复发 CLASSIFICATION_CHANGED 事件")
+        void updateSameClassificationDoesNotEmit() {
+            testApiKey.setMetadata(new HashMap<>(Map.of("classification", "INTERNAL")));
+            ApiKeyUpdateRequest request = new ApiKeyUpdateRequest();
+            request.setClassification("internal");
+
+            StepVerifier.create(apiKeyService.updateApiKey("test-key-id", request))
+                    .assertNext(vo -> assertEquals("INTERNAL", vo.getClassification()))
+                    .verifyComplete();
+
+            org.mockito.ArgumentCaptor<ApiKeyAuditEvent> captor =
+                    org.mockito.ArgumentCaptor.forClass(ApiKeyAuditEvent.class);
+            verify(eventPublisher, atLeast(0)).publishEvent(captor.capture());
+            assertTrue(captor.getAllValues().stream().noneMatch(e ->
+                    e.message() != null && e.message().contains("[CLASSIFICATION_CHANGED]")));
+        }
+
+        @Test
+        @DisplayName("CLS-5: 未打标存量 Key 的 VO 兜底 PUBLIC，且查询不改写存储")
+        void legacyKeyVoFallsBackPublicWithoutMutation() {
+            assertNull(testApiKey.getMetadata(), "前置：存量 key 无密级标签");
+            StepVerifier.create(apiKeyService.getApiKeyByIdVO("test-key-id"))
+                    .assertNext(vo -> assertEquals("PUBLIC", vo.getClassification()))
+                    .verifyComplete();
+            assertNull(testApiKey.getMetadata(), "查询是只读的，不应补写 metadata");
+        }
+
+        @Test
+        @DisplayName("CLS-6: 更新请求不带密级 → 保持原密级不变")
+        void updateWithoutClassificationKeepsOriginal() {
+            testApiKey.setMetadata(new HashMap<>(Map.of("classification", "CONFIDENTIAL")));
+            ApiKeyUpdateRequest request = new ApiKeyUpdateRequest();
+            request.setDescription("仅改描述");
+
+            StepVerifier.create(apiKeyService.updateApiKey("test-key-id", request))
+                    .assertNext(vo -> assertEquals("CONFIDENTIAL", vo.getClassification()))
+                    .verifyComplete();
+            assertEquals("CONFIDENTIAL", testApiKey.getMetadata().get("classification"));
         }
     }
 

@@ -18,8 +18,40 @@ const request: AxiosInstance = axios.create({
 const isRequestDebug = () =>
   import.meta.env.DEV && localStorage.getItem('debug_request') === '1'
 
+/**
+ * 登出/账号切换过渡期的请求抑制旗标（登出假错修复）。
+ *
+ * <p><b>要解决的问题</b>：logout() 清 token 并重置 tenant store 后，仍挂载的视图
+ * （MyQuotaView 等十余处 {@code watch(currentTenantId)}）会<b>同步</b>触发重新请求——
+ * 此时 token 已清空 → 401/403 → 拦截器改写成员工话术 → 页面 catch 弹出
+ * 「你还没有这个模型的使用权限」这种与登出无关的假错误。</p>
+ *
+ * <p><b>为什么静默挂起而不是拒绝</b>：过渡窗口内的请求结果已无意义（视图即将随路由
+ * 卸载），但各视图 catch 里的 {@code ElMessage.error(error?.message)} 无法逐一守护——
+ * 拒绝必然带来 toast。挂起（promise 永不 settle）让所有 catch 都不执行；遗留的少量
+ * pending promise 闭包随页面刷新回收，代价可忽略。</p>
+ *
+ * <p>窗口由 user store 的 logout() 控制：revoke 请求完成后开启 → 导航到登录页
+ * （卸载全部控制台视图）→ 重置 tenant/员工缓存 → 关闭。</p>
+ */
+let authTransition = false
+
+/** 开启登出过渡窗口：期间发起的请求被静默挂起（见上方说明） */
+export function beginAuthTransition(): void {
+  authTransition = true
+}
+
+/** 关闭登出过渡窗口 */
+export function endAuthTransition(): void {
+  authTransition = false
+}
+
 request.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    // 登出过渡窗口：请求静默挂起（视图即将卸载，无结果亦无提示，防 401/403 假错 toast）
+    if (authTransition) {
+      return new Promise<never>(() => {})
+    }
     if (isRequestDebug()) {
       // 记录请求信息用于调试
       console.log('发送请求:', {

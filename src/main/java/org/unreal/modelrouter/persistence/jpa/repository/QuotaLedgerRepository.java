@@ -126,6 +126,20 @@ public interface QuotaLedgerRepository extends JpaRepository<QuotaLedgerEntity, 
     @Query("DELETE FROM QuotaLedgerEntity q WHERE q.apiKeyId = :apiKeyId")
     int deleteByApiKeyId(@Param("apiKeyId") String apiKeyId);
 
+    // ========== #10 被遗忘权精确擦除 ==========
+
+    /**
+     * 按租户 + 用户擦除配额账本行（显式带 tenantId，方案 3.5 硬约束）。
+     * Redis 计数槽的清理由企业侧执行器调 QuotaLedgerService.purgeCounters 完成。
+     */
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM QuotaLedgerEntity q WHERE q.userId = :userId AND q.tenantId = :tenantId")
+    int deleteByUserIdAndTenantId(@Param("userId") String userId, @Param("tenantId") String tenantId);
+
+    @Query("SELECT COUNT(q) FROM QuotaLedgerEntity q WHERE q.userId = :userId AND q.tenantId = :tenantId")
+    long countByUserIdAndTenantId(@Param("userId") String userId, @Param("tenantId") String tenantId);
+
     /**
      * 删除某个分组（模型分组 / 池）的全部账本行（分组配额重置）。
      *

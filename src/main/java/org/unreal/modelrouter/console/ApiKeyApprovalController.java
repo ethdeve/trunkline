@@ -52,11 +52,15 @@ public class ApiKeyApprovalController {
         if (purpose.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "purpose is required");
         }
+        // #9 数据分级出境：申请单带期望密级，默认 PUBLIC（与运行时兜底一致）；
+        // 只接受 PUBLIC / INTERNAL / CONFIDENTIAL 三档，非法值回落 PUBLIC。
+        final String desiredClassification = normalizeClassification(body.get("desiredClassification"));
         final Map<String, Object> record = new LinkedHashMap<>();
         record.put("requestId", UUID.randomUUID().toString());
         record.put("applicant", authentication == null ? "anonymous" : authentication.getName());
         record.put("purpose", purpose);
         record.put("desiredPermissions", body.getOrDefault("desiredPermissions", ""));
+        record.put("desiredClassification", desiredClassification);
         record.put("status", "PENDING");
         record.put("createdAt", java.time.Instant.now().toString());
         record.put("decidedBy", "");
@@ -109,7 +113,29 @@ public class ApiKeyApprovalController {
         target.put("decidedBy", authentication == null ? "anonymous" : authentication.getName());
         target.put("decisionNote", body.get("decisionNote") == null ? "" : String.valueOf(body.get("decisionNote")));
         target.put("decidedAt", java.time.Instant.now().toString());
+        // #9 数据分级出境：审批定最终密级，作为颁发 Key 时预填的信任锚。
+        // 未显式指定时沿用申请人的期望密级（默认 PUBLIC）；三档校验，非法值回落 PUBLIC。
+        if ("APPROVED".equals(decision)) {
+            final String requested = body.get("finalClassification") == null
+                    ? String.valueOf(target.getOrDefault("desiredClassification", "PUBLIC"))
+                    : String.valueOf(body.get("finalClassification"));
+            target.put("finalClassification", normalizeClassification(requested));
+        }
         store.upsert(KEY, "requestId", target);
         return ResponseEntity.ok(RouterResponse.success(store.plain(target)));
+    }
+
+    /** 密级归一化：大小写不敏感，三档之外（含 null / 空）一律回落 PUBLIC。 */
+    private static String normalizeClassification(final Object raw) {
+        if (raw == null) {
+            return "PUBLIC";
+        }
+        final String value = String.valueOf(raw).trim();
+        for (final String code : new String[]{"PUBLIC", "INTERNAL", "CONFIDENTIAL"}) {
+            if (code.equalsIgnoreCase(value)) {
+                return code;
+            }
+        }
+        return "PUBLIC";
     }
 }

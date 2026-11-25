@@ -201,6 +201,12 @@
           <el-col :span="24">
             <el-form-item :label="t('instance.tagsManage')">
               <div class="headers-actions">
+                <EnterpriseSlot
+                  v-if="regionEnabled"
+                  kind="instance-region-action"
+                  :ctx="regionActionCtx"
+                  :enabled="regionEnabled"
+                />
                 <el-button type="primary" size="small" @click="addTag">
                   <el-icon><Plus /></el-icon>
                   {{ t('instance.addTag') }}
@@ -247,6 +253,7 @@
       </div>
     </template>
   </el-form>
+
 </template>
 
 <script setup lang="ts">
@@ -258,6 +265,8 @@ import { useProviderTemplatePresets } from '@/composables/useProviderTemplatePre
 import type { ModelProvider } from '@/api/provider'
 import { Plus, Delete, Close } from '@element-plus/icons-vue'
 import type { InstanceConfig } from '@/api/instance'
+import EnterpriseSlot from '@/components/EnterpriseSlot.vue'
+import type { InstanceRegionActionCtx } from '@/extension/types'
 
 const { t } = useI18n()
 
@@ -277,6 +286,8 @@ const props = withDefaults(defineProps<{
   simplified?: boolean
   /** v2.11.0: 已添加的供应商列表（来自「接入的模型 → 供应商接入」），选中即继承地址与 Key */
   providers?: ModelProvider[]
+  /** #9: dataClassification 功能位开启时，在标签区展示「区域设置」快捷按钮 */
+  regionEnabled?: boolean
 }>(), {
   serviceTypes: () => [...COMMON_SERVICE_TYPES] as string[],
   serviceTypeLabel: (type: string) => getServiceTypeLabel(type),
@@ -285,7 +296,8 @@ const props = withDefaults(defineProps<{
   isEdit: false,
   advanced: true,
   simplified: false,
-  providers: () => []
+  providers: () => [],
+  regionEnabled: false
 })
 
 // 简化模式下的「高级模式」开关：开启后仅追加 权重/适配器/请求头/标签 四块（厂商/地址/路径/Key 恒不出现）
@@ -431,6 +443,18 @@ const onTagChange = () => {
 const addTag = () => { tagsList.value.push({ key: '', value: '' }) }
 const removeTag = (index: number) => { tagsList.value.splice(index, 1); onTagChange() }
 const clearAllTags = () => { tagsList.value = []; form.tags = {} }
+
+// 区域设置快捷入口：企业子应用经空挂载位渲染；宿主只负责把交还的 tags 写回本地表单
+const regionActionCtx = computed<InstanceRegionActionCtx>(() => ({
+  source: 'form',
+  instanceName: form.name || '',
+  tags: Object.fromEntries(tagsList.value.filter(t => t.key).map(t => [t.key, t.value])),
+  onApplyTags: (tags: Record<string, string>) => {
+    tagsList.value = Object.entries(tags).map(([key, value]) => ({ key, value }))
+    onTagChange()
+    return Promise.resolve(true)
+  }
+}))
 
 // 校验：服务类型 + 模型名称 + baseUrl + 路径 必填
 const valid = computed(() =>

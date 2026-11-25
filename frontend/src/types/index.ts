@@ -78,6 +78,8 @@ export interface ApiKeyVO {
   description: string
   /** 脱敏后的密钥展示串（如 sk-9fK2••••••••4aQz）；不可用于认证，仅供辨认 */
   keyMasked?: string
+  /** 数据密级（#9 数据分级出境）：PUBLIC / INTERNAL / CONFIDENTIAL；未打标展示 PUBLIC */
+  classification?: string
   permissions: string[]
   enabled: boolean
   expired: boolean
@@ -131,6 +133,7 @@ export interface ApiKeyCreationVO {
   keyId: string
   keyValue: string  // 仅在创建时返回，请妥善保存
   description: string
+  classification?: string  // 数据密级：PUBLIC / INTERNAL / CONFIDENTIAL
   createdBy?: string  // 创建者用户名
   holder?: string     // 密钥持有人（分配给谁）
   permissions: string[]
@@ -172,6 +175,7 @@ export interface ApiKeyCreateRequest {
   description?: string
   holder?: string              // 密钥持有人（分配给谁）
   permissions?: string[]
+  classification?: string      // 数据密级：PUBLIC / INTERNAL / CONFIDENTIAL（默认 PUBLIC）
   enabled?: boolean
   expiresAt?: string
   allowedIpAddresses?: string[]
@@ -191,6 +195,7 @@ export interface ApiKeyUpdateRequest {
   description?: string
   holder?: string              // 密钥持有人（分配给谁）；不传 = 不修改
   permissions?: string[]
+  classification?: string      // 数据密级：PUBLIC / INTERNAL / CONFIDENTIAL；不传 = 不修改
   enabled?: boolean
   expiresAt?: string
   allowedIpAddresses?: string[]

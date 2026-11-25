@@ -11,6 +11,8 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.unreal.modelrouter.enterprise.noop.CommunityFeaturesProvider;
+import org.unreal.modelrouter.enterprise.noop.CommunityDataResidencyResolver;
+import org.unreal.modelrouter.enterprise.noop.CommunityClassificationRoutingPolicy;
 import org.unreal.modelrouter.billing.price.CommunityPriceResolver;
 import org.unreal.modelrouter.billing.price.PriceResolver;
 import org.unreal.modelrouter.enterprise.noop.NoopBillingProvider;
@@ -21,6 +23,8 @@ import org.unreal.modelrouter.enterprise.noop.NoopToolGovernanceProvider;
 import org.unreal.modelrouter.enterprise.noop.NoopSsoConnector;
 import org.unreal.modelrouter.enterprise.noop.SingleTenantContext;
 import org.unreal.modelrouter.enterprise.spi.BillingProvider;
+import org.unreal.modelrouter.enterprise.spi.DataResidencyResolver;
+import org.unreal.modelrouter.enterprise.spi.ClassificationRoutingPolicy;
 import org.unreal.modelrouter.enterprise.spi.EnterpriseFeaturesProvider;
 import org.unreal.modelrouter.enterprise.spi.LicenseVerifier;
 import org.unreal.modelrouter.enterprise.spi.ModerationProvider;
@@ -144,7 +148,30 @@ public class TrunklineEnterpriseAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean(ModelCapabilityProfileProvider.class)
-    public DefaultModelCapabilityProfileProvider modelCapabilityProfileProvider(final ObjectMapper objectMapper) {
-        return new DefaultModelCapabilityProfileProvider(objectMapper);
+    public DefaultModelCapabilityProfileProvider modelCapabilityProfileProvider(
+            final ObjectProvider<ObjectMapper> objectMapperProvider) {
+        // 精简测试上下文（ApplicationContextRunner 只加载本配置类）没有 Jackson 自动配置，
+        // 缺 Bean 时退化为一个本地 ObjectMapper——生产环境由 Spring Boot 提供共享实例。
+        return new DefaultModelCapabilityProfileProvider(objectMapperProvider.getIfAvailable(ObjectMapper::new));
+    }
+
+    /**
+     * 数据分级出境（#9）：社区版地域解析 + 出境策略兜底。
+     *
+     * <p>企业侧 {@code EnterpriseDataClassificationConfiguration} 以
+     * {@code @AutoConfiguration(before=本类)} 先注册覆盖实现，本组 Bean 随即退位，构成
+     * 与价格解析器完全同构的覆盖链。无企业插件时恒为「读 tags + 恒 ALLOW」，
+     * 零策略时行为与改造前一致。</p>
+     */
+    @Bean
+    @ConditionalOnMissingBean(DataResidencyResolver.class)
+    public CommunityDataResidencyResolver communityDataResidencyResolver() {
+        return new CommunityDataResidencyResolver();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ClassificationRoutingPolicy.class)
+    public CommunityClassificationRoutingPolicy communityClassificationRoutingPolicy() {
+        return new CommunityClassificationRoutingPolicy();
     }
 }

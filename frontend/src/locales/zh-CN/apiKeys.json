@@ -82,7 +82,8 @@
       "holder": "持有人",
       "allowedGroups": "可用虚拟模型",
       "monthlyQuota": "每月额度",
-      "monthlyUsed": "本月已用"
+      "monthlyUsed": "本月已用",
+      "classification": "密级"
     },
     "status": {
       "alert": "告警",
@@ -160,7 +161,9 @@
       "monthlyQuotaHint": "单位：元，0 = 不限。用完了员工可以申请加额。",
       "monthlyTokenHint": "折合约 {tokens} tokens（按所选虚拟模型的价格估算，实际生效的是 token 额度）",
       "monthlyTokenOnlyHint": "单位：tokens，0 = 不限。所选虚拟模型未配置价格，无法按金额折算。",
-      "perMonth": "月"
+      "perMonth": "月",
+      "classificationLabel": "数据密级",
+      "classificationHint": "公开(Public)不受出境限制且可用缓存；内部(Internal)与机密(Confidential)仅允许境内/私有模型，会绕过响应缓存。默认公开。"
     },
     "permissions": {
       "chat": "聊天模型",

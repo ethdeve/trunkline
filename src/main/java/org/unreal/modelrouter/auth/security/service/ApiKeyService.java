@@ -27,6 +27,7 @@ import org.unreal.modelrouter.auth.security.quota.QuotaLimits;
 import org.unreal.modelrouter.auth.security.util.ApiKeyHashUtil;
 import org.unreal.modelrouter.common.constants.ServiceTypeConstants;
 import org.unreal.modelrouter.enterprise.config.TenantContextHolder;
+import org.unreal.modelrouter.enterprise.spi.DataClassification;
 import org.unreal.modelrouter.persistence.store.StoreManager;
 import reactor.core.publisher.Mono;
 
@@ -149,8 +150,14 @@ public class ApiKeyService {
             // 「全部密钥」是跨租户管理视图，不能靠当前请求上下文隐式推断——必须显式指定。
             // 归属租户取当前请求上下文（顶部租户切换器经 X-Tenant-Id 注入），唯一数据源
             final String tenantId = resolveCreationTenantIdFromHeader(tenantHeader);
+            // #9 数据分级出境：密级作为服务端信任锚写入 metadata，请求头自报不采信。
+            // fromCode 对 null / 空 / 未知值统一回落 PUBLIC（保持首版默认 PUBLIC 口径）。
+            final String classification = DataClassification.fromCode(req.getClassification()).getCode();
+            final Map<String, Object> metadata = new HashMap<>();
+            metadata.put("classification", classification);
             ApiKey ak = ApiKey.builder().keyId(kid).keyHash(kh).keyPrefix("sk-")
                 .tenantId(tenantId)
+                .metadata(metadata)
                 // 明文只在创建时可得：此刻落盘脱敏展示串与加密明文，明文本身不落盘（C6 + 2026-11 复制能力）
                 .keyMasked(ApiKey.maskKey(kv))
                 .keyEncrypted(plaintextCipher.encrypt(kv))
@@ -187,6 +194,7 @@ public class ApiKeyService {
             // 代建场景下持有人登录后在「我的密钥」里查看并复制（keyEncrypted 解密通道）。
             final boolean selfHeld = by != null && by.equals(holder);
             return ApiKeyCreationVO.builder().keyId(kid).keyValue(selfHeld ? kv : null).description(ak.getDescription())
+                .classification(classification)
                 .createdBy(by)
                 .holder(holder)
                 .permissions(ak.getPermissions())
@@ -344,6 +352,25 @@ public class ApiKeyService {
                 newPermissions = oldPermissions;
             }
             validateWhitelistDelta(oldPermissions, oldGroups, newPermissions, newGroups);
+
+            // #9 数据分级出境：管理员改密级——req.classification 为 null 表示不修改；
+            // 传入值按 fromCode 归一化（非法值兜底 PUBLIC），写入 metadata 信任锚。
+            // 密级是敏感治理字段，变更前后值记入审计日志（降级放宽尤其需要留痕）。
+            if (req.getClassification() != null) {
+                final String oldClassification = DataClassification.fromCode(
+                        ak.getMetadata() == null ? null : String.valueOf(ak.getMetadata().get("classification"))).getCode();
+                final String newClassification = DataClassification.fromCode(req.getClassification()).getCode();
+                if (ak.getMetadata() == null) {
+                    ak.setMetadata(new HashMap<>());
+                }
+                ak.getMetadata().put("classification", newClassification);
+                if (!oldClassification.equals(newClassification)) {
+                    eventPublisher.publishEvent(ApiKeyAuditEvent.securityEvent(
+                            "CLASSIFICATION_CHANGED",
+                            "API Key 密级变更: " + oldClassification + " -> " + newClassification,
+                            kid, null));
+                }
+            }
 
             if (req.getDescription() != null) ak.setDescription(req.getDescription());
             if (req.getHolder() != null) ak.setHolder(req.getHolder().trim());
@@ -1001,7 +1028,12 @@ public class ApiKeyService {
     }
 
     private ApiKeyVO convertToVO(ApiKey ak) {
+        // #9 数据分级出境：从服务端 metadata 读取密级；存量未打标 Key 展示为 PUBLIC
+        // （与 resolveClassification 的运行时兜底一致），不因查询而改写存储。
+        final String classification = DataClassification.fromCode(
+                ak.getMetadata() == null ? null : String.valueOf(ak.getMetadata().get("classification"))).getCode();
         ApiKeyVO vo = ApiKeyVO.builder().keyId(ak.getKeyId()).description(ak.getDescription())
+            .classification(classification)
             .tenantId(TenantContextHolder.normalize(ak.getTenantId()))
             // 优先用创建/轮换/导入时持久化的脱敏串；存量无明文密钥回落（仍为 null → 前端显示「—」）
             .keyMasked(ak.getKeyMasked() != null ? ak.getKeyMasked() : maskKeyValue(ak.getKeyValue()))

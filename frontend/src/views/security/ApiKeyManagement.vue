@@ -103,6 +103,14 @@
             </div>
           </template>
         </el-table-column>
+        <!-- 数据密级（#9 数据分级出境）：PUBLIC 跳过出境策略，其余按策略校验 -->
+        <el-table-column :label="t('apiKeys.columns.classification')" width="120" align="center">
+          <template #default="scope">
+            <el-tag size="small" :type="classificationTagType(scope.row.classification)" effect="plain">
+              {{ scope.row.classification || 'PUBLIC' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column :label="t('apiKeys.columns.holder')" min-width="110" show-overflow-tooltip>
           <template #default="scope">
             <span class="key-holder">{{ scope.row.holder || scope.row.createdBy || t('apiKeys.unknownHolder') }}</span>
@@ -478,6 +486,20 @@
             </el-option>
           </el-select>
           <div class="proto-field__hint">{{ t('apiKeys.form.holderHint') }}</div>
+        </div>
+
+        <!-- 数据密级（#9 数据分级出境）：决定该 Key 能否调用境外模型 -->
+        <div class="proto-field">
+          <div class="proto-field__label">{{ t('apiKeys.form.classificationLabel') }}</div>
+          <el-select v-model="form.classification" style="width: 100%">
+            <el-option
+              v-for="opt in classificationOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
+          <div class="proto-field__hint">{{ t('apiKeys.form.classificationHint') }}</div>
         </div>
 
         <!-- 能用哪些虚拟模型 -->
@@ -1204,11 +1226,20 @@ const pagination = reactive({
 })
 
 // 表单数据
+/** 数据密级三档（#9 数据分级出境）；默认 PUBLIC 与服务端兜底一致 */
+const classificationOptions = [
+  { value: 'PUBLIC', label: 'PUBLIC · 公开（不受出境限制）' },
+  { value: 'INTERNAL', label: 'INTERNAL · 内部（仅境内/私有模型）' },
+  { value: 'CONFIDENTIAL', label: 'CONFIDENTIAL · 机密（境内/私有 + 强制留痕）' }
+]
+
 const form = ref({
   keyId: '',
   description: '',
   /** 分配给谁（密钥持有人）；为空表示不指定，后端回落为创建者 */
   holder: '',
+  /** 数据密级：默认 PUBLIC */
+  classification: 'PUBLIC',
   expiresAt: '',
   enabled: true,
   allowedIpAddresses: [] as string[],
@@ -1629,6 +1660,13 @@ const getPermissionTagType = (permission: string) => {
 
 // 格式化权限显示（后端权限值与 i18n key 同名；未知值原样返回）
 // 存量数据可能是小写 imggen/imgedit，先归一化再查 i18n，避免显示成原始英文
+/** 密级标签配色（#9）：PUBLIC 中性 / INTERNAL 警示 / CONFIDENTIAL 危险 */
+const classificationTagType = (classification?: string): 'info' | 'warning' | 'danger' => {
+  if (classification === 'CONFIDENTIAL') return 'danger'
+  if (classification === 'INTERNAL') return 'warning'
+  return 'info'
+}
+
 const formatPermission = (permission: string) => {
   const canonical = normalizeServiceType(permission)
   if (canonical) {
@@ -1775,6 +1813,7 @@ const handleCreateApiKey = () => {
     keyId: '',
     description: '',
     holder: '',
+    classification: 'PUBLIC',
     expiresAt: '',
     enabled: true,
     allowedIpAddresses: [],
@@ -1805,6 +1844,7 @@ const handleEdit = (row: ApiKeyVO) => {
     keyId: row.keyId,
     description: row.description || '',
     holder: row.holder || row.createdBy || '',
+    classification: row.classification || 'PUBLIC',
     expiresAt: row.expiresAt || '',
     enabled: row.enabled,
     // 关键修复：从列表 VO 回填现有 IP 白名单，不再硬置空（VO 此前漏出该字段，导致编辑保存即清空）
@@ -1921,6 +1961,7 @@ const handleSave = async () => {
       const updateData: ApiKeyUpdateRequest = {
         description: form.value.description,
         holder: form.value.holder || undefined,
+        classification: form.value.classification,
         expiresAt: form.value.expiresAt || undefined,
         enabled: form.value.enabled,
         allowedIpAddresses: form.value.allowedIpAddresses,
@@ -1943,6 +1984,7 @@ const handleSave = async () => {
         keyId: form.value.keyId || undefined,
         description: form.value.description,
         holder: form.value.holder || undefined,
+        classification: form.value.classification,
         expiresAt: form.value.expiresAt || undefined,
         enabled: form.value.enabled,
         allowedIpAddresses: form.value.allowedIpAddresses,

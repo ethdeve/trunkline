@@ -59,6 +59,12 @@ public class ApiKeyVO {
     private List<String> permissions;
 
     /**
+     * 数据密级（#9 数据分级出境）：PUBLIC / INTERNAL / CONFIDENTIAL。
+     * 取自服务端 {@code metadata.classification}；未打标的存量 Key 展示为 PUBLIC。
+     */
+    private String classification;
+
+    /**
      * 可访问的模型分组（资源池 / pool）白名单（按分组名匹配）。
      */
     private List<String> allowedGroups;

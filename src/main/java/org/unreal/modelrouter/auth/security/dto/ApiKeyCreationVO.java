@@ -40,6 +40,11 @@ public class ApiKeyCreationVO {
     private String description;
 
     /**
+     * 数据密级（#9 数据分级出境）：PUBLIC / INTERNAL / CONFIDENTIAL。
+     */
+    private String classification;
+
+    /**
      * 创建者用户名
      */
     private String createdBy;

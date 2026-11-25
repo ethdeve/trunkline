@@ -247,6 +247,23 @@ public interface SecurityAuditEventRepository extends JpaRepository<SecurityAudi
     @Query("DELETE FROM SecurityAuditEventEntity e WHERE e.timestamp < :cutoffTime")
     int deleteByTimestampBefore(@Param("cutoffTime") LocalDateTime cutoffTime);
 
+    // ========== #10 被遗忘权精确擦除 ==========
+    // 本表 @TenantShared 无 tenantId 列：租户须先解析成 userId 集合；假名化 PII 字段保留事件流水留痕。
+
+    /**
+     * 按用户假名化安全审计事件的 PII 字段（userId / clientIp / userAgent / details）。
+     *
+     * <p>不删除行——审计事件本身是不可否认的合规流水，擦除的是其中与该主体相关的 PII。
+     * details 是 JSON/文本，假名化会整体覆盖（方案：正文不进管道，只留 opaque 标识）。</p>
+     */
+    @Modifying
+    @Query("UPDATE SecurityAuditEventEntity e SET e.userId = :pseudonym, e.clientIp = :pseudonym, "
+            + "e.userAgent = :pseudonym, e.details = :pseudonym WHERE e.userId = :userId")
+    int pseudonymizeByUserId(@Param("userId") String userId, @Param("pseudonym") String pseudonym);
+
+    @Query("SELECT COUNT(e) FROM SecurityAuditEventEntity e WHERE e.userId = :userId")
+    long countByUserId(@Param("userId") String userId);
+
     @Modifying
     @Query("DELETE FROM SecurityAuditEventEntity e WHERE e.timestamp < :cutoffTime AND e.riskLevel IN :lowRiskLevels")
     int deleteLowRiskEventsBefore(

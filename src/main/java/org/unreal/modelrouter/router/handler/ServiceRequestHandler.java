@@ -34,6 +34,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import org.unreal.modelrouter.auth.security.model.ApiKeyAuthentication;
+import org.unreal.modelrouter.auth.security.config.properties.ApiKey;
 import org.unreal.modelrouter.auth.security.model.JwtAuthentication;
 import org.unreal.modelrouter.auth.security.quota.QuotaDimension;
 import org.unreal.modelrouter.auth.security.quota.QuotaEnforcementService;
@@ -45,6 +46,8 @@ import org.unreal.modelrouter.billing.service.BillingPrecheckService;
 import org.unreal.modelrouter.common.controller.response.RouterResponse;
 import org.unreal.modelrouter.common.util.IpUtils;
 import org.unreal.modelrouter.enterprise.spi.BillingProvider.PrecheckResult;
+import org.unreal.modelrouter.enterprise.spi.ClassificationContextHolder;
+import org.unreal.modelrouter.enterprise.spi.DataClassification;
 import org.unreal.modelrouter.monitor.monitoring.collector.MetricsCollector;
 import org.unreal.modelrouter.monitor.tracing.TracingConstants;
 import org.unreal.modelrouter.monitor.tracing.TracingContext;
@@ -344,9 +347,18 @@ public class ServiceRequestHandler {
                     }
                 }
 
+                // #9 数据分级出境：认证成功后从服务端可信源注入请求密级。
+                // 唯一信任锚是已认证 ApiKey 的 metadata.classification（getDetails 即 ApiKey）；
+                // 请求头自报密级一律不采信。JWT 登录态无 ApiKey metadata，首版保持 PUBLIC。
+                ClassificationContextHolder.set(resolveClassification(auth));
+
                 // v2.9.9: 认证通过后为可缓存请求生成响应缓存键并放入请求属性
                 // （供 handleWithInstanceAdapter 缓存读短路与 processor 写缓存使用）
-                prepareResponseCacheKey(exchange, httpRequest, callerId, endpoint);
+                // #9: 带密级（非 PUBLIC）或缓存键无法内嵌密级时，直接不生成缓存键以绕过缓存——
+                // 缓存命中会短路整个路由，若不绕过则出境策略形同虚设。
+                if (ClassificationContextHolder.get() == DataClassification.PUBLIC) {
+                    prepareResponseCacheKey(exchange, httpRequest, callerId, endpoint);
+                }
 
                 return handleWithInstanceAdapter(
                     endpoint,
@@ -616,6 +628,8 @@ public class ServiceRequestHandler {
             AffinityContextHolder.clear();
             // 清理请求级已选实例（适配器已同步复用完毕）
             SelectedInstanceHolder.clear();
+            // #9: 清理请求密级上下文（boundedElastic 线程复用，防密级泄漏到下一请求）
+            ClassificationContextHolder.clear();
             // v3.5: 清理本方法恢复的追踪上下文（boundedElastic 工作线程会被复用，防泄漏污染）
             TracingContextHolder.clearCurrentContext();
         }
@@ -781,6 +795,28 @@ public class ServiceRequestHandler {
             return JWT_CALLER_ID_PREFIX + value;
         }
         return authentication instanceof ApiKeyAuthentication ? value : null;
+    }
+
+    /**
+     * #9 数据分级出境：从服务端可信源解析请求密级。
+     *
+     * <p>信任锚只有一处——已认证 {@link ApiKeyAuthentication} 的 {@code getDetails()}
+     * （认证管理器把校验通过的 {@link ApiKey} 放在 details 里）的
+     * {@code metadata.classification}。请求头自报密级一律不采信。JWT 登录态无 ApiKey
+     * metadata，首版保持 {@link DataClassification#PUBLIC}（分组/部门映射留待后续）。</p>
+     *
+     * <p>metadata 是自由 Map，取值非字符串或解析失败都按 PUBLIC 处理；真正的拒绝由
+     * {@code ClassificationRoutingPolicy} 决定，本方法只负责如实传递服务端声明。</p>
+     */
+    private static DataClassification resolveClassification(final Authentication authentication) {
+        if (authentication instanceof ApiKeyAuthentication && authentication.getDetails() instanceof ApiKey apiKey
+                && apiKey.getMetadata() != null) {
+            Object raw = apiKey.getMetadata().get("classification");
+            if (raw instanceof String value) {
+                return DataClassification.fromCode(value);
+            }
+        }
+        return DataClassification.PUBLIC;
     }
 
     /**

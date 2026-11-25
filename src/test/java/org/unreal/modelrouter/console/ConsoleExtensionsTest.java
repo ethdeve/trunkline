@@ -138,6 +138,59 @@ class ConsoleExtensionsTest {
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
     }
 
+    @Test
+    @DisplayName("APR-4: 申请单密级默认 PUBLIC，非法值回落 PUBLIC，合法值大小写归一")
+    void approvalDesiredClassificationNormalized() {
+        ApiKeyApprovalController controller = new ApiKeyApprovalController(store);
+        Authentication alice = new UsernamePasswordAuthenticationToken("alice", "n/a", List.of());
+
+        Map<String, Object> defaultReq = controller.submit(Map.of("purpose", "默认密级"), alice).getBody().getData();
+        assertEquals("PUBLIC", defaultReq.get("desiredClassification"));
+
+        Map<String, Object> upper = controller.submit(
+                Map.of("purpose", "归一", "desiredClassification", " internal "), alice).getBody().getData();
+        assertEquals("INTERNAL", upper.get("desiredClassification"));
+
+        Map<String, Object> illegal = controller.submit(
+                Map.of("purpose", "非法", "desiredClassification", "TOP_SECRET"), alice).getBody().getData();
+        assertEquals("PUBLIC", illegal.get("desiredClassification"));
+    }
+
+    @Test
+    @DisplayName("APR-5: 审批通过未指定 finalClassification → 沿用申请人期望密级")
+    void approvalFinalClassificationInheritsDesired() {
+        ApiKeyApprovalController controller = new ApiKeyApprovalController(store);
+        Authentication alice = new UsernamePasswordAuthenticationToken("alice", "n/a", List.of());
+        Authentication admin = new UsernamePasswordAuthenticationToken("admin", "n/a", List.of());
+        Map<String, Object> req = controller.submit(
+                Map.of("purpose", "机密用途", "desiredClassification", "CONFIDENTIAL"), alice).getBody().getData();
+        String rid = String.valueOf(req.get("requestId"));
+
+        Map<String, Object> decided = controller.decide(rid, Map.of("decision", "APPROVED"), admin).getBody().getData();
+        assertEquals("CONFIDENTIAL", decided.get("finalClassification"));
+    }
+
+    @Test
+    @DisplayName("APR-6: 审批显式 finalClassification 覆盖期望密级，拒绝单不写最终密级")
+    void approvalFinalClassificationOverrideAndReject() {
+        ApiKeyApprovalController controller = new ApiKeyApprovalController(store);
+        Authentication alice = new UsernamePasswordAuthenticationToken("alice", "n/a", List.of());
+        Authentication admin = new UsernamePasswordAuthenticationToken("admin", "n/a", List.of());
+        Map<String, Object> req = controller.submit(
+                Map.of("purpose", "降级审批", "desiredClassification", "CONFIDENTIAL"), alice).getBody().getData();
+        String rid = String.valueOf(req.get("requestId"));
+
+        Map<String, Object> decided = controller.decide(rid,
+                Map.of("decision", "APPROVED", "finalClassification", " bogus "), admin).getBody().getData();
+        assertEquals("PUBLIC", decided.get("finalClassification"), "非法值回落 PUBLIC");
+
+        Map<String, Object> rejectedReq = controller.submit(Map.of("purpose", "拒绝单"), alice).getBody().getData();
+        Map<String, Object> rejected = controller.decide(String.valueOf(rejectedReq.get("requestId")),
+                Map.of("decision", "REJECTED", "finalClassification", "INTERNAL"), admin).getBody().getData();
+        assertEquals("REJECTED", rejected.get("status"));
+        assertFalse(rejected.containsKey("finalClassification"), "拒绝单不写最终密级");
+    }
+
     // ---------- 组角色映射 ----------
     @Test
     @DisplayName("MAP-1: 部门登记幂等且生成稳定 deptId")

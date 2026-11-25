@@ -43,7 +43,22 @@ public enum AccessLevel {
      * 只有显式声明本级别的端点才放行 ROLE_AUDITOR，其余未登记端点仍 fail-closed 仅 ADMIN。
      * 社区版不签发 AUDITOR，本级别在社区版无任何命中端点，行为零变化。</p>
      */
-    AUDIT;
+    AUDIT,
+
+    /**
+     * 平台超管（A 口径收紧）——仅<b>全局作用域</b> ADMIN 可执行的平台级端点（租户开通/停用）专用。
+     *
+     * <p>与 {@link #ADMIN} 的本质区别：ADMIN 用扁平 {@code ROLE_*} authority 判定，而
+     * 企业二维角色下租户级 {@code {t:"t1",r:"ADMIN"}} 经 allRoles() 也持有扁平 ROLE_ADMIN，
+     * 会冒充超管。PLATFORM 必须读 JWT 的 {@code tenantRoles} claim：只有全局绑定
+     * {@code {t:"*",r:"ADMIN"}}（及无该 claim 的旧格式 ADMIN，社区版兼容）才算平台超管。</p>
+     *
+     * <p><b>本级别不能用 {@link #isSatisfiedBy(java.util.Collection)} 判定</b>——该方法只拿到
+     * 扁平集合，分不出全局/租户级。正式判定在
+     * {@code FixedRoleAuthorizationManager.isPlatformAdmin}。本实现恒 false 以 fail-closed，
+     * 避免任何绕过专门分支的调用误放行租户管理员。</p>
+     */
+    PLATFORM;
 
     /**
      * 判断给定角色 authority 集合是否满足本级别。
@@ -86,6 +101,10 @@ public enum AccessLevel {
                     if (role.equals("ROLE_ADMIN") || role.equals("ROLE_AUDITOR")) {
                         return true;
                     }
+                    break;
+                case PLATFORM:
+                    // 显式 fail-closed：二维作用域判定不走本方法（见枚举常量注释），
+                    // 由 FixedRoleAuthorizationManager.isPlatformAdmin 读 tenantRoles claim 完成。
                     break;
                 default:
                     break;

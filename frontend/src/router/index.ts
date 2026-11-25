@@ -464,6 +464,14 @@ router.beforeEach(async (to) => {
         query: { from: to.path, role: menuItem.roles.join(',') }
       }
     }
+    // 平台超管专属项（租户管理）：租户级 {t:"t1",r:"ADMIN"} 扁平也是 admin、能过上面的 roles，
+    // 这里按全局作用域再收一层，防手输 URL 直进。与菜单过滤、后端 PLATFORM 判定三处同口径。
+    if (menuItem.requireGlobalAdmin && !userStore.isGlobalAdmin) {
+      return {
+        path: '/403',
+        query: { from: to.path, role: 'PLATFORM_ADMIN' }
+      }
+    }
     // P1 租户数门槛：手输 /settings/enterprise/usage 时按真实活跃租户数兜底，
     // 与侧栏隐藏口径一致；N<2 回我的额度，不落到一张空汇总表。
     if (menuItem.minTenants && menuItem.minTenants > 1) {

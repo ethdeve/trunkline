@@ -272,6 +272,33 @@ public interface ApiCallHistoryRepository extends JpaRepository<ApiCallHistoryEn
     @Query("DELETE FROM ApiCallHistoryEntity c WHERE c.createdAt < :cutoffTime")
     int deleteByCreatedAtBefore(@Param("cutoffTime") LocalDateTime cutoffTime);
 
+    // ========== #10 被遗忘权精确擦除 ==========
+    // 注意：Hibernate @Filter 对 bulk DELETE 不生效，必须显式带 tenantId 条件（方案 3.5）。
+
+    /**
+     * 按用户擦除调用历史（含 request/response 密文行物理删除）。
+     *
+     * @param userId   数据主体（服务端认证上下文解析，绝不信任请求参数）
+     * @param tenantId 租户隔离条件，必填
+     * @return 删除行数
+     */
+    @Modifying
+    @Query("DELETE FROM ApiCallHistoryEntity c WHERE c.userId = :userId AND c.tenantId = :tenantId")
+    int deleteByUserIdAndTenantId(@Param("userId") String userId, @Param("tenantId") String tenantId);
+
+    /**
+     * 按租户擦除全部调用历史（TENANT 主体；企业侧须先校验归属）。
+     */
+    @Modifying
+    @Query("DELETE FROM ApiCallHistoryEntity c WHERE c.tenantId = :tenantId")
+    int deleteByTenantId(@Param("tenantId") String tenantId);
+
+    /**
+     * 统计待擦除行数（擦除前预览 / 报告计数）。
+     */
+    @Query("SELECT COUNT(c) FROM ApiCallHistoryEntity c WHERE c.userId = :userId AND c.tenantId = :tenantId")
+    long countByUserIdAndTenantId(@Param("userId") String userId, @Param("tenantId") String tenantId);
+
     /**
      * 统计总记录数
      */

@@ -45,6 +45,10 @@ export interface EnterpriseFeatures {
   kms?: boolean
   /** M4：Agent 工具网关治理 */
   agentGateway?: boolean
+  /** #9：数据分级出境（密级 × 地域，含人工确认） */
+  dataClassification?: boolean
+  /** #10：被遗忘权精确擦除 */
+  erasure?: boolean
   /** 预留：企业版可注入任意扩展能力键 */
   [key: string]: unknown
 }
@@ -61,6 +65,8 @@ export type EnterpriseFeatureKey =
   | 'dlp'
   | 'kms'
   | 'agentGateway'
+  | 'dataClassification'
+  | 'erasure'
 
 /**
  * 菜单 MenuItem.feature 字段值 → 后端功能位键 的映射。

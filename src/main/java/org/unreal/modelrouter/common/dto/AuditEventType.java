@@ -25,6 +25,9 @@ public enum AuditEventType {
     AUTHORIZATION_FAILED,   // 授权失败
     DATA_SANITIZATION,      // 数据脱敏处理
     
+    // 数据主体权利事件
+    DATA_ERASURE,           // 被遗忘权擦除（#10，擦除事实不可篡改留痕）
+
     // 系统事件
     SYSTEM_CLEANUP,         // 系统清理
     SYSTEM_MAINTENANCE      // 系统维护

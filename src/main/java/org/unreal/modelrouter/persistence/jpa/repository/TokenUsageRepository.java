@@ -520,6 +520,29 @@ public interface TokenUsageRepository extends JpaRepository<TokenUsageEntity, Lo
     @Query("DELETE FROM TokenUsageEntity t WHERE t.occurredAt < :cutoffTime")
     int deleteByOccurredAtBefore(@Param("cutoffTime") LocalDateTime cutoffTime);
 
+    // ========== #10 被遗忘权精确擦除 ==========
+    // 财务硬约束：金额/token/trace_id/价格快照一律不动，仅身份字段假名化（方案 3.3 / DoD）。
+
+    /**
+     * 按用户假名化用量明细的身份字段（userId / apiKeyId / clientIp）。
+     *
+     * <p>仅改身份列；amount/token/trace_id/priceSnapshot 原样保留，保证 B4 对账口径一致。
+     * 假名由企业侧执行器传入（如 "erased:{tenantId}:{userId}" 的不可逆占位），主干不猜算法。</p>
+     *
+     * @param userId     数据主体
+     * @param tenantId   租户隔离条件，必填
+     * @param pseudonym  假名占位值
+     */
+    @Modifying
+    @Query("UPDATE TokenUsageEntity t SET t.userId = :pseudonym, t.apiKeyId = :pseudonym, "
+            + "t.clientIp = :pseudonym WHERE t.userId = :userId AND t.tenantId = :tenantId")
+    int pseudonymizeByUserIdAndTenantId(@Param("userId") String userId,
+                                        @Param("tenantId") String tenantId,
+                                        @Param("pseudonym") String pseudonym);
+
+    @Query("SELECT COUNT(t) FROM TokenUsageEntity t WHERE t.userId = :userId AND t.tenantId = :tenantId")
+    long countByUserIdAndTenantId(@Param("userId") String userId, @Param("tenantId") String tenantId);
+
     /**
      * 统计总记录数
      */

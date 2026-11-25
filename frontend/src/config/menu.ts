@@ -27,6 +27,13 @@ export interface MenuItem {
   permission?: string
   /** 逻辑角色可见性（规格三角色）；缺省表示所有角色可见 */
   roles?: LogicalRole[]
+  /**
+   * 仅「全局作用域 ADMIN」（平台超管）可见——租户管理页专用。
+   * roles:['admin'] 分不出全局 ADMIN 与 {t:"t1",r:"ADMIN"}（后者扁平也是 admin），
+   * 故加此显式条件。仅体验层隐藏；安全底线由后端 PLATFORM URL 判定兜底。
+   * 旧格式令牌（无 tenantRoles claim）按「有 ADMIN 即超管」兼容，社区版零回归。
+   */
+  requireGlobalAdmin?: boolean
   /** Element Plus 图标 kebab-case 名 */
   icon?: string
   /** 页内副标题的 i18n key（nav.*.subtitle）；渲染方必须经 t() 解析 */
@@ -262,6 +269,9 @@ export const menuGroups: MenuGroup[] = [
         title: 'nav.tenants.title',
         permission: 'system:accounts:manage',
         roles: ['admin'],
+        // 平台超管专属：租户级 {t:"t1",r:"ADMIN"} 的扁平 authority 也是 admin，
+        // 单靠 roles:['admin'] 会误放行；此标记让宿主过滤与路由守卫按全局作用域隐藏。
+        requireGlobalAdmin: true,
         feature: 'tenant-management',
         enterpriseOnly: true,
         icon: 'office-building',

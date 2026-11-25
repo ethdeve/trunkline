@@ -18,12 +18,15 @@ import org.unreal.modelrouter.auth.controller.ApiKeyManagementController;
 import org.unreal.modelrouter.auth.controller.JwtTokenController;
 import org.unreal.modelrouter.auth.security.model.ApiKeyAuthentication;
 import org.unreal.modelrouter.auth.security.model.JwtAuthentication;
+import org.unreal.modelrouter.auth.security.model.JwtPrincipal;
 import org.unreal.modelrouter.docs.controller.DocsController;
 import reactor.core.publisher.Mono;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -180,6 +183,88 @@ class FixedRoleAuthorizationManagerTest {
         void accountManagement() {
             assertFalse(decide(jwt("OPERATOR"), "GET", "/api/security/jwt/accounts").isGranted());
             assertTrue(decide(jwt("ADMIN"), "GET", "/api/security/jwt/accounts").isGranted());
+        }
+    }
+
+    /**
+     * 构造带二维 tenantRoles claim 的 JWT 认证对象：扁平 authority 用 allRoles() 并集
+     * （含租户级 ADMIN 的 ROLE_ADMIN），details 挂 JwtPrincipal——与生产链路
+     * DefaultJwtTokenValidator 一致，才能测出「扁平相同、作用域不同」的判定差异。
+     */
+    private JwtAuthentication jwtWithScope(final List<String> flatRoles,
+                                           final List<Map<String, Object>> tenantRoles) {
+        final JwtAuthentication auth = new JwtAuthentication("scope-user", "token", flatRoles);
+        auth.setAuthenticated(true);
+        final Map<String, Object> claims = new HashMap<>();
+        if (tenantRoles != null) {
+            claims.put("tenantRoles", tenantRoles);
+        }
+        auth.setDetails(new JwtPrincipal(
+                "scope-user", "test-issuer", flatRoles, null, null, claims));
+        return auth;
+    }
+
+    private static Map<String, Object> binding(final String tenant, final String role) {
+        final Map<String, Object> m = new HashMap<>();
+        m.put("t", tenant);
+        m.put("r", role);
+        return m;
+    }
+
+    @Nested
+    @DisplayName("PLATFORM 级：仅全局作用域 ADMIN（平台超管）可管理租户")
+    class PlatformLevel {
+
+        private static final String TENANTS = "/api/v1/enterprise/tenants";
+
+        @Test
+        @DisplayName("旧格式 ADMIN（无 tenantRoles claim）→ 建/停用租户放行（社区版零回归）")
+        void legacyAdminIsPlatformAdmin() {
+            final JwtAuthentication auth = jwtWithScope(List.of("ADMIN"), null);
+            assertTrue(decide(auth, "GET", TENANTS).isGranted());
+            assertTrue(decide(auth, "POST", TENANTS).isGranted());
+            assertTrue(decide(auth, "DELETE", TENANTS + "/t2").isGranted());
+        }
+
+        @Test
+        @DisplayName("全局绑定 {t:*,r:ADMIN} → 放行；混合全局+租户绑定仍放行")
+        void globalAdminIsPlatformAdmin() {
+            assertTrue(decide(jwtWithScope(List.of("ADMIN"),
+                    List.of(binding("*", "ADMIN"))), "POST", TENANTS).isGranted());
+            assertTrue(decide(jwtWithScope(List.of("ADMIN"),
+                    List.of(binding("*", "ADMIN"), binding("t1", "USER"))),
+                    "DELETE", TENANTS + "/t2").isGranted());
+        }
+
+        @Test
+        @DisplayName("租户级 {t:t1,r:ADMIN} → 建/停用/列表全部 403（核心收紧点）")
+        void tenantAdminDeniedOnTenantManagement() {
+            // 扁平 authority 仍是 ROLE_ADMIN（allRoles 并集）——证明仅靠扁平角色会误放行
+            final JwtAuthentication auth = jwtWithScope(
+                    List.of("ADMIN"), List.of(binding("t1", "ADMIN")));
+            assertFalse(decide(auth, "GET", TENANTS).isGranted(), "租户管理员不得列出全部租户");
+            assertFalse(decide(auth, "POST", TENANTS).isGranted(), "租户管理员不得开通租户");
+            assertFalse(decide(auth, "DELETE", TENANTS + "/t2").isGranted(),
+                    "租户管理员不得停用别的租户");
+        }
+
+        @Test
+        @DisplayName("/tenants/mine 仍为 SELF：租户管理员可见自己的租户集（不被 PLATFORM 通配吞掉）")
+        void mineStillSelfForTenantAdmin() {
+            final JwtAuthentication auth = jwtWithScope(
+                    List.of("ADMIN"), List.of(binding("t1", "ADMIN")));
+            assertTrue(decide(auth, "GET", TENANTS + "/mine").isGranted());
+        }
+
+        @Test
+        @DisplayName("AUDITOR / USER / 无 details（API-Key、内部主体）→ 平台端点拒绝，fail-closed")
+        void nonGlobalAdminDenied() {
+            assertFalse(decide(jwt("AUDITOR"), "POST", TENANTS).isGranted());
+            assertFalse(decide(jwt("USER"), "POST", TENANTS).isGranted());
+            final ApiKeyAuthentication apiKey =
+                    new ApiKeyAuthentication("key-1", "sk-key-1", List.of("chat"));
+            apiKey.setAuthenticated(true);
+            assertFalse(decide(apiKey, "POST", TENANTS).isGranted());
         }
     }
 
