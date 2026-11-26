@@ -63,7 +63,6 @@ type SubKey =
   | 'tenants'
   | 'license'
   | 'reconciliation'
-  | 'pricingRules'
   | 'agentTools'
   | 'guardrails'
   | 'alertChannels'
@@ -77,7 +76,7 @@ const GROUPS: { key: GroupKey; sub: SubKey[] }[] = [
   { key: 'auditVersions', sub: ['audit', 'versions', 'evidence', 'archive', 'securityReport'] },
   { key: 'monitoring', sub: ['persistence', 'securityDashboard'] },
   { key: 'tenants', sub: ['tenants'] },
-  { key: 'enterprise', sub: ['license', 'reconciliation', 'pricingRules', 'agentTools', 'guardrails', 'alertChannels', 'keyApproval', 'usage'] }
+  { key: 'enterprise', sub: ['license', 'reconciliation', 'agentTools', 'guardrails', 'alertChannels', 'keyApproval', 'usage'] }
 ]
 
 /** 路由路径 → 分组（与 router 里各 settings 路由一一对应） */
@@ -127,7 +126,6 @@ const SUB_COMPONENTS: Record<SubKey, Component> = {
   tenants: entPage('tenants'),
   license: entPage('license'),
   reconciliation: entPage('reconciliation'),
-  pricingRules: entPage('pricingRules'),
   agentTools: entPage('agentTools'),
   guardrails: entPage('guardrails'),
   alertChannels: entPage('alertChannels'),

@@ -1,5 +1,7 @@
 package org.unreal.modelrouter.persistence.jpa.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -554,4 +556,95 @@ public interface TokenUsageRepository extends JpaRepository<TokenUsageEntity, Lo
      */
     @Query("SELECT COALESCE(SUM(t.totalTokens), 0) FROM TokenUsageEntity t")
     long sumAllTokens();
+
+    // ========== 逐笔账单明细（月账单下钻） ==========
+
+    /**
+     * 按「用户 + 月份」分页查成功调用的逐笔明细。
+     *
+     * <p>过滤条件与 {@link #aggregateByUserMonthModel} 完全一致（year/month 预计算列 +
+     * isSuccess），金额由服务层按同一套成交价快照口径计算，保证「月总额 = 逐笔之和」。</p>
+     */
+    @Query("SELECT t FROM TokenUsageEntity t WHERE t.userId = :userId AND t.year = :year "
+            + "AND t.month = :month AND t.isSuccess = true ORDER BY t.occurredAt DESC")
+    Page<TokenUsageEntity> findDetailByUserMonth(
+            @Param("userId") String userId, @Param("year") Integer year,
+            @Param("month") Integer month, Pageable pageable);
+
+    /** 管理员跨用户逐笔明细；{@code userId} 为 null 时不过滤用户。 */
+    @Query("SELECT t FROM TokenUsageEntity t WHERE t.year = :year AND t.month = :month "
+            + "AND t.isSuccess = true AND (:userId IS NULL OR t.userId = :userId) "
+            + "ORDER BY t.occurredAt DESC")
+    Page<TokenUsageEntity> findDetailByMonth(
+            @Param("userId") String userId, @Param("year") Integer year,
+            @Param("month") Integer month, Pageable pageable);
+
+    /** 管理员视图全月已定价金额合计；{@code userId} 为 null 时统计全公司。 */
+    @Query("SELECT COALESCE(SUM(CASE WHEN t.priceMissing = false "
+            + "AND t.priceInputSnapshot IS NOT NULL AND t.priceOutputSnapshot IS NOT NULL "
+            + "THEN (t.promptTokens * t.priceInputSnapshot "
+            + "+ t.completionTokens * t.priceOutputSnapshot) / 1000 ELSE 0 END), 0) "
+            + "FROM TokenUsageEntity t WHERE t.year = :year AND t.month = :month "
+            + "AND t.isSuccess = true AND (:userId IS NULL OR t.userId = :userId)")
+    List<Object[]> sumPricedAmountByMonth(@Param("userId") String userId,
+            @Param("year") Integer year, @Param("month") Integer month);
+
+    /** 管理员视图全月待定价笔数；{@code userId} 为 null 时统计全公司。 */
+    @Query("SELECT COUNT(t) FROM TokenUsageEntity t WHERE t.year = :year AND t.month = :month "
+            + "AND t.isSuccess = true AND (t.priceMissing = true OR t.priceInputSnapshot IS NULL) "
+            + "AND (:userId IS NULL OR t.userId = :userId)")
+    long countUnpricedByMonth(@Param("userId") String userId,
+            @Param("year") Integer year, @Param("month") Integer month);
+
+    // ========== 逐笔账单明细（带筛选：时间范围 / 用户 / 虚拟模型） ==========
+
+    /**
+     * 逐笔明细分页（可选筛选）。
+     *
+     * <p>所有筛选参数均可选（传 null 即不过滤）；日期按 {@code usageDate}（yyyy-MM-dd）
+     * 字符串闭区间比较，与 {@link #aggregateByUserDateRangeVirtualModel} 同口径。
+     * {@code userId} 为 null 表示跨用户（仅管理员视图），与月份查询的语义一致。</p>
+     */
+    @Query("SELECT t FROM TokenUsageEntity t WHERE t.isSuccess = true "
+            + "AND (:userId IS NULL OR t.userId = :userId) "
+            + "AND (:virtualModel IS NULL OR t.virtualModel = :virtualModel) "
+            + "AND (:startDate IS NULL OR t.usageDate >= :startDate) "
+            + "AND (:endDate IS NULL OR t.usageDate <= :endDate) "
+            + "ORDER BY t.occurredAt DESC")
+    Page<TokenUsageEntity> findDetailFiltered(
+            @Param("userId") String userId,
+            @Param("virtualModel") String virtualModel,
+            @Param("startDate") String startDate,
+            @Param("endDate") String endDate,
+            Pageable pageable);
+
+    /** 筛选条件下的已定价金额合计（不受分页影响），与逐笔快照金额同公式。 */
+    @Query("SELECT COALESCE(SUM(CASE WHEN t.priceMissing = false "
+            + "AND t.priceInputSnapshot IS NOT NULL AND t.priceOutputSnapshot IS NOT NULL "
+            + "THEN (t.promptTokens * t.priceInputSnapshot "
+            + "+ t.completionTokens * t.priceOutputSnapshot) / 1000 ELSE 0 END), 0) "
+            + "FROM TokenUsageEntity t WHERE t.isSuccess = true "
+            + "AND (:userId IS NULL OR t.userId = :userId) "
+            + "AND (:virtualModel IS NULL OR t.virtualModel = :virtualModel) "
+            + "AND (:startDate IS NULL OR t.usageDate >= :startDate) "
+            + "AND (:endDate IS NULL OR t.usageDate <= :endDate)")
+    List<Object[]> sumPricedAmountFiltered(
+            @Param("userId") String userId,
+            @Param("virtualModel") String virtualModel,
+            @Param("startDate") String startDate,
+            @Param("endDate") String endDate);
+
+    /** 筛选条件下的未计价笔数（不受分页影响）。 */
+    @Query("SELECT COUNT(t) FROM TokenUsageEntity t WHERE t.isSuccess = true "
+            + "AND (t.priceMissing = true OR t.priceInputSnapshot IS NULL "
+            + "OR t.priceOutputSnapshot IS NULL) "
+            + "AND (:userId IS NULL OR t.userId = :userId) "
+            + "AND (:virtualModel IS NULL OR t.virtualModel = :virtualModel) "
+            + "AND (:startDate IS NULL OR t.usageDate >= :startDate) "
+            + "AND (:endDate IS NULL OR t.usageDate <= :endDate)")
+    long countUnpricedFiltered(
+            @Param("userId") String userId,
+            @Param("virtualModel") String virtualModel,
+            @Param("startDate") String startDate,
+            @Param("endDate") String endDate);
 }

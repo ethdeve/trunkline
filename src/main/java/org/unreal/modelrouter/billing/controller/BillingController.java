@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.unreal.modelrouter.billing.dto.BillDetailPageVO;
 import org.unreal.modelrouter.billing.dto.MyBillsVO;
 import org.unreal.modelrouter.billing.dto.MyRecentUsageVO;
 import org.unreal.modelrouter.billing.dto.TeamUsageVO;
@@ -74,6 +75,41 @@ public class BillingController {
         } catch (Exception e) {
             log.error("获取我的账单异常", e);
             return Mono.error(ApiException.of("INTERNAL_ERROR", "获取我的账单失败"));
+        }
+    }
+
+    /**
+     * 「我的账单」下钻：逐笔明细。
+     *
+     * <p>归属用户由服务端从 principal 解析，前端无法越权查看他人明细。</p>
+     */
+    @GetMapping("/my/detail")
+    @Operation(summary = "获取我的账单明细", description = "按当前登录用户与月份分页查询逐笔账单明细")
+    @PreAuthorize("hasAnyRole('USER','OPERATOR','ADMIN')")
+    public Mono<RouterResponse<BillDetailPageVO>> getMyBillDetails(
+            final Authentication authentication,
+            @RequestParam(value = "year", required = false) Integer year,
+            @RequestParam(value = "month", required = false) Integer month,
+            @RequestParam(value = "page", required = false, defaultValue = "1") Integer page,
+            @RequestParam(value = "size", required = false, defaultValue = "50") Integer size,
+            @RequestParam(value = "startDate", required = false) String startDate,
+            @RequestParam(value = "endDate", required = false) String endDate,
+            @RequestParam(value = "virtualModel", required = false) String virtualModel) {
+        final String owner = authentication != null ? authentication.getName() : null;
+        final LocalDate today = LocalDate.now();
+        final int effYear = year != null ? year : today.getYear();
+        final int effMonth = month != null ? month : today.getMonthValue();
+        try {
+            return Mono.fromCallable(() -> billingService.getMyBillDetails(
+                    owner, effYear, effMonth, page, size, startDate, endDate, virtualModel))
+                    .map(vo -> RouterResponse.success(vo, "获取账单明细成功"))
+                    .onErrorResume(e -> {
+                        log.error("获取账单明细失败", e);
+                        return Mono.error(ApiException.of("INTERNAL_ERROR", "获取账单明细失败"));
+                    });
+        } catch (Exception e) {
+            log.error("获取账单明细异常", e);
+            return Mono.error(ApiException.of("INTERNAL_ERROR", "获取账单明细失败"));
         }
     }
 
@@ -162,6 +198,40 @@ public class BillingController {
         } catch (Exception e) {
             log.error("获取部门列表异常", e);
             return Mono.error(ApiException.of("INTERNAL_ERROR", "获取部门列表失败"));
+        }
+    }
+
+    /**
+     * 管理员逐笔明细：可按用户名筛选，不传则查全公司。
+     *
+     * <p>仅 OPERATOR / ADMIN 可见；普通用户只能走 {@code /my/detail} 看自己。</p>
+     */
+    @GetMapping("/detail")
+    @Operation(summary = "获取逐笔账单明细（管理员）", description = "跨员工逐笔明细，支持按用户名筛选")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
+    public Mono<RouterResponse<BillDetailPageVO>> getBillDetails(
+            @RequestParam(value = "username", required = false) String username,
+            @RequestParam(value = "year", required = false) Integer year,
+            @RequestParam(value = "month", required = false) Integer month,
+            @RequestParam(value = "page", required = false, defaultValue = "1") Integer page,
+            @RequestParam(value = "size", required = false, defaultValue = "50") Integer size,
+            @RequestParam(value = "startDate", required = false) String startDate,
+            @RequestParam(value = "endDate", required = false) String endDate,
+            @RequestParam(value = "virtualModel", required = false) String virtualModel) {
+        final LocalDate today = LocalDate.now();
+        final int effYear = year != null ? year : today.getYear();
+        final int effMonth = month != null ? month : today.getMonthValue();
+        try {
+            return Mono.fromCallable(() -> billingService.getBillDetails(
+                    username, effYear, effMonth, page, size, startDate, endDate, virtualModel))
+                    .map(vo -> RouterResponse.success(vo, "获取账单明细成功"))
+                    .onErrorResume(e -> {
+                        log.error("获取管理员账单明细失败", e);
+                        return Mono.error(ApiException.of("INTERNAL_ERROR", "获取账单明细失败"));
+                    });
+        } catch (Exception e) {
+            log.error("获取管理员账单明细异常", e);
+            return Mono.error(ApiException.of("INTERNAL_ERROR", "获取账单明细失败"));
         }
     }
 }

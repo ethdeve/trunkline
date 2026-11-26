@@ -230,3 +230,84 @@ export const getTeamUsage = (params: {
 export const getBillingDepartments = () => {
   return request.get<RouterResponse<string[]>>('/billing/departments')
 }
+
+/** 逐笔账单明细行（金额只读落库时点成交价快照，与月账单同口径） */
+export interface BillDetail {
+  traceId: string
+  occurredAt: string
+  userId?: string
+  virtualModel?: string
+  instanceName: string
+  modelName?: string
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  /** 缓存命中 token（落库时固化，社区版同样可读） */
+  cacheTokens?: number
+  /** 调用者真实姓名（可为空，前端回落显示 userId） */
+  userName?: string
+  amount: number
+  /** false = 未计价（金额 0），O2：未计价 ≠ ¥0 */
+  priced: boolean
+  priceInputSnapshot?: number
+  priceOutputSnapshot?: number
+  priceVersion?: string
+  responseTimeMs?: number
+}
+
+/** 逐笔明细分页；totalAmount 为全量金额（不受分页影响），与月账单总额同口径 */
+export interface BillDetailPage {
+  items: BillDetail[]
+  total: number
+  page: number
+  size: number
+  totalAmount: number
+  requestCount: number
+  unpricedCount: number
+}
+
+/** 企业账本对照行（企业计费引擎实际扣费，按 traceId 索引） */
+export interface LedgerDetailRow {
+  traceId: string
+  username?: string
+  model?: string
+  tokens: number
+  cost: number
+  priceVersion?: string
+  occurredAt?: string
+}
+
+/**
+ * 我的逐笔明细（归属由服务端从 principal 解析，前端无法越权）。
+ * 可选筛选：startDate/endDate（yyyy-MM-dd 闭区间）、virtualModel（虚拟模型精确匹配）。
+ */
+export const getMyBillDetails = (
+  year: number, month: number, page = 1, size = 50,
+  startDate?: string, endDate?: string, virtualModel?: string
+) => request.get<RouterResponse<BillDetailPage>>('/billing/my/detail', {
+    params: { year, month, page, size, startDate, endDate, virtualModel }
+  })
+
+/** 管理员逐笔明细：username 为空则查全公司；额外支持时间范围 / 虚拟模型筛选 */
+export const getBillDetails = (params: {
+  username?: string
+  year: number
+  month: number
+  page: number
+  size: number
+  startDate?: string
+  endDate?: string
+  virtualModel?: string
+}) => request.get<RouterResponse<BillDetailPage>>('/billing/detail', { params })
+
+/** 我的账本对照；企业模块不可用时由调用方静默降级为「无对照」 */
+export const getMyLedgerDetails = (traceIds: string[]) =>
+  request.get<RouterResponse<Record<string, LedgerDetailRow>>>('/billing/my/ledger/detail', {
+    params: { traceIds: traceIds.join(',') }
+  })
+
+/** 管理员账本对照 */
+export const getLedgerDetails = (traceIds: string[], username?: string) =>
+  request.get<RouterResponse<Record<string, LedgerDetailRow>>>('/billing/ledger/detail', {
+    params: { traceIds: traceIds.join(','), username: username || undefined }
+  })

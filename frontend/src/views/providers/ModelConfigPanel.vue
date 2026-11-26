@@ -63,16 +63,6 @@
         <el-icon><Download /></el-icon>
       </el-button>
 
-      <!-- 高级计价规则：企业功能位双门控（billing + pricingAdvanced），普通模式无需独立页面 -->
-      <el-button
-        v-if="pricingRulesEnabled"
-        text
-        class="pricing-rules-button"
-        @click="openPricingRules"
-      >
-        {{ t('settings.subTabs.pricingRules') }}
-      </el-button>
-
       <!-- 批量操作条：选中后浮现 -->
       <div v-if="canWrite && selectedRows.length > 0" class="batch-bar">
         <span class="batch-bar__count">
@@ -310,6 +300,17 @@
                 @change="onPriceChanged(scope.row)"
               />
             </div>
+            <!-- 高级计价规则入口：每行单价旁的按钮由企业子应用渲染（阶梯/时段就地编辑，不跳页） -->
+            <EnterpriseSlot
+              kind="pricing-rules-entry"
+              :ctx="{
+                instanceName: String(scope.row.name),
+                flatPriceInput: Number(scope.row.priceInput) / 1000,
+                flatPriceOutput: Number(scope.row.priceOutput) / 1000,
+                flatPriceCacheInput: Number(scope.row.priceCache) / 1000
+              }"
+              :enabled="pricingRulesEnabled"
+            />
           </div>
         </template>
       </el-table-column>
@@ -560,7 +561,6 @@
  *   「代表实例」口径更准，且省掉一次二次请求
  */
 import { computed, onMounted, provide, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Download, QuestionFilled, Refresh, Search, Setting as _Setting } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
@@ -609,7 +609,6 @@ import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import type { InstanceRegionActionCtx } from '@/extension/types'
 
 const { t } = useI18n()
-const router = useRouter()
 // 企业功能位（billing 决定是否显示「价格」tab）
 const enterpriseStore = useEnterpriseStore()
 /** 单表口径：原 quota/price 双 tab 已合并，不再需要分栏状态 */
@@ -621,13 +620,10 @@ const { multiWindowEnforced, loadQuotaLedgerState } = useQuotaLedger()
 const { hasPermission } = usePermission()
 const canWrite = computed(() => hasPermission('config:instances:write'))
 
-// ---------- 高级计价规则入口：普通模式仍用本页厂商价，独立规则页只服务阶梯/时段 ----------
+// ---------- 单价行的高级计价入口门控（规则 UI 由企业子应用在挂载位渲染） ----------
 const pricingRulesEnabled = computed(
   () => enterpriseStore.billing && enterpriseStore.isEnabled('pricingAdvanced')
 )
-function openPricingRules() {
-  void router.push({ path: '/settings/enterprise', query: { sub: 'pricingRules' } })
-}
 
 // ---------- #9 数据出境：OSS 只留功能位门控 + 宿主回调，业务 UI 全在企业子应用 ----------
 const residencyEnabled = computed(() => enterpriseStore.isEnabled('dataClassification'))

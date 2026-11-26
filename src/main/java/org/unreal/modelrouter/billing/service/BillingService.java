@@ -4,13 +4,22 @@
 
 package org.unreal.modelrouter.billing.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.unreal.modelrouter.billing.dto.BillDetailPageVO;
+import org.unreal.modelrouter.billing.dto.BillDetailVO;
 import org.unreal.modelrouter.billing.dto.MyBillsVO;
 import org.unreal.modelrouter.billing.dto.MyRecentUsageVO;
 import org.unreal.modelrouter.billing.dto.TeamUsageVO;
+import org.unreal.modelrouter.persistence.jpa.entity.TokenUsageEntity;
 import org.unreal.modelrouter.persistence.jpa.entity.JwtAccountEntity;
 import org.unreal.modelrouter.persistence.jpa.repository.JwtAccountRepository;
 import org.unreal.modelrouter.persistence.jpa.repository.TokenUsageRepository;
@@ -48,6 +57,12 @@ public class BillingService {
 
     private final TokenUsageRepository tokenUsageRepository;
     private final JwtAccountRepository jwtAccountRepository;
+
+    /** 明细 metadata 中缓存 token 解析用的静态 ObjectMapper（fail-soft，无状态线程安全）。 */
+    private static final ObjectMapper DETAIL_MAPPER = new ObjectMapper();
+
+    /** yyyy-MM-dd 校验：非法日期串直接忽略，避免 JPQL 比较异常。 */
+    private static final String DATE_PATTERN = "\\d{4}-\\d{2}-\\d{2}";
 
     /**
      * 聚合当前用户指定月份的账单。
@@ -139,6 +154,184 @@ public class BillingService {
                 .byModel(modelBills)
                 .byDay(dailyBills)
                 .build();
+    }
+
+    // ========== 逐笔账单明细（「我的账单」下钻） ==========
+
+    /** 当前登录用户的逐笔明细；归属由 Controller 从 principal 解析，不信任前端传参。 */
+    @Transactional(readOnly = true)
+    public BillDetailPageVO getMyBillDetails(final String userId, final int year, final int month,
+                                              final int page, final int size) {
+        return buildDetails(userId, year, month, page, size, null, null, null);
+    }
+
+    /** 当前登录用户的逐笔明细（带时间范围 / 虚拟模型筛选）。 */
+    @Transactional(readOnly = true)
+    public BillDetailPageVO getMyBillDetails(final String userId, final int year, final int month,
+                                              final int page, final int size,
+                                              final String startDate, final String endDate,
+                                              final String virtualModel) {
+        return buildDetails(userId, year, month, page, size, startDate, endDate, virtualModel);
+    }
+
+    /** 管理员视图：{@code userId} 为 null 时查全公司，否则按人筛选。 */
+    @Transactional(readOnly = true)
+    public BillDetailPageVO getBillDetails(final String userId, final int year, final int month,
+                                            final int page, final int size) {
+        return buildDetails(userId, year, month, page, size, null, null, null);
+    }
+
+    /** 管理员视图（带时间范围 / 用户 / 虚拟模型筛选）。 */
+    @Transactional(readOnly = true)
+    public BillDetailPageVO getBillDetails(final String userId, final int year, final int month,
+                                            final int page, final int size,
+                                            final String startDate, final String endDate,
+                                            final String virtualModel) {
+        return buildDetails(userId, year, month, page, size, startDate, endDate, virtualModel);
+    }
+
+    private BillDetailPageVO buildDetails(final String userId, final int year, final int month,
+                                          final int page, final int size,
+                                          final String startDate, final String endDate,
+                                          final String virtualModel) {
+        final int effPage = Math.max(page, 1);
+        final int effSize = Math.min(Math.max(size, 1), 200);
+        final Pageable pageable = PageRequest.of(effPage - 1, effSize, Sort.by("occurredAt").descending());
+        final boolean allUsers = userId == null || userId.isBlank();
+
+        final String effStart = validDate(startDate);
+        final String effEnd = validDate(endDate);
+        final String effVirtual = virtualModel == null || virtualModel.isBlank() ? null : virtualModel.trim();
+        final boolean filtered = effStart != null || effEnd != null || effVirtual != null;
+
+        final Page<TokenUsageEntity> rows;
+        final List<Object[]> totalRows;
+        final long unpriced;
+        if (filtered) {
+            // 前端筛选优先：一旦给出任一筛选条件，全部聚合（含金额 / 未计价数）都按同一条件口径
+            final String filterUser = allUsers ? null : userId;
+            rows = tokenUsageRepository.findDetailFiltered(
+                    filterUser, effVirtual, effStart, effEnd, pageable);
+            totalRows = tokenUsageRepository.sumPricedAmountFiltered(
+                    filterUser, effVirtual, effStart, effEnd);
+            unpriced = tokenUsageRepository.countUnpricedFiltered(
+                    filterUser, effVirtual, effStart, effEnd);
+        } else {
+            rows = allUsers
+                    ? tokenUsageRepository.findDetailByMonth(null, year, month, pageable)
+                    : tokenUsageRepository.findDetailByUserMonth(userId, year, month, pageable);
+            totalRows = allUsers
+                    ? tokenUsageRepository.sumPricedAmountByMonth(null, year, month)
+                    : tokenUsageRepository.sumPricedAmountByUserMonth(userId, year, month);
+            unpriced = allUsers
+                    ? tokenUsageRepository.countUnpricedByMonth(null, year, month)
+                    : unpricedCountOf(userId, year, month);
+        }
+
+        final Map<String, String> userNames = accountNames();
+        final List<BillDetailVO> items = rows.getContent().stream()
+                .map(row -> toDetail(row, userNames)).toList();
+
+        // 全量金额（不受分页影响），与「我的账单」月总额同口径，前端可断言两者一致
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        if (!totalRows.isEmpty() && totalRows.get(0)[0] instanceof Number n) {
+            totalAmount = BigDecimal.valueOf(n.doubleValue());
+        }
+
+        return BillDetailPageVO.builder()
+                .items(items)
+                .total(rows.getTotalElements())
+                .page(effPage)
+                .size(effSize)
+                .totalAmount(totalAmount.setScale(4, RoundingMode.HALF_UP))
+                .requestCount(rows.getTotalElements())
+                .unpricedCount(unpriced)
+                .build();
+    }
+
+    /** 账号 username → 真实姓名映射（姓名可为空，前端回落显示 userId）。 */
+    private Map<String, String> accountNames() {
+        final Map<String, String> names = new HashMap<>();
+        for (final JwtAccountEntity account : jwtAccountRepository.findAll()) {
+            if (account.getUsername() != null && account.getName() != null
+                    && !account.getName().isBlank()) {
+                names.put(account.getUsername(), account.getName());
+            }
+        }
+        return names;
+    }
+
+    private static String validDate(final String value) {
+        return value != null && value.matches(DATE_PATTERN) ? value : null;
+    }
+
+    private long unpricedCountOf(final String userId, final int year, final int month) {
+        final List<Object[]> rows = tokenUsageRepository.sumUnpricedByUserMonth(userId, year, month);
+        if (rows.isEmpty() || !(rows.get(0)[1] instanceof Number n)) {
+            return 0L;
+        }
+        return n.longValue();
+    }
+
+    /** 单行转明细：只读落库时点固化的成交价快照，与 SQL 聚合同一口径（O1/O2）。 */
+    private BillDetailVO toDetail(final TokenUsageEntity row, final Map<String, String> userNames) {
+        final boolean priced = !Boolean.TRUE.equals(row.getPriceMissing())
+                && row.getPriceInputSnapshot() != null && row.getPriceOutputSnapshot() != null;
+        BigDecimal amount = BigDecimal.ZERO;
+        if (priced) {
+            final BigDecimal prompt = BigDecimal.valueOf(nvl(row.getPromptTokens()));
+            final BigDecimal completion = BigDecimal.valueOf(nvl(row.getCompletionTokens()));
+            amount = prompt.multiply(row.getPriceInputSnapshot())
+                    .add(completion.multiply(row.getPriceOutputSnapshot()))
+                    .divide(BigDecimal.valueOf(1000), 4, RoundingMode.HALF_UP);
+        }
+        return BillDetailVO.builder()
+                .traceId(row.getTraceId())
+                .occurredAt(row.getOccurredAt())
+                .userId(row.getUserId())
+                .userName(userNames.get(row.getUserId()))
+                .virtualModel(row.getVirtualModel())
+                .instanceName(row.getInstanceName() != null ? row.getInstanceName() : row.getModelName())
+                .modelName(row.getModelName())
+                .promptTokens(nvl(row.getPromptTokens()))
+                .completionTokens(nvl(row.getCompletionTokens()))
+                .totalTokens(nvl(row.getTotalTokens()))
+                .cacheTokens(cacheTokensOf(row.getMetadata()))
+                .amount(amount)
+                .priced(priced)
+                .priceInputSnapshot(row.getPriceInputSnapshot())
+                .priceOutputSnapshot(row.getPriceOutputSnapshot())
+                .priceVersion(row.getPriceVersion())
+                .responseTimeMs(row.getResponseTimeMs())
+                .build();
+    }
+
+    /**
+     * 从落库 metadata 解析缓存命中 token（fail-soft）：优先 pricingDetail.cacheTokens，
+     * 兼容旧键 cacheHitTokens / cacheTokens；无元数据或非 JSON 一律返回 0，不影响账单主流程。
+     */
+    private static long cacheTokensOf(final String metadata) {
+        if (metadata == null || metadata.isBlank()) return 0L;
+        try {
+            final JsonNode root = DETAIL_MAPPER.readTree(metadata);
+            if (root == null || !root.isObject()) return 0L;
+            final JsonNode detail = root.get("pricingDetail");
+            for (final String key : new String[]{"cacheTokens", "cacheHitTokens"}) {
+                if (detail != null && detail.isObject() && detail.has(key)) {
+                    return detail.get(key).asLong(0L);
+                }
+            }
+            for (final String key : new String[]{"cacheTokens", "cacheHitTokens"}) {
+                if (root.has(key)) return root.get(key).asLong(0L);
+            }
+        } catch (Exception ignored) {
+            // metadata 非 JSON：历史数据允许，缓存 token 记 0
+        }
+        return 0L;
+    }
+
+    private static long nvl(final Number value) {
+        return value == null ? 0L : value.longValue();
     }
 
     /**

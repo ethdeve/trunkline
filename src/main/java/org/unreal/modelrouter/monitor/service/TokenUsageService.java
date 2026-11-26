@@ -70,6 +70,9 @@ public class TokenUsageService {
             // O1 成交价快照：DTO 显式携带的快照优先（企业链路透传），否则落库时点取价固化。
             // 计价键与账单口径一致：instance_name 优先，回落 model_name。
             final PriceSnapshot snapshot = resolvePriceSnapshot(record);
+            // 缓存命中 token 无条件固化进 metadata（社区版 / 未命中计价规则也留痕），
+            // 供逐笔账单明细展示「缓存 token」列；fail-soft，不阻断计量主流程。
+            record.setMetadata(mergeCacheTokens(record.getMetadata(), record.getCacheHitTokens()));
             TokenUsageEntity entity = TokenUsageEntity.builder()
                     .traceId(record.getTraceId())
                     .serviceType(record.getServiceType())
@@ -263,6 +266,26 @@ public class TokenUsageService {
             if (d.cacheMissUnitPrice()!= null)  detail.put("cacheMissUnitPrice", d.cacheMissUnitPrice());
         }
         detail.put("pricingKey", pricingKey);
+        return root.toString();
+    }
+
+    /**
+     * v4.2：把缓存命中 token 固化进 metadata 顶层 {@code cacheTokens}，与计价命中无关。
+     *
+     * <p>逐笔账单明细的「缓存 token」列读这里；社区版 / 未命中计价规则同样留痕。
+     * fail-soft：metadata 非 JSON 时重建，仅保留 cacheTokens；无命中数则原样返回。</p>
+     */
+    private static String mergeCacheTokens(String oldJson, Long cacheHitTokens) {
+        if (cacheHitTokens == null || cacheHitTokens <= 0) return oldJson;
+        ObjectNode root;
+        try {
+            root = oldJson == null || oldJson.isBlank() ? MAPPER.createObjectNode()
+                    : (ObjectNode) MAPPER.readTree(oldJson);
+        } catch (Exception e) {
+            log.warn("metadata 非 JSON，重建后仅写 cacheTokens: {}", e.getMessage());
+            root = MAPPER.createObjectNode();
+        }
+        root.put("cacheTokens", cacheHitTokens);
         return root.toString();
     }
 

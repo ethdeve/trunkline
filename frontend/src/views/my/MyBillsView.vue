@@ -24,6 +24,7 @@ import { getMyBills, type MyBillsVO } from '@/api/billing'
 import { employeeTerm } from '@/constants/employeeTerms'
 import { friendlyBusinessError, friendlyError } from '@/utils/friendlyError'
 import PageHeader from '@/components/common/PageHeader.vue'
+import BillDetailDrawer from '@/components/common/BillDetailDrawer.vue'
 import { menuSubtitle } from '@/config/menu'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { useI18n } from 'vue-i18n'
@@ -41,6 +42,11 @@ const amountUnit = employeeTerm('amountUnit')
 const loading = ref(false)
 const monthValue = ref<string>(currentMonth())
 const bills = ref<MyBillsVO>(emptyBills())
+
+// 逐笔明细下钻：月份与账单页选择保持同步
+const detailVisible = ref(false)
+const detailYear = computed(() => Number((monthValue.value || currentMonth()).split('-')[0]) || new Date().getFullYear())
+const detailMonth = computed(() => Number((monthValue.value || currentMonth()).split('-')[1]) || new Date().getMonth() + 1)
 
 // 主列表表格内部滚动（自适应 max-height）
 const billsTableRef = ref()
@@ -178,7 +184,7 @@ const formatNumber = (value?: number): string => (Number(value) || 0).toLocaleSt
  *
  * <p>token 用量统计属开源版，本页菜单常显；计费是商业版功能位：开启时按真实单价
  * 显示 ¥ 金额；关闭时（社区版 / 企业版未购计费）全链路无单价来源，账单 100% 走
- * 「待定价」——此时绝不应显示 ¥0 冒充真实花费，改为显式「待定价」以免误导员工。</p>
+ * 「未计价」——此时绝不应显示 ¥0 冒充真实花费，改为显式「未计价」以免误导员工。</p>
  */
 const billingEnabled = computed(() => enterpriseStore.billing)
 const money = (value?: number): string =>
@@ -251,6 +257,9 @@ watch(
       <el-button size="small" :loading="loading" @click="loadBills">
         <el-icon><Refresh /></el-icon>
         {{ t('v.mb.t001') }}
+      </el-button>
+      <el-button size="small" type="primary" plain @click="detailVisible = true">
+        {{ t('v.mb.x002') }}
       </el-button>
     </div>
 
@@ -356,6 +365,13 @@ watch(
         {{ billingEnabled ? t('v.mb.x003') : t('v.mb.x008') }}
       </div>
     </el-card>
+
+    <BillDetailDrawer
+      v-model="detailVisible"
+      :year="detailYear"
+      :month="detailMonth"
+      :virtual-model-options="virtualModelColumns"
+    />
   </div>
 </template>
 

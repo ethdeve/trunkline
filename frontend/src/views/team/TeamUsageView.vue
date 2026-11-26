@@ -38,6 +38,9 @@
         <el-icon><Refresh /></el-icon>
         {{ t('v.tu.t003') }}
       </el-button>
+      <el-button size="small" type="primary" plain @click="detailVisible = true">
+        {{ t('v.mb.x002') }}
+      </el-button>
     </div>
 
     <!-- ---------- 部门汇总卡 ---------- -->
@@ -223,6 +226,15 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <BillDetailDrawer
+      v-model="detailVisible"
+      :year="detailYear"
+      :month="detailMonth"
+      :virtual-model-options="detailVirtualModels"
+      :user-options="detailUsers"
+      admin
+    />
   </div>
 </template>
 
@@ -254,6 +266,7 @@ import { useTenantStore } from '@/stores/tenant'
 import { useChartTheme } from '@/composables/useChartTheme'
 import { useTableMaxHeight } from '@/composables/useTableMaxHeight'
 import { useI18n } from 'vue-i18n'
+import BillDetailDrawer from '@/components/common/BillDetailDrawer.vue'
 
 const { t } = useI18n()
 const enterpriseStore = useEnterpriseStore()
@@ -292,9 +305,20 @@ const loading = ref(false)
 const dimension = ref('COMPANY')
 const department = ref('')
 const monthValue = ref<string>(currentMonth())
+
+// 管理员逐笔明细下钻（跨员工，接口侧按 OPERATOR/ADMIN 白名单管控）
+const detailVisible = ref(false)
+const detailYear = computed(() => Number((monthValue.value || currentMonth()).split('-')[0]) || new Date().getFullYear())
+const detailMonth = computed(() => Number((monthValue.value || currentMonth()).split('-')[1]) || new Date().getMonth() + 1)
 const departments = ref<string[]>([])
 
 const usage = ref<TeamUsageVO>(emptyUsage())
+
+/** 明细筛选下拉：虚拟模型 / 用户（复用已加载的团队用量数据，不额外发请求） */
+const detailVirtualModels = computed(() =>
+  usage.value.byVirtualModel.map(v => v.virtualModel).filter(Boolean))
+const detailUsers = computed(() =>
+  usage.value.groups.map(g => ({ value: g.key, label: g.label || g.key })).filter(u => u.value))
 
 const groupUsageTableRef = ref()
 const { maxHeight: groupUsageMaxHeight } = useTableMaxHeight(groupUsageTableRef)

@@ -154,7 +154,7 @@ export const menuGroups: MenuGroup[] = [
         icon: 'money',
         subtitle: 'nav.myBills.subtitle'
         // open-core 口径：账单页的 token 用量统计属开源版，菜单常显、不按 billing 功能位锁定；
-        // 金额展示在页内按 enterpriseStore.billing 降级为「待定价」（见 MyBillsView 的 money()）
+        // 金额展示在页内按 enterpriseStore.billing 降级为「未计价」（见 MyBillsView 的 money()）
       }
     ]
   },

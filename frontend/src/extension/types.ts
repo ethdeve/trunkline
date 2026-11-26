@@ -55,6 +55,17 @@ export type EnterpriseSlotKind =
   | 'instance-region-action'
   | 'residency-header'
   | 'residency-cell'
+  /** 模型配置页单价列内的「高级规则」入口：宿主只给模型名，弹窗/业务 UI 全在企业侧 */
+  | 'pricing-rules-entry'
+
+/** 单价列高级计价入口上下文；模型名与 model_price 主键一致（实例名） */
+export interface PricingRulesEntryCtx {
+  instanceName: string
+  /** 当前普通单价（后端 ¥/千 token 口径，宿主已完成 UI ¥/百万 → ¥/千 换算） */
+  flatPriceInput?: number
+  flatPriceOutput?: number
+  flatPriceCacheInput?: number
+}
 
 /** 操作列 / 编辑弹窗的区域设置入口上下文。宿主只传数据与回调，不提供企业 API 或文案。 */
 export interface InstanceRegionActionCtx {
@@ -87,6 +98,7 @@ export type EnterpriseSlotCtx =
   | InstanceRegionActionCtx
   | ResidencyHeaderCtx
   | ResidencyCellCtx
+  | PricingRulesEntryCtx
 
 export interface EnterpriseModule {
   manifest: {

@@ -212,12 +212,18 @@ public class FixedRoleAccessPolicy {
 
                 // 员工自助：账单/额度（我的额度 / 我的账单）
                 AccessRule.get("/api/billing/my/recent", AccessLevel.SELF),
+                // 逐笔账单明细下钻：精确 SELF 规则须先于 /api/billing/my 登记，避免被遮蔽。
+                AccessRule.get("/api/billing/my/detail", AccessLevel.SELF),
+                AccessRule.get("/api/billing/my/ledger/detail", AccessLevel.SELF),
                 AccessRule.get("/api/billing/my", AccessLevel.SELF),
                 // 团队用量 / 部门下拉：菜单「团队用量」对 ops 可见、BillingController 方法级
                 // 也允许 OPERATOR+ADMIN，但此前漏登记 URL 规则 → 未登记端点 fail-closed 仅 ADMIN，
                 // 运维打开页面必 403。此处补齐 OPS，与方法级注解、菜单三方对齐（2026-11-09）。
                 AccessRule.get("/api/billing/team", AccessLevel.OPS),
                 AccessRule.get("/api/billing/departments", AccessLevel.OPS),
+                // 管理员跨员工逐笔明细 + 企业账本对照（与 /team 同口径 OPS）
+                AccessRule.get("/api/billing/detail", AccessLevel.OPS),
+                AccessRule.get("/api/billing/ledger/detail", AccessLevel.OPS),
 
                 // 安全审计扩展（后端维持与旧矩阵一致的 OPS 有效权限；菜单仅管理员可见）
                 AccessRule.get("/api/security/audit/extended/**", AccessLevel.OPS),
