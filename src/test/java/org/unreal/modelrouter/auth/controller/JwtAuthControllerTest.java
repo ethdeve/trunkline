@@ -202,10 +202,20 @@ class JwtAuthControllerTest {
     @DisplayName("SSO 登录（O7-a）")
     class SsoLoginTests {
 
+        private static final String STATE = "state-issued-by-authorize";
+
         private SsoLoginRequest requestWithCode() {
             final SsoLoginRequest request = new SsoLoginRequest();
             request.setCode("auth-code");
+            request.setState(STATE);
             return request;
+        }
+
+        /** R-A2-1 后 /sso 无条件要求 state cookie，业务分支用例必须走合法 front-channel 形态。 */
+        private MockServerWebExchange exchangeWithValidState() {
+            return MockServerWebExchange.from(MockServerHttpRequest.post("/api/auth/jwt/sso")
+                    .cookie(new HttpCookie("trunkline_sso_state", STATE))
+                    .build());
         }
 
         @Test
@@ -214,7 +224,7 @@ class JwtAuthControllerTest {
             lenient().when(ssoConnector.providerName()).thenReturn("");
             lenient().when(ssoConnector.exchange(anyString())).thenReturn(Optional.empty());
 
-            StepVerifier.create(controller.ssoLogin(requestWithCode(), null))
+            StepVerifier.create(controller.ssoLogin(requestWithCode(), exchangeWithValidState()))
                     .expectErrorSatisfies(ex -> {
                         assertInstanceOf(ApiException.class, ex);
                         assertEquals("SSO_UNSUPPORTED", ((ApiException) ex).getErrorCode());
@@ -229,7 +239,7 @@ class JwtAuthControllerTest {
             lenient().when(ssoConnector.providerName()).thenReturn("oidc");
             lenient().when(ssoConnector.exchange(anyString())).thenReturn(Optional.empty());
 
-            StepVerifier.create(controller.ssoLogin(requestWithCode(), null))
+            StepVerifier.create(controller.ssoLogin(requestWithCode(), exchangeWithValidState()))
                     .expectErrorSatisfies(ex -> {
                         assertInstanceOf(ApiException.class, ex);
                         assertEquals("SSO_FAILED", ((ApiException) ex).getErrorCode());
@@ -248,7 +258,7 @@ class JwtAuthControllerTest {
             lenient().when(accountManager.authenticateExternal(any(), any(), any()))
                     .thenReturn(Mono.just("sso-jwt-token"));
 
-            StepVerifier.create(controller.ssoLogin(requestWithCode(), null))
+            StepVerifier.create(controller.ssoLogin(requestWithCode(), exchangeWithValidState()))
                     .expectNextMatches(response -> response.isSuccess()
                             && response.getData().getToken().equals("sso-jwt-token"))
                     .verifyComplete();
@@ -395,20 +405,49 @@ class JwtAuthControllerTest {
         }
 
         @Test
-        @DisplayName("无 state cookie（未走 front-channel）→ 跳过校验，保持既有 /sso 契约")
-        void noCookieSkipsCheck() {
-            final SsoConnector.EnterpriseUser user =
-                    new SsoConnector.EnterpriseUser("ext-1", "张三", "zhangsan@corp.example", "IT");
+        @DisplayName("R-A2-1：无 state cookie（未走 front-channel）→ 401 SSO_STATE_MISSING，绝不换 token")
+        void noCookieIsRejected() {
             lenient().when(ssoConnector.providerName()).thenReturn("oidc");
-            lenient().when(ssoConnector.exchange(anyString())).thenReturn(Optional.of(user));
-            lenient().when(accountManager.authenticateExternal(any(), any(), any()))
-                    .thenReturn(Mono.just("sso-jwt-token"));
 
             final MockServerWebExchange ex = MockServerWebExchange.from(
                     MockServerHttpRequest.post("/api/auth/jwt/sso").build());
             StepVerifier.create(controller.ssoLogin(requestWith(null), ex))
-                    .expectNextMatches(response -> response.isSuccess())
-                    .verifyComplete();
+                    .expectErrorSatisfies(err -> {
+                        assertInstanceOf(ApiException.class, err);
+                        assertEquals("SSO_STATE_MISSING", ((ApiException) err).getErrorCode());
+                        assertEquals(HttpStatus.UNAUTHORIZED, ((ApiException) err).getStatus());
+                    })
+                    .verify();
+            verifyNoInteractions(accountManager);
+            verify(ssoConnector, never()).exchange(anyString());
+        }
+
+        @Test
+        @DisplayName("R-A2-1：exchange 为 null（服务端直调 back-channel）→ 401 SSO_STATE_MISSING")
+        void nullExchangeIsRejected() {
+            lenient().when(ssoConnector.providerName()).thenReturn("oidc");
+
+            StepVerifier.create(controller.ssoLogin(requestWith("any-state"), null))
+                    .expectErrorSatisfies(err -> {
+                        assertInstanceOf(ApiException.class, err);
+                        assertEquals("SSO_STATE_MISSING", ((ApiException) err).getErrorCode());
+                    })
+                    .verify();
+            verifyNoInteractions(accountManager);
+        }
+
+        @Test
+        @DisplayName("R-A2-1：有 cookie 但回传 state 为空 → 401 SSO_STATE_MISMATCH")
+        void missingSubmittedStateIsRejected() {
+            lenient().when(ssoConnector.providerName()).thenReturn("oidc");
+
+            StepVerifier.create(controller.ssoLogin(requestWith(null), exchangeWithState("expected")))
+                    .expectErrorSatisfies(err -> {
+                        assertInstanceOf(ApiException.class, err);
+                        assertEquals("SSO_STATE_MISMATCH", ((ApiException) err).getErrorCode());
+                    })
+                    .verify();
+            verifyNoInteractions(accountManager);
         }
     }
 }

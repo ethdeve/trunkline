@@ -168,6 +168,13 @@ public class SecurityConfiguration {
                 // 必须放在 /api/** 固定角色矩阵之前——未登记端点 fail-closed 仅 ADMIN，
                 // 否则登录页点击「使用企业 SSO 登录」会先吃 403，链路根本走不到 IdP。
                 .pathMatchers(org.springframework.http.HttpMethod.GET, "/api/auth/jwt/sso/authorize").permitAll()
+                // R-A2-1 收口配套（2026-11-25 用户拍板方案 A）：POST /sso 是登录端点，IdP 回调
+                // 兑换必须匿名可达——认证排除清单（ExcludedPathsConfig.AUTH_EXCLUDED_PATHS）
+                // 本就含 /sso，但 URL 矩阵此前漏配 permitAll，未认证兑换会先吃 401「Not
+                // Authenticated」，SSO 登录链路根本走不到控制器。CSRF 防护不再依赖匿名不可达，
+                // 而由 /sso/authorize 种下的 state cookie 逐字比对承担（无条件 fail-closed：
+                // 无 cookie 即 401 SSO_STATE_MISSING，state 不一致即 401 SSO_STATE_MISMATCH）。
+                .pathMatchers(org.springframework.http.HttpMethod.POST, "/api/auth/jwt/sso").permitAll()
                 // 首次部署初始化向导：未创建管理员前必须匿名可达，否则无法登录也无法初始化。
                 // 必须放在 /api/** 固定角色矩阵之前；完成初始化后由 SetupService 返回 409 关闸。
                 .pathMatchers("/api/setup/**").permitAll()
