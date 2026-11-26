@@ -112,6 +112,10 @@ public class FixedRoleAccessPolicy {
                 // 首条命中优先：GET 与 write 的方法集合互斥，互不遮蔽；本条须留在任何更宽泛写规则之前。
                 AccessRule.get("/api/config/prices/**", AccessLevel.OPS),
                 AccessRule.write("/api/config/prices/**", AccessLevel.ADMIN),
+                // v4.1 高级计价规则（企业版）：prices 与 pricing 前缀不同，必须独立登记。
+                // 读对运维可见、写收紧 ADMIN；OSS 只留权限机制，付费规则 UI 全在企业子应用。
+                AccessRule.get("/api/config/pricing/**", AccessLevel.OPS),
+                AccessRule.write("/api/config/pricing/**", AccessLevel.ADMIN),
                 AccessRule.get("/api/config/type/**", AccessLevel.OPS),
                 AccessRule.write("/api/config/type/**", AccessLevel.OPS),
 

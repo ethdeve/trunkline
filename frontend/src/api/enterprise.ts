@@ -59,6 +59,7 @@ export type EnterpriseFeatureKey =
   | 'multiTenant'
   | 'moderation'
   | 'billing'
+  | 'pricingAdvanced'
   | 'tenantManagement'
   | 'securityDashboard'
   | 'auditChain'
@@ -79,6 +80,7 @@ export const MENU_FEATURE_TO_KEY: Record<string, EnterpriseFeatureKey> = {
   'multi-tenant': 'multiTenant',
   moderation: 'moderation',
   billing: 'billing',
+  pricingAdvanced: 'pricingAdvanced',
   'tenant-management': 'tenantManagement',
   'security-dashboard': 'securityDashboard',
   'audit-chain': 'auditChain',

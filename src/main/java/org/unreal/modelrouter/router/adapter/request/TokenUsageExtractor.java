@@ -255,7 +255,9 @@ public class TokenUsageExtractor {
                         // issue #713: 计费归因——调用方未透传时回退请求属性（handler 认证后写入）
                         apiKeyId != null ? apiKeyId : extractKeyIdFromRequest(httpRequest),
                         // issue #712: 估算行标记（metadata 为 JSON 文本；账单侧只记请求数、不作计费依据）
-                        estimated ? "{\"estimated\":true}" : null
+                        estimated ? "{\"estimated\":true}" : null,
+                        // v4.1: 缓存命中数 → 落库时点取价按命中拆算加权 effective 输入价
+                        cacheHitTokens
                 );
             }
 

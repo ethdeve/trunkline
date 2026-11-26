@@ -15,6 +15,7 @@
       "tenants": "租户",
       "license": "许可证",
       "reconciliation": "对账与归因",
+      "pricingRules": "高级计价规则",
       "agentTools": "Agent 工具",
       "guardrails": "安全能力",
       "securityReport": "安全报告",

@@ -74,6 +74,16 @@ public final class TokenUsageRecordDTO {
     private Long totalTokens;
 
     /**
+     * 缓存命中 token 数（v4.1 高级计价）。
+     *
+     * <p>由两个采集点从上游 usage 解析后透传（DeepSeek {@code prompt_cache_hit_tokens} /
+     * OpenAI {@code prompt_tokens_details.cached_tokens}）。落库时点取价据此把输入 token
+     * 拆成「未命中 × 普通价 + 命中 × 缓存价」算加权 effective 单价；不落独立列
+     * （零 schema 变更），仅进取价上下文与 {@code metadata.pricingDetail} 举证。</p>
+     */
+    private Long cacheHitTokens;
+
+    /**
      * API Key ID
      */
     private String apiKeyId;

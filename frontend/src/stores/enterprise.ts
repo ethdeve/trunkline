@@ -45,6 +45,7 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
   const multiTenant = computed(() => !!features.value.multiTenant)
   const moderation = computed(() => !!features.value.moderation)
   const billing = computed(() => !!features.value.billing)
+  const pricingAdvanced = computed(() => !!features.value.pricingAdvanced)
   const tenantManagement = computed(() => !!features.value.tenantManagement)
   const securityDashboard = computed(() => !!features.value.securityDashboard)
   const auditChain = computed(() => !!features.value.auditChain)
@@ -120,6 +121,7 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
     multiTenant,
     moderation,
     billing,
+    pricingAdvanced,
     tenantManagement,
     securityDashboard,
     auditChain,

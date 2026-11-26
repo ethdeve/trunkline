@@ -15,6 +15,7 @@
       "tenants": "Tenants",
       "license": "License",
       "reconciliation": "Reconciliation",
+      "pricingRules": "Advanced Pricing Rules",
       "agentTools": "Agent Tools",
       "guardrails": "Security Controls",
       "securityReport": "Security Report",

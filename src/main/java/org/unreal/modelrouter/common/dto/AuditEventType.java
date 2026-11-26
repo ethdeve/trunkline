@@ -54,6 +54,7 @@ public enum AuditEventType {
     KMS_KEY_ROTATED,        // KMS 主密钥热轮换
     KMS_KEY_ROLLBACK,       // KMS 写版本应急回退
     API_KEY_ROTATED,        // API Key 轮换（自动调度 / 强制）
+    PRICING_RULE_CHANGED,   // 高级计价规则变更（企业私有化内部成本测算）
     APPROVAL_SUBMITTED,     // API Key 审批申请提交
     APPROVAL_DECIDED,       // API Key 审批决定（通过 / 拒绝）
 

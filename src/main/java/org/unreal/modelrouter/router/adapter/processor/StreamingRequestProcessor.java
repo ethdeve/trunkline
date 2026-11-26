@@ -796,7 +796,9 @@ public class StreamingRequestProcessor {
                         responseTimeMs, // P1-4: 流式耗时透传,供平均响应时间统计
                         virtualModel, // v3.5 Trunkline: 请求命中的虚拟模型（模型分组）
                         resolveCallerUser(httpRequest, apiKeyId), // v3.5 Trunkline: 调用者（团队用量按此归人）
-                        apiKeyId // issue #713: 计费归因——按 Key 统计的归属依据
+                        apiKeyId, // issue #713: 计费归因——按 Key 统计的归属依据
+                        null, // v4.1: metadata 占位（流式原无 metadata 位，第 18 参）
+                        cacheHitTokens // v4.1: 缓存命中数（方法参数，第 19 参）→ 取价拆算缓存加权
                 );
 
                 // 更新 API Key 的每日 Token 使用量配额

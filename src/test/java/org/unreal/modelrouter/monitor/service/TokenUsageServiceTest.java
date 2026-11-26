@@ -22,6 +22,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 /**
@@ -338,11 +339,13 @@ class TokenUsageServiceTest {
         @Test
         @DisplayName("PriceResolver 命中 → 快照固化（input/output/version，missing=false）")
         void resolverHitSnapshotsPrice() {
-            when(priceResolver.resolve(any(PriceResolver.PricingContext.class)))
-                    .thenReturn(java.util.Optional.of(
+            when(priceResolver.resolvePricing(any(PriceResolver.PricingContext.class),
+                    anyLong(), anyLong(), anyLong()))
+                    .thenReturn(java.util.Optional.of(new PriceResolver.PricingResult(
                             new org.unreal.modelrouter.billing.price.PriceQuote(
                                     new java.math.BigDecimal("0.01"),
-                                    new java.math.BigDecimal("0.03"), "flat")));
+                                    new java.math.BigDecimal("0.03"), "flat"),
+                            PriceResolver.PriceDetail.empty())));
             when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
@@ -361,7 +364,8 @@ class TokenUsageServiceTest {
         @Test
         @DisplayName("计价键取 instance_name 优先，instance 为空回落 model_name")
         void resolverKeyPrefersInstanceName() {
-            when(priceResolver.resolve(any(PriceResolver.PricingContext.class)))
+            when(priceResolver.resolvePricing(any(PriceResolver.PricingContext.class),
+                    anyLong(), anyLong(), anyLong()))
                     .thenReturn(java.util.Optional.empty());
             when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
@@ -372,7 +376,7 @@ class TokenUsageServiceTest {
 
             org.mockito.ArgumentCaptor<PriceResolver.PricingContext> ctxCaptor =
                     org.mockito.ArgumentCaptor.forClass(PriceResolver.PricingContext.class);
-            verify(priceResolver).resolve(ctxCaptor.capture());
+            verify(priceResolver).resolvePricing(ctxCaptor.capture(), anyLong(), anyLong(), anyLong());
             assertEquals("gpt-4", ctxCaptor.getValue().modelName());
             // B1 / P0-6：租户上下文确已进入取价链路
             assertEquals(org.unreal.modelrouter.enterprise.config.TenantContextHolder.currentTenantId(),
@@ -387,7 +391,8 @@ class TokenUsageServiceTest {
             when(tenantContext.currentTenantId()).thenReturn("acme");
             org.unreal.modelrouter.enterprise.config.TenantContextHolder.setDelegate(tenantContext);
             try {
-                when(priceResolver.resolve(any(PriceResolver.PricingContext.class)))
+                when(priceResolver.resolvePricing(any(PriceResolver.PricingContext.class),
+                        anyLong(), anyLong(), anyLong()))
                         .thenReturn(java.util.Optional.empty());
                 when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
                         .thenAnswer(inv -> inv.getArgument(0));
@@ -396,7 +401,7 @@ class TokenUsageServiceTest {
 
                 org.mockito.ArgumentCaptor<PriceResolver.PricingContext> captor =
                         org.mockito.ArgumentCaptor.forClass(PriceResolver.PricingContext.class);
-                verify(priceResolver).resolve(captor.capture());
+                verify(priceResolver).resolvePricing(captor.capture(), anyLong(), anyLong(), anyLong());
                 assertEquals("acme", captor.getValue().tenantId());
                 assertEquals("instance-1", captor.getValue().modelName());
                 assertEquals(0L, captor.getValue().cachedTokens());
@@ -410,7 +415,8 @@ class TokenUsageServiceTest {
         @Test
         @DisplayName("PriceResolver 未命中 → priceMissing=true，不虚构 ¥0 快照")
         void resolverMissMarksMissing() {
-            when(priceResolver.resolve(any(PriceResolver.PricingContext.class)))
+            when(priceResolver.resolvePricing(any(PriceResolver.PricingContext.class),
+                    anyLong(), anyLong(), anyLong()))
                     .thenReturn(java.util.Optional.empty());
             when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
@@ -439,8 +445,8 @@ class TokenUsageServiceTest {
             record.setPriceVersion("negotiated");
             tokenUsageService.recordTokenUsage(record);
 
-            verify(priceResolver, never()).resolve(org.mockito.ArgumentMatchers.anyString());
-            verify(priceResolver, never()).resolve(any(PriceResolver.PricingContext.class));
+            verify(priceResolver, never()).resolvePricing(any(PriceResolver.PricingContext.class),
+                    anyLong(), anyLong(), anyLong());
             org.mockito.ArgumentCaptor<TokenUsageEntity> captor =
                     org.mockito.ArgumentCaptor.forClass(TokenUsageEntity.class);
             verify(tokenUsageRepository).save(captor.capture());
@@ -451,7 +457,8 @@ class TokenUsageServiceTest {
         @Test
         @DisplayName("PriceResolver 抛异常 → 按缺失处理，计量永不阻断")
         void resolverExceptionDoesNotBlockMetering() {
-            when(priceResolver.resolve(any(PriceResolver.PricingContext.class)))
+            when(priceResolver.resolvePricing(any(PriceResolver.PricingContext.class),
+                    anyLong(), anyLong(), anyLong()))
                     .thenThrow(new RuntimeException("price db down"));
             when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
@@ -462,6 +469,84 @@ class TokenUsageServiceTest {
                     org.mockito.ArgumentCaptor.forClass(TokenUsageEntity.class);
             verify(tokenUsageRepository).save(captor.capture());
             assertEquals(Boolean.TRUE, captor.getValue().getPriceMissing());
+        }
+
+        @Test
+        @DisplayName("[R-1/DoD 6,7] 精确分项经 PricingResult 落入 metadata.pricingDetail，且 estimated:true 不丢")
+        void pricingDetailMergedIntoMetadata() {
+            PriceResolver.PriceDetail detail = new PriceResolver.PriceDetail(
+                    "TIERED", "2800.000000", "300.000000", "4.100000", "0.620000",
+                    1500L, "0.200000", "0.800000");
+            when(priceResolver.resolvePricing(any(PriceResolver.PricingContext.class),
+                    anyLong(), anyLong(), anyLong()))
+                    .thenReturn(java.util.Optional.of(new PriceResolver.PricingResult(
+                            new org.unreal.modelrouter.billing.price.PriceQuote(
+                                    new java.math.BigDecimal("0.62"),
+                                    new java.math.BigDecimal("1.00"), "adv:tier:1:1#C1500@0.2"),
+                            detail)));
+            when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            TokenUsageRecordDTO record = createTestRecord();
+            record.setMetadata("{\"estimated\":true}");
+            tokenUsageService.recordTokenUsage(record);
+
+            org.mockito.ArgumentCaptor<TokenUsageEntity> captor =
+                    org.mockito.ArgumentCaptor.forClass(TokenUsageEntity.class);
+            verify(tokenUsageRepository).save(captor.capture());
+            TokenUsageEntity e = captor.getValue();
+            assertEquals(Boolean.FALSE, e.getPriceMissing());
+            assertNotNull(e.getMetadata());
+            assertTrue(e.getMetadata().contains("\"estimated\":true"), "estimated 兄弟键必须保留");
+            assertTrue(e.getMetadata().contains("pricingDetail"), "必须写入 pricingDetail 子对象");
+            assertTrue(e.getMetadata().contains("2800.000000"), "分项金额为 BigDecimal 原样字符串");
+            assertTrue(e.getMetadata().contains("4.100000"), "exactCost 必须落库");
+            assertTrue(e.getMetadata().contains("0.620000"), "effectiveInput 必须落库");
+            assertTrue(e.getMetadata().contains("TIERED"), "mode 必须落库");
+        }
+
+        @Test
+        @DisplayName("[R-1/DoD 7] 非 JSON 旧 metadata 走 warn 重建，仍落 pricingDetail 且不阻断")
+        void pricingDetailRebuildsNonJsonMetadata() {
+            PriceResolver.PriceDetail detail = new PriceResolver.PriceDetail(
+                    "FLAT", "80.000000", "20.000000", "0.100000", "0.100000",
+                    100L, "0.020000", "0.080000");
+            when(priceResolver.resolvePricing(any(PriceResolver.PricingContext.class),
+                    anyLong(), anyLong(), anyLong()))
+                    .thenReturn(java.util.Optional.of(new PriceResolver.PricingResult(
+                            new org.unreal.modelrouter.billing.price.PriceQuote(
+                                    new java.math.BigDecimal("0.10"),
+                                    new java.math.BigDecimal("0.20"), "flat#C100@0.02"),
+                            detail)));
+            when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            TokenUsageRecordDTO record = createTestRecord();
+            record.setMetadata("not-a-json");
+            assertDoesNotThrow(() -> tokenUsageService.recordTokenUsage(record));
+
+            org.mockito.ArgumentCaptor<TokenUsageEntity> captor =
+                    org.mockito.ArgumentCaptor.forClass(TokenUsageEntity.class);
+            verify(tokenUsageRepository).save(captor.capture());
+            assertTrue(captor.getValue().getMetadata().contains("pricingDetail"));
+            assertEquals(Boolean.FALSE, captor.getValue().getPriceMissing());
+        }
+
+        @Test
+        @DisplayName("[DoD 13] cacheHitTokens 透传进取价上下文的 cachedTokens 参数位")
+        void cacheHitTokensPassedToResolver() {
+            when(priceResolver.resolvePricing(any(PriceResolver.PricingContext.class),
+                    anyLong(), anyLong(), anyLong()))
+                    .thenReturn(java.util.Optional.empty());
+            when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            TokenUsageRecordDTO record = createTestRecord();
+            record.setCacheHitTokens(1500L);
+            tokenUsageService.recordTokenUsage(record);
+
+            verify(priceResolver).resolvePricing(any(PriceResolver.PricingContext.class),
+                    eq(100L), eq(50L), eq(1500L));
         }
     }
 
@@ -549,7 +634,8 @@ class TokenUsageServiceTest {
         @Test
         @DisplayName("未定价（priceMissing）→ 不扣费，绝不按 ¥0 计")
         void unpricedNeverChargedAsZero() {
-            when(priceResolver.resolve(any(PriceResolver.PricingContext.class)))
+            when(priceResolver.resolvePricing(any(PriceResolver.PricingContext.class),
+                    anyLong(), anyLong(), anyLong()))
                     .thenReturn(java.util.Optional.empty());
             when(tokenUsageRepository.save(any(TokenUsageEntity.class)))
                     .thenAnswer(inv -> inv.getArgument(0));

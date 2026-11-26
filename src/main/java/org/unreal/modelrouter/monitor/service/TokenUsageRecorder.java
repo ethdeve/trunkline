@@ -229,13 +229,52 @@ public class TokenUsageRecorder {
             final String apiKeyId,
             final String metadata) {
 
-        // 阻塞 JPA 写入不得阻塞 EventLoop（issue #115）
+        // v4.1：委托第 6 重载补 cacheHitTokens=null；末参传「原 metadata」而非 null，
+        // 阻塞路径的 {"estimated":true} 标记必须保留（DoD 13）。
+        recordTokenUsageNoAuth(serviceType, modelName, provider, instanceName, instanceUrl,
+                promptTokens, completionTokens, totalTokens, traceId, clientIp,
+                isSuccess, errorCode, errorMessage, responseTimeMs, virtualModel,
+                userId, apiKeyId, metadata, null);
+    }
+
+    /**
+     * 执行 Token 使用量记录（无用户认证，全量归因字段 + 元数据 + 缓存命中数）。
+     *
+     * <p>v4.1 高级计价：在 metadata 之后追加 {@code cacheHitTokens}，供落库时点取价
+     * 按缓存命中拆算加权 effective 价。<b>对外签名与上一重载逐字一致（userId 第 16 位），
+     * 仅末尾加一参</b>；底层 doRecord 的 userId 在第 11 位，委托时重排（存量惯例如此）。</p>
+     *
+     * @param metadata       附加元数据 JSON 文本（如 {@code "{"estimated":true}"}），可为 {@code null}
+     * @param cacheHitTokens 缓存命中 token 数，可为 {@code null}（无缓存命中）
+     */
+    public void recordTokenUsageNoAuth(
+            final String serviceType,
+            final String modelName,
+            final String provider,
+            final String instanceName,
+            final String instanceUrl,
+            final Long promptTokens,
+            final Long completionTokens,
+            final Long totalTokens,
+            final String traceId,
+            final String clientIp,
+            final Boolean isSuccess,
+            final String errorCode,
+            final String errorMessage,
+            final Long responseTimeMs,
+            final String virtualModel,
+            final String userId,
+            final String apiKeyId,
+            final String metadata,
+            final Long cacheHitTokens) {
+
+        // 阻塞 JPA 写入不得阻塞 EventLoop（issue #115）；委托时 userId 从第 16 位重排到第 11 位
         if (Schedulers.isInNonBlockingThread()) {
             Schedulers.boundedElastic().schedule(() -> doRecordTokenUsageWithClientIp(
                 serviceType, modelName, provider, instanceName, instanceUrl,
                 promptTokens, completionTokens, totalTokens, traceId,
                 clientIp, userId, isSuccess, errorCode, errorMessage, responseTimeMs, virtualModel,
-                apiKeyId, metadata
+                apiKeyId, metadata, cacheHitTokens
             ));
             return;
         }
@@ -243,7 +282,7 @@ public class TokenUsageRecorder {
             serviceType, modelName, provider, instanceName, instanceUrl,
             promptTokens, completionTokens, totalTokens, traceId,
             clientIp, userId, isSuccess, errorCode, errorMessage, responseTimeMs, virtualModel,
-            apiKeyId, metadata
+            apiKeyId, metadata, cacheHitTokens
         );
     }
 
@@ -315,7 +354,8 @@ public class TokenUsageRecorder {
             final Long responseTimeMs,
             final String virtualModel,
             final String apiKeyId,
-            final String metadata) {
+            final String metadata,
+            final Long cacheHitTokens) {
 
         try {
             TokenUsageRecordDTO record = TokenUsageRecordDTO.builder()
@@ -327,6 +367,7 @@ public class TokenUsageRecorder {
                     .promptTokens(promptTokens != null ? promptTokens : 0L)
                     .completionTokens(completionTokens != null ? completionTokens : 0L)
                     .totalTokens(totalTokens != null ? totalTokens : 0L)
+                    .cacheHitTokens(cacheHitTokens)
                     .traceId(traceId)
                     .clientIp(clientIp)
                     .userId(userId)

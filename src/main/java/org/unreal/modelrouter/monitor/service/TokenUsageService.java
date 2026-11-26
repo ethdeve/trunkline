@@ -22,6 +22,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * Token 使用量统计服务
@@ -36,6 +40,9 @@ import java.util.Map;
 public class TokenUsageService {
 
     private final TokenUsageRepository tokenUsageRepository;
+
+    /** v4.1 高级计价：mergePricingDetail 合并 metadata 用的静态 ObjectMapper（无状态、线程安全）。 */
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /**
      * 价格解析 SPI（O1 成交价快照 + O2 未定价 ≠ ¥0）。
@@ -192,14 +199,33 @@ public class TokenUsageService {
         final String pricingKey = record.getInstanceName() != null && !record.getInstanceName().isBlank()
                 ? record.getInstanceName() : record.getModelName();
         try {
-            // B1 / P0-6：租户 ID 随取价上下文进入 PriceResolver，企业实现可按 (tenant_id, model_name)
-            // 命中租户专属价并回落 default 公共价；社区实现走 default 方法委托旧签名，行为不变。
-            final PriceQuote quote = priceResolver != null
-                    ? priceResolver.resolve(PriceResolver.PricingContext.of(
-                            TenantContextHolder.currentTenantId(), pricingKey)).orElse(null)
-                    : null;
-            if (quote != null) {
-                return new PriceSnapshot(quote.priceInput(), quote.priceOutput(), quote.version(), false);
+            // v4.1：组合返回取价——缓存命中数走参数位，落库时点算加权 effective 价与精确分项。
+            // 租户 ID 仅作上下文兼容字段（高级规则全局唯一、不看租户；存量价格表的租户回落逻辑保留不动）。
+            final PriceResolver.PricingContext ctx = PriceResolver.PricingContext.of(
+                    TenantContextHolder.currentTenantId(), pricingKey);
+            final long prompt = record.getPromptTokens() == null ? 0L : record.getPromptTokens();
+            final long completion = record.getCompletionTokens() == null ? 0L : record.getCompletionTokens();
+            final long cached = record.getCacheHitTokens() == null ? 0L : record.getCacheHitTokens();
+
+            // ifPresent 是回调，不能用方法级 return；holder 承接后再统一返回
+            final AtomicReference<PriceSnapshot> snapshotRef = new AtomicReference<>();
+            if (priceResolver != null) {
+                priceResolver.resolvePricing(ctx, prompt, completion, cached).ifPresent(result -> {
+                    // [R-1] 精确分项合并进 metadata，fail-soft：合并异常只 warn，绝不降级为「未定价」
+                    if (result.detail() != null && result.detail().exactCost() != null) {
+                        try {
+                            record.setMetadata(mergePricingDetail(record.getMetadata(), result.detail(), pricingKey));
+                        } catch (Exception e) {
+                            log.warn("pricingDetail 合并失败，metadata 保持原值: model={}, cause={}",
+                                    pricingKey, e.getMessage());
+                        }
+                    }
+                    PriceQuote q = result.quote();
+                    snapshotRef.set(new PriceSnapshot(q.priceInput(), q.priceOutput(), q.version(), false));
+                });
+            }
+            if (snapshotRef.get() != null) {
+                return snapshotRef.get();
             }
         } catch (Exception e) {
             // 取价异常不阻断计量（O2：计量层永不阻断），按缺失处理并告警
@@ -208,6 +234,36 @@ public class TokenUsageService {
         }
         // 3) 未定价：标记缺失，账单侧单列「待定价」——绝不静默 ¥0
         return new PriceSnapshot(null, null, null, true);
+    }
+
+    /**
+     * v4.1 [R-1]：把企业侧精确分项合并进 metadata.pricingDetail。
+     *
+     * <p>铁律 10——读旧 JSON 合并后写回，绝不能丢 {@code estimated:true} 兄弟键；
+     * 旧值非 JSON / 数组时 warn 后重建；金额字段由企业侧 BigDecimal.toPlainString() 原样给出。</p>
+     */
+    private static String mergePricingDetail(String oldJson, PriceResolver.PriceDetail d, String pricingKey) {
+        ObjectNode root;
+        try {
+            root = oldJson == null || oldJson.isBlank() ? MAPPER.createObjectNode()
+                    : (ObjectNode) MAPPER.readTree(oldJson);   // 非 JSON / 数组 → ClassCastException → catch 重建
+        } catch (Exception e) {
+            log.warn("metadata 非 JSON，重建后写 pricingDetail: {}", e.getMessage());
+            root = MAPPER.createObjectNode();
+        }
+        ObjectNode detail = root.withObject("pricingDetail");   // 只写子对象，estimated 等兄弟键不动
+        if (d.mode()            != null) detail.put("mode", d.mode());
+        if (d.effectiveInput()  != null) detail.put("effectiveInput", d.effectiveInput());
+        if (d.cacheMissAmount() != null) detail.put("cacheMissAmount", d.cacheMissAmount());
+        if (d.cacheHitAmount()  != null) detail.put("cacheHitAmount", d.cacheHitAmount());
+        if (d.exactCost()       != null) detail.put("exactCost", d.exactCost());
+        if (d.cacheTokens() > 0) {
+            detail.put("cacheTokens", d.cacheTokens());
+            if (d.cacheHitUnitPrice() != null)  detail.put("cacheHitUnitPrice", d.cacheHitUnitPrice());
+            if (d.cacheMissUnitPrice()!= null)  detail.put("cacheMissUnitPrice", d.cacheMissUnitPrice());
+        }
+        detail.put("pricingKey", pricingKey);
+        return root.toString();
     }
 
     /**
