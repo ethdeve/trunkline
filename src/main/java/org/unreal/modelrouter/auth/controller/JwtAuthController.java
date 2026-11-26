@@ -142,9 +142,13 @@ public class JwtAuthController {
             return Mono.error(ApiException.of("SSO_UNSUPPORTED", "当前版本不支持 SSO",
                     HttpStatus.BAD_REQUEST));
         }
-        // A2 补链：/sso/authorize 种下的 state cookie 若存在，必须与回调回传的 state 逐字一致。
-        // 机会性校验——未走 front-channel（如服务端直接拿 IdP code 兑换、或 exchange 为 null 的
-        // 单元测试）时无 cookie 即跳过，保持既有 /sso 契约不变；一旦有 cookie 则 fail-closed。
+        // R-A2-1 收口：无条件 fail-closed。必须先经 /sso/authorize 拿到一次性 state
+        // cookie，再带着 IdP 回传的 state 兑换 code；无 cookie / 无 exchange 一律 401，
+        // 不再兼容服务端直接兑换的 back-channel 契约（login CSRF 窗口）。
+        if (!stateCookiePresent(exchange)) {
+            return Mono.error(ApiException.of("SSO_STATE_MISSING",
+                    "SSO 状态缺失，请从登录页发起 SSO 登录", HttpStatus.UNAUTHORIZED));
+        }
         if (!stateMatches(exchange, request.getState())) {
             return Mono.error(ApiException.of("SSO_STATE_MISMATCH", "SSO 状态校验失败",
                     HttpStatus.UNAUTHORIZED));
@@ -350,18 +354,25 @@ public class JwtAuthController {
     }
 
     /**
-     * state CSRF 校验（机会性）：无 cookie 视为未走 front-channel，放行；有 cookie 则
-     * 必须逐字匹配回传值。exchange 为 null（单元测试直调）时同样放行，保持既有契约。
+     * state CSRF 校验（R-A2-1 无条件 fail-closed）：cookie 存在且必须与回传 state
+     * 逐字一致才放行；任一缺失即拒绝。cookie 缺失由 {@link #stateCookiePresent} 单独
+     * 判别，以区分 {@code SSO_STATE_MISSING} 与 {@code SSO_STATE_MISMATCH}。
      */
     private static boolean stateMatches(final ServerWebExchange exchange, final String submittedState) {
-        if (exchange == null) {
-            return true;
+        if (exchange == null || submittedState == null) {
+            return false;
         }
         final HttpCookie cookie = exchange.getRequest().getCookies().getFirst(SSO_STATE_COOKIE);
-        if (cookie == null || cookie.getValue() == null || cookie.getValue().isBlank()) {
-            return true;
+        return cookie != null && cookie.getValue().equals(submittedState);
+    }
+
+    /** state cookie 是否存在且非空（一次性和 SameSite 属性由 authorize/clear 处保证）。 */
+    private static boolean stateCookiePresent(final ServerWebExchange exchange) {
+        if (exchange == null) {
+            return false;
         }
-        return submittedState != null && cookie.getValue().equals(submittedState);
+        final HttpCookie cookie = exchange.getRequest().getCookies().getFirst(SSO_STATE_COOKIE);
+        return cookie != null && cookie.getValue() != null && !cookie.getValue().isBlank();
     }
 
     /** state 一次性：兑换请求到达即清除 cookie，无论后续 exchange 成功与否。 */
